@@ -4,6 +4,7 @@ import BrandSlider from '../components/home/BrandSlider';
 import ActiveOffers from '../components/home/ActiveOffers';
 import TopStores from '../components/home/TopStores';
 import NearYou from '../components/home/NearYou';
+import ReferralBanner from '../components/home/ReferralBanner';
 import { useAuthStore } from '../stores/authStore';
 import { useTenantStore } from '../stores/tenantStore';
 import { useGeolocationStore } from '../stores/geolocationStore';
@@ -27,7 +28,6 @@ export default function HomePage() {
       organizationName: 'מועדון עץ ההטבות של גולני',
       avatarUrl: 'https://ui-avatars.com/api/?name=Daniel+Cohen&background=635bff&color=fff&size=128&bold=true',
     });
-    // Set tenant config for dev
     setTenant('golani-club', {
       id: 'golani-club',
       name: 'Golani Benefits Club',
@@ -60,6 +60,7 @@ export default function HomePage() {
       <HeroBanner />
       <BrandSlider />
       <TopStores />
+      <ReferralBanner />
       <NearYou />
       <ActiveOffers />
 
@@ -101,6 +102,12 @@ export default function HomePage() {
           className="w-full py-3 rounded-2xl bg-pink-500/10 text-pink-600 text-xs font-semibold border border-pink-500/20 active:scale-[0.98] transition-all"
         >
           Premium Reveal (Dev)
+        </button>
+        <button
+          onClick={() => navigate(`/${lang}/auth-flow/test`)}
+          className="w-full py-3 rounded-2xl bg-warning/10 text-warning text-xs font-semibold border border-warning/20 active:scale-[0.98] transition-all"
+        >
+          🧪 Auth Flow Test (Dev)
         </button>
       </div>
     </div>

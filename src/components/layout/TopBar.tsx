@@ -29,6 +29,7 @@ export default function TopBar({ collapsed = false }: TopBarProps) {
   const isOrgMember = useAuthStore((s) => s.isOrgMember);
   const organizationName = useAuthStore((s) => s.organizationName);
   const avatarUrl = useAuthStore((s) => s.avatarUrl);
+  const authFirstName = useAuthStore((s) => s.firstName);
   const tenantConfig = useTenantStore((s) => s.config);
   const { data: user } = useUser();
 
@@ -36,7 +37,8 @@ export default function TopBar({ collapsed = false }: TopBarProps) {
   const logoSrc = hasTenant ? (tenantConfig?.logo ?? '/nexus-logo.png') : '/nexus-logo.png';
   const logoAlt = hasTenant ? (organizationName ?? tenantConfig?.name ?? 'Nexus') : 'Nexus';
 
-  const showGreeting = isAuthenticated && user?.firstName;
+  const displayFirstName = user?.firstName ?? authFirstName;
+  const showGreeting = isAuthenticated && !!displayFirstName;
   const greetingText = getGreeting(t);
 
   const notificationCount = 3;
@@ -125,7 +127,7 @@ export default function TopBar({ collapsed = false }: TopBarProps) {
           {showGreeting && (
             <div className={`flex flex-col transition-all duration-300 ease-in-out ${collapsed ? 'opacity-0 -translate-x-2 pointer-events-none' : 'opacity-100 translate-x-0'}`}>
               <p className="text-[11px] text-text-muted font-medium leading-tight whitespace-nowrap">{greetingText}</p>
-              <h2 className="text-sm font-bold text-text-primary leading-tight whitespace-nowrap">{user?.firstName}</h2>
+              <h2 className="text-sm font-bold text-text-primary leading-tight whitespace-nowrap">{displayFirstName}</h2>
             </div>
           )}
         </div>

@@ -4,6 +4,8 @@ export interface TenantConfig {
   nameHe: string;
   logo: string;
   backgroundImage?: string;
+  /** ח"פ (company registration number) — used for ?customerId= URL entry */
+  customerId?: string;
   primaryColor: string;
   requiresMembershipFee: boolean;
   membershipFeeAmount?: number;

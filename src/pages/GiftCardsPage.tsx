@@ -163,20 +163,6 @@ export default function GiftCardsPage() {
         ))}
       </div>
 
-      {/* Bottom CTA */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.5 }}
-        className="mt-8 w-full max-w-sm"
-      >
-        <button
-          className="w-full py-4 rounded-2xl text-white font-semibold text-base"
-          style={{ backgroundColor: "var(--color-primary)" }}
-        >
-          גלה את כל הגיפט קארדס
-        </button>
-      </motion.div>
     </div>
   )
 }

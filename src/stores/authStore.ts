@@ -12,6 +12,7 @@ interface AuthState {
   marketingConsent: boolean;
   profileCompleted: boolean;
   avatarUrl: string | null;
+  firstName: string | null;
 
   login: (params: {
     token: string;
@@ -20,6 +21,7 @@ interface AuthState {
     isOrgMember: boolean;
     organizationName?: string;
     avatarUrl?: string;
+    firstName?: string;
   }) => void;
   setToken: (token: string) => void;
   setAvatarUrl: (url: string | null) => void;
@@ -46,6 +48,7 @@ function loadPersistedAuth(): Partial<AuthState> {
       marketingConsent: data.marketingConsent ?? false,
       profileCompleted: data.profileCompleted ?? false,
       avatarUrl: data.avatarUrl ?? null,
+      firstName: data.firstName ?? null,
     };
   } catch {
     return {};
@@ -66,6 +69,7 @@ function persistAuth(state: Partial<AuthState>) {
         marketingConsent: state.marketingConsent,
         profileCompleted: state.profileCompleted,
         avatarUrl: state.avatarUrl,
+        firstName: state.firstName,
       })
     );
   } catch {
@@ -93,8 +97,9 @@ export const useAuthStore = create<AuthState>((set) => ({
   marketingConsent: persisted.marketingConsent ?? false,
   profileCompleted: persisted.profileCompleted ?? false,
   avatarUrl: persisted.avatarUrl ?? null,
+  firstName: persisted.firstName ?? null,
 
-  login: ({ token, userId, method, isOrgMember, organizationName, avatarUrl }) => {
+  login: ({ token, userId, method, isOrgMember, organizationName, avatarUrl, firstName }) => {
     set((state) => {
       const next = {
         isAuthenticated: true,
@@ -106,6 +111,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         marketingConsent: false,
         profileCompleted: state.profileCompleted,
         avatarUrl: avatarUrl ?? state.avatarUrl ?? null,
+        firstName: firstName ?? state.firstName ?? null,
       };
       persistAuth(next);
       return next;
@@ -157,6 +163,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       marketingConsent: false,
       profileCompleted: false,
       avatarUrl: null,
+      firstName: null,
     });
   },
 }));

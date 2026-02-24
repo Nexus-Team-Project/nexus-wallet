@@ -2,19 +2,35 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { useRegistrationStore } from '../../stores/registrationStore';
+import { useTenantStore } from '../../stores/tenantStore';
+import { getFirstOnboardingSlide } from '../../utils/onboardingNavigation';
+import { mockTenants } from '../../mock/data/tenants.mock';
 import { FlowTopBar } from './WelcomeNewPage';
 
-// Mock orgs — replace with API call
-const MOCK_ORGS = [
-  { id: '1', name: 'סלקום', initials: 'סל' },
-  { id: '2', name: 'הפועל תל אביב', initials: 'הפ' },
-  { id: '3', name: 'אוניברסיטת תל אביב', initials: 'אתא' },
-  { id: '4', name: 'מכבי שירותי בריאות', initials: 'מכ' },
-  { id: '5', name: 'עיריית ירושלים', initials: 'עיר' },
-  { id: '6', name: 'בנק לאומי', initials: 'בל' },
-  { id: '7', name: 'שירביט ביטוח', initials: 'שב' },
-  { id: '8', name: 'כללית שירותי בריאות', initials: 'כל' },
+// Orgs that have a tenant config (with customerId) appear first, then generic ones
+const TENANT_ORGS = Object.values(mockTenants)
+  .filter((t) => t.customerId)
+  .map((t) => ({
+    id: t.id,
+    name: t.nameHe,
+    initials: t.nameHe.slice(0, 2),
+    tenantId: t.id,
+    logo: t.logo,
+    primaryColor: t.primaryColor,
+  }));
+
+const GENERIC_ORGS = [
+  { id: 'selcom', name: 'סלקום', initials: 'סל' },
+  { id: 'hapoel', name: 'הפועל תל אביב', initials: 'הפ' },
+  { id: 'tau', name: 'אוניברסיטת תל אביב', initials: 'אתא' },
+  { id: 'maccabi', name: 'מכבי שירותי בריאות', initials: 'מכ' },
+  { id: 'jerusalem', name: 'עיריית ירושלים', initials: 'עיר' },
+  { id: 'leumi', name: 'בנק לאומי', initials: 'בל' },
+  { id: 'shirbit', name: 'שירביט ביטוח', initials: 'שב' },
+  { id: 'clalit', name: 'כללית שירותי בריאות', initials: 'כל' },
 ];
+
+const MOCK_ORGS = [...TENANT_ORGS, ...GENERIC_ORGS];
 
 export default function SelectOrgPage() {
   const { lang = 'he' } = useParams();
@@ -27,6 +43,7 @@ export default function SelectOrgPage() {
   const startRegistration = useRegistrationStore((s) => s.startRegistration);
   const registrationPath = useRegistrationStore((s) => s.registrationPath);
   const phone = useRegistrationStore((s) => s.phone);
+  const setTenant = useTenantStore((s) => s.setTenant);
 
   useEffect(() => {
     const timer = setTimeout(() => setVisible(true), 60);
@@ -48,13 +65,25 @@ export default function SelectOrgPage() {
       },
     });
 
+    // If org has a tenant config → set it and show WelcomeOrg splash
+    if ('tenantId' in org && org.tenantId) {
+      const tenantConfig = mockTenants[org.tenantId];
+      if (tenantConfig) {
+        setTenant(tenantConfig.id, tenantConfig);
+        setTimeout(() => {
+          navigate(`/${lang}/auth-flow/org-user`);
+        }, 350);
+        return;
+      }
+    }
+
     setTimeout(() => {
-      navigate(`/${lang}/register/complete-profile`);
+      navigate(`/${lang}/register/onboarding/${getFirstOnboardingSlide(useRegistrationStore.getState())}`);
     }, 350);
   };
 
   const handleSkip = () => {
-    navigate(`/${lang}/register/complete-profile`);
+    navigate(`/${lang}/register/onboarding/${getFirstOnboardingSlide(useRegistrationStore.getState())}`);
   };
 
   return (

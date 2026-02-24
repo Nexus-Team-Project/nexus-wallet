@@ -8,6 +8,20 @@ interface OrgMemberInfo {
   lastName?: string;
 }
 
+export interface OnboardingData {
+  purpose: string[];           // PurposeSlide — multi-select
+  lifeStage: string | null;    // LifeStageSlide — single-select (null = skipped)
+  birthday: string;            // BirthdaySlide — ISO date string ('' = skipped)
+  gender: string | null;       // GenderSlide — single-select (null = skipped)
+  benefitCategories: string[]; // BenefitCategoriesSlide — multi-select
+}
+
+export interface ConsentData {
+  marketing: boolean;          // Required toggle — must be true to continue
+  pushNotifications: boolean;  // Optional
+  analytics: boolean;          // Optional
+}
+
 interface RegistrationState {
   // Flow tracking
   isRegistering: boolean;
@@ -33,6 +47,12 @@ interface RegistrationState {
   // Membership fee
   membershipFeePaid: boolean;
 
+  // Onboarding enrichment data (collected in onboarding slides)
+  onboardingData: OnboardingData | null;
+
+  // Consent choices (collected in ConsentsSlide — mandatory step)
+  consents: ConsentData | null;
+
   // Actions
   startRegistration: (params: {
     path: RegistrationPath;
@@ -44,9 +64,13 @@ interface RegistrationState {
   setProfileData: (data: Partial<RegistrationState['profileData']>) => void;
   setPreferences: (prefs: Record<string, string>) => void;
   setMembershipFeePaid: (paid: boolean) => void;
+  setOnboardingData: (data: Partial<OnboardingData>) => void;
+  setConsents: (consents: ConsentData) => void;
   completeRegistration: () => void;
   resetRegistration: () => void;
 }
+
+const DEFAULT_PROFILE_DATA = { firstName: '', lastName: '', email: '', birthday: '' };
 
 export const useRegistrationStore = create<RegistrationState>((set) => ({
   isRegistering: false,
@@ -55,9 +79,11 @@ export const useRegistrationStore = create<RegistrationState>((set) => ({
   phone: null,
   orgMember: null,
   missingFields: [],
-  profileData: { firstName: '', lastName: '', email: '', birthday: '' },
+  profileData: DEFAULT_PROFILE_DATA,
   preferences: null,
   membershipFeePaid: false,
+  onboardingData: null,
+  consents: null,
 
   startRegistration: ({ path, phone, orgMember, missingFields, returnTo }) =>
     set({
@@ -74,6 +100,8 @@ export const useRegistrationStore = create<RegistrationState>((set) => ({
         email: '',
         birthday: '',
       },
+      onboardingData: null,
+      consents: null,
     }),
 
   setProfileData: (data) =>
@@ -85,6 +113,21 @@ export const useRegistrationStore = create<RegistrationState>((set) => ({
 
   setMembershipFeePaid: (paid) => set({ membershipFeePaid: paid }),
 
+  setOnboardingData: (data) =>
+    set((state) => ({
+      onboardingData: {
+        purpose: [],
+        lifeStage: null,
+        birthday: '',
+        gender: null,
+        benefitCategories: [],
+        ...(state.onboardingData ?? {}),
+        ...data,
+      },
+    })),
+
+  setConsents: (consents) => set({ consents }),
+
   completeRegistration: () =>
     set({
       isRegistering: false,
@@ -93,9 +136,11 @@ export const useRegistrationStore = create<RegistrationState>((set) => ({
       phone: null,
       orgMember: null,
       missingFields: [],
-      profileData: { firstName: '', lastName: '', email: '', birthday: '' },
+      profileData: DEFAULT_PROFILE_DATA,
       preferences: null,
       membershipFeePaid: false,
+      onboardingData: null,
+      consents: null,
     }),
 
   resetRegistration: () =>
@@ -106,8 +151,10 @@ export const useRegistrationStore = create<RegistrationState>((set) => ({
       phone: null,
       orgMember: null,
       missingFields: [],
-      profileData: { firstName: '', lastName: '', email: '', birthday: '' },
+      profileData: DEFAULT_PROFILE_DATA,
       preferences: null,
       membershipFeePaid: false,
+      onboardingData: null,
+      consents: null,
     }),
 }));

@@ -12,6 +12,8 @@ export default function WelcomeBackPage() {
   const [leaving, setLeaving] = useState(false);
 
   const organizationName = useAuthStore((s) => s.organizationName);
+  const firstName = useAuthStore((s) => s.firstName);
+  const avatarUrl = useAuthStore((s) => s.avatarUrl);
   const returnTo = useRegistrationStore((s) => s.returnTo);
 
   useEffect(() => {
@@ -72,31 +74,35 @@ export default function WelcomeBackPage() {
           transform: visible && !leaving ? 'scale(1) translateY(0)' : 'scale(0.9) translateY(24px)',
         }}
       >
-        {/* Check circle */}
+        {/* תמונת משתמש או check circle */}
         <div
-          className="w-24 h-24 rounded-full border-4 border-white/40 bg-white/20 backdrop-blur-sm flex items-center justify-center mb-6"
+          className="w-24 h-24 rounded-3xl border-4 border-white/40 bg-white/20 backdrop-blur-sm flex items-center justify-center mb-6 overflow-hidden"
           style={{
             animation: visible ? 'scale-in 0.5s cubic-bezier(0.34,1.56,0.64,1) 0.1s both' : 'none',
           }}
         >
-          <svg width="44" height="44" viewBox="0 0 44 44" fill="none">
-            <path
-              d="M10 22L19 31L34 13"
-              stroke="white"
-              strokeWidth="3.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              style={{
-                strokeDasharray: 50,
-                strokeDashoffset: visible ? 0 : 50,
-                transition: 'stroke-dashoffset 0.5s ease 0.4s',
-              }}
-            />
-          </svg>
+          {avatarUrl ? (
+            <img src={avatarUrl} alt={firstName ?? ''} className="w-full h-full object-cover" />
+          ) : (
+            <svg width="44" height="44" viewBox="0 0 44 44" fill="none">
+              <path
+                d="M10 22L19 31L34 13"
+                stroke="white"
+                strokeWidth="3.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                style={{
+                  strokeDasharray: 50,
+                  strokeDashoffset: visible ? 0 : 50,
+                  transition: 'stroke-dashoffset 0.5s ease 0.4s',
+                }}
+              />
+            </svg>
+          )}
         </div>
 
         <h1 className="text-4xl font-extrabold text-white mb-2 drop-shadow-lg">
-          {t.authFlow.welcomeBackTitle}
+          {firstName ? `${firstName}, טוב שחזרת 👋` : t.authFlow.welcomeBackTitle}
         </h1>
         <p className="text-lg text-white/85 mb-2">{t.authFlow.welcomeBackSubtitle}</p>
         {orgLine && (

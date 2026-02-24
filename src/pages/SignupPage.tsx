@@ -7,13 +7,10 @@ import { useAuthStore } from '../stores/authStore';
 import { useTenantStore } from '../stores/tenantStore';
 import { completeProfile } from '../services/registration.service';
 
-// Unsplash images — high quality, free, no API key
+// Unsplash images
 const SLIDE_IMAGES = [
-  // Slide 1: Shopping / savings
   'https://images.unsplash.com/photo-1483985988355-763728e1935b?w=800&q=80&auto=format&fit=crop',
-  // Slide 2: In-store / payment
   'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=800&q=80&auto=format&fit=crop',
-  // Slide 3: Gift giving
   'https://images.unsplash.com/photo-1513885535751-8b9238bd345a?w=800&q=80&auto=format&fit=crop',
 ];
 

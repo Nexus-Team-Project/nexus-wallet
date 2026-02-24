@@ -186,7 +186,11 @@ export interface TranslationKeys {
     otpPlaceholder: string;
     verify: string;
     resendCode: string;
+    resendCodeWait: string;
+    resendViaWhatsApp: string;
     wrongCode: string;
+    otpExpiry: string;
+    otpTooManyAttempts: string;
     consentTitle: string;
     consentSubtitle: string;
     consentAccept: string;
@@ -220,7 +224,10 @@ export interface TranslationKeys {
     profileTitle: string;
     profileSubtitle: string;
     firstNameLabel: string;
+    firstNameTitle: string;
+    firstNameSubtitle: string;
     lastNameLabel: string;
+    lastNameTitle: string;
     emailLabel: string;
     phoneLabel: string;
     continueButton: string;
@@ -248,6 +255,83 @@ export interface TranslationKeys {
     googleConnected: string;
     googleGreeting: string;
     orgMemberGreeting: string;
+    // Onboarding slides
+    onboardingSkip: string;
+    onboardingContinue: string;
+    onboardingStep: string;
+    // VerifyPhone slide
+    verifyPhoneTitle: string;
+    verifyPhoneSubtitle: string;
+    // VerifyEmail slide
+    verifyEmailTitle: string;
+    verifyEmailSubtitle: string;
+    verifyEmailPlaceholder: string;
+    verifyEmailError: string;
+    // Consents slide
+    consentsTitle: string;
+    consentsSubtitle: string;
+    consentsBullet1: string;
+    consentsBullet2: string;
+    consentsBullet3: string;
+    consentsLater: string;
+    consentsChangeNote: string;
+    marketingConsentTitle: string;
+    marketingConsentDesc: string;
+    pushConsentTitle: string;
+    pushConsentDesc: string;
+    analyticsConsentTitle: string;
+    analyticsConsentDesc: string;
+    pushBlockedNote: string;
+    consentsRequiredNote: string;
+    // Purpose slide
+    purposeTitle: string;
+    purposeSubtitle: string;
+    purposeCatShopping: string;
+    purposeSaveMoney: string;
+    purposeDiscover: string;
+    purposeGiftCards: string;
+    purposeCompareDeals: string;
+    purposeCatBenefits: string;
+    purposeOrgBenefits: string;
+    purposeMemberPrices: string;
+    purposeExclusiveOffers: string;
+    purposeCatGifting: string;
+    purposeSendGifts: string;
+    purposeBirthdaySurprises: string;
+    purposeExploring: string;
+    // Life stage slide
+    lifeStageTitle: string;
+    lifeStageSubtitle: string;
+    lifeStageJustMe: string;
+    lifeStageRelationship: string;
+    lifeStageKids: string;
+    // Birthday slide
+    birthdayTitle: string;
+    birthdaySubtitle: string;
+    // Gender slide
+    genderTitle: string;
+    genderSubtitle: string;
+    genderMale: string;
+    genderFemale: string;
+    genderPreferNot: string;
+    // Benefit categories slide
+    benefitCategoriesTitle: string;
+    benefitCategoriesSubtitle: string;
+    benefitCategoriesMinError: string;
+    benefitFood: string;
+    benefitFashion: string;
+    benefitEntertainment: string;
+    benefitTravel: string;
+    benefitHealth: string;
+    benefitBeauty: string;
+    benefitElectronics: string;
+    benefitSupermarket: string;
+    benefitSports: string;
+    benefitCafe: string;
+    benefitKids: string;
+    benefitHome: string;
+    benefitPets: string;
+    benefitEducation: string;
   };
   authFlow: {
     // Flow 1 — Welcome Back

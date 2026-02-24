@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { FlowTopBar } from './WelcomeNewPage';
+import { getFirstOnboardingSlide } from '../../utils/onboardingNavigation';
+import { useRegistrationStore } from '../../stores/registrationStore';
 
 export default function HowDidYouArrivePage() {
   const { lang = 'he' } = useParams();
@@ -19,7 +21,8 @@ export default function HowDidYouArrivePage() {
     setSelected(choice);
     setTimeout(() => {
       if (choice === 'direct') {
-        navigate(`/${lang}/register/complete-profile`);
+        const firstSlide = getFirstOnboardingSlide(useRegistrationStore.getState());
+        navigate(`/${lang}/register/onboarding/${firstSlide}`);
       } else {
         navigate(`/${lang}/auth-flow/select-org`);
       }

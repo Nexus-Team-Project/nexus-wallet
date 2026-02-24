@@ -8,20 +8,125 @@
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
 import { useRegistrationStore } from '../../stores/registrationStore';
+import { getFirstOnboardingSlide } from '../../utils/onboardingNavigation';
+import { useTenantStore } from '../../stores/tenantStore';
+import { mockTenants } from '../../mock/data/tenants.mock';
+import { queryClient } from '../../App';
+import { __devSetVouchersError } from '../../api/vouchers.api';
 
 export default function FlowTestPage() {
   const { lang = 'he' } = useParams();
   const navigate = useNavigate();
+
 
   const login = useAuthStore((s) => s.login);
   const logout = useAuthStore((s) => s.logout);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const startRegistration = useRegistrationStore((s) => s.startRegistration);
   const resetRegistration = useRegistrationStore((s) => s.resetRegistration);
+  const setTenant = useTenantStore((s) => s.setTenant);
+  const clearTenant = useTenantStore((s) => s.clearTenant);
+  const tenantId = useTenantStore((s) => s.tenantId);
 
+  // מוצא tenant שיש לו customerId (למשל acme-corp)
+  const customerIdTenant = Object.values(mockTenants).find((t) => t.customerId) ?? mockTenants['acme-corp'];
+
+  // reset ללא firebaseSignOut — כדי לא להפעיל את onAuthStateChanged
+  // שיקרא logout() שוב ב-async ויאפס את ה-state באמצע הניווט
   const reset = () => {
-    logout();
+    useAuthStore.setState({
+      isAuthenticated: false,
+      token: null,
+      userId: null,
+      authMethod: null,
+      isOrgMember: false,
+      organizationName: null,
+      marketingConsent: false,
+      profileCompleted: false,
+      avatarUrl: null,
+    });
     resetRegistration();
+    clearTenant();
+  };
+
+  // ─── Section Error Demo ───────────────────────────────────────────────
+  /** Forces vouchers to fail so ActiveOffers + NearYou show SectionError */
+  const simulateSectionError = () => {
+    // 1. Tell the API layer to reject all future getAll() calls
+    __devSetVouchersError(true);
+    // 2. Temporarily disable retries so the error shows immediately (not after 2 attempts)
+    queryClient.setDefaultOptions({ queries: { retry: false, staleTime: 1000 * 60 * 5 } });
+    // 3. Remove cached data so TanStack Query re-fetches (and hits the error)
+    queryClient.removeQueries({ queryKey: ['vouchers'] });
+    // 4. Navigate home — the re-fetch happens there, isError becomes true
+    navigate(`/${lang}`);
+  };
+
+  /** Clears the error flag and refreshes voucher queries */
+  const resetSectionError = () => {
+    __devSetVouchersError(false);
+    // Restore normal retry settings
+    queryClient.setDefaultOptions({ queries: { retry: 1, staleTime: 1000 * 60 * 5 } });
+    queryClient.resetQueries({ queryKey: ['vouchers'] });
+    navigate(`/${lang}`);
+  };
+
+  // ─── Customer-ID Flows ────────────────────────────────────────────────
+  /** מגדיר tenant לפי customerId ומסמלץ כניסה */
+  const setupCustomerIdTenant = () => {
+    if (customerIdTenant) {
+      setTenant(customerIdTenant.id, customerIdTenant);
+    }
+  };
+
+  /** Flow customerId #1 — משתמש קיים ללא ארגון → דף הבית ישיר */
+  const simulateCustomerIdExisting = () => {
+    reset();
+    setupCustomerIdTenant();
+    login({
+      token: 'mock-token-cid-existing',
+      userId: 'user-cid-existing-001',
+      method: 'google',
+      isOrgMember: false,
+      firstName: 'רז',
+    });
+    useAuthStore.getState().setProfileCompleted(true);
+    setTimeout(() => navigate(`/${lang}`), 50);
+  };
+
+  /** Flow customerId #2 — משתמש קיים עם ארגון (profileCompleted=true) */
+  const simulateCustomerIdExistingOrg = () => {
+    reset();
+    setupCustomerIdTenant();
+    login({
+      token: 'mock-token-cid-existing-org',
+      userId: 'user-cid-existing-org-002',
+      method: 'google',
+      isOrgMember: true,
+      organizationName: customerIdTenant?.nameHe ?? 'הארגון',
+      firstName: 'רז',
+    });
+    useAuthStore.getState().setProfileCompleted(true);
+    // משתמש קיים — ישירות לדף הבית, בלי WelcomeOrg
+    setTimeout(() => navigate(`/${lang}`), 50);
+  };
+
+  /** Flow customerId #3 — משתמש חדש */
+  const simulateCustomerIdNewUser = () => {
+    reset();
+    setupCustomerIdTenant();
+    login({
+      token: 'mock-token-cid-new',
+      userId: 'user-cid-new-003',
+      method: 'phone',
+      isOrgMember: false,
+    });
+    startRegistration({
+      path: customerIdTenant?.requiresMembershipFee ? 'tenant-with-fee' : 'tenant-no-fee',
+      phone: '050-0000001',
+      missingFields: ['firstName', 'lastName', 'email', 'birthday'],
+    });
+    setTimeout(() => navigate(`/${lang}/auth-flow/org-user`), 50);
   };
 
   // ─── Flow 1: Existing User ───────────────────────────────────────────
@@ -33,8 +138,8 @@ export default function FlowTestPage() {
       method: 'google',
       isOrgMember: false,
     });
-    // Existing user — no registration needed, go straight to welcome-back
-    navigate(`/${lang}/auth-flow/welcome-back`);
+    // Existing user — no registration needed, go straight to home
+    navigate(`/${lang}`);
   };
 
   const simulateExistingOrgUser = () => {
@@ -45,34 +150,60 @@ export default function FlowTestPage() {
       method: 'google',
       isOrgMember: true,
       organizationName: 'סלקום',
+      firstName: 'רז',
     });
-    navigate(`/${lang}/auth-flow/welcome-back`);
+    useAuthStore.getState().setProfileCompleted(true);
+    // משתמש קיים — ישירות לדף הבית, בלי WelcomeOrg
+    setTimeout(() => navigate(`/${lang}`), 50);
   };
 
   // ─── Flow 2: New User ─────────────────────────────────────────────────
-  const simulateNewUser = () => {
+  /** Google/Apple sign-in — phone is missing, name+email known */
+  const simulateNewUserGoogle = () => {
     reset();
     login({
-      token: 'mock-token-new',
-      userId: 'user-new-789',
+      token: 'mock-token-new-google',
+      userId: 'user-new-google-789',
       method: 'google',
       isOrgMember: false,
+      firstName: 'רז',
     });
     startRegistration({
       path: 'new-user',
       phone: '',
+      missingFields: ['phone', 'firstName', 'lastName', 'email', 'birthday'],
+      returnTo: `/${lang}`,
+    });
+    navigate(`/${lang}/auth-flow/new-user`);
+  };
+
+  /** Phone OTP sign-in — phone known, name+email missing */
+  const simulateNewUserOTP = () => {
+    reset();
+    login({
+      token: 'mock-token-new-otp',
+      userId: 'user-new-otp-790',
+      method: 'phone',
+      isOrgMember: false,
+    });
+    startRegistration({
+      path: 'new-user',
+      phone: '050-1234567',
       missingFields: ['firstName', 'lastName', 'email', 'birthday'],
       returnTo: `/${lang}`,
     });
-    navigate(`/${lang}/auth-flow/welcome-new`);
+    navigate(`/${lang}/auth-flow/new-user`);
   };
 
   // ─── Flow 3: Pre-provisioned (Org) ────────────────────────────────────
-  const simulatePreProvisioned = () => {
+  /** Google/Apple sign-in — phone missing, org has name */
+  const simulatePreProvisionedGoogle = () => {
     reset();
+    const hapoelTenant = mockTenants['hapoel-ta'];
+    if (hapoelTenant) setTenant(hapoelTenant.id, hapoelTenant);
     login({
-      token: 'mock-token-org',
-      userId: 'user-org-101',
+      token: 'mock-token-org-google',
+      userId: 'user-org-google-101',
       method: 'google',
       isOrgMember: true,
       organizationName: 'הפועל תל אביב',
@@ -86,10 +217,37 @@ export default function FlowTestPage() {
         firstName: 'יוסי',
         lastName: 'כהן',
       },
+      missingFields: ['phone', 'email', 'birthday'],
+      returnTo: `/${lang}`,
+    });
+    setTimeout(() => navigate(`/${lang}/auth-flow/org-user`), 50);
+  };
+
+  /** Phone OTP sign-in — phone known, org has name */
+  const simulatePreProvisionedOTP = () => {
+    reset();
+    const hapoelTenant = mockTenants['hapoel-ta'];
+    if (hapoelTenant) setTenant(hapoelTenant.id, hapoelTenant);
+    login({
+      token: 'mock-token-org-otp',
+      userId: 'user-org-otp-102',
+      method: 'phone',
+      isOrgMember: true,
+      organizationName: 'הפועל תל אביב',
+    });
+    startRegistration({
+      path: 'org-member-incomplete',
+      phone: '052-9876543',
+      orgMember: {
+        organizationId: 'org-2',
+        organizationName: 'הפועל תל אביב',
+        firstName: 'יוסי',
+        lastName: 'כהן',
+      },
       missingFields: ['email', 'birthday'],
       returnTo: `/${lang}`,
     });
-    navigate(`/${lang}/auth-flow/welcome-org`);
+    setTimeout(() => navigate(`/${lang}/auth-flow/org-user`), 50);
   };
 
   return (
@@ -122,69 +280,204 @@ export default function FlowTestPage() {
         </p>
       </div>
 
+      {/* ── tenant badge גלובלי ── */}
+      <div className="flex items-center justify-between mb-3 px-3 py-2 bg-orange-50 border border-orange-200 rounded-xl text-xs text-orange-700 font-mono">
+        <span>🔑 customerId tenant: <strong>{customerIdTenant?.nameHe ?? '—'}</strong></span>
+        <span className="opacity-60">ח"פ {customerIdTenant?.customerId ?? '—'}</span>
+      </div>
+      {tenantId && (
+        <div className="mb-4 px-3 py-1.5 bg-success/10 rounded-xl text-xs text-success font-semibold">
+          ✅ Tenant פעיל: {tenantId}
+        </div>
+      )}
+
       {/* Flow 1 */}
       <div className="bg-white rounded-2xl border border-border p-5 mb-4">
         <div className="flex items-center gap-2 mb-3">
-          <div className="w-7 h-7 rounded-full bg-success/10 flex items-center justify-center text-success text-xs font-bold">
-            1
-          </div>
+          <div className="w-7 h-7 rounded-full bg-success/10 flex items-center justify-center text-success text-xs font-bold">1</div>
           <div>
             <h2 className="text-sm font-bold text-text-primary">Flow 1 — משתמש קיים</h2>
             <p className="text-xs text-text-muted">Welcome back + redirect אוטומטי</p>
           </div>
         </div>
         <div className="flex flex-col gap-2">
-          <button
-            onClick={simulateExistingUser}
-            className="w-full py-3 rounded-xl bg-success text-white text-sm font-semibold active:scale-[0.98] transition-all"
-          >
+          <button onClick={simulateExistingUser} className="w-full py-3 rounded-xl bg-success text-white text-sm font-semibold active:scale-[0.98] transition-all">
             👤 משתמש קיים (ללא ארגון)
           </button>
-          <button
-            onClick={simulateExistingOrgUser}
-            className="w-full py-3 rounded-xl bg-success/80 text-white text-sm font-semibold active:scale-[0.98] transition-all"
-          >
-            🏢 משתמש קיים + ארגון (סלקום)
+          <button onClick={simulateExistingOrgUser} className="w-full py-3 rounded-xl bg-success/80 text-white text-sm font-semibold active:scale-[0.98] transition-all">
+            🏢 משתמש קיים + ארגון (סלקום) → דף הבית
           </button>
+          {/* ── עם customerId ── */}
+          <div className="border-t border-dashed border-orange-200 pt-2 flex flex-col gap-2">
+            <p className="text-[10px] text-orange-400 font-bold">+ עם ?customerId=</p>
+            <button onClick={simulateCustomerIdExisting} className="w-full py-3 rounded-xl text-white text-sm font-semibold active:scale-[0.98] transition-all" style={{ background: customerIdTenant?.primaryColor }}>
+              👤 קיים ללא ארגון + ח"פ → Welcome Back (נקסוס)
+            </button>
+            <button onClick={simulateCustomerIdExistingOrg} className="w-full py-3 rounded-xl text-white text-sm font-semibold active:scale-[0.98] transition-all opacity-80" style={{ background: customerIdTenant?.primaryColor }}>
+              🏢 קיים עם ארגון + ח"פ → דף הבית
+            </button>
+          </div>
         </div>
       </div>
 
       {/* Flow 2 */}
       <div className="bg-white rounded-2xl border border-border p-5 mb-4">
         <div className="flex items-center gap-2 mb-3">
-          <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center text-primary text-xs font-bold">
-            2
-          </div>
+          <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center text-primary text-xs font-bold">2</div>
           <div>
             <h2 className="text-sm font-bold text-text-primary">Flow 2 — משתמש חדש</h2>
             <p className="text-xs text-text-muted">Welcome → איך הגעת → (ארגון) → השלמת פרטים</p>
           </div>
         </div>
-        <button
-          onClick={simulateNewUser}
-          className="w-full py-3 rounded-xl bg-primary text-white text-sm font-semibold active:scale-[0.98] transition-all"
-        >
-          🆕 משתמש חדש לגמרי
-        </button>
+        <div className="flex flex-col gap-2">
+          <button onClick={simulateNewUserGoogle} className="w-full py-3 rounded-xl bg-primary text-white text-sm font-semibold active:scale-[0.98] transition-all">
+            🔵 חדש — Google/Apple (טלפון חסר)
+          </button>
+          <button onClick={simulateNewUserOTP} className="w-full py-3 rounded-xl bg-primary/80 text-white text-sm font-semibold active:scale-[0.98] transition-all">
+            📱 חדש — OTP (טלפון ידוע)
+          </button>
+          {/* ── עם customerId ── */}
+          <div className="border-t border-dashed border-orange-200 pt-2 flex flex-col gap-2">
+            <p className="text-[10px] text-orange-400 font-bold">+ עם ?customerId=</p>
+            <button onClick={simulateCustomerIdNewUser} className="w-full py-3 rounded-xl border-2 text-sm font-semibold active:scale-[0.98] transition-all" style={{ borderColor: customerIdTenant?.primaryColor, color: customerIdTenant?.primaryColor }}>
+              🆕 חדש + ח"פ → WelcomeOrg → רישום
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Flow 3 */}
       <div className="bg-white rounded-2xl border border-border p-5 mb-6">
         <div className="flex items-center gap-2 mb-3">
-          <div className="w-7 h-7 rounded-full bg-accent-cyan/20 flex items-center justify-center text-primary text-xs font-bold">
-            3
-          </div>
+          <div className="w-7 h-7 rounded-full bg-accent-cyan/20 flex items-center justify-center text-primary text-xs font-bold">3</div>
           <div>
             <h2 className="text-sm font-bold text-text-primary">Flow 3 — Pre-provisioned</h2>
             <p className="text-xs text-text-muted">נמצא ברשומות הארגון → Welcome ארגוני → השלמת פרטים</p>
           </div>
         </div>
-        <button
-          onClick={simulatePreProvisioned}
-          className="w-full py-3 rounded-xl bg-text-primary text-white text-sm font-semibold active:scale-[0.98] transition-all"
-        >
-          🏅 Pre-provisioned (הפועל ת"א)
-        </button>
+        <div className="flex flex-col gap-2">
+          <button onClick={simulatePreProvisionedGoogle} className="w-full py-3 rounded-xl bg-text-primary text-white text-sm font-semibold active:scale-[0.98] transition-all">
+            🔵 Pre-provisioned — Google/Apple (טלפון חסר)
+          </button>
+          <button onClick={simulatePreProvisionedOTP} className="w-full py-3 rounded-xl bg-text-primary/80 text-white text-sm font-semibold active:scale-[0.98] transition-all">
+            📱 Pre-provisioned — OTP (טלפון ידוע)
+          </button>
+          {/* ── עם customerId ── */}
+          <div className="border-t border-dashed border-orange-200 pt-2 flex flex-col gap-2">
+            <p className="text-[10px] text-orange-400 font-bold">+ עם ?customerId=</p>
+            <button onClick={simulateCustomerIdNewUser} className="w-full py-3 rounded-xl border-2 text-sm font-semibold active:scale-[0.98] transition-all" style={{ borderColor: customerIdTenant?.primaryColor, color: customerIdTenant?.primaryColor }}>
+              🏅 Pre-provisioned + ח"פ → WelcomeOrg → רישום
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Onboarding Flow Demo */}
+      <div className="bg-white rounded-2xl border border-border p-5 mb-4">
+        <div className="flex items-center gap-2 mb-3">
+          <div className="w-7 h-7 rounded-full bg-purple-100 flex items-center justify-center text-purple-600 text-xs font-bold">🎓</div>
+          <div>
+            <h2 className="text-sm font-bold text-text-primary">Onboarding Flow (חדש)</h2>
+            <p className="text-xs text-text-muted">בדיקת שקפי האונבורדינג שנבנו</p>
+          </div>
+        </div>
+        <div className="flex flex-col gap-2">
+          {/* Phone OTP user — phone known, email missing → starts at verify-email */}
+          <button
+            onClick={() => {
+              reset();
+              login({ token: 'tok-ob-phone', userId: 'usr-ob-phone', method: 'phone', isOrgMember: false });
+              startRegistration({ path: 'new-user', phone: '050-1234567', missingFields: ['firstName', 'lastName', 'email', 'birthday'], returnTo: `/${lang}` });
+              navigate(`/${lang}/register/onboarding/${getFirstOnboardingSlide(useRegistrationStore.getState())}`);
+            }}
+            className="w-full py-3 rounded-xl bg-purple-500 text-white text-sm font-semibold active:scale-[0.98] transition-all"
+          >
+            📱 OTP user → first-name → last-name → verify-email → consents → ...
+          </button>
+          {/* Google user — name+email known, phone missing → starts at verify-phone */}
+          <button
+            onClick={() => {
+              reset();
+              login({ token: 'tok-ob-google', userId: 'usr-ob-google', method: 'google', isOrgMember: false, firstName: 'שירה' });
+              startRegistration({ path: 'new-user', phone: '', missingFields: ['phone'], returnTo: `/${lang}` });
+              useRegistrationStore.getState().setProfileData({ firstName: 'שירה', lastName: 'לוי', email: 'shira@example.com' });
+              navigate(`/${lang}/register/onboarding/${getFirstOnboardingSlide(useRegistrationStore.getState())}`);
+            }}
+            className="w-full py-3 rounded-xl bg-purple-600 text-white text-sm font-semibold active:scale-[0.98] transition-all"
+          >
+            🔵 Google user → verify-phone → consents → ...
+          </button>
+          {/* Org member — name+phone known, email unknown → starts at consents */}
+          <button
+            onClick={() => {
+              reset();
+              login({ token: 'tok-ob-org', userId: 'usr-ob-org', method: 'phone', isOrgMember: true, organizationName: 'הפועל ת"א', firstName: 'יוסי' });
+              startRegistration({ path: 'org-member-incomplete', phone: '052-9876543', orgMember: { organizationId: 'org-1', organizationName: 'הפועל ת"א', firstName: 'יוסי', lastName: 'כהן' }, missingFields: [], returnTo: `/${lang}` });
+              useRegistrationStore.getState().setProfileData({ firstName: 'יוסי', lastName: 'כהן', email: 'yossi@hapoel.co.il' });
+              navigate(`/${lang}/register/onboarding/consents`);
+            }}
+            className="w-full py-3 rounded-xl bg-purple-700 text-white text-sm font-semibold active:scale-[0.98] transition-all"
+          >
+            🏢 Org member → consents (ישיר)
+          </button>
+          {/* Direct links to each slide */}
+          <div className="border-t border-dashed border-purple-200 pt-2">
+            <p className="text-[10px] text-purple-400 font-bold mb-2">קפיצה ישירה לשקף:</p>
+            <div className="grid grid-cols-2 gap-1.5">
+              {[
+                { label: 'verify-phone', path: 'verify-phone' },
+                { label: 'first-name',   path: 'first-name' },
+                { label: 'verify-email', path: 'verify-email' },
+                { label: 'consents', path: 'consents' },
+                { label: 'purpose', path: 'purpose' },
+                { label: 'life-stage', path: 'life-stage' },
+                { label: 'birthday', path: 'birthday' },
+                { label: 'gender', path: 'gender' },
+                { label: 'benefit-categories', path: 'benefit-categories' },
+              ].map(({ label, path }) => (
+                <button
+                  key={path}
+                  onClick={() => {
+                    // Ensure registration is active so RegistrationGuard lets through
+                    if (!useRegistrationStore.getState().isRegistering) {
+                      login({ token: 'tok-dev', userId: 'usr-dev', method: 'google', isOrgMember: false });
+                      startRegistration({ path: 'new-user', phone: '', missingFields: ['phone'], returnTo: `/${lang}` });
+                    }
+                    navigate(`/${lang}/register/onboarding/${path}`);
+                  }}
+                  className="py-2 px-2 rounded-xl bg-purple-50 border border-purple-200 text-purple-700 text-[11px] font-semibold active:scale-95 transition-all text-center"
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Section Error Demo */}
+      <div className="bg-white rounded-2xl border border-border p-5 mb-4">
+        <div className="flex items-center gap-2 mb-3">
+          <div className="w-7 h-7 rounded-full bg-error/10 flex items-center justify-center text-error text-xs font-bold">!</div>
+          <div>
+            <h2 className="text-sm font-bold text-text-primary">Error States Demo</h2>
+            <p className="text-xs text-text-muted">בדיקת מצב שגיאה בסקשנים של דף הבית</p>
+          </div>
+        </div>
+        <div className="flex flex-col gap-2">
+          <button
+            onClick={simulateSectionError}
+            className="w-full py-3 rounded-xl bg-error text-white text-sm font-semibold active:scale-[0.98] transition-all"
+          >
+            💥 הדמה שגיאת טעינה (ActiveOffers + NearYou)
+          </button>
+          <button
+            onClick={resetSectionError}
+            className="w-full py-3 rounded-xl bg-surface border border-border text-text-muted text-sm font-semibold active:scale-[0.98] transition-all"
+          >
+            ↩️ שחזר — בטל שגיאת דמו
+          </button>
+        </div>
       </div>
 
       {/* Reset */}
@@ -204,18 +497,11 @@ export default function FlowTestPage() {
             { label: 'Welcome New', path: 'welcome-new' },
             { label: 'How Did You Arrive', path: 'how-did-you-arrive' },
             { label: 'Select Org', path: 'select-org' },
-            { label: 'Welcome Org', path: 'welcome-org' },
-            { label: 'Complete Profile', path: `../../register/complete-profile` },
+            { label: 'Org User Flow', path: 'org-user' },
           ].map(({ label, path }) => (
             <button
               key={path}
-              onClick={() =>
-                navigate(
-                  path.startsWith('.')
-                    ? `/${lang}/register/complete-profile`
-                    : `/${lang}/auth-flow/${path}`
-                )
-              }
+              onClick={() => navigate(`/${lang}/auth-flow/${path}`)}
               className="py-2 px-3 rounded-xl bg-surface border border-border text-text-secondary text-right hover:border-primary hover:text-primary transition-colors truncate"
             >
               {label}

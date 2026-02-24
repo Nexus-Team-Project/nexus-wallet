@@ -277,6 +277,23 @@ export default function LoginSheet() {
         return;
       }
 
+      // CUSTOMER-ID FLOW: arrived via ?customerId= link
+      if (tenantConfig?.customerId) {
+        close();
+        if (useAuthStore.getState().profileCompleted) {
+          navigate(`/${lang}/auth-flow/org-user`);
+        } else {
+          const phoneMissing = ['firstName', 'lastName', 'email', 'birthday'];
+          startRegistration({
+            path: tenantConfig.requiresMembershipFee ? 'tenant-with-fee' : 'tenant-no-fee',
+            phone,
+            missingFields: phoneMissing,
+          });
+          navigate(`/${lang}/auth-flow/org-user`);
+        }
+        return;
+      }
+
       // Returning user (already completed profile before) → go to requested page
       if (useAuthStore.getState().profileCompleted) {
         completeLogin();
@@ -337,6 +354,7 @@ export default function LoginSheet() {
           method: 'google',
           isOrgMember: result.session.isOrgMember,
           avatarUrl: result.profile?.picture,
+          firstName: result.profile?.firstName,
           organizationName: orgMember?.organizationName,
         });
         await firebaseSaveConsent(result.session.userId, marketingOptIn);
@@ -348,6 +366,29 @@ export default function LoginSheet() {
           if (orgTenant) {
             setTenant(orgTenant.id, orgTenant);
           }
+        }
+
+        // CUSTOMER-ID FLOW: arrived via ?customerId= link
+        if (tenantConfig?.customerId) {
+          close();
+          if (useAuthStore.getState().profileCompleted) {
+            navigate(`/${lang}/auth-flow/org-user`);
+          } else {
+            startRegistration({
+              path: tenantConfig.requiresMembershipFee ? 'tenant-with-fee' : 'tenant-no-fee',
+              phone: '',
+              missingFields: ['phone'],
+            });
+            if (result.profile) {
+              useRegistrationStore.getState().setProfileData({
+                firstName: result.profile.firstName,
+                lastName: result.profile.lastName,
+                email: result.profile.email,
+              });
+            }
+            navigate(`/${lang}/auth-flow/org-user`);
+          }
+          return;
         }
 
         // Returning user (already completed profile before) → go to requested page
@@ -436,6 +477,7 @@ export default function LoginSheet() {
           method: 'apple',
           isOrgMember: result.session.isOrgMember,
           avatarUrl: result.profile?.picture,
+          firstName: result.profile?.firstName,
         });
         await firebaseSaveConsent(result.session.userId, marketingOptIn);
         setMarketingConsent(marketingOptIn);

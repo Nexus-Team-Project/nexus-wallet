@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { useRecommendations } from '../../hooks/useRecommendations';
 import Skeleton from '../ui/Skeleton';
+import SectionError from '../ui/SectionError';
 import type { ScoredVoucher } from '../../types/recommendation.types';
 import type { Voucher as _Voucher } from '../../types/voucher.types';
 
@@ -280,7 +281,7 @@ export default function ActiveOffers() {
   const { lang = 'he' } = useParams();
   const navigate = useNavigate();
   const isHe = language === 'he';
-  const { recommendations, isLoading } = useRecommendations({ maxResults: 8 });
+  const { recommendations, isLoading, isError, refetch } = useRecommendations({ maxResults: 8 });
   const [showInfo, setShowInfo] = useState(false);
 
   if (isLoading) {
@@ -293,6 +294,10 @@ export default function ActiveOffers() {
         </div>
       </section>
     );
+  }
+
+  if (isError) {
+    return <SectionError section="ActiveOffers" onRetry={refetch} />;
   }
 
   if (recommendations.length === 0) return null;

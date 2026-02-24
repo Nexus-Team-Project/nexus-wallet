@@ -262,21 +262,6 @@ export default function WalletCardsPage() {
         </motion.div>
       </motion.div>
 
-      {/* Bottom CTA */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 1 }}
-        className="mt-6 w-full max-w-sm z-10 relative"
-      >
-        <button
-          className="w-full py-4 rounded-2xl text-white font-semibold text-base"
-          style={{ backgroundColor: "var(--color-primary)" }}
-        >
-          הוסף כרטיס הטבות
-        </button>
-      </motion.div>
-
       {/* Sheen keyframes */}
       <style>{`
         @keyframes sheen {

@@ -10,6 +10,8 @@ import type { GeolocationPermission } from '../stores/geolocationStore';
 interface UseNearbyDealsReturn {
   deals: NearbyDeal[];
   isLoading: boolean;
+  isError: boolean;
+  refetch: () => void;
   permission: GeolocationPermission;
   requestLocation: () => void;
 }
@@ -68,9 +70,10 @@ export function useNearbyDeals(maxResults = 8): UseNearbyDealsReturn {
     requestLocation,
     isLoading: geoLoading,
   } = useGeolocation();
-  const { data: vouchers, isLoading: vouchersLoading } = useVouchers();
+  const { data: vouchers, isLoading: vouchersLoading, isError: vouchersError, refetch } = useVouchers();
 
   const isLoading = geoLoading || vouchersLoading;
+  const isError = vouchersError;
 
   const deals = useMemo(() => {
     if (!coords || !vouchers) return [];
@@ -101,5 +104,5 @@ export function useNearbyDeals(maxResults = 8): UseNearbyDealsReturn {
     return results.slice(0, maxResults);
   }, [coords, vouchers, maxResults]);
 
-  return { deals, isLoading, permission, requestLocation };
+  return { deals, isLoading, isError, refetch, permission, requestLocation };
 }

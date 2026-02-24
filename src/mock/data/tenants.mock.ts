@@ -9,6 +9,7 @@ export const mockTenants: Record<string, TenantConfig> = {
     backgroundImage: '/tenants/acme-bg.jpg',
     primaryColor: '#1e40af',
     requiresMembershipFee: false,
+    customerId: '512345678',
     flowOverrides: {
       skipQuestionnaire: false,
       customWelcomeMessage: 'Welcome, Acme team member!',
@@ -23,6 +24,7 @@ export const mockTenants: Record<string, TenantConfig> = {
     backgroundImage: '/tenants/startup-bg.jpg',
     primaryColor: '#059669',
     requiresMembershipFee: true,
+    customerId: '523456789',
     membershipFeeAmount: 29.9,
     membershipFeeCurrency: 'ILS',
     membershipFeeLabel: 'Monthly membership',
@@ -62,5 +64,13 @@ export const mockTenants: Record<string, TenantConfig> = {
       'הנחות בלעדיות בבתי מרקחת',
       'ייעוצי בריאות חינם',
     ],
+  },
+  'hapoel-ta': {
+    id: 'hapoel-ta',
+    name: 'Hapoel Tel Aviv',
+    nameHe: 'הפועל תל אביב',
+    logo: '/tenants/hapoel-logo.svg',
+    primaryColor: '#dc2626',
+    requiresMembershipFee: false,
   },
 };

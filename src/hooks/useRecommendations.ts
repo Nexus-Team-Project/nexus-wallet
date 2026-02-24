@@ -15,6 +15,8 @@ interface UseRecommendationsOptions {
 interface UseRecommendationsReturn {
   recommendations: ScoredVoucher[];
   isLoading: boolean;
+  isError: boolean;
+  refetch: () => void;
 }
 
 export function useRecommendations(
@@ -23,15 +25,16 @@ export function useRecommendations(
   const { maxResults = 10 } = options;
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
 
-  const { data: user, isLoading: userLoading } = useUser();
-  const { data: vouchers, isLoading: vouchersLoading } = useVouchers();
-  const { data: userVouchers, isLoading: myVouchersLoading } = useMyVouchers(
+  const { data: user, isLoading: userLoading, isError: userError } = useUser();
+  const { data: vouchers, isLoading: vouchersLoading, isError: vouchersError, refetch } = useVouchers();
+  const { data: userVouchers, isLoading: myVouchersLoading, isError: myVouchersError } = useMyVouchers(
     undefined,
     { enabled: isAuthenticated },
   );
   const questionnairePrefs = useRegistrationStore((s) => s.preferences);
 
   const isLoading = vouchersLoading || (isAuthenticated && (userLoading || myVouchersLoading));
+  const isError = vouchersError || (isAuthenticated && (userError || myVouchersError));
 
   const recommendations = useMemo(() => {
     if (!vouchers) return [];
@@ -40,5 +43,5 @@ export function useRecommendations(
     return rankVouchers(vouchers, signals, undefined, maxResults);
   }, [vouchers, user, userVouchers, questionnairePrefs, maxResults]);
 
-  return { recommendations, isLoading };
+  return { recommendations, isLoading, isError, refetch };
 }

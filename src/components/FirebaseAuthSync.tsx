@@ -23,6 +23,7 @@ export default function FirebaseAuthSync({ children }: { children: ReactNode }) 
             method: 'google',
             isOrgMember: result.session.isOrgMember,
             avatarUrl: result.profile?.picture,
+            firstName: result.profile?.firstName,
           });
         }
       }

@@ -4,6 +4,7 @@ import { useLanguage } from '../../i18n/LanguageContext';
 import { useNearbyDeals } from '../../hooks/useNearbyDeals';
 import { formatDistance } from '../../utils/haversine';
 import Skeleton from '../ui/Skeleton';
+import SectionError from '../ui/SectionError';
 import type { NearbyDeal } from '../../types/branch.types';
 
 // ── Pastel backgrounds per voucher category ──
@@ -417,7 +418,7 @@ export default function NearYou() {
   const { lang = 'he' } = useParams();
   const navigate = useNavigate();
   const isHe = language === 'he';
-  const { deals, isLoading, permission, requestLocation } = useNearbyDeals(8);
+  const { deals, isLoading, isError, refetch, permission, requestLocation } = useNearbyDeals(8);
   const [showDeniedSheet, setShowDeniedSheet] = useState(false);
   const prevPermission = useRef(permission);
 
@@ -440,6 +441,11 @@ export default function NearYou() {
         </div>
       </section>
     );
+  }
+
+  // Error state
+  if (isError) {
+    return <SectionError section="NearYou" onRetry={refetch} />;
   }
 
   // If unavailable (no geolocation support), hide entirely
