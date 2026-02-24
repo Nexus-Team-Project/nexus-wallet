@@ -13,6 +13,9 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useLanguage } from '../../../i18n/LanguageContext';
 import { useRegistrationStore } from '../../../stores/registrationStore';
+
+// WebOTP API type — not in standard lib
+interface OTPCredential extends Credential { code: string }
 import OnboardingSlideLayout from '../../../components/register/OnboardingSlideLayout';
 import PhoneInput from '../../../components/ui/PhoneInput';
 import {
@@ -30,7 +33,6 @@ export default function VerifyPhoneSlide() {
   const { lang = 'he' } = useParams();
   const navigate = useNavigate();
   const { t } = useLanguage();
-  const reg = useRegistrationStore();
 
   const [step, setStep]           = useState<OtpStep>('phone');
   const [phone, setPhone]         = useState('');

@@ -67,7 +67,7 @@ export default function SelectOrgPage() {
 
     // If org has a tenant config → set it and show WelcomeOrg splash
     if ('tenantId' in org && org.tenantId) {
-      const tenantConfig = mockTenants[org.tenantId];
+      const tenantConfig = mockTenants[org.tenantId as string];
       if (tenantConfig) {
         setTenant(tenantConfig.id, tenantConfig);
         setTimeout(() => {

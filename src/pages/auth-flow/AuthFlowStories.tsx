@@ -92,7 +92,6 @@ function SlideNexusHero({
   const [pushIdx, setPushIdx] = useState(0);
   const authFirstName = useAuthStore((s) => s.firstName);
   const authAvatarUrl = useAuthStore((s) => s.avatarUrl);
-  const authMethod = useAuthStore((s) => s.authMethod);
   const orgMember = useRegistrationStore((s) => s.orgMember);
 
   const firstName = authFirstName ?? orgMember?.firstName ?? null;
@@ -423,8 +422,8 @@ function SlideHowDidYouArrive({
 }
 
 // ─── Org type for SlideWelcomeOrg ─────────────────────────────────────────────
-interface OrgInfo { id: string; name: string; initials: string; color: string; available: boolean; tenantId?: string; logo?: string }
-const MOCK_ORGS: { id: string; name: string; initials: string; color: string; available: boolean; tenantId?: string; logo?: string }[] = [
+type OrgInfo = { id: string; name: string; initials: string; color: string; available: boolean; tenantId?: string; logo?: string };
+const MOCK_ORGS: OrgInfo[] = [
   { id: 'acme-corp',   name: 'תאגיד אקמה',           initials: 'אק',  color: '#1e40af', available: true,  tenantId: 'acme-corp'   },
   { id: 'startup-il',  name: 'סטארטאפ ישראלי',        initials: 'סט',  color: '#059669', available: true,  tenantId: 'startup-il'  },
   { id: '1',           name: 'סלקום',                  initials: 'סל',  color: '#F97316', available: true  },
@@ -700,7 +699,6 @@ function SlideWelcomeOrg({
   const tenantConfig = useTenantStore((s) => s.config);
   const authFirstName = useAuthStore((s) => s.firstName);
   const authAvatarUrl = useAuthStore((s) => s.avatarUrl);
-  const authMethod = useAuthStore((s) => s.authMethod);
   const orgMember = useRegistrationStore((s) => s.orgMember);
 
   // שם פרטי: מגוגל/אפל → authFirstName, מטלפון+pre-provisioned → orgMember.firstName
@@ -947,9 +945,9 @@ interface StoryStep {
 export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
   const { lang = 'he' } = useParams();
   const navigate = useNavigate();
-  const startRegistration = useRegistrationStore((s) => s.startRegistration);
-  const registrationPath = useRegistrationStore((s) => s.registrationPath);
-  const phone = useRegistrationStore((s) => s.phone);
+  // const startRegistration = useRegistrationStore((s) => s.startRegistration);
+  // const registrationPath = useRegistrationStore((s) => s.registrationPath);
+  // const phone = useRegistrationStore((s) => s.phone);
   const setTenant = useTenantStore((s) => s.setTenant);
   const tenantConfig = useTenantStore((s) => s.config);
 
@@ -1099,20 +1097,13 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
     navigate(`/${lang}/register/onboarding/${firstSlide}`);
   };
 
-  const handleOrgContinue = () => {
-    // אם יש עוד steps (smart stories) — עבור לבא. אחרת → onboarding
-    goNext();
-  };
-
-  const handleOrgSkip = () => {
-    startRegistration({
-      path: registrationPath ?? 'new-user',
-      phone: phone ?? '',
-      orgMember: null,
-    });
-    const firstSlide = getFirstOnboardingSlide(useRegistrationStore.getState());
-    navigate(`/${lang}/register/onboarding/${firstSlide}`);
-  };
+  // Reserved for future use when org stories have inline continue/skip actions
+  // const handleOrgContinue = () => { goNext(); };
+  // const handleOrgSkip = () => {
+  //   startRegistration({ path: registrationPath ?? 'new-user', phone: phone ?? '', orgMember: null });
+  //   const firstSlide = getFirstOnboardingSlide(useRegistrationStore.getState());
+  //   navigate(`/${lang}/register/onboarding/${firstSlide}`);
+  // };
 
   const handleOrgSwitchUser = () => {
     navigate(`/${lang}/signup`);

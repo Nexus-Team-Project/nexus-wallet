@@ -23,12 +23,13 @@ export default function LastNameSlide() {
   const canContinue = value.trim().length > 0;
 
   const storeState = useRegistrationStore.getState();
-  const { current, total } = getOnboardingProgress('last-name', storeState);
+  // LastNameSlide shares the 'first-name' slot — it's the second part of name collection
+  const { current, total } = getOnboardingProgress('first-name', storeState);
 
   const handleContinue = () => {
     if (!canContinue) return;
     reg.setProfileData({ lastName: value.trim() });
-    const next = getNextOnboardingSlide('last-name', useRegistrationStore.getState());
+    const next = getNextOnboardingSlide('first-name', useRegistrationStore.getState());
     if (next) {
       navigate(`/${lang}/register/onboarding/${next}`, { replace: true });
     } else {

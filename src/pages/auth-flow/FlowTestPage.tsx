@@ -20,7 +20,6 @@ export default function FlowTestPage() {
 
 
   const login = useAuthStore((s) => s.login);
-  const logout = useAuthStore((s) => s.logout);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const startRegistration = useRegistrationStore((s) => s.startRegistration);
   const resetRegistration = useRegistrationStore((s) => s.resetRegistration);
