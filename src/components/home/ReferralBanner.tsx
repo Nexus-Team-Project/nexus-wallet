@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { useAuthStore } from '../../stores/authStore';
+import { useTenantStore } from '../../stores/tenantStore';
 import { useContactsStore } from '../../stores/contactsStore';
 import { useLanguage } from '../../i18n/LanguageContext';
 import {
@@ -14,19 +15,16 @@ import {
 } from '../../services/contacts.service';
 
 /**
- * ReferralBanner — compact home-page card for inviting friends.
- * Shows only when the user is authenticated.
+ * ReferralBanner — home-page card for inviting friends.
  *
- * Features:
- * - Generated referral link based on userId
- * - Share via WhatsApp / SMS / native share / copy
- * - Import contacts (Google People API or Contact Picker — platform-aware)
- * - "X friends already on Nexus" badge after import
+ * Core message: "צרף 2 חברים → תן לכל אחד ₪25 → קבל ₪50 ליתרה"
+ * Tenant-aware: referral link includes tenantId when applicable.
  */
 export default function ReferralBanner() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const userId = useAuthStore((s) => s.userId);
   const authMethod = useAuthStore((s) => s.authMethod);
+  const tenantId = useTenantStore((s) => s.tenantId);
   const { t, language } = useLanguage();
   const isHe = language === 'he';
 
@@ -40,13 +38,18 @@ export default function ReferralBanner() {
 
   if (!isAuthenticated || !userId) return null;
 
-  const referralUrl = buildReferralUrl(userId);
+  // Tenant-scoped referral URL
+  const referralUrl = buildReferralUrl(userId, tenantId);
   const shareTitle = t.registration.inviteShareTitle;
   const shareText = t.registration.inviteShareText;
 
   // Platform strategy
   const strategy = getContactsStrategy(authMethod);
   const canImport = strategy !== 'share-only';
+
+  // Mock: referral count (will come from backend later)
+  const referralCount = Math.min(friendsOnNexus.length, 2);
+  const goalReached = referralCount >= 2;
 
   // ── Handlers ────────────────────────────────────────────────────────────
 
@@ -87,7 +90,6 @@ export default function ReferralBanner() {
     const source = strategy === 'google' ? 'google' as const : 'device' as const;
     setContacts(imported, source);
 
-    // Mock: ~15% are "already on Nexus"
     const mockFriends = imported
       .filter(() => Math.random() < 0.15)
       .map((c) => c.id);
@@ -114,30 +116,58 @@ export default function ReferralBanner() {
 
         {/* Content */}
         <div className="relative z-10">
-          <div className="flex items-start justify-between gap-3 mb-3">
-            <div>
-              <p className="text-white font-extrabold text-base leading-tight">
-                {isHe ? '🎁 הזמן חבר וקבל קרדיט' : '🎁 Invite a friend, earn credit'}
-              </p>
-              <p className="text-white/75 text-xs mt-0.5 leading-snug">
-                {isHe
-                  ? 'שתף את הלינק שלך — כל הצטרפות מזכה אותך בקרדיט'
-                  : 'Share your link — every signup earns you credit'}
-              </p>
-            </div>
+          {/* Header */}
+          <div className="mb-3">
+            <p className="text-white font-extrabold text-base leading-tight">
+              🎁 {t.registration.inviteBannerTitle}
+            </p>
+            <p className="text-white/75 text-xs mt-0.5 leading-snug">
+              {t.registration.inviteBannerSubtitle}
+            </p>
           </div>
 
-          {/* Friends on Nexus badge */}
-          {contactsImported && friendsOnNexus.length > 0 && (
-            <div className="flex items-center gap-1.5 bg-white/20 rounded-lg px-2.5 py-1.5 mb-3 w-fit">
-              <span className="material-symbols-outlined text-white" style={{ fontSize: '16px', fontVariationSettings: "'FILL' 1" }}>
-                group
-              </span>
-              <span className="text-white text-xs font-semibold">
-                {t.registration.inviteFriendsOnNexus.replace('{count}', String(friendsOnNexus.length))}
-              </span>
+          {/* Progress indicator */}
+          <div className="flex items-center gap-3 bg-white/15 rounded-xl px-3 py-2.5 mb-3">
+            {/* Two circles for progress */}
+            <div className="flex items-center gap-1.5">
+              <div className={`w-7 h-7 rounded-full flex items-center justify-center ${referralCount >= 1 ? 'bg-white' : 'bg-white/30'}`}>
+                {referralCount >= 1 ? (
+                  <span className="material-symbols-outlined text-[#635bff]" style={{ fontSize: '16px', fontVariationSettings: "'FILL' 1" }}>
+                    check
+                  </span>
+                ) : (
+                  <span className="material-symbols-outlined text-white/60" style={{ fontSize: '16px' }}>
+                    person
+                  </span>
+                )}
+              </div>
+              <div className={`w-7 h-7 rounded-full flex items-center justify-center ${referralCount >= 2 ? 'bg-white' : 'bg-white/30'}`}>
+                {referralCount >= 2 ? (
+                  <span className="material-symbols-outlined text-[#635bff]" style={{ fontSize: '16px', fontVariationSettings: "'FILL' 1" }}>
+                    check
+                  </span>
+                ) : (
+                  <span className="material-symbols-outlined text-white/60" style={{ fontSize: '16px' }}>
+                    person
+                  </span>
+                )}
+              </div>
             </div>
-          )}
+
+            <div className="flex-1">
+              {goalReached ? (
+                <p className="text-white text-xs font-bold">{t.registration.inviteGoalComplete}</p>
+              ) : (
+                <p className="text-white/90 text-xs font-semibold">
+                  {t.registration.inviteProgress.replace('{count}', String(referralCount))}
+                </p>
+              )}
+            </div>
+
+            {!goalReached && (
+              <span className="text-white font-bold text-sm">₪50</span>
+            )}
+          </div>
 
           {/* Referral link pill */}
           <div className="flex items-center gap-2 bg-white/20 rounded-xl px-3 py-2 mb-3">

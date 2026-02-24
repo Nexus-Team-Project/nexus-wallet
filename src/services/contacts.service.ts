@@ -175,10 +175,11 @@ export async function pickDeviceContacts(): Promise<NexusContact[] | null> {
 
 // ── Sharing Utilities (always available) ─────────────────────────────────────
 
-/** Build a referral URL from a userId */
-export function buildReferralUrl(userId: string): string {
+/** Build a referral URL from a userId, optionally scoped to a tenant */
+export function buildReferralUrl(userId: string, tenantId?: string | null): string {
   const refCode = userId.replace(/[^a-zA-Z0-9]/g, '').slice(0, 8).toLowerCase();
-  return `https://nexus.app/join?ref=${refCode}`;
+  const base = `https://nexus.app/join?ref=${refCode}`;
+  return tenantId ? `${base}&tenant=${encodeURIComponent(tenantId)}` : base;
 }
 
 /** Share via WhatsApp with pre-filled message */

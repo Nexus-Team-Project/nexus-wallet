@@ -351,6 +351,10 @@ export interface TranslationKeys {
     inviteContactsDenied: string;
     inviteNoContacts: string;
     inviteSelected: string;
+    inviteProgress: string;
+    inviteGoalComplete: string;
+    inviteBannerTitle: string;
+    inviteBannerSubtitle: string;
   };
   authFlow: {
     // Flow 1 — Welcome Back

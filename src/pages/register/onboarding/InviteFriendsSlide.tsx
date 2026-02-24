@@ -1,17 +1,17 @@
 /**
- * InviteFriendsSlide — optional onboarding slide for inviting friends.
+ * InviteFriendsSlide — optional onboarding slide.
+ *
+ * Core message: "צרף 2 חברים → תן לכל אחד ₪25 → קבל ₪50 ליתרה"
  *
  * Two zones:
  * 1. **Sharing** (always visible) — WhatsApp / SMS / native share / copy link
  * 2. **Import contacts** (conditional) — Google People API or Contact Picker
- *    depending on auth method & device capabilities.
- *
- * After contacts are imported, shows a selectable list with a "Send invite" CTA.
  */
 import { useState, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useLanguage } from '../../../i18n/LanguageContext';
 import { useAuthStore } from '../../../stores/authStore';
+import { useTenantStore } from '../../../stores/tenantStore';
 import { useRegistrationStore } from '../../../stores/registrationStore';
 import { useContactsStore } from '../../../stores/contactsStore';
 import OnboardingSlideLayout from '../../../components/register/OnboardingSlideLayout';
@@ -41,6 +41,7 @@ export default function InviteFriendsSlide() {
 
   const userId = useAuthStore((s) => s.userId);
   const authMethod = useAuthStore((s) => s.authMethod);
+  const tenantId = useTenantStore((s) => s.tenantId);
   const storeState = useRegistrationStore.getState();
   const { current, total } = getOnboardingProgress('invite-friends', storeState);
 
@@ -57,8 +58,8 @@ export default function InviteFriendsSlide() {
   const strategy: ContactsStrategy = getContactsStrategy(authMethod);
   const canImport = strategy !== 'share-only';
 
-  // Referral URL
-  const referralUrl = buildReferralUrl(userId ?? 'user');
+  // Referral URL — tenant-scoped
+  const referralUrl = buildReferralUrl(userId ?? 'user', tenantId);
   const shareTitle = t.registration.inviteShareTitle;
   const shareText = t.registration.inviteShareText;
 
@@ -101,10 +102,7 @@ export default function InviteFriendsSlide() {
 
     setImporting(false);
 
-    if (imported === null) {
-      // User cancelled or denied — not an error, just don't update
-      return;
-    }
+    if (imported === null) return;
 
     if (imported.length === 0) {
       setImportError(t.registration.inviteNoContacts);
@@ -130,10 +128,8 @@ export default function InviteFriendsSlide() {
   };
 
   const handleSendInvite = () => {
-    // Open native share with the selected contacts' info
-    const count = selectedIds.length;
     const text = `${shareText}\n${referralUrl}`;
-    if (count > 0) {
+    if (selectedIds.length > 0) {
       shareNative(shareTitle, text, referralUrl);
     }
   };
@@ -179,11 +175,52 @@ export default function InviteFriendsSlide() {
           {t.registration.inviteFriendsTitle}
         </h1>
         <p
-          className="text-sm mb-5 leading-relaxed"
+          className="text-sm mb-4 leading-relaxed"
           style={{ color: 'var(--color-text-muted)' }}
         >
           {t.registration.inviteFriendsSubtitle}
         </p>
+
+        {/* ── Reward visual ── */}
+        <div className="flex items-center justify-center gap-3 mb-5">
+          {/* Friend 1 */}
+          <div className="flex flex-col items-center gap-1">
+            <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+              <span className="material-symbols-outlined text-primary" style={{ fontSize: '24px' }}>
+                person_add
+              </span>
+            </div>
+            <span className="text-[10px] font-semibold" style={{ color: 'var(--color-text-muted)' }}>
+              ₪25
+            </span>
+          </div>
+
+          <span className="text-lg" style={{ color: 'var(--color-text-muted)' }}>+</span>
+
+          {/* Friend 2 */}
+          <div className="flex flex-col items-center gap-1">
+            <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+              <span className="material-symbols-outlined text-primary" style={{ fontSize: '24px' }}>
+                person_add
+              </span>
+            </div>
+            <span className="text-[10px] font-semibold" style={{ color: 'var(--color-text-muted)' }}>
+              ₪25
+            </span>
+          </div>
+
+          <span className="text-lg" style={{ color: 'var(--color-text-muted)' }}>=</span>
+
+          {/* Your reward */}
+          <div className="flex flex-col items-center gap-1">
+            <div className="w-12 h-12 rounded-full bg-primary flex items-center justify-center">
+              <span className="text-white font-bold text-sm">₪50</span>
+            </div>
+            <span className="text-[10px] font-bold" style={{ color: 'var(--color-primary)' }}>
+              {isHe ? 'ליתרה' : 'balance'}
+            </span>
+          </div>
+        </div>
 
         {/* ── Referral link pill ── */}
         <div className="flex items-center gap-2 bg-surface rounded-xl px-3 py-2.5 mb-4">
@@ -337,10 +374,7 @@ export default function InviteFriendsSlide() {
 
                     {/* Name & detail */}
                     <div className="flex-1 min-w-0">
-                      <p
-                        className="text-sm font-semibold truncate"
-                        style={{ color: 'var(--color-text-primary)' }}
-                      >
+                      <p className="text-sm font-semibold truncate" style={{ color: 'var(--color-text-primary)' }}>
                         {contact.name}
                       </p>
                       <p className="text-[11px] truncate" style={{ color: 'var(--color-text-muted)' }}>
@@ -354,9 +388,7 @@ export default function InviteFriendsSlide() {
                     {!isOnNexus && (
                       <div
                         className={`w-5 h-5 rounded-md border-2 flex items-center justify-center flex-shrink-0 transition-all ${
-                          isSelected
-                            ? 'bg-primary border-primary'
-                            : 'border-gray-300'
+                          isSelected ? 'bg-primary border-primary' : 'border-gray-300'
                         }`}
                       >
                         {isSelected && (
