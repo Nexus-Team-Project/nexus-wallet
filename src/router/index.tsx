@@ -35,6 +35,7 @@ import LifeStageSlide from '../pages/register/onboarding/LifeStageSlide';
 import BirthdaySlide from '../pages/register/onboarding/BirthdaySlide';
 import GenderSlide from '../pages/register/onboarding/GenderSlide';
 import BenefitCategoriesSlide from '../pages/register/onboarding/BenefitCategoriesSlide';
+import InviteFriendsSlide from '../pages/register/onboarding/InviteFriendsSlide';
 import RegistrationCompletePage from '../pages/register/RegistrationCompletePage';
 
 export const router = createBrowserRouter([
@@ -91,6 +92,7 @@ export const router = createBrowserRouter([
           { path: 'onboarding/birthday',           element: <BirthdaySlide /> },
           { path: 'onboarding/gender',             element: <GenderSlide /> },
           { path: 'onboarding/benefit-categories', element: <BenefitCategoriesSlide /> },
+          { path: 'onboarding/invite-friends',      element: <InviteFriendsSlide /> },
           // Completion — PremiumReveal experience before finalizing registration
           { path: 'complete', element: <RegistrationCompletePage /> },
         ],

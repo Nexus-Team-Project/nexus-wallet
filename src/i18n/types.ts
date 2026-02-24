@@ -332,6 +332,25 @@ export interface TranslationKeys {
     benefitHome: string;
     benefitPets: string;
     benefitEducation: string;
+    // Invite friends slide
+    inviteFriendsTitle: string;
+    inviteFriendsSubtitle: string;
+    inviteShareLink: string;
+    inviteCopyLink: string;
+    inviteCopied: string;
+    inviteWhatsApp: string;
+    inviteSMS: string;
+    inviteShare: string;
+    inviteImportContacts: string;
+    inviteImportFromGoogle: string;
+    inviteImportFromDevice: string;
+    inviteSendInvite: string;
+    inviteFriendsOnNexus: string;
+    inviteShareTitle: string;
+    inviteShareText: string;
+    inviteContactsDenied: string;
+    inviteNoContacts: string;
+    inviteSelected: string;
   };
   authFlow: {
     // Flow 1 — Welcome Back

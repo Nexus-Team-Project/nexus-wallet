@@ -12,6 +12,7 @@ export const ONBOARDING_SLIDE_ORDER = [
   'birthday',            // optional — user can skip
   'gender',              // optional — user can skip
   'benefit-categories',  // optional — user can skip
+  'invite-friends',      // optional — user can skip (share & contacts import)
 ] as const;
 
 export type OnboardingSlideId = typeof ONBOARDING_SLIDE_ORDER[number];

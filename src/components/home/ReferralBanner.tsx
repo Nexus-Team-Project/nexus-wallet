@@ -1,6 +1,17 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useAuthStore } from '../../stores/authStore';
+import { useContactsStore } from '../../stores/contactsStore';
 import { useLanguage } from '../../i18n/LanguageContext';
+import {
+  getContactsStrategy,
+  fetchGoogleContacts,
+  pickDeviceContacts,
+  buildReferralUrl,
+  shareViaWhatsApp,
+  shareViaSMS,
+  shareNative,
+  copyToClipboard,
+} from '../../services/contacts.service';
 
 /**
  * ReferralBanner — compact home-page card for inviting friends.
@@ -8,60 +19,80 @@ import { useLanguage } from '../../i18n/LanguageContext';
  *
  * Features:
  * - Generated referral link based on userId
- * - Copy to clipboard with 2s "הועתק ✓" feedback
- * - Native share via navigator.share() — graceful fallback to copy-only
+ * - Share via WhatsApp / SMS / native share / copy
+ * - Import contacts (Google People API or Contact Picker — platform-aware)
+ * - "X friends already on Nexus" badge after import
  */
 export default function ReferralBanner() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const userId = useAuthStore((s) => s.userId);
-  const { language } = useLanguage();
+  const authMethod = useAuthStore((s) => s.authMethod);
+  const { t, language } = useLanguage();
   const isHe = language === 'he';
 
+  // Contacts state
+  const contactsImported = useContactsStore((s) => s.contactsImported);
+  const friendsOnNexus = useContactsStore((s) => s.friendsOnNexus);
+  const setContacts = useContactsStore((s) => s.setContacts);
+
   const [copied, setCopied] = useState(false);
+  const [importing, setImporting] = useState(false);
 
   if (!isAuthenticated || !userId) return null;
 
-  // Build referral link — first 8 chars of userId as ref code
-  const refCode = userId.replace(/[^a-zA-Z0-9]/g, '').slice(0, 8).toLowerCase();
-  const referralUrl = `https://nexus.app/join?ref=${refCode}`;
+  const referralUrl = buildReferralUrl(userId);
+  const shareTitle = t.registration.inviteShareTitle;
+  const shareText = t.registration.inviteShareText;
 
-  const shareTitle = isHe ? 'הצטרף לנקסוס ותחסוך יותר' : 'Join Nexus and save more';
-  const shareText = isHe
-    ? 'גלה הטבות בלעדיות, קאשבק ועוד — בוא להצטרף בחינם!'
-    : 'Discover exclusive benefits, cashback and more — join for free!';
+  // Platform strategy
+  const strategy = getContactsStrategy(authMethod);
+  const canImport = strategy !== 'share-only';
 
-  const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(referralUrl);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      // Fallback for environments without clipboard API
-      const el = document.createElement('input');
-      el.value = referralUrl;
-      document.body.appendChild(el);
-      el.select();
-      document.execCommand('copy');
-      document.body.removeChild(el);
+  // ── Handlers ────────────────────────────────────────────────────────────
+
+  const handleCopy = useCallback(async () => {
+    const ok = await copyToClipboard(referralUrl);
+    if (ok) {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }
-  };
+  }, [referralUrl]);
 
-  const handleNativeShare = async () => {
-    if (navigator.share) {
-      try {
-        await navigator.share({ title: shareTitle, text: shareText, url: referralUrl });
-      } catch {
-        // User cancelled or share failed — silently ignore
-      }
-    } else {
-      // Fallback: copy
-      await handleCopy();
+  const handleWhatsApp = useCallback(() => {
+    shareViaWhatsApp(shareText, referralUrl);
+  }, [shareText, referralUrl]);
+
+  const handleSMS = useCallback(() => {
+    shareViaSMS(shareText, referralUrl);
+  }, [shareText, referralUrl]);
+
+  const handleNativeShare = useCallback(async () => {
+    const ok = await shareNative(shareTitle, shareText, referralUrl);
+    if (!ok) await copyToClipboard(referralUrl);
+  }, [shareTitle, shareText, referralUrl]);
+
+  const handleImportContacts = useCallback(async () => {
+    setImporting(true);
+    let imported = null;
+
+    if (strategy === 'google') {
+      imported = await fetchGoogleContacts();
+    } else if (strategy === 'device-picker') {
+      imported = await pickDeviceContacts();
     }
-  };
 
-  const canShare = typeof navigator !== 'undefined' && 'share' in navigator;
+    setImporting(false);
+    if (!imported || imported.length === 0) return;
+
+    const source = strategy === 'google' ? 'google' as const : 'device' as const;
+    setContacts(imported, source);
+
+    // Mock: ~15% are "already on Nexus"
+    const mockFriends = imported
+      .filter(() => Math.random() < 0.15)
+      .map((c) => c.id);
+    useContactsStore.getState().setFriendsOnNexus(mockFriends);
+  }, [strategy, setContacts]);
 
   return (
     <section className="px-5 mb-6" dir={isHe ? 'rtl' : 'ltr'}>
@@ -96,6 +127,18 @@ export default function ReferralBanner() {
             </div>
           </div>
 
+          {/* Friends on Nexus badge */}
+          {contactsImported && friendsOnNexus.length > 0 && (
+            <div className="flex items-center gap-1.5 bg-white/20 rounded-lg px-2.5 py-1.5 mb-3 w-fit">
+              <span className="material-symbols-outlined text-white" style={{ fontSize: '16px', fontVariationSettings: "'FILL' 1" }}>
+                group
+              </span>
+              <span className="text-white text-xs font-semibold">
+                {t.registration.inviteFriendsOnNexus.replace('{count}', String(friendsOnNexus.length))}
+              </span>
+            </div>
+          )}
+
           {/* Referral link pill */}
           <div className="flex items-center gap-2 bg-white/20 rounded-xl px-3 py-2 mb-3">
             <span className="flex-1 text-white text-xs font-mono truncate" dir="ltr">
@@ -103,8 +146,8 @@ export default function ReferralBanner() {
             </span>
           </div>
 
-          {/* Action buttons */}
-          <div className="flex gap-2">
+          {/* Action buttons — row 1: Copy + Share */}
+          <div className="flex gap-2 mb-2">
             <button
               onClick={handleCopy}
               className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-white/20 text-white text-xs font-semibold active:scale-[0.97] transition-all"
@@ -115,21 +158,58 @@ export default function ReferralBanner() {
               >
                 {copied ? 'check_circle' : 'content_copy'}
               </span>
-              {copied ? (isHe ? 'הועתק ✓' : 'Copied ✓') : (isHe ? 'העתק' : 'Copy')}
+              {copied ? t.registration.inviteCopied : t.registration.inviteCopyLink}
             </button>
 
-            {canShare && (
+            <button
+              onClick={handleNativeShare}
+              className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-white text-[#635bff] text-xs font-bold active:scale-[0.97] transition-all"
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>
+                share
+              </span>
+              {t.registration.inviteShare}
+            </button>
+          </div>
+
+          {/* Action buttons — row 2: WhatsApp + SMS + Import */}
+          <div className="flex gap-2">
+            <button
+              onClick={handleWhatsApp}
+              className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-[#25D366]/30 text-white text-xs font-semibold active:scale-[0.97] transition-all"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+              </svg>
+              {t.registration.inviteWhatsApp}
+            </button>
+
+            <button
+              onClick={handleSMS}
+              className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-blue-500/20 text-white text-xs font-semibold active:scale-[0.97] transition-all"
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>
+                sms
+              </span>
+              {t.registration.inviteSMS}
+            </button>
+
+            {canImport && !contactsImported && (
               <button
-                onClick={handleNativeShare}
-                className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-white text-primary text-xs font-bold active:scale-[0.97] transition-all"
+                onClick={handleImportContacts}
+                disabled={importing}
+                className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-white/15 text-white text-xs font-semibold active:scale-[0.97] transition-all disabled:opacity-50"
               >
-                <span
-                  className="material-symbols-outlined"
-                  style={{ fontSize: '16px' }}
-                >
-                  share
-                </span>
-                {isHe ? 'שתף' : 'Share'}
+                {importing ? (
+                  <span className="material-symbols-outlined animate-spin" style={{ fontSize: '16px' }}>
+                    progress_activity
+                  </span>
+                ) : (
+                  <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>
+                    contacts
+                  </span>
+                )}
+                {t.registration.inviteImportContacts}
               </button>
             )}
           </div>
