@@ -1,0 +1,35 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find:*)",
+      "Bash(echo:*)",
+      "Bash(dir:*)",
+      "Bash(git -C \"C:/Users/IMOE001/nexus-wallet\" status)",
+      "Bash(git -C:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(railway status:*)",
+      "Bash(railway logs:*)",
+      "Bash(railway up:*)",
+      "Bash(wc:*)",
+      "Bash(powershell -Command:*)",
+      "Bash(npx tsc:*)",
+      "Bash(railway domain:*)",
+      "Bash(stat:*)",
+      "Bash(railway run:*)",
+      "Bash(cmd /c \"dir /s /b \"\"C:\\\\Users\\\\IMOE001\\\\nexus-wallet\\\\public\"\" 2>&1\")",
+      "Bash(cmd /c \"dir \"\"C:\\\\Users\\\\IMOE001\\\\nexus-wallet\\\\public\"\" /s /-c\")",
+      "Bash(node -e:*)",
+      "Bash(ffmpeg:*)",
+      "Bash(magick:*)",
+      "Bash(npm install:*)",
+      "Bash(ipconfig:*)",
+      "Bash(npm run dev:*)",
+      "Bash(curl:*)",
+      "Bash(Remove-Item \"C:\\\\Users\\\\IMOE001\\\\nexus-wallet\\\\src\\\\pages\\\\SignupPage.tsx\" -Force)",
+      "Bash(Write-Host \"Deleted\")",
+      "Bash(Remove-Item \"C:\\\\Users\\\\IMOE001\\\\nexus-wallet\\\\src\\\\pages\\\\auth-flow\\\\OrgWelcomePage.tsx\" -Force)"
+    ]
+  }
+}

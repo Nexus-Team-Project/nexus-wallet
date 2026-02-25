@@ -424,8 +424,7 @@ export default function FlowTestPage() {
             <p className="text-[10px] text-purple-400 font-bold mb-2">קפיצה ישירה לשקף:</p>
             <div className="grid grid-cols-2 gap-1.5">
               {[
-                { label: 'org-intro',    path: 'org-intro' },
-              { label: 'verify-phone', path: 'verify-phone' },
+                { label: 'verify-phone', path: 'verify-phone' },
                 { label: 'first-name',   path: 'first-name' },
                 { label: 'verify-email', path: 'verify-email' },
                 { label: 'consents', path: 'consents' },

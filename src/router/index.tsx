@@ -32,7 +32,6 @@ const RegisterPreferencesPage  = lazy(() => import('../pages/RegisterPreferences
 const RegistrationCompletePage = lazy(() => import('../pages/register/RegistrationCompletePage'));
 
 // Onboarding slides — chunk per slide (loaded one at a time)
-const OrgIntroSlide          = lazy(() => import('../pages/register/onboarding/OrgIntroSlide'));
 const VerifyPhoneSlide       = lazy(() => import('../pages/register/onboarding/VerifyPhoneSlide'));
 const FirstNameSlide         = lazy(() => import('../pages/register/onboarding/FirstNameSlide'));
 const VerifyEmailSlide       = lazy(() => import('../pages/register/onboarding/VerifyEmailSlide'));
@@ -108,7 +107,6 @@ export const router = createBrowserRouter([
         children: [
           { path: 'membership',  element: <S><RegisterMembershipPage /></S> },
           { path: 'preferences', element: <S><RegisterPreferencesPage /></S> },
-          { path: 'onboarding/org-intro',          element: <S><OrgIntroSlide /></S> },
           { path: 'onboarding/verify-phone',       element: <S><VerifyPhoneSlide /></S> },
           { path: 'onboarding/first-name',         element: <S><FirstNameSlide /></S> },
           { path: 'onboarding/verify-email',       element: <S><VerifyEmailSlide /></S> },
