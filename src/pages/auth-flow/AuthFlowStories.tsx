@@ -11,7 +11,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { useRegistrationStore } from '../../stores/registrationStore';
-import { getFirstOnboardingSlide } from '../../utils/onboardingNavigation';
+import { getFirstOnboardingSlide, getOnboardingTotalWithComplete } from '../../utils/onboardingNavigation';
 import { useTenantStore } from '../../stores/tenantStore';
 import { useAuthStore } from '../../stores/authStore';
 import { mockTenants } from '../../mock/data/tenants.mock';
@@ -1147,14 +1147,13 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
     ...smartStorySteps,
   ];
 
-  // For org/tenant users: prepend match-screen as the FIRST story step so that
-  // its segment is segment #1 (filled while user reads), consistent with the
-  // onboarding bar which also treats match-screen as the leading segment.
+  // For org/tenant users: append match-screen as the final story step (after
+  // the intro stories) so the user sees the org intro before confirming.
   const isOrgFlow = Boolean(orgMember || tenantConfig);
 
   const [steps, setSteps] = useState<StoryStep[]>(() => {
     const base = flowType === 'new-user' ? newUserSteps : orgUserSteps;
-    return isOrgFlow ? [{ id: 'match-screen', interactive: true }, ...base] : base;
+    return isOrgFlow ? [...base, { id: 'match-screen', interactive: true }] : base;
   });
   const [current, setCurrent] = useState(0);
   const [direction, setDirection] = useState<1 | -1>(1);
@@ -1299,17 +1298,39 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
     exit: (dir: number) => ({ x: dir > 0 ? '-60%' : '60%', opacity: 0 }),
   };
 
+  // ── Progress bar segments ────────────────────────────────────────────────
+  // Org/tenant: bar mirrors the onboarding bar exactly (same total segment
+  // count). Match-screen maps to segment 0; during all other story slides
+  // every segment stays empty — registration hasn't started yet.
+  //   on stories:      [░░░░░░]
+  //   on match-screen: [█░░░░░]   → same as onboarding slide 1 starting
+  // New users: classic one-segment-per-story bar.
+  const isMatchScreenActive = steps[current]?.id === 'match-screen';
+  const barTotal = isOrgFlow
+    ? getOnboardingTotalWithComplete(useRegistrationStore.getState()) + 1 // +1 = extraLeading
+    : steps.length;
+  const barPos = isOrgFlow ? (isMatchScreenActive ? 0 : -1) : -1;
+  const barSegments = isOrgFlow
+    ? Array.from({ length: barTotal }, (_, i) => ({
+        key: `bar-${i}`,
+        isDone:   barPos > i,
+        isActive: barPos === i,
+      }))
+    : steps.map((step, i) => ({
+        key: step.id,
+        isDone:   i < current,
+        isActive: i === current,
+      }));
+
   return (
     <div className="fixed inset-0 z-[100] bg-black flex flex-col">
-      {/* ── Progress bar — one segment per slide (match-screen included as final segment) ── */}
+      {/* ── Progress bar — same segment count as onboarding bar ── */}
       <div className="px-3 pt-3 pb-2 z-50">
         <div className="flex gap-1">
-          {steps.map((step, i) => {
-            const isDone   = i < current;
-            const isActive = i === current;
+          {barSegments.map(({ key, isDone, isActive }) => {
             return (
               <div
-                key={step.id}
+                key={key}
                 className="flex-1 h-[3px] rounded-full overflow-hidden"
                 style={{ backgroundColor: 'rgba(255,255,255,0.3)' }}
               >
