@@ -7,17 +7,24 @@ import { useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useRegistrationStore } from '../../stores/registrationStore';
+import { useTenantStore } from '../../stores/tenantStore';
 import { getOnboardingTotalWithComplete } from '../../utils/onboardingNavigation';
 import { PremiumRevealContent } from '../PremiumRevealPage';
 
 export default function RegistrationCompletePage() {
   const { lang = 'he' } = useParams();
   const navigate = useNavigate();
-  const returnTo = useRegistrationStore((s) => s.returnTo);
+  const returnTo    = useRegistrationStore((s) => s.returnTo);
   const completeRegistration = useRegistrationStore((s) => s.completeRegistration);
 
+  // Match the extraLeading logic from OnboardingSlideLayout so the segment
+  // count stays consistent through the full flow → complete page.
+  const orgMember    = useRegistrationStore((s) => s.orgMember);
+  const tenantConfig = useTenantStore((s) => s.config);
+  const extraLeading = orgMember || tenantConfig ? 1 : 0;
+
   const storeState = useRegistrationStore.getState();
-  const total = getOnboardingTotalWithComplete(storeState);
+  const total = getOnboardingTotalWithComplete(storeState) + extraLeading;
 
   // Lock scroll/touch on body for the reveal experience
   useEffect(() => {
