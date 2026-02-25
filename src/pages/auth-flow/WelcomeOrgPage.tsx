@@ -104,12 +104,16 @@ export default function WelcomeOrgPage() {
 
   // ── Action handlers ──────────────────────────────────────────
 
-  /** Continue with org affiliation → Nexus intro stories → onboarding */
+  /** Continue with org affiliation → onboarding */
   const handleContinueWithOrg = () => {
     if (tenantConfig?.requiresMembershipFee) {
       navigate(`/${lang}/register/membership`);
     } else {
-      navigate(`/${lang}/auth-flow/new-user`);
+      navigate(
+        `/${lang}/register/onboarding/${getFirstOnboardingSlide(
+          useRegistrationStore.getState()
+        )}`
+      );
     }
   };
 

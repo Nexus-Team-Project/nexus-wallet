@@ -274,7 +274,7 @@ export default function LoginSheet() {
           missingFields,
         });
         close();
-        navigate(`/${lang}/auth-flow/org-user`);
+        navigate(`/${lang}/auth-flow/new-user`);
         return;
       }
 
@@ -292,7 +292,7 @@ export default function LoginSheet() {
           });
           close();
           // Nexus welcome first, then Match Screen
-          navigate(`/${lang}/auth-flow/org-user`);
+          navigate(`/${lang}/auth-flow/new-user`);
         }
         return;
       }
@@ -326,7 +326,7 @@ export default function LoginSheet() {
           missingFields: phoneMissing,
         });
         close();
-        navigate(`/${lang}/auth-flow/org-user`);
+        navigate(`/${lang}/auth-flow/new-user`);
         return;
       }
 
@@ -393,7 +393,7 @@ export default function LoginSheet() {
             }
             close();
             // Nexus welcome first, then Match Screen
-            navigate(`/${lang}/auth-flow/org-user`);
+            navigate(`/${lang}/auth-flow/new-user`);
           }
           return;
         }
@@ -431,7 +431,7 @@ export default function LoginSheet() {
             });
           }
           close();
-          navigate(`/${lang}/auth-flow/org-user`);
+          navigate(`/${lang}/auth-flow/new-user`);
           return;
         }
 
@@ -461,7 +461,7 @@ export default function LoginSheet() {
           navigate(`/${lang}/register/membership`);
         } else if (tenantConfig) {
           // Tenant context without fee → Nexus welcome → Match Screen
-          navigate(`/${lang}/auth-flow/org-user`);
+          navigate(`/${lang}/auth-flow/new-user`);
         } else {
           // No org context → straight to onboarding
           navigate(
@@ -526,7 +526,7 @@ export default function LoginSheet() {
           navigate(`/${lang}/register/membership`);
         } else if (tenantConfig) {
           // Tenant context without fee → Nexus welcome → Match Screen
-          navigate(`/${lang}/auth-flow/org-user`);
+          navigate(`/${lang}/auth-flow/new-user`);
         } else {
           // No org context → straight to onboarding
           navigate(

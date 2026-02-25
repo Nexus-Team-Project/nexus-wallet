@@ -950,6 +950,7 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
   // const phone = useRegistrationStore((s) => s.phone);
   const setTenant = useTenantStore((s) => s.setTenant);
   const tenantConfig = useTenantStore((s) => s.config);
+  const orgMember = useRegistrationStore((s) => s.orgMember);
 
   // ── Preload all flow images before showing any slide ──
   const { loaded: imagesLoaded, failed: failedImages } = useImagePreloader(FLOW_IMAGES);
@@ -1250,12 +1251,16 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
                   </button>
                 )}
 
-                {/* Continue button — goes to onboarding */}
+                {/* Continue button — org users → Match Screen, others → onboarding */}
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    const firstSlide = getFirstOnboardingSlide(useRegistrationStore.getState());
-                    navigate(`/${lang}/register/onboarding/${firstSlide}`);
+                    if (orgMember || tenantConfig) {
+                      navigate(`/${lang}/auth-flow/org-user`);
+                    } else {
+                      const firstSlide = getFirstOnboardingSlide(useRegistrationStore.getState());
+                      navigate(`/${lang}/register/onboarding/${firstSlide}`);
+                    }
                   }}
                   className="flex-shrink-0 flex items-center gap-2 px-5 py-3 rounded-2xl font-bold text-sm active:scale-[0.98] transition-all"
                   style={{
