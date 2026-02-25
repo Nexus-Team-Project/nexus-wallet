@@ -11,7 +11,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { useRegistrationStore } from '../../stores/registrationStore';
-import { getFirstOnboardingSlide } from '../../utils/onboardingNavigation';
+import { getFirstOnboardingSlide, getOnboardingTotalWithComplete } from '../../utils/onboardingNavigation';
 import { useTenantStore } from '../../stores/tenantStore';
 import { useAuthStore } from '../../stores/authStore';
 import { mockTenants } from '../../mock/data/tenants.mock';
@@ -1289,6 +1289,14 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
     navigate(`/${lang}`, { replace: true });
   };
 
+  // Progress bar split: story slides vs onboarding slides (match-screen + steps)
+  const currentIsMatchScreen = steps[current]?.id === 'match-screen';
+  const storySteps   = steps.filter(s => s.id !== 'match-screen');
+  // Bar 2 segments: 1 (match-screen) + active onboarding slides + completion
+  const onboardingBarTotal = isOrgFlow
+    ? 1 + getOnboardingTotalWithComplete(useRegistrationStore.getState())
+    : 0;
+
   const slideVariants = {
     enter: (dir: number) => ({ x: dir > 0 ? '100%' : '-100%', opacity: 0 }),
     center: { x: 0, opacity: 1 },
@@ -1297,17 +1305,49 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
 
   return (
     <div className="fixed inset-0 z-[100] bg-black flex flex-col">
-      {/* ── Progress bar — single continuous fill across all slides ── */}
-      <div className="px-3 pt-3 pb-2 z-50">
-        <div
-          className="h-[3px] w-full rounded-full overflow-hidden"
-          style={{ backgroundColor: 'rgba(255,255,255,0.3)' }}
-        >
-          <div
-            className="h-full rounded-full bg-white"
-            style={{ width: `${((current + progress) / steps.length) * 100}%` }}
-          />
+      {/* ── Progress bars: Row 1 (stories) + Row 2 (onboarding, org only) ── */}
+      <div className="px-3 pt-3 pb-2 z-50 flex flex-col gap-1">
+        {/* Bar 1: one segment per story slide (excludes match-screen) */}
+        <div className="flex gap-1">
+          {storySteps.map((step, i) => {
+            const isDone   = currentIsMatchScreen || i < current;
+            const isActive = !currentIsMatchScreen && i === current;
+            return (
+              <div
+                key={step.id}
+                className="flex-1 h-[3px] rounded-full overflow-hidden"
+                style={{ backgroundColor: 'rgba(255,255,255,0.3)' }}
+              >
+                <div
+                  className="h-full rounded-full bg-white"
+                  style={{
+                    width: isDone ? '100%' : isActive ? `${progress * 100}%` : '0%',
+                  }}
+                />
+              </div>
+            );
+          })}
         </div>
+        {/* Bar 2: onboarding segments (match-screen + remaining steps) — org users only */}
+        {isOrgFlow && (
+          <div className="flex gap-1">
+            {Array.from({ length: onboardingBarTotal }).map((_, i) => {
+              const isActive = currentIsMatchScreen && i === 0;
+              return (
+                <div
+                  key={i}
+                  className="flex-1 h-[3px] rounded-full overflow-hidden"
+                  style={{ backgroundColor: 'rgba(255,255,255,0.3)' }}
+                >
+                  <div
+                    className="h-full rounded-full bg-white"
+                    style={{ width: isActive ? `${progress * 100}%` : '0%' }}
+                  />
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* ── Close button — identical to StoriesPage ── */}
