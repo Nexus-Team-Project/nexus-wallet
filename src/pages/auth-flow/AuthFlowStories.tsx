@@ -14,6 +14,7 @@ import { useRegistrationStore } from '../../stores/registrationStore';
 import { getFirstOnboardingSlide, getOnboardingTotalWithComplete } from '../../utils/onboardingNavigation';
 import { useTenantStore } from '../../stores/tenantStore';
 import { useAuthStore } from '../../stores/authStore';
+import { useLoginSheetStore } from '../../stores/loginSheetStore';
 import { mockTenants } from '../../mock/data/tenants.mock';
 import { useImagePreloader } from '../../hooks/useImagePreloader';
 import { SmartInsightsCarousel } from '../InsightsPage';
@@ -946,12 +947,15 @@ function SlideMatchScreen() {
 
   const orgMember         = useRegistrationStore((s) => s.orgMember);
   const phone             = useRegistrationStore((s) => s.phone);
-  const registrationPath  = useRegistrationStore((s) => s.registrationPath);
   const missingFields     = useRegistrationStore((s) => s.missingFields);
   const profileData       = useRegistrationStore((s) => s.profileData);
   const startRegistration = useRegistrationStore((s) => s.startRegistration);
+  const resetRegistration = useRegistrationStore((s) => s.resetRegistration);
 
-  const tenantConfig = useTenantStore((s) => s.config);
+  const tenantConfig  = useTenantStore((s) => s.config);
+  const clearTenant   = useTenantStore((s) => s.clearTenant);
+
+  const openLoginSheet = useLoginSheetStore((s) => s.open);
 
   const orgName  = isHe
     ? (tenantConfig?.nameHe ?? orgMember?.organizationName ?? '')
@@ -977,8 +981,9 @@ function SlideMatchScreen() {
   };
 
   const handleContinueNoOrg = () => {
+    clearTenant(); // remove org branding — user registers as plain Nexus user
     startRegistration({
-      path:         registrationPath ?? 'new-user',
+      path:         'new-user',
       phone:        phone ?? '',
       orgMember:    null,
       missingFields,
@@ -992,7 +997,11 @@ function SlideMatchScreen() {
 
   const handleSwitchAccount = () => {
     logout();
+    resetRegistration();
+    clearTenant();
     navigate(`/${lang}`, { replace: true });
+    // Open the LoginSheet after navigation (root portal — survives page change)
+    Promise.resolve().then(() => openLoginSheet().catch(() => {}));
   };
 
   return (
@@ -1299,28 +1308,37 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
   };
 
   // ── Progress bar segments ────────────────────────────────────────────────
-  // Org/tenant: bar mirrors the onboarding bar exactly (same total segment
-  // count). Match-screen maps to segment 0; during all other story slides
-  // every segment stays empty — registration hasn't started yet.
-  //   on stories:      [░░░░░░]
-  //   on match-screen: [█░░░░░]   → same as onboarding slide 1 starting
-  // New users: classic one-segment-per-story bar.
+  // Org/tenant stories: classic story progress (1 segment per story, excl. match-screen).
+  //   on stories:      [░▓░░░]  (current story segment fills)
+  //   on match-screen: switch to onboarding bar count → [█░░░░░]
+  // New users: classic one-segment-per-story bar (all steps incl. any final).
   const isMatchScreenActive = steps[current]?.id === 'match-screen';
-  const barTotal = isOrgFlow
-    ? getOnboardingTotalWithComplete(useRegistrationStore.getState()) + 1 // +1 = extraLeading
-    : steps.length;
-  const barPos = isOrgFlow ? (isMatchScreenActive ? 0 : -1) : -1;
-  const barSegments = isOrgFlow
-    ? Array.from({ length: barTotal }, (_, i) => ({
-        key: `bar-${i}`,
-        isDone:   barPos > i,
-        isActive: barPos === i,
-      }))
-    : steps.map((step, i) => ({
-        key: step.id,
-        isDone:   i < current,
-        isActive: i === current,
-      }));
+
+  let barSegments: Array<{ key: string; isDone: boolean; isActive: boolean }>;
+  if (isOrgFlow && isMatchScreenActive) {
+    // On match-screen: mirror the onboarding bar (segment 0 active = first onboarding step)
+    const onboardingTotal = getOnboardingTotalWithComplete(useRegistrationStore.getState()) + 1;
+    barSegments = Array.from({ length: onboardingTotal }, (_, i) => ({
+      key: `bar-${i}`,
+      isDone:   false,
+      isActive: i === 0,
+    }));
+  } else if (isOrgFlow) {
+    // During org stories: exclude match-screen from the bar so counts stay consistent
+    const barSteps = steps.filter(s => s.id !== 'match-screen');
+    const barCurrent = barSteps.findIndex(s => s.id === steps[current]?.id);
+    barSegments = barSteps.map((step, i) => ({
+      key: step.id,
+      isDone:   i < barCurrent,
+      isActive: i === barCurrent,
+    }));
+  } else {
+    barSegments = steps.map((step, i) => ({
+      key: step.id,
+      isDone:   i < current,
+      isActive: i === current,
+    }));
+  }
 
   return (
     <div className="fixed inset-0 z-[100] bg-black flex flex-col">
@@ -1458,13 +1476,13 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
                   </button>
                 )}
 
-                {/* Continue button — org users → match-screen slide; others → onboarding */}
+                {/* Continue button — advance one story at a time (match-screen reached naturally);
+                    new-user flow skips directly to onboarding */}
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
                     if (isOrgFlow) {
-                      const matchIdx = steps.findIndex(s => s.id === 'match-screen');
-                      if (matchIdx !== -1) goTo(matchIdx);
+                      goNext(); // advance normally; match-screen is the final story step
                     } else {
                       const firstSlide = getFirstOnboardingSlide(useRegistrationStore.getState());
                       navigate(`/${lang}/register/onboarding/${firstSlide}`);
