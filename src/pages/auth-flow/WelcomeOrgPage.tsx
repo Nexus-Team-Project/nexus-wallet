@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useLanguage } from '../../i18n/LanguageContext';
@@ -41,6 +41,8 @@ export default function WelcomeOrgPage() {
   const [selectedOrgIdx, setSelectedOrgIdx] = useState(0);
   // Gate safety-guard redirect until after first render (stores may hydrate async)
   const [mounted, setMounted] = useState(false);
+  // Prevents the safety guard from firing during intentional navigations
+  const navigatingAwayRef = useRef(false);
 
   // ── Auth state ───────────────────────────────────────────────
   const firstName  = useAuthStore((s) => s.firstName);
@@ -59,7 +61,8 @@ export default function WelcomeOrgPage() {
   const open = useLoginSheetStore((s) => s.open);
 
   // ── Tenant state ─────────────────────────────────────────────
-  const tenantConfig = useTenantStore((s) => s.config);
+  const tenantConfig  = useTenantStore((s) => s.config);
+  const clearTenant   = useTenantStore((s) => s.clearTenant);
 
   // ── Build org list ───────────────────────────────────────────
   const orgs: OrgEntry[] = useMemo(() => {
@@ -97,9 +100,11 @@ export default function WelcomeOrgPage() {
 
   useEffect(() => { setMounted(true); }, []);
 
-  // Safety guard: if no org data available, redirect to home
+  // Safety guard: if no org data available, redirect to home.
+  // Suppressed during intentional navigations (switch-account, continue-no-org)
+  // to prevent a race-condition redirect before clearTenant/resetRegistration settle.
   useEffect(() => {
-    if (mounted && orgs.length === 0) {
+    if (mounted && orgs.length === 0 && !navigatingAwayRef.current) {
       navigate(`/${lang}`, { replace: true });
     }
   }, [mounted, orgs.length, navigate, lang]);
@@ -121,6 +126,8 @@ export default function WelcomeOrgPage() {
 
   /** Continue without org → register as a plain new user (Nexus only, no org affiliation) */
   const handleContinueNoOrg = () => {
+    navigatingAwayRef.current = true;
+    clearTenant(); // remove org branding — Nexus colors take over from this point
     startRegistration({
       path:         'new-user',
       phone:        phone ?? '',
@@ -134,14 +141,16 @@ export default function WelcomeOrgPage() {
     );
   };
 
-  /** Switch account → logout, reset all state, reopen the auth sheet for a fresh flow */
+  /** Switch account → logout, reset state, reopen auth sheet for a fresh flow */
   const handleSwitchAccount = () => {
+    navigatingAwayRef.current = true;
     logout();
     resetRegistration();
-    // Open the auth sheet (root portal — persists after navigation)
-    // and navigate home so routing guards handle post-auth redirect
-    open().catch(() => {});
+    clearTenant();
+    // Navigate home first, then open the LoginSheet (it's a root portal —
+    // a microtask delay ensures the new page is mounted before the sheet appears)
     navigate(`/${lang}`, { replace: true });
+    Promise.resolve().then(() => open().catch(() => {}));
   };
 
   // ── Subtitle text ─────────────────────────────────────────────
