@@ -3,7 +3,6 @@ import type { useRegistrationStore } from '../stores/registrationStore';
 type RegistrationState = ReturnType<typeof useRegistrationStore.getState>;
 
 export const ONBOARDING_SLIDE_ORDER = [
-  'org-intro',           // conditional — only when orgMember is set (first slide in org flow)
   'verify-phone',        // conditional — only when phone is in missingFields
   'first-name',          // conditional — shown when firstName OR lastName is missing (collects both)
   'verify-email',        // conditional — only when email is missing AND not already known
@@ -20,10 +19,6 @@ export type OnboardingSlideId = typeof ONBOARDING_SLIDE_ORDER[number];
 /** Determines which slides should be included in the flow for this user */
 function buildActiveSlides(state: RegistrationState): OnboardingSlideId[] {
   return ONBOARDING_SLIDE_ORDER.filter((slide) => {
-    if (slide === 'org-intro') {
-      // Show only when user arrived through an org flow (orgMember set)
-      return !!state.orgMember;
-    }
     if (slide === 'verify-phone') {
       return state.missingFields.includes('phone');
     }
