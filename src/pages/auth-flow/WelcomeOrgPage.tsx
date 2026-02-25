@@ -5,6 +5,7 @@ import { useAuthStore } from '../../stores/authStore';
 import { useRegistrationStore } from '../../stores/registrationStore';
 import { useTenantStore } from '../../stores/tenantStore';
 import { getFirstOnboardingSlide } from '../../utils/onboardingNavigation';
+import NotYouSheet from '../../components/auth-flow/NotYouSheet';
 
 /** Auto-redirect delay (ms) for existing users */
 const EXISTING_USER_REDIRECT_MS = 2800;
@@ -16,6 +17,7 @@ export default function WelcomeOrgPage() {
   const { t } = useLanguage();
   const [visible, setVisible] = useState(false);
   const [leaving, setLeaving] = useState(false);
+  const [notYouOpen, setNotYouOpen] = useState(false);
 
   // mode=existing → משתמש קיים, auto-redirect לבית
   // mode=new      → משתמש חדש, כפתור להמשך רישום
@@ -293,16 +295,34 @@ export default function WelcomeOrgPage() {
           >
             {t.authFlow.welcomeOrgCta}
           </button>
-          {!isNewUser && (
-            <button
-              onClick={handleSkip}
-              className="w-full py-3 text-center text-sm text-white/60 hover:text-white transition-colors"
-            >
-              {t.authFlow.welcomeOrgSkip}
-            </button>
-          )}
+          <button
+            onClick={() => setNotYouOpen(true)}
+            className="w-full py-3 text-center text-sm text-white/60 hover:text-white transition-colors"
+          >
+            {t.authFlow.welcomeOrgNotYou}
+          </button>
         </div>
       </div>
+
+      {/* "זה לא אתה?" bottom sheet */}
+      <NotYouSheet
+        open={notYouOpen}
+        orgName={orgName}
+        orgColor={orgColor}
+        onClose={() => setNotYouOpen(false)}
+        onContinueAsIs={handleContinue}
+        onSwitchUser={() => {
+          setNotYouOpen(false);
+          // LoginSheet נפתח — אחרי auth חוזרים לאותו דף
+          import('../../stores/loginSheetStore').then(({ useLoginSheetStore }) => {
+            useLoginSheetStore.getState().open();
+          });
+        }}
+        onChangeOrg={() => {
+          setNotYouOpen(false);
+          navigate(`/${lang}/auth-flow/select-org`);
+        }}
+      />
 
       <style>{`
         @keyframes blob1 {
