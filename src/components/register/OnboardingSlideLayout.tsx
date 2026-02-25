@@ -1,6 +1,8 @@
 import { motion } from 'framer-motion';
 import type { ReactNode } from 'react';
 import { useLanguage } from '../../i18n/LanguageContext';
+import { useRegistrationStore } from '../../stores/registrationStore';
+import { useTenantStore } from '../../stores/tenantStore';
 
 interface OnboardingSlideLayoutProps {
   totalSlides: number;
@@ -43,6 +45,11 @@ export default function OnboardingSlideLayout({
   const { t, language } = useLanguage();
   const isHe = language === 'he';
 
+  // Org users: prepend one filled segment for match-screen (already completed)
+  const orgMember    = useRegistrationStore((s) => s.orgMember);
+  const tenantConfig = useTenantStore((s) => s.config);
+  const extraLeading = orgMember || tenantConfig ? 1 : 0;
+
   const ctaLabel = continueLabel ?? t.registration.onboardingContinue;
   const skipLabel = skipLabelProp ?? t.registration.onboardingSkip;
 
@@ -56,21 +63,25 @@ export default function OnboardingSlideLayout({
       transition={{ duration: 0.28, ease: [0.25, 0.46, 0.45, 0.94] }}
     >
       {/* ── Progress bars ── */}
+      {/* For org users: first segment = match-screen (always filled). */}
       <div className="flex-shrink-0 flex gap-1 px-3 pt-3 pb-2 z-50">
-        {Array.from({ length: totalSlides }).map((_, i) => (
-          <div
-            key={i}
-            className="flex-1 h-[3px] rounded-full overflow-hidden"
-            style={{ backgroundColor: 'rgba(255,255,255,0.3)' }}
-          >
-            <motion.div
-              className="h-full rounded-full bg-white"
-              initial={false}
-              animate={{ width: i < currentSlideIndex ? '100%' : '0%' }}
-              transition={{ duration: i < currentSlideIndex ? 0 : 0.3, ease: 'easeOut' }}
-            />
-          </div>
-        ))}
+        {Array.from({ length: totalSlides + extraLeading }).map((_, i) => {
+          const filled = i < currentSlideIndex + extraLeading;
+          return (
+            <div
+              key={i}
+              className="flex-1 h-[3px] rounded-full overflow-hidden"
+              style={{ backgroundColor: 'rgba(255,255,255,0.3)' }}
+            >
+              <motion.div
+                className="h-full rounded-full bg-white"
+                initial={false}
+                animate={{ width: filled ? '100%' : '0%' }}
+                transition={{ duration: filled ? 0 : 0.3, ease: 'easeOut' }}
+              />
+            </div>
+          );
+        })}
       </div>
 
       {/* ── Single scrollable white card ── */}
