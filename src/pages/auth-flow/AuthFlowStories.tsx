@@ -1147,12 +1147,14 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
     ...smartStorySteps,
   ];
 
-  // For org/tenant users: append match-screen as the final story step
+  // For org/tenant users: prepend match-screen as the FIRST story step so that
+  // its segment is segment #1 (filled while user reads), consistent with the
+  // onboarding bar which also treats match-screen as the leading segment.
   const isOrgFlow = Boolean(orgMember || tenantConfig);
 
   const [steps, setSteps] = useState<StoryStep[]>(() => {
     const base = flowType === 'new-user' ? newUserSteps : orgUserSteps;
-    return isOrgFlow ? [...base, { id: 'match-screen', interactive: true }] : base;
+    return isOrgFlow ? [{ id: 'match-screen', interactive: true }, ...base] : base;
   });
   const [current, setCurrent] = useState(0);
   const [direction, setDirection] = useState<1 | -1>(1);
@@ -1197,9 +1199,9 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
   const currentDuration = steps[current]?.duration ?? STORY_DURATION;
   useEffect(() => {
     if (isInteractive || !imagesLoaded) {
-      // Interactive slides (match-screen): keep segment empty — user hasn't acted yet.
-      // Loading skeleton: also keep at 0 until images are ready.
-      setProgress(0);
+      // Interactive slides (match-screen): mark segment as filled (1) — user is here.
+      // Loading skeleton: keep at 0 until images are ready.
+      setProgress(isInteractive ? 1 : 0);
       return;
     }
 
