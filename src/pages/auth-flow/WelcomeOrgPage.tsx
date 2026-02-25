@@ -1,9 +1,11 @@
 import { useState, useEffect, useMemo } from 'react';
+import { motion } from 'framer-motion';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { useAuthStore } from '../../stores/authStore';
 import { useRegistrationStore } from '../../stores/registrationStore';
 import { useTenantStore } from '../../stores/tenantStore';
+import { useLoginSheetStore } from '../../stores/loginSheetStore';
 import { getFirstOnboardingSlide } from '../../utils/onboardingNavigation';
 
 /**
@@ -19,8 +21,8 @@ import { getFirstOnboardingSlide } from '../../utils/onboardingNavigation';
  *   2. Org card (single org) or dropdown selector (multiple orgs)
  *   3. Three action buttons:
  *      - "המשך עם [orgName]"  → proceed with org affiliation
- *      - "להיכנס בלי שיוך"   → proceed without org
- *      - "התחבר עם חשבון אחר" → logout + re-auth
+ *      - "להיכנס בלי שיוך"   → proceed without org (new-user flow)
+ *      - "התחבר עם חשבון אחר" → logout + reset + reopen auth sheet
  */
 
 interface OrgEntry {
@@ -36,21 +38,25 @@ export default function WelcomeOrgPage() {
   const { t, language } = useLanguage();
   const isHe = language === 'he';
 
-  const [visible, setVisible] = useState(false);
   const [selectedOrgIdx, setSelectedOrgIdx] = useState(0);
+  // Gate safety-guard redirect until after first render (stores may hydrate async)
+  const [mounted, setMounted] = useState(false);
 
   // ── Auth state ───────────────────────────────────────────────
-  const firstName   = useAuthStore((s) => s.firstName);
-  const authMethod  = useAuthStore((s) => s.authMethod);
-  const logout      = useAuthStore((s) => s.logout);
+  const firstName  = useAuthStore((s) => s.firstName);
+  const authMethod = useAuthStore((s) => s.authMethod);
+  const logout     = useAuthStore((s) => s.logout);
 
   // ── Registration state ───────────────────────────────────────
-  const orgMember          = useRegistrationStore((s) => s.orgMember);
-  const phone              = useRegistrationStore((s) => s.phone);
-  const registrationPath   = useRegistrationStore((s) => s.registrationPath);
-  const missingFields      = useRegistrationStore((s) => s.missingFields);
-  const profileData        = useRegistrationStore((s) => s.profileData);
-  const startRegistration  = useRegistrationStore((s) => s.startRegistration);
+  const orgMember         = useRegistrationStore((s) => s.orgMember);
+  const phone             = useRegistrationStore((s) => s.phone);
+  const missingFields     = useRegistrationStore((s) => s.missingFields);
+  const profileData       = useRegistrationStore((s) => s.profileData);
+  const startRegistration = useRegistrationStore((s) => s.startRegistration);
+  const resetRegistration = useRegistrationStore((s) => s.resetRegistration);
+
+  // ── Login sheet ──────────────────────────────────────────────
+  const open = useLoginSheetStore((s) => s.open);
 
   // ── Tenant state ─────────────────────────────────────────────
   const tenantConfig = useTenantStore((s) => s.config);
@@ -89,18 +95,14 @@ export default function WelcomeOrgPage() {
           ? phone
           : null;
 
-  // ── Animations ───────────────────────────────────────────────
-  useEffect(() => {
-    const timer = setTimeout(() => setVisible(true), 60);
-    return () => clearTimeout(timer);
-  }, []);
+  useEffect(() => { setMounted(true); }, []);
 
   // Safety guard: if no org data available, redirect to home
   useEffect(() => {
-    if (visible && orgs.length === 0) {
+    if (mounted && orgs.length === 0) {
       navigate(`/${lang}`, { replace: true });
     }
-  }, [visible, orgs.length, navigate, lang]);
+  }, [mounted, orgs.length, navigate, lang]);
 
   // ── Action handlers ──────────────────────────────────────────
 
@@ -117,10 +119,10 @@ export default function WelcomeOrgPage() {
     }
   };
 
-  /** Continue without org affiliation → clear orgMember, start fresh */
+  /** Continue without org → register as a plain new user (Nexus only, no org affiliation) */
   const handleContinueNoOrg = () => {
     startRegistration({
-      path:         registrationPath ?? 'new-user',
+      path:         'new-user',
       phone:        phone ?? '',
       orgMember:    null,
       missingFields,
@@ -132,11 +134,13 @@ export default function WelcomeOrgPage() {
     );
   };
 
-  /** Switch to a different account → logout, go home (tenant context preserved) */
+  /** Switch account → logout, reset all state, reopen the auth sheet for a fresh flow */
   const handleSwitchAccount = () => {
     logout();
-    // Keep tenantStore so the org context is preserved if the user re-enters via the same link.
-    // Navigate home; the user can re-authenticate from there.
+    resetRegistration();
+    // Open the auth sheet (root portal — persists after navigation)
+    // and navigate home so routing guards handle post-auth redirect
+    open().catch(() => {});
     navigate(`/${lang}`, { replace: true });
   };
 
@@ -166,12 +170,11 @@ export default function WelcomeOrgPage() {
       <div className="flex-1 flex flex-col px-5 pb-6" style={{ paddingTop: 'max(env(safe-area-inset-top), 32px)' }}>
 
         {/* Header */}
-        <div
-          className="mb-6 transition-all duration-600 ease-out"
-          style={{
-            opacity:   visible ? 1 : 0,
-            transform: visible ? 'translateY(0)' : 'translateY(18px)',
-          }}
+        <motion.div
+          className="mb-6"
+          initial={{ opacity: 0, y: 18 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, ease: 'easeOut' }}
         >
           {/* Check badge */}
           <div
@@ -222,17 +225,17 @@ export default function WelcomeOrgPage() {
               </span>
             </div>
           )}
-        </div>
+        </motion.div>
 
         {/* ── Org card (single) ──────────────────────────────── */}
         {orgs.length === 1 && selectedOrg && (
-          <div
-            className="rounded-2xl p-4 mb-6 transition-all duration-500 ease-out"
+          <motion.div
+            className="rounded-2xl p-4 mb-6"
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, ease: 'easeOut', delay: 0.1 }}
             style={{
               background: `linear-gradient(135deg, ${orgColor} 0%, ${orgColor}cc 100%)`,
-              opacity:   visible ? 1 : 0,
-              transform: visible ? 'translateY(0)' : 'translateY(14px)',
-              transitionDelay: '100ms',
             }}
           >
             <div className="flex items-center gap-3">
@@ -278,18 +281,16 @@ export default function WelcomeOrgPage() {
                 </span>
               </div>
             </div>
-          </div>
+          </motion.div>
         )}
 
         {/* ── Org dropdown (multiple) ───────────────────────── */}
         {orgs.length > 1 && (
-          <div
-            className="mb-6 transition-all duration-500 ease-out"
-            style={{
-              opacity:   visible ? 1 : 0,
-              transform: visible ? 'translateY(0)' : 'translateY(14px)',
-              transitionDelay: '100ms',
-            }}
+          <motion.div
+            className="mb-6"
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, ease: 'easeOut', delay: 0.1 }}
           >
             <label className="block text-xs text-text-muted mb-1.5 font-medium">
               {isHe ? 'בחר ארגון' : 'Select organization'}
@@ -305,20 +306,18 @@ export default function WelcomeOrgPage() {
                 </option>
               ))}
             </select>
-          </div>
+          </motion.div>
         )}
 
         {/* Spacer pushes buttons to bottom */}
         <div className="flex-1" />
 
         {/* ── Action buttons ────────────────────────────────── */}
-        <div
-          className="space-y-3 transition-all duration-500 ease-out"
-          style={{
-            opacity:   visible ? 1 : 0,
-            transform: visible ? 'translateY(0)' : 'translateY(16px)',
-            transitionDelay: '200ms',
-          }}
+        <motion.div
+          className="space-y-3"
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, ease: 'easeOut', delay: 0.2 }}
         >
           {/* Primary: continue with org */}
           <button
@@ -347,7 +346,7 @@ export default function WelcomeOrgPage() {
           >
             {t.authFlow.matchSwitchAccount}
           </button>
-        </div>
+        </motion.div>
       </div>
     </div>
   );
