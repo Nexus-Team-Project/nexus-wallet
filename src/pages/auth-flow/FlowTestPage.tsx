@@ -125,7 +125,7 @@ export default function FlowTestPage() {
       phone: '050-0000001',
       missingFields: ['firstName', 'lastName', 'email', 'birthday'],
     });
-    setTimeout(() => navigate(`/${lang}/auth-flow/org-user`), 50);
+    setTimeout(() => navigate(`/${lang}/auth-flow/welcome-new`), 50);
   };
 
   // ─── Flow 1: Existing User ───────────────────────────────────────────
@@ -219,7 +219,7 @@ export default function FlowTestPage() {
       missingFields: ['phone', 'email', 'birthday'],
       returnTo: `/${lang}`,
     });
-    setTimeout(() => navigate(`/${lang}/auth-flow/org-user`), 50);
+    setTimeout(() => navigate(`/${lang}/auth-flow/welcome-new`), 50);
   };
 
   /** Phone OTP sign-in — phone known, org has name */
@@ -246,7 +246,7 @@ export default function FlowTestPage() {
       missingFields: ['email', 'birthday'],
       returnTo: `/${lang}`,
     });
-    setTimeout(() => navigate(`/${lang}/auth-flow/org-user`), 50);
+    setTimeout(() => navigate(`/${lang}/auth-flow/welcome-new`), 50);
   };
 
   return (
@@ -339,7 +339,7 @@ export default function FlowTestPage() {
           <div className="border-t border-dashed border-orange-200 pt-2 flex flex-col gap-2">
             <p className="text-[10px] text-orange-400 font-bold">+ עם ?customerId=</p>
             <button onClick={simulateCustomerIdNewUser} className="w-full py-3 rounded-xl border-2 text-sm font-semibold active:scale-[0.98] transition-all" style={{ borderColor: customerIdTenant?.primaryColor, color: customerIdTenant?.primaryColor }}>
-              🆕 חדש + ח"פ → WelcomeOrg → רישום
+              🆕 חדש + ח"פ → Welcome Nexus → דף התאמה → רישום
             </button>
           </div>
         </div>
@@ -351,7 +351,7 @@ export default function FlowTestPage() {
           <div className="w-7 h-7 rounded-full bg-accent-cyan/20 flex items-center justify-center text-primary text-xs font-bold">3</div>
           <div>
             <h2 className="text-sm font-bold text-text-primary">Flow 3 — Pre-provisioned</h2>
-            <p className="text-xs text-text-muted">נמצא ברשומות הארגון → Welcome ארגוני → השלמת פרטים</p>
+            <p className="text-xs text-text-muted">נמצא ברשומות הארגון → Welcome Nexus → דף התאמה → השלמת פרטים</p>
           </div>
         </div>
         <div className="flex flex-col gap-2">
@@ -365,7 +365,7 @@ export default function FlowTestPage() {
           <div className="border-t border-dashed border-orange-200 pt-2 flex flex-col gap-2">
             <p className="text-[10px] text-orange-400 font-bold">+ עם ?customerId=</p>
             <button onClick={simulateCustomerIdNewUser} className="w-full py-3 rounded-xl border-2 text-sm font-semibold active:scale-[0.98] transition-all" style={{ borderColor: customerIdTenant?.primaryColor, color: customerIdTenant?.primaryColor }}>
-              🏅 Pre-provisioned + ח"פ → WelcomeOrg → רישום
+              🏅 Pre-provisioned + ח"פ → Welcome Nexus → דף התאמה → רישום
             </button>
           </div>
         </div>
@@ -424,7 +424,8 @@ export default function FlowTestPage() {
             <p className="text-[10px] text-purple-400 font-bold mb-2">קפיצה ישירה לשקף:</p>
             <div className="grid grid-cols-2 gap-1.5">
               {[
-                { label: 'verify-phone', path: 'verify-phone' },
+                { label: 'org-intro',    path: 'org-intro' },
+              { label: 'verify-phone', path: 'verify-phone' },
                 { label: 'first-name',   path: 'first-name' },
                 { label: 'verify-email', path: 'verify-email' },
                 { label: 'consents', path: 'consents' },
