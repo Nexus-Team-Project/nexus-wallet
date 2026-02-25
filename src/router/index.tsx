@@ -1,42 +1,69 @@
+import { lazy, Suspense } from 'react';
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import LanguageRouter from './LanguageRouter';
 import ProtectedRoute from './ProtectedRoute';
 import ErrorBoundary from '../components/ErrorBoundary';
+
+// ── Always eager (tiny, needed immediately) ─────────────────────────────────
 import RegistrationGuard from '../components/registration/RegistrationGuard';
 import AppLayout from '../components/layout/AppLayout';
-import HomePage from '../pages/HomePage';
-import StorePage from '../pages/StorePage';
-import WalletPage from '../pages/WalletPage';
-import ActivityPage from '../pages/ActivityPage';
-import ProfilePage from '../pages/ProfilePage';
-import SearchPage from '../pages/SearchPage';
-import AiChatPage from '../pages/AiChatPage';
-import RegisterMembershipPage from '../pages/RegisterMembershipPage';
-import RegisterPreferencesPage from '../pages/RegisterPreferencesPage';
-import SignupPage from '../pages/SignupPage';
-import NearYouMapPage from '../pages/NearYouMapPage';
-import InsightsPage from '../pages/InsightsPage';
-import StoriesPage from '../pages/StoriesPage';
-import PremiumRevealPage from '../pages/PremiumRevealPage';
 import NotFoundPage from '../pages/NotFoundPage';
-import WelcomeBackPage from '../pages/auth-flow/WelcomeBackPage';
-import WelcomeNewPage from '../pages/auth-flow/WelcomeNewPage';
-import HowDidYouArrivePage from '../pages/auth-flow/HowDidYouArrivePage';
-import SelectOrgPage from '../pages/auth-flow/SelectOrgPage';
-import FlowTestPage from '../pages/auth-flow/FlowTestPage';
-import { NewUserFlow, OrgUserFlow } from '../pages/auth-flow/AuthFlowStories';
-// Onboarding slides
-import FirstNameSlide from '../pages/register/onboarding/FirstNameSlide';
-import VerifyPhoneSlide from '../pages/register/onboarding/VerifyPhoneSlide';
-import VerifyEmailSlide from '../pages/register/onboarding/VerifyEmailSlide';
-import ConsentsSlide from '../pages/register/onboarding/ConsentsSlide';
-import PurposeSlide from '../pages/register/onboarding/PurposeSlide';
-import LifeStageSlide from '../pages/register/onboarding/LifeStageSlide';
-import BirthdaySlide from '../pages/register/onboarding/BirthdaySlide';
-import GenderSlide from '../pages/register/onboarding/GenderSlide';
-import BenefitCategoriesSlide from '../pages/register/onboarding/BenefitCategoriesSlide';
-import InviteFriendsSlide from '../pages/register/onboarding/InviteFriendsSlide';
-import RegistrationCompletePage from '../pages/register/RegistrationCompletePage';
+
+// ── Lazy chunks ──────────────────────────────────────────────────────────────
+// Main app tabs — loaded right after initial render
+const HomePage           = lazy(() => import('../pages/HomePage'));
+const StorePage          = lazy(() => import('../pages/StorePage'));
+const WalletPage         = lazy(() => import('../pages/WalletPage'));
+const ActivityPage       = lazy(() => import('../pages/ActivityPage'));
+const ProfilePage        = lazy(() => import('../pages/ProfilePage'));
+
+// Utility pages
+const SearchPage         = lazy(() => import('../pages/SearchPage'));
+const AiChatPage         = lazy(() => import('../pages/AiChatPage'));
+const NearYouMapPage     = lazy(() => import('../pages/NearYouMapPage'));
+const InsightsPage       = lazy(() => import('../pages/InsightsPage'));
+const StoriesPage        = lazy(() => import('../pages/StoriesPage'));
+const ReferralStoriesPage = lazy(() => import('../pages/ReferralStoriesPage'));
+const PremiumRevealPage  = lazy(() => import('../pages/PremiumRevealPage'));
+const SignupPage         = lazy(() => import('../pages/SignupPage'));
+
+// Registration flow — single chunk (user goes through all slides sequentially)
+const RegisterMembershipPage   = lazy(() => import('../pages/RegisterMembershipPage'));
+const RegisterPreferencesPage  = lazy(() => import('../pages/RegisterPreferencesPage'));
+const RegistrationCompletePage = lazy(() => import('../pages/register/RegistrationCompletePage'));
+
+// Onboarding slides — chunk per slide (loaded one at a time)
+const VerifyPhoneSlide       = lazy(() => import('../pages/register/onboarding/VerifyPhoneSlide'));
+const FirstNameSlide         = lazy(() => import('../pages/register/onboarding/FirstNameSlide'));
+const VerifyEmailSlide       = lazy(() => import('../pages/register/onboarding/VerifyEmailSlide'));
+const ConsentsSlide          = lazy(() => import('../pages/register/onboarding/ConsentsSlide'));
+const PurposeSlide           = lazy(() => import('../pages/register/onboarding/PurposeSlide'));
+const LifeStageSlide         = lazy(() => import('../pages/register/onboarding/LifeStageSlide'));
+const BirthdaySlide          = lazy(() => import('../pages/register/onboarding/BirthdaySlide'));
+const GenderSlide            = lazy(() => import('../pages/register/onboarding/GenderSlide'));
+const BenefitCategoriesSlide = lazy(() => import('../pages/register/onboarding/BenefitCategoriesSlide'));
+
+// Auth flow
+const WelcomeBackPage      = lazy(() => import('../pages/auth-flow/WelcomeBackPage'));
+const WelcomeNewPage       = lazy(() => import('../pages/auth-flow/WelcomeNewPage'));
+const HowDidYouArrivePage  = lazy(() => import('../pages/auth-flow/HowDidYouArrivePage'));
+const SelectOrgPage        = lazy(() => import('../pages/auth-flow/SelectOrgPage'));
+const FlowTestPage         = lazy(() => import('../pages/auth-flow/FlowTestPage'));
+const NewUserFlow = lazy(() =>
+  import('../pages/auth-flow/AuthFlowStories').then((m) => ({ default: m.NewUserFlow }))
+);
+const OrgUserFlow = lazy(() =>
+  import('../pages/auth-flow/AuthFlowStories').then((m) => ({ default: m.OrgUserFlow }))
+);
+
+// ── Minimal fallback (no spinner — just blank, transitions feel instant) ─────
+function PageFallback() {
+  return <div className="min-h-dvh bg-white" />;
+}
+
+function S({ children }: { children: React.ReactNode }) {
+  return <Suspense fallback={<PageFallback />}>{children}</Suspense>;
+}
 
 export const router = createBrowserRouter([
   {
@@ -52,67 +79,65 @@ export const router = createBrowserRouter([
         element: <AppLayout />,
         children: [
           // === PUBLIC routes ===
-          { index: true, element: <HomePage /> },
-          { path: 'store', element: <StorePage /> },
+          { index: true,      element: <S><HomePage /></S> },
+          { path: 'store',    element: <S><StorePage /></S> },
 
           // === PROTECTED routes ===
           {
             element: <ProtectedRoute />,
             children: [
-              { path: 'wallet', element: <WalletPage /> },
-              { path: 'activity', element: <ActivityPage /> },
-              { path: 'profile', element: <ProfilePage /> },
+              { path: 'wallet',   element: <S><WalletPage /></S> },
+              { path: 'activity', element: <S><ActivityPage /></S> },
+              { path: 'profile',  element: <S><ProfilePage /></S> },
             ],
           },
         ],
       },
-      // Outside AppLayout (own headers)
-      { path: 'search', element: <SearchPage /> },
-      { path: 'chat', element: <AiChatPage /> },
-      { path: 'near-you-map', element: <NearYouMapPage /> },
-      { path: 'insights', element: <InsightsPage /> },
-      { path: 'stories', element: <StoriesPage /> },
-      { path: 'premium-reveal', element: <PremiumRevealPage /> },
-      { path: 'signup', element: <SignupPage /> },
 
-      // Registration flow (outside AppLayout, full-page)
+      // Outside AppLayout (own headers)
+      { path: 'search',           element: <S><SearchPage /></S> },
+      { path: 'chat',             element: <S><AiChatPage /></S> },
+      { path: 'near-you-map',     element: <S><NearYouMapPage /></S> },
+      { path: 'insights',         element: <S><InsightsPage /></S> },
+      { path: 'stories',          element: <S><StoriesPage /></S> },
+      { path: 'referral-stories', element: <S><ReferralStoriesPage /></S> },
+      { path: 'premium-reveal',   element: <S><PremiumRevealPage /></S> },
+      { path: 'signup',           element: <S><SignupPage /></S> },
+
+      // Registration flow
       {
         path: 'register',
         element: <RegistrationGuard />,
         children: [
-          { path: 'membership', element: <RegisterMembershipPage /> },
-          { path: 'preferences', element: <RegisterPreferencesPage /> },
-          // Onboarding slides — each is its own dedicated route
-          { path: 'onboarding/verify-phone',       element: <VerifyPhoneSlide /> },
-          { path: 'onboarding/first-name',         element: <FirstNameSlide /> },
-          { path: 'onboarding/verify-email',       element: <VerifyEmailSlide /> },
-          { path: 'onboarding/consents',           element: <ConsentsSlide /> },
-          { path: 'onboarding/purpose',            element: <PurposeSlide /> },
-          { path: 'onboarding/life-stage',         element: <LifeStageSlide /> },
-          { path: 'onboarding/birthday',           element: <BirthdaySlide /> },
-          { path: 'onboarding/gender',             element: <GenderSlide /> },
-          { path: 'onboarding/benefit-categories', element: <BenefitCategoriesSlide /> },
-          { path: 'onboarding/invite-friends',      element: <InviteFriendsSlide /> },
-          // Completion — PremiumReveal experience before finalizing registration
-          { path: 'complete', element: <RegistrationCompletePage /> },
+          { path: 'membership',  element: <S><RegisterMembershipPage /></S> },
+          { path: 'preferences', element: <S><RegisterPreferencesPage /></S> },
+          { path: 'onboarding/verify-phone',       element: <S><VerifyPhoneSlide /></S> },
+          { path: 'onboarding/first-name',         element: <S><FirstNameSlide /></S> },
+          { path: 'onboarding/verify-email',       element: <S><VerifyEmailSlide /></S> },
+          { path: 'onboarding/consents',           element: <S><ConsentsSlide /></S> },
+          { path: 'onboarding/purpose',            element: <S><PurposeSlide /></S> },
+          { path: 'onboarding/life-stage',         element: <S><LifeStageSlide /></S> },
+          { path: 'onboarding/birthday',           element: <S><BirthdaySlide /></S> },
+          { path: 'onboarding/gender',             element: <S><GenderSlide /></S> },
+          { path: 'onboarding/benefit-categories', element: <S><BenefitCategoriesSlide /></S> },
+          { path: 'complete',    element: <S><RegistrationCompletePage /></S> },
         ],
       },
 
-      // Auth Flow (outside AppLayout, full-page — like signup/register)
+      // Auth Flow
       {
         path: 'auth-flow',
         children: [
-          { path: 'welcome-back', element: <WelcomeBackPage /> },
-          { path: 'welcome-new', element: <WelcomeNewPage /> },
-          { path: 'how-did-you-arrive', element: <HowDidYouArrivePage /> },
-          { path: 'select-org', element: <SelectOrgPage /> },
-          { path: 'test', element: <FlowTestPage /> },
-          { path: 'new-user', element: <NewUserFlow /> },
-          { path: 'org-user', element: <OrgUserFlow /> },
+          { path: 'welcome-back',       element: <S><WelcomeBackPage /></S> },
+          { path: 'welcome-new',        element: <S><WelcomeNewPage /></S> },
+          { path: 'how-did-you-arrive', element: <S><HowDidYouArrivePage /></S> },
+          { path: 'select-org',         element: <S><SelectOrgPage /></S> },
+          { path: 'test',               element: <S><FlowTestPage /></S> },
+          { path: 'new-user',           element: <S><NewUserFlow /></S> },
+          { path: 'org-user',           element: <S><OrgUserFlow /></S> },
         ],
       },
 
-      // Catch-all: redirect unknown lang-routes (e.g. /he/login) → home
       { path: '*', element: <Navigate to=".." replace /> },
     ],
   },
