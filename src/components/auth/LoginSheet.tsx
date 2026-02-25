@@ -260,7 +260,7 @@ export default function LoginSheet() {
         return;
       }
 
-      // PATH B: Org member with missing fields → pre-provision welcome → match screen
+      // PATH B: Org member with missing fields → Nexus welcome → match screen
       if (orgMember && !profileComplete) {
         startRegistration({
           path: 'org-member-incomplete',
@@ -274,7 +274,7 @@ export default function LoginSheet() {
           missingFields,
         });
         close();
-        navigate(`/${lang}/auth-flow/org-welcome`);
+        navigate(`/${lang}/auth-flow/welcome-new`);
         return;
       }
 
@@ -291,7 +291,8 @@ export default function LoginSheet() {
             missingFields: phoneMissing,
           });
           close();
-          navigate(`/${lang}/auth-flow/org-user`);
+          // Nexus welcome first, then Match Screen
+          navigate(`/${lang}/auth-flow/welcome-new`);
         }
         return;
       }
@@ -317,7 +318,7 @@ export default function LoginSheet() {
         return;
       }
 
-      // PATH D: Tenant without fee → Match Screen (user is in an org context)
+      // PATH D: Tenant without fee → Nexus welcome → Match Screen
       if (tenantConfig) {
         startRegistration({
           path: 'tenant-no-fee',
@@ -325,7 +326,7 @@ export default function LoginSheet() {
           missingFields: phoneMissing,
         });
         close();
-        navigate(`/${lang}/auth-flow/org-user`);
+        navigate(`/${lang}/auth-flow/welcome-new`);
         return;
       }
 
@@ -391,7 +392,8 @@ export default function LoginSheet() {
               });
             }
             close();
-            navigate(`/${lang}/auth-flow/org-user`);
+            // Nexus welcome first, then Match Screen
+            navigate(`/${lang}/auth-flow/welcome-new`);
           }
           return;
         }
@@ -402,7 +404,7 @@ export default function LoginSheet() {
           return;
         }
 
-        // ── Org member via Google: pre-provision welcome → match screen ──
+        // ── Org member via Google: Nexus welcome → match screen ──
         if (orgMember) {
           // Google gives email + name, org gives org info → only phone missing
           const missingFields: string[] = ['phone'];
@@ -429,7 +431,7 @@ export default function LoginSheet() {
             });
           }
           close();
-          navigate(`/${lang}/auth-flow/org-welcome`);
+          navigate(`/${lang}/auth-flow/welcome-new`);
           return;
         }
 
@@ -458,8 +460,8 @@ export default function LoginSheet() {
         if (tenantConfig?.requiresMembershipFee) {
           navigate(`/${lang}/register/membership`);
         } else if (tenantConfig) {
-          // Tenant context without fee → Match Screen
-          navigate(`/${lang}/auth-flow/org-user`);
+          // Tenant context without fee → Nexus welcome → Match Screen
+          navigate(`/${lang}/auth-flow/welcome-new`);
         } else {
           // No org context → straight to onboarding
           navigate(
@@ -523,8 +525,8 @@ export default function LoginSheet() {
         if (tenantConfig?.requiresMembershipFee) {
           navigate(`/${lang}/register/membership`);
         } else if (tenantConfig) {
-          // Tenant context without fee → Match Screen
-          navigate(`/${lang}/auth-flow/org-user`);
+          // Tenant context without fee → Nexus welcome → Match Screen
+          navigate(`/${lang}/auth-flow/welcome-new`);
         } else {
           // No org context → straight to onboarding
           navigate(

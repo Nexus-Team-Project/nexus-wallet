@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { useLoginSheetStore } from '../../stores/loginSheetStore';
+import { useTenantStore } from '../../stores/tenantStore';
+import { useRegistrationStore } from '../../stores/registrationStore';
 
 const BULLETS = [
   { emoji: '⚡', key: 'welcomeNewBullet1' as const },
@@ -54,6 +56,12 @@ export default function WelcomeNewPage() {
   const { t } = useLanguage();
   const [visible, setVisible] = useState(false);
   const open = useLoginSheetStore((s) => s.open);
+  const tenantConfig = useTenantStore((s) => s.config);
+  const orgMember = useRegistrationStore((s) => s.orgMember);
+
+  // When the user arrived via an org link (PATH B / D), skip "how did you arrive"
+  // and go straight to the Match Screen.
+  const hasOrgContext = !!(tenantConfig || orgMember);
 
   useEffect(() => {
     const timer = setTimeout(() => setVisible(true), 60);
@@ -120,7 +128,11 @@ export default function WelcomeNewPage() {
 
         <div className="mt-auto space-y-3">
           <button
-            onClick={() => navigate(`/${lang}/auth-flow/how-did-you-arrive`)}
+            onClick={() =>
+              navigate(
+                `/${lang}/auth-flow/${hasOrgContext ? 'org-user' : 'how-did-you-arrive'}`
+              )
+            }
             className="w-full py-4 rounded-2xl bg-primary text-white font-bold text-sm hover:bg-primary-dark active:scale-[0.98] transition-all"
           >
             {t.authFlow.welcomeNewCta}

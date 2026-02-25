@@ -32,6 +32,7 @@ const RegisterPreferencesPage  = lazy(() => import('../pages/RegisterPreferences
 const RegistrationCompletePage = lazy(() => import('../pages/register/RegistrationCompletePage'));
 
 // Onboarding slides — chunk per slide (loaded one at a time)
+const OrgIntroSlide          = lazy(() => import('../pages/register/onboarding/OrgIntroSlide'));
 const VerifyPhoneSlide       = lazy(() => import('../pages/register/onboarding/VerifyPhoneSlide'));
 const FirstNameSlide         = lazy(() => import('../pages/register/onboarding/FirstNameSlide'));
 const VerifyEmailSlide       = lazy(() => import('../pages/register/onboarding/VerifyEmailSlide'));
@@ -48,7 +49,6 @@ const WelcomeNewPage       = lazy(() => import('../pages/auth-flow/WelcomeNewPag
 const HowDidYouArrivePage  = lazy(() => import('../pages/auth-flow/HowDidYouArrivePage'));
 const SelectOrgPage        = lazy(() => import('../pages/auth-flow/SelectOrgPage'));
 const FlowTestPage         = lazy(() => import('../pages/auth-flow/FlowTestPage'));
-const OrgWelcomePage       = lazy(() => import('../pages/auth-flow/OrgWelcomePage'));
 const WelcomeOrgPage       = lazy(() => import('../pages/auth-flow/WelcomeOrgPage'));
 const NewUserFlow = lazy(() =>
   import('../pages/auth-flow/AuthFlowStories').then((m) => ({ default: m.NewUserFlow }))
@@ -108,6 +108,7 @@ export const router = createBrowserRouter([
         children: [
           { path: 'membership',  element: <S><RegisterMembershipPage /></S> },
           { path: 'preferences', element: <S><RegisterPreferencesPage /></S> },
+          { path: 'onboarding/org-intro',          element: <S><OrgIntroSlide /></S> },
           { path: 'onboarding/verify-phone',       element: <S><VerifyPhoneSlide /></S> },
           { path: 'onboarding/first-name',         element: <S><FirstNameSlide /></S> },
           { path: 'onboarding/verify-email',       element: <S><VerifyEmailSlide /></S> },
@@ -131,8 +132,6 @@ export const router = createBrowserRouter([
           { path: 'select-org',         element: <S><SelectOrgPage /></S> },
           { path: 'test',               element: <S><FlowTestPage /></S> },
           { path: 'new-user',           element: <S><NewUserFlow /></S> },
-          // org-welcome: simple Nexus intro for pre-provision users (PATH B)
-          { path: 'org-welcome',        element: <S><OrgWelcomePage /></S> },
           // org-user: Match Screen ("מצאנו התאמה") — for all org-context new users
           { path: 'org-user',           element: <S><WelcomeOrgPage /></S> },
         ],
