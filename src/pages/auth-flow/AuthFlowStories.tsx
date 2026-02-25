@@ -1297,27 +1297,17 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
 
   return (
     <div className="fixed inset-0 z-[100] bg-black flex flex-col">
-      {/* ── Progress bars — animated fill like StoriesPage ── */}
-      <div className="flex gap-1 px-3 pt-3 pb-2 z-50">
-        {steps.map((step, i) => (
+      {/* ── Progress bar — single continuous fill across all slides ── */}
+      <div className="px-3 pt-3 pb-2 z-50">
+        <div
+          className="h-[3px] w-full rounded-full overflow-hidden"
+          style={{ backgroundColor: 'rgba(255,255,255,0.3)' }}
+        >
           <div
-            key={step.id}
-            className="flex-1 h-[3px] rounded-full overflow-hidden"
-            style={{ backgroundColor: 'rgba(255,255,255,0.3)' }}
-          >
-            <div
-              className="h-full rounded-full bg-white"
-              style={{
-                width:
-                  i < current
-                    ? '100%'
-                    : i === current
-                      ? `${progress * 100}%`
-                      : '0%',
-              }}
-            />
-          </div>
-        ))}
+            className="h-full rounded-full bg-white"
+            style={{ width: `${((current + progress) / steps.length) * 100}%` }}
+          />
+        </div>
       </div>
 
       {/* ── Close button — identical to StoriesPage ── */}
