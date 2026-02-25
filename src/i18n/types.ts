@@ -382,7 +382,7 @@ export interface TranslationKeys {
     selectOrgTitle: string;
     selectOrgSearch: string;
     selectOrgNotFound: string;
-    // Flow 3 — Welcome Org
+    // Flow 3 — Welcome Org (pre-provision splash)
     welcomeOrgTitle: string;
     welcomeOrgSubtitle: string;
     welcomeOrgBullet1: string;
@@ -390,6 +390,27 @@ export interface TranslationKeys {
     welcomeOrgBullet3: string;
     welcomeOrgCta: string;
     welcomeOrgSkip: string;
+    welcomeOrgNotYou: string;
+    // NotYouSheet
+    notYouSheetTitle: string;
+    notYouSwitchUserLabel: string;
+    notYouSwitchUserDesc: string;
+    notYouChangeOrgLabel: string;
+    notYouChangeOrgDesc: string;
+    notYouContinueLabel: string;
+    notYouContinueDesc: string;
+    // OrgWelcomePage — simple Nexus intro for pre-provision users
+    orgWelcomeTitle: string;
+    orgWelcomeSubtitle: string;
+    orgWelcomeCta: string;
+    // Match Screen — "מצאנו התאמה" (WelcomeOrgPage redesigned)
+    matchTitle: string;
+    matchSubtitleSingle: string;
+    matchSubtitleMultiple: string;
+    matchConnectedAs: string;
+    matchContinueWithOrg: string;
+    matchContinueNoOrg: string;
+    matchSwitchAccount: string;
   };
 }
 

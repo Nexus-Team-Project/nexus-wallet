@@ -36,6 +36,18 @@ export const authFlowTranslations = {
     notYouChangeOrgDesc: 'You belong to a different organization',
     notYouContinueLabel: 'Everything is correct',
     notYouContinueDesc: 'Continue with the current details',
+    // OrgWelcomePage — pre-provision intro
+    orgWelcomeTitle: 'Welcome to Nexus',
+    orgWelcomeSubtitle: '{{orgName}} chose to give its members exclusive access to Nexus benefits',
+    orgWelcomeCta: 'Continue',
+    // Match Screen ("We found a match")
+    matchTitle: 'We found a match',
+    matchSubtitleSingle: 'Your account is associated with {{orgName}}',
+    matchSubtitleMultiple: 'Your account matches multiple organizations',
+    matchConnectedAs: 'Signed in as {{identifier}}',
+    matchContinueWithOrg: 'Continue with {{orgName}}',
+    matchContinueNoOrg: 'Continue without organization',
+    matchSwitchAccount: 'Sign in with a different account',
   },
   he: {
     welcomeBackTitle: 'טוב שחזרת 👋',
@@ -74,5 +86,17 @@ export const authFlowTranslations = {
     notYouChangeOrgDesc: 'אתה שייך לארגון שונה',
     notYouContinueLabel: 'הכל נכון, להמשיך',
     notYouContinueDesc: 'המשך עם הפרטים הנוכחיים',
+    // OrgWelcomePage — עמוד ברוך הבא לפני מסך ההתאמה (pre-provision)
+    orgWelcomeTitle: 'ברוך הבא ל-Nexus',
+    orgWelcomeSubtitle: '{{orgName}} בחרה לתת לחבריה גישה בלעדית להטבות של Nexus',
+    orgWelcomeCta: 'להמשך',
+    // Match Screen — "מצאנו התאמה"
+    matchTitle: 'מצאנו התאמה',
+    matchSubtitleSingle: 'החשבון שלך משויך ל-{{orgName}}',
+    matchSubtitleMultiple: 'החשבון שלך תואם לכמה ארגונים',
+    matchConnectedAs: 'מחובר כ-{{identifier}}',
+    matchContinueWithOrg: 'המשך עם {{orgName}}',
+    matchContinueNoOrg: 'להיכנס בלי שיוך ארגוני',
+    matchSwitchAccount: 'התחבר עם חשבון אחר',
   },
 };

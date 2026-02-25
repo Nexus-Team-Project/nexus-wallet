@@ -1106,7 +1106,8 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
   // };
 
   const handleOrgSwitchUser = () => {
-    navigate(`/${lang}/signup`);
+    // OrgUserFlow is superseded by WelcomeOrgPage (Match Screen); navigate home as fallback.
+    navigate(`/${lang}`, { replace: true });
   };
 
   const slideVariants = {

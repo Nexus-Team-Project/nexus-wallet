@@ -13,6 +13,7 @@ import {
   firebaseSaveConsent,
 } from '../../services/auth.service';
 import { lookupTenantByOrg } from '../../mock/handlers/tenant.handler';
+import { getFirstOnboardingSlide } from '../../utils/onboardingNavigation';
 
 export default function LoginSheet() {
   const { lang = 'he' } = useParams();
@@ -259,7 +260,7 @@ export default function LoginSheet() {
         return;
       }
 
-      // PATH B: Org member with missing fields → profile completion
+      // PATH B: Org member with missing fields → pre-provision welcome → match screen
       if (orgMember && !profileComplete) {
         startRegistration({
           path: 'org-member-incomplete',
@@ -273,15 +274,15 @@ export default function LoginSheet() {
           missingFields,
         });
         close();
-        navigate(`/${lang}/signup`);
+        navigate(`/${lang}/auth-flow/org-welcome`);
         return;
       }
 
       // CUSTOMER-ID FLOW: arrived via ?customerId= link
       if (tenantConfig?.customerId) {
-        close();
         if (useAuthStore.getState().profileCompleted) {
-          navigate(`/${lang}/auth-flow/org-user`);
+          // Returning user — go home, not back to org welcome page
+          completeLogin();
         } else {
           const phoneMissing = ['firstName', 'lastName', 'email', 'birthday'];
           startRegistration({
@@ -289,6 +290,7 @@ export default function LoginSheet() {
             phone,
             missingFields: phoneMissing,
           });
+          close();
           navigate(`/${lang}/auth-flow/org-user`);
         }
         return;
@@ -315,7 +317,7 @@ export default function LoginSheet() {
         return;
       }
 
-      // PATH D: Tenant without fee
+      // PATH D: Tenant without fee → Match Screen (user is in an org context)
       if (tenantConfig) {
         startRegistration({
           path: 'tenant-no-fee',
@@ -323,18 +325,20 @@ export default function LoginSheet() {
           missingFields: phoneMissing,
         });
         close();
-        navigate(`/${lang}/signup`);
+        navigate(`/${lang}/auth-flow/org-user`);
         return;
       }
 
-      // PATH C: New user (no tenant, no org) → registration
+      // PATH C: New user (no tenant, no org) → straight to onboarding
       startRegistration({
         path: 'new-user',
         phone,
         missingFields: phoneMissing,
       });
       close();
-      navigate(`/${lang}/signup`);
+      navigate(
+        `/${lang}/register/onboarding/${getFirstOnboardingSlide(useRegistrationStore.getState())}`
+      );
     } finally {
       setIsLoading(false);
     }
@@ -370,9 +374,9 @@ export default function LoginSheet() {
 
         // CUSTOMER-ID FLOW: arrived via ?customerId= link
         if (tenantConfig?.customerId) {
-          close();
           if (useAuthStore.getState().profileCompleted) {
-            navigate(`/${lang}/auth-flow/org-user`);
+            // Returning user — go home, not back to org welcome page
+            completeLogin();
           } else {
             startRegistration({
               path: tenantConfig.requiresMembershipFee ? 'tenant-with-fee' : 'tenant-no-fee',
@@ -386,6 +390,7 @@ export default function LoginSheet() {
                 email: result.profile.email,
               });
             }
+            close();
             navigate(`/${lang}/auth-flow/org-user`);
           }
           return;
@@ -397,7 +402,7 @@ export default function LoginSheet() {
           return;
         }
 
-        // ── Org member via Google: route to org-member path ──
+        // ── Org member via Google: pre-provision welcome → match screen ──
         if (orgMember) {
           // Google gives email + name, org gives org info → only phone missing
           const missingFields: string[] = ['phone'];
@@ -424,7 +429,7 @@ export default function LoginSheet() {
             });
           }
           close();
-          navigate(`/${lang}/signup`);
+          navigate(`/${lang}/auth-flow/org-welcome`);
           return;
         }
 
@@ -452,8 +457,14 @@ export default function LoginSheet() {
         close();
         if (tenantConfig?.requiresMembershipFee) {
           navigate(`/${lang}/register/membership`);
+        } else if (tenantConfig) {
+          // Tenant context without fee → Match Screen
+          navigate(`/${lang}/auth-flow/org-user`);
         } else {
-          navigate(`/${lang}/signup`);
+          // No org context → straight to onboarding
+          navigate(
+            `/${lang}/register/onboarding/${getFirstOnboardingSlide(useRegistrationStore.getState())}`
+          );
         }
       }
     } finally {
@@ -511,8 +522,14 @@ export default function LoginSheet() {
         close();
         if (tenantConfig?.requiresMembershipFee) {
           navigate(`/${lang}/register/membership`);
+        } else if (tenantConfig) {
+          // Tenant context without fee → Match Screen
+          navigate(`/${lang}/auth-flow/org-user`);
         } else {
-          navigate(`/${lang}/signup`);
+          // No org context → straight to onboarding
+          navigate(
+            `/${lang}/register/onboarding/${getFirstOnboardingSlide(useRegistrationStore.getState())}`
+          );
         }
       }
     } finally {

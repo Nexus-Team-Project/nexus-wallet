@@ -25,7 +25,6 @@ const InsightsPage       = lazy(() => import('../pages/InsightsPage'));
 const StoriesPage        = lazy(() => import('../pages/StoriesPage'));
 const ReferralStoriesPage = lazy(() => import('../pages/ReferralStoriesPage'));
 const PremiumRevealPage  = lazy(() => import('../pages/PremiumRevealPage'));
-const SignupPage         = lazy(() => import('../pages/SignupPage'));
 
 // Registration flow — single chunk (user goes through all slides sequentially)
 const RegisterMembershipPage   = lazy(() => import('../pages/RegisterMembershipPage'));
@@ -49,11 +48,10 @@ const WelcomeNewPage       = lazy(() => import('../pages/auth-flow/WelcomeNewPag
 const HowDidYouArrivePage  = lazy(() => import('../pages/auth-flow/HowDidYouArrivePage'));
 const SelectOrgPage        = lazy(() => import('../pages/auth-flow/SelectOrgPage'));
 const FlowTestPage         = lazy(() => import('../pages/auth-flow/FlowTestPage'));
+const OrgWelcomePage       = lazy(() => import('../pages/auth-flow/OrgWelcomePage'));
+const WelcomeOrgPage       = lazy(() => import('../pages/auth-flow/WelcomeOrgPage'));
 const NewUserFlow = lazy(() =>
   import('../pages/auth-flow/AuthFlowStories').then((m) => ({ default: m.NewUserFlow }))
-);
-const OrgUserFlow = lazy(() =>
-  import('../pages/auth-flow/AuthFlowStories').then((m) => ({ default: m.OrgUserFlow }))
 );
 
 // ── Minimal fallback (no spinner — just blank, transitions feel instant) ─────
@@ -102,7 +100,6 @@ export const router = createBrowserRouter([
       { path: 'stories',          element: <S><StoriesPage /></S> },
       { path: 'referral-stories', element: <S><ReferralStoriesPage /></S> },
       { path: 'premium-reveal',   element: <S><PremiumRevealPage /></S> },
-      { path: 'signup',           element: <S><SignupPage /></S> },
 
       // Registration flow
       {
@@ -134,7 +131,10 @@ export const router = createBrowserRouter([
           { path: 'select-org',         element: <S><SelectOrgPage /></S> },
           { path: 'test',               element: <S><FlowTestPage /></S> },
           { path: 'new-user',           element: <S><NewUserFlow /></S> },
-          { path: 'org-user',           element: <S><OrgUserFlow /></S> },
+          // org-welcome: simple Nexus intro for pre-provision users (PATH B)
+          { path: 'org-welcome',        element: <S><OrgWelcomePage /></S> },
+          // org-user: Match Screen ("מצאנו התאמה") — for all org-context new users
+          { path: 'org-user',           element: <S><WelcomeOrgPage /></S> },
         ],
       },
 
