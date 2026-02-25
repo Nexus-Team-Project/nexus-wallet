@@ -1197,7 +1197,9 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
   const currentDuration = steps[current]?.duration ?? STORY_DURATION;
   useEffect(() => {
     if (isInteractive || !imagesLoaded) {
-      setProgress(isInteractive ? 1 : 0);
+      // Interactive slides (match-screen): keep segment empty — user hasn't acted yet.
+      // Loading skeleton: also keep at 0 until images are ready.
+      setProgress(0);
       return;
     }
 
