@@ -3,7 +3,7 @@
  * Shows the PremiumReveal interactive experience with the onboarding
  * progress bars at the top (all filled — this is the last slide).
  */
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useRegistrationStore } from '../../stores/registrationStore';
@@ -17,14 +17,15 @@ export default function RegistrationCompletePage() {
   const returnTo    = useRegistrationStore((s) => s.returnTo);
   const completeRegistration = useRegistrationStore((s) => s.completeRegistration);
 
-  // Match the extraLeading logic from OnboardingSlideLayout so the segment
-  // count stays consistent through the full flow → complete page.
-  const orgMember    = useRegistrationStore((s) => s.orgMember);
-  const tenantConfig = useTenantStore((s) => s.config);
-  const extraLeading = orgMember || tenantConfig ? 1 : 0;
-
-  const storeState = useRegistrationStore.getState();
-  const total = getOnboardingTotalWithComplete(storeState) + extraLeading;
+  // Snapshot total ONCE at mount — avoids the bar shrinking when
+  // completeRegistration() fires (which clears isOrgFlow/orgMember) right
+  // before the navigate() unmounts this component.
+  const [total] = useState(() => {
+    const s = useRegistrationStore.getState();
+    const t = useTenantStore.getState();
+    const extraLeading = s.isOrgFlow || !!t.config ? 1 : 0;
+    return getOnboardingTotalWithComplete(s) + extraLeading;
+  });
 
   // Lock scroll/touch on body for the reveal experience
   useEffect(() => {

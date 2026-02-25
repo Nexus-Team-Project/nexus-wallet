@@ -45,10 +45,13 @@ export default function OnboardingSlideLayout({
   const { t, language } = useLanguage();
   const isHe = language === 'he';
 
-  // Org users: prepend one filled segment for match-screen (already completed)
-  const orgMember    = useRegistrationStore((s) => s.orgMember);
+  // Org/tenant users: prepend one filled segment for match-screen (already completed).
+  //   isOrgFlow  — persisted to sessionStorage, survives page refreshes for
+  //               pure org-member users (who have no tenantConfig in localStorage).
+  //   tenantConfig — persisted to localStorage, covers tenant flows.
+  const isOrgFlow    = useRegistrationStore((s) => s.isOrgFlow);
   const tenantConfig = useTenantStore((s) => s.config);
-  const extraLeading = orgMember || tenantConfig ? 1 : 0;
+  const extraLeading = isOrgFlow || !!tenantConfig ? 1 : 0;
 
   const ctaLabel = continueLabel ?? t.registration.onboardingContinue;
   const skipLabel = skipLabelProp ?? t.registration.onboardingSkip;

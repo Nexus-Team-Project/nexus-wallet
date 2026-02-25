@@ -1,6 +1,24 @@
 import { create } from 'zustand';
 import type { RegistrationPath } from '../types/registration.types';
 
+// ── sessionStorage persistence for isOrgFlow ─────────────────────────────────
+// Keeps the "org/tenant flow is active" flag alive across React-Router
+// navigations and even across a hard page refresh so that
+// OnboardingSlideLayout always knows to render the match-screen segment.
+const ORG_FLOW_SESSION_KEY = 'nexus_is_org_flow';
+
+function loadIsOrgFlow(): boolean {
+  try { return sessionStorage.getItem(ORG_FLOW_SESSION_KEY) === '1'; }
+  catch { return false; }
+}
+
+function persistIsOrgFlow(value: boolean) {
+  try {
+    if (value) sessionStorage.setItem(ORG_FLOW_SESSION_KEY, '1');
+    else        sessionStorage.removeItem(ORG_FLOW_SESSION_KEY);
+  } catch { /* silently fail */ }
+}
+
 interface OrgMemberInfo {
   organizationId: string;
   organizationName: string;
@@ -27,6 +45,12 @@ interface RegistrationState {
   isRegistering: boolean;
   registrationPath: RegistrationPath | null;
   returnTo: string | null;
+
+  // True when the user entered onboarding via an org/tenant match-screen.
+  // Persisted to sessionStorage so it survives React-Router navigations and
+  // hard page refreshes — used by OnboardingSlideLayout to render the
+  // leading match-screen segment in the progress bar.
+  isOrgFlow: boolean;
 
   // Pre-filled data from OTP step
   phone: string | null;
@@ -76,6 +100,7 @@ export const useRegistrationStore = create<RegistrationState>((set) => ({
   isRegistering: false,
   registrationPath: null,
   returnTo: null,
+  isOrgFlow: loadIsOrgFlow(),
   phone: null,
   orgMember: null,
   missingFields: [],
@@ -85,12 +110,18 @@ export const useRegistrationStore = create<RegistrationState>((set) => ({
   onboardingData: null,
   consents: null,
 
-  startRegistration: ({ path, phone, orgMember, missingFields, returnTo }) =>
+  startRegistration: ({ path, phone, orgMember, missingFields, returnTo }) => {
+    // isOrgFlow is true when an orgMember is present (PATH B).
+    // For tenant-only flows (PATH D) there is no orgMember, but tenantStore.config
+    // persists to localStorage and handles the extraLeading independently.
+    const isOrgFlow = !!(orgMember);
+    persistIsOrgFlow(isOrgFlow);
     set({
       isRegistering: true,
       registrationPath: path,
       phone,
       orgMember: orgMember ?? null,
+      isOrgFlow,
       missingFields: missingFields ?? [],
       returnTo: returnTo ?? null,
       // Pre-fill profile data from org member if available
@@ -102,7 +133,8 @@ export const useRegistrationStore = create<RegistrationState>((set) => ({
       },
       onboardingData: null,
       consents: null,
-    }),
+    });
+  },
 
   setProfileData: (data) =>
     set((state) => ({
@@ -128,11 +160,13 @@ export const useRegistrationStore = create<RegistrationState>((set) => ({
 
   setConsents: (consents) => set({ consents }),
 
-  completeRegistration: () =>
+  completeRegistration: () => {
+    persistIsOrgFlow(false);
     set({
       isRegistering: false,
       registrationPath: null,
       returnTo: null,
+      isOrgFlow: false,
       phone: null,
       orgMember: null,
       missingFields: [],
@@ -141,13 +175,16 @@ export const useRegistrationStore = create<RegistrationState>((set) => ({
       membershipFeePaid: false,
       onboardingData: null,
       consents: null,
-    }),
+    });
+  },
 
-  resetRegistration: () =>
+  resetRegistration: () => {
+    persistIsOrgFlow(false);
     set({
       isRegistering: false,
       registrationPath: null,
       returnTo: null,
+      isOrgFlow: false,
       phone: null,
       orgMember: null,
       missingFields: [],
@@ -156,5 +193,6 @@ export const useRegistrationStore = create<RegistrationState>((set) => ({
       membershipFeePaid: false,
       onboardingData: null,
       consents: null,
-    }),
+    });
+  },
 }));
