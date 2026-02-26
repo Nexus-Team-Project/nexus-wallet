@@ -43,12 +43,7 @@ const GenderSlide            = lazy(() => import('../pages/register/onboarding/G
 const BenefitCategoriesSlide = lazy(() => import('../pages/register/onboarding/BenefitCategoriesSlide'));
 
 // Auth flow
-const WelcomeBackPage      = lazy(() => import('../pages/auth-flow/WelcomeBackPage'));
-const WelcomeNewPage       = lazy(() => import('../pages/auth-flow/WelcomeNewPage'));
-const HowDidYouArrivePage  = lazy(() => import('../pages/auth-flow/HowDidYouArrivePage'));
-const SelectOrgPage        = lazy(() => import('../pages/auth-flow/SelectOrgPage'));
 const FlowTestPage         = lazy(() => import('../pages/auth-flow/FlowTestPage'));
-const WelcomeOrgPage       = lazy(() => import('../pages/auth-flow/WelcomeOrgPage'));
 const NewUserFlow = lazy(() =>
   import('../pages/auth-flow/AuthFlowStories').then((m) => ({ default: m.NewUserFlow }))
 );
@@ -124,15 +119,8 @@ export const router = createBrowserRouter([
       {
         path: 'auth-flow',
         children: [
-          { path: 'welcome-back',       element: <S><WelcomeBackPage /></S> },
-          { path: 'welcome-new',        element: <S><WelcomeNewPage /></S> },
-          { path: 'how-did-you-arrive', element: <S><HowDidYouArrivePage /></S> },
-          { path: 'select-org',         element: <S><SelectOrgPage /></S> },
-          { path: 'test',               element: <S><FlowTestPage /></S> },
-          { path: 'new-user',           element: <S><NewUserFlow /></S> },
-          // org-user / match: standalone match screen (WelcomeOrgPage)
-          { path: 'org-user',           element: <S><WelcomeOrgPage /></S> },
-          { path: 'match',              element: <S><WelcomeOrgPage /></S> },
+          { path: 'test',     element: <S><FlowTestPage /></S> },
+          { path: 'new-user', element: <S><NewUserFlow /></S> },
         ],
       },
 
