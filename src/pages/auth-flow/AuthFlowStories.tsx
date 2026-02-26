@@ -1474,13 +1474,16 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
                   </button>
                 )}
 
-                {/* Continue button — advance one story at a time (match-screen reached naturally);
-                    new-user flow skips directly to onboarding */}
+                {/* Continue button — org flow: jump directly to match-screen;
+                    new-user flow: skip to onboarding */}
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
                     if (isOrgFlow) {
-                      goNext(); // advance normally; match-screen is the final story step
+                      // Jump straight to match-screen (last step) — don't make the user
+                      // tap through every story slide one by one.
+                      const matchIdx = steps.findIndex(s => s.id === 'match-screen');
+                      if (matchIdx !== -1) goTo(matchIdx);
                     } else {
                       const firstSlide = getFirstOnboardingSlide(useRegistrationStore.getState());
                       navigate(`/${lang}/register/onboarding/${firstSlide}`);
