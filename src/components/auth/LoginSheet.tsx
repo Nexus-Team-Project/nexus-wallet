@@ -260,7 +260,7 @@ export default function LoginSheet() {
         return;
       }
 
-      // PATH B: Org member with missing fields → Nexus welcome → match screen
+      // PATH B: Org member with missing fields → match screen (WelcomeOrgPage)
       if (orgMember && !profileComplete) {
         startRegistration({
           path: 'org-member-incomplete',
@@ -274,7 +274,7 @@ export default function LoginSheet() {
           missingFields,
         });
         close();
-        navigate(`/${lang}/auth-flow/new-user`);
+        navigate(`/${lang}/auth-flow/org-user`);
         return;
       }
 
@@ -291,8 +291,7 @@ export default function LoginSheet() {
             missingFields: phoneMissing,
           });
           close();
-          // Nexus welcome first, then Match Screen
-          navigate(`/${lang}/auth-flow/new-user`);
+          navigate(`/${lang}/auth-flow/org-user`);
         }
         return;
       }
@@ -318,7 +317,7 @@ export default function LoginSheet() {
         return;
       }
 
-      // PATH D: Tenant without fee → Nexus welcome → Match Screen
+      // PATH D: Tenant without fee → Match Screen (WelcomeOrgPage)
       if (tenantConfig) {
         startRegistration({
           path: 'tenant-no-fee',
@@ -326,7 +325,7 @@ export default function LoginSheet() {
           missingFields: phoneMissing,
         });
         close();
-        navigate(`/${lang}/auth-flow/new-user`);
+        navigate(`/${lang}/auth-flow/org-user`);
         return;
       }
 
@@ -360,6 +359,7 @@ export default function LoginSheet() {
           isOrgMember: result.session.isOrgMember,
           avatarUrl: result.profile?.picture,
           firstName: result.profile?.firstName,
+          email: result.profile?.email,
           organizationName: orgMember?.organizationName,
         });
         await firebaseSaveConsent(result.session.userId, marketingOptIn);
@@ -392,8 +392,7 @@ export default function LoginSheet() {
               });
             }
             close();
-            // Nexus welcome first, then Match Screen
-            navigate(`/${lang}/auth-flow/new-user`);
+            navigate(`/${lang}/auth-flow/org-user`);
           }
           return;
         }
@@ -404,7 +403,7 @@ export default function LoginSheet() {
           return;
         }
 
-        // ── Org member via Google: Nexus welcome → match screen ──
+        // ── Org member via Google → match screen (WelcomeOrgPage) ──
         if (orgMember) {
           // Google gives email + name, org gives org info → only phone missing
           const missingFields: string[] = ['phone'];
@@ -431,7 +430,7 @@ export default function LoginSheet() {
             });
           }
           close();
-          navigate(`/${lang}/auth-flow/new-user`);
+          navigate(`/${lang}/auth-flow/org-user`);
           return;
         }
 
@@ -460,8 +459,8 @@ export default function LoginSheet() {
         if (tenantConfig?.requiresMembershipFee) {
           navigate(`/${lang}/register/membership`);
         } else if (tenantConfig) {
-          // Tenant context without fee → Nexus welcome → Match Screen
-          navigate(`/${lang}/auth-flow/new-user`);
+          // Tenant context without fee → Match Screen (WelcomeOrgPage)
+          navigate(`/${lang}/auth-flow/org-user`);
         } else {
           // No org context → straight to onboarding
           navigate(
@@ -491,6 +490,7 @@ export default function LoginSheet() {
           isOrgMember: result.session.isOrgMember,
           avatarUrl: result.profile?.picture,
           firstName: result.profile?.firstName,
+          email: result.profile?.email,
         });
         await firebaseSaveConsent(result.session.userId, marketingOptIn);
         setMarketingConsent(marketingOptIn);
@@ -525,8 +525,8 @@ export default function LoginSheet() {
         if (tenantConfig?.requiresMembershipFee) {
           navigate(`/${lang}/register/membership`);
         } else if (tenantConfig) {
-          // Tenant context without fee → Nexus welcome → Match Screen
-          navigate(`/${lang}/auth-flow/new-user`);
+          // Tenant context without fee → Match Screen (WelcomeOrgPage)
+          navigate(`/${lang}/auth-flow/org-user`);
         } else {
           // No org context → straight to onboarding
           navigate(
@@ -556,14 +556,14 @@ export default function LoginSheet() {
       {/* Overlay */}
       <div
         ref={overlayRef}
-        className="fixed inset-0 z-50 bg-black/40 animate-fade-in"
+        className="fixed inset-0 z-[9999] bg-black/40 animate-fade-in"
         onClick={step === 'success' ? undefined : dismiss}
       />
 
       {/* Sheet */}
       <div
         ref={sheetRef}
-        className="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-3xl max-h-[50vh] flex flex-col animate-slide-up"
+        className="fixed bottom-0 left-0 right-0 z-[9999] bg-white rounded-t-3xl max-h-[50vh] flex flex-col animate-slide-up"
       >
         {/* ── DRAG HEADER ── */}
         <div
