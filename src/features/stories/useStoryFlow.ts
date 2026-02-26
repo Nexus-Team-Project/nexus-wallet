@@ -7,6 +7,8 @@ const STORY_DURATION = 6000; // ms default per auto-advance story
 interface UseStoryFlowOptions {
   initialSteps: StoryStep[];
   imagesLoaded: boolean;
+  /** Start at a specific step index instead of 0 (e.g. when returning via back-button) */
+  initialCurrent?: number;
 }
 
 export interface UseStoryFlowReturn {
@@ -23,9 +25,9 @@ export interface UseStoryFlowReturn {
   handleTap: (e: React.MouseEvent<HTMLDivElement>) => void;
 }
 
-export function useStoryFlow({ initialSteps, imagesLoaded }: UseStoryFlowOptions): UseStoryFlowReturn {
+export function useStoryFlow({ initialSteps, imagesLoaded, initialCurrent = 0 }: UseStoryFlowOptions): UseStoryFlowReturn {
   const [steps, setSteps] = useState<StoryStep[]>(initialSteps);
-  const [current, setCurrent] = useState(0);
+  const [current, setCurrent] = useState(initialCurrent);
   const [direction, setDirection] = useState<1 | -1>(1);
   const [progress, setProgress] = useState(0);
   const startTimeRef = useRef(Date.now());

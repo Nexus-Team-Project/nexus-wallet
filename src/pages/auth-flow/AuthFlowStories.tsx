@@ -8,7 +8,7 @@
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useRegistrationStore } from '../../stores/registrationStore';
 import { getFirstOnboardingSlide, getOnboardingTotalWithComplete } from '../../utils/onboardingNavigation';
 import { useTenantStore } from '../../stores/tenantStore';
@@ -57,6 +57,7 @@ const orgUserSteps  = [{ id: 'welcome-org' }, ...smartStorySteps];
 export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
   const { lang = 'he' } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const setTenant    = useTenantStore((s) => s.setTenant);
   const tenantConfig = useTenantStore((s) => s.config);
   const orgMember    = useRegistrationStore((s) => s.orgMember);
@@ -73,6 +74,12 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
     ? [...baseSteps, { id: 'match-screen', interactive: true }]
     : baseSteps;
 
+  // ── If user pressed Back from onboarding/membership, restore match-screen ─
+  const returnToMatch = (location.state as { returnToMatch?: boolean } | null)?.returnToMatch ?? false;
+  const initialCurrent = returnToMatch
+    ? Math.max(0, initialSteps.findIndex(s => s.id === 'match-screen'))
+    : 0;
+
   // ── Step machine (navigation, auto-advance, tap) ─────────────────────────
   const {
     steps, setSteps,
@@ -80,7 +87,7 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
     direction, setDirection,
     progress,
     goTo, handleTap,
-  } = useStoryFlow({ initialSteps, imagesLoaded });
+  } = useStoryFlow({ initialSteps, imagesLoaded, initialCurrent });
 
   // ── Local state for selected org ──────────────────────────────────────────
   const [selectedOrg, setSelectedOrg] = useState<OrgInfo | null>(null);
