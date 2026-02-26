@@ -463,10 +463,8 @@ export default function LoginSheet() {
           // Tenant without fee (no customerId) → Nexus stories → Match Screen
           navigate(`/${lang}/auth-flow/new-user`);
         } else {
-          // No org context → straight to onboarding
-          navigate(
-            `/${lang}/register/onboarding/${getFirstOnboardingSlide(useRegistrationStore.getState())}`
-          );
+          // No org context → Nexus welcome page
+          navigate(`/${lang}/auth-flow/welcome-new`);
         }
       }
     } finally {
@@ -528,10 +526,8 @@ export default function LoginSheet() {
           // Tenant without fee (no customerId) → Nexus stories → Match Screen
           navigate(`/${lang}/auth-flow/new-user`);
         } else {
-          // No org context → straight to onboarding
-          navigate(
-            `/${lang}/register/onboarding/${getFirstOnboardingSlide(useRegistrationStore.getState())}`
-          );
+          // No org context → Nexus welcome page
+          navigate(`/${lang}/auth-flow/welcome-new`);
         }
       }
     } finally {

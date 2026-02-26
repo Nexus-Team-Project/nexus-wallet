@@ -1186,10 +1186,12 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
 
   const goNext = useCallback(() => {
     const next = current + 1;
-    if (next >= steps.length) return;
     // Interactive steps (e.g. match-screen) are ONLY reachable via the CTA button.
-    // Never allow tap or auto-advance to land on them.
-    if (steps[next]?.interactive) return;
+    // Tap and auto-advance loop back to slide 0 instead of landing on them.
+    if (next >= steps.length || steps[next]?.interactive) {
+      goTo(0);
+      return;
+    }
     goTo(next);
   }, [current, steps, goTo]);
 
