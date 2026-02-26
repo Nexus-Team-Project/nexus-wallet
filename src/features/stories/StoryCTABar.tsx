@@ -33,16 +33,16 @@ export function StoryCTABar({
       <div className="bg-black/70 backdrop-blur-sm px-6 pb-6 pt-1 pointer-events-auto" dir="rtl">
         <div className="flex items-center gap-4">
 
-          {/* Secondary links — org flow only */}
-          {isOrgFlow && (
-            <div className="flex-1 flex flex-col gap-2 text-right">
-              <button
-                onClick={(e) => { e.stopPropagation(); onChangeOrg(); }}
-                className="text-right active:opacity-70 transition-opacity"
-              >
-                <p className="text-white/75 text-xs leading-snug">רוצה להתחבר עם ארגון אחר?</p>
-                <span className="text-white text-xs font-bold border-b border-white/60 pb-px">הכניסה מכאן</span>
-              </button>
+          {/* Secondary links */}
+          <div className="flex-1 flex flex-col gap-2 text-right">
+            <button
+              onClick={(e) => { e.stopPropagation(); onChangeOrg(); }}
+              className="text-right active:opacity-70 transition-opacity"
+            >
+              <p className="text-white/75 text-xs leading-snug">רוצה להתחבר עם ארגון אחר?</p>
+              <span className="text-white text-xs font-bold border-b border-white/60 pb-px">הכניסה מכאן</span>
+            </button>
+            {isOrgFlow && (
               <button
                 onClick={(e) => { e.stopPropagation(); onSwitchUser(); }}
                 className="text-right active:opacity-70 transition-opacity"
@@ -50,8 +50,8 @@ export function StoryCTABar({
                 <p className="text-white/75 text-xs leading-snug">רוצה להתחבר עם משתמש אחר?</p>
                 <span className="text-white text-xs font-bold border-b border-white/60 pb-px">הכניסה מכאן</span>
               </button>
-            </div>
-          )}
+            )}
+          </div>
 
           {/* Primary CTA */}
           <button
