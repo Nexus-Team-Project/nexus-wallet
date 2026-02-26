@@ -260,7 +260,7 @@ export default function LoginSheet() {
         return;
       }
 
-      // PATH B: Org member with missing fields → Nexus welcome → match screen
+      // PATH B: Org member with missing fields → Nexus stories → match screen
       if (orgMember && !profileComplete) {
         startRegistration({
           path: 'org-member-incomplete',
@@ -274,7 +274,7 @@ export default function LoginSheet() {
           missingFields,
         });
         close();
-        navigate(`/${lang}/auth-flow/welcome-new`);
+        navigate(`/${lang}/auth-flow/new-user`);
         return;
       }
 
@@ -318,7 +318,7 @@ export default function LoginSheet() {
         return;
       }
 
-      // PATH D: Tenant without fee → Nexus welcome → Match Screen
+      // PATH D: Tenant without fee (no customerId) → Nexus stories → Match Screen
       if (tenantConfig) {
         startRegistration({
           path: 'tenant-no-fee',
@@ -326,7 +326,7 @@ export default function LoginSheet() {
           missingFields: phoneMissing,
         });
         close();
-        navigate(`/${lang}/auth-flow/welcome-new`);
+        navigate(`/${lang}/auth-flow/new-user`);
         return;
       }
 
@@ -404,7 +404,7 @@ export default function LoginSheet() {
           return;
         }
 
-        // ── Org member via Google: Nexus welcome → match screen ──
+        // ── Org member via Google: Nexus stories → match screen ──
         if (orgMember) {
           // Google gives email + name, org gives org info → only phone missing
           const missingFields: string[] = ['phone'];
@@ -431,7 +431,7 @@ export default function LoginSheet() {
             });
           }
           close();
-          navigate(`/${lang}/auth-flow/welcome-new`);
+          navigate(`/${lang}/auth-flow/new-user`);
           return;
         }
 
@@ -460,8 +460,8 @@ export default function LoginSheet() {
         if (tenantConfig?.requiresMembershipFee) {
           navigate(`/${lang}/register/membership`);
         } else if (tenantConfig) {
-          // Tenant context without fee → Nexus welcome → Match Screen
-          navigate(`/${lang}/auth-flow/welcome-new`);
+          // Tenant without fee (no customerId) → Nexus stories → Match Screen
+          navigate(`/${lang}/auth-flow/new-user`);
         } else {
           // No org context → straight to onboarding
           navigate(
@@ -525,8 +525,8 @@ export default function LoginSheet() {
         if (tenantConfig?.requiresMembershipFee) {
           navigate(`/${lang}/register/membership`);
         } else if (tenantConfig) {
-          // Tenant context without fee → Nexus welcome → Match Screen
-          navigate(`/${lang}/auth-flow/welcome-new`);
+          // Tenant without fee (no customerId) → Nexus stories → Match Screen
+          navigate(`/${lang}/auth-flow/new-user`);
         } else {
           // No org context → straight to onboarding
           navigate(
