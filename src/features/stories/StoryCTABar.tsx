@@ -1,8 +1,7 @@
 import type React from 'react';
-import type { FlowType, StoryStep } from './types';
+import type { StoryStep } from './types';
 
 interface StoryCTABarProps {
-  flowType: FlowType;
   isOrgFlow: boolean;
   steps: StoryStep[];
   setSteps: React.Dispatch<React.SetStateAction<StoryStep[]>>;
@@ -17,7 +16,6 @@ interface StoryCTABarProps {
 }
 
 export function StoryCTABar({
-  flowType,
   isOrgFlow,
   steps,
   goTo,
