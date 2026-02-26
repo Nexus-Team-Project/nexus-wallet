@@ -29,7 +29,17 @@
       "Bash(curl:*)",
       "Bash(Remove-Item \"C:\\\\Users\\\\IMOE001\\\\nexus-wallet\\\\src\\\\pages\\\\SignupPage.tsx\" -Force)",
       "Bash(Write-Host \"Deleted\")",
-      "Bash(Remove-Item \"C:\\\\Users\\\\IMOE001\\\\nexus-wallet\\\\src\\\\pages\\\\auth-flow\\\\OrgWelcomePage.tsx\" -Force)"
+      "Bash(Remove-Item \"C:\\\\Users\\\\IMOE001\\\\nexus-wallet\\\\src\\\\pages\\\\auth-flow\\\\OrgWelcomePage.tsx\" -Force)",
+      "Bash(npm run build:*)",
+      "Bash(firebase deploy:*)",
+      "Bash(ls:*)",
+      "Bash(git checkout:*)",
+      "Bash(railway deployments:*)",
+      "Bash(python:*)",
+      "Bash(timeout 3 npx serve:*)",
+      "Bash(timeout 3 /c/Users/IMOE001/nexus-wallet/node_modules/.bin/serve:*)",
+      "Bash(timeout 4 node_modules/.bin/serve:*)",
+      "Bash(xargs grep -l \"auth-flow\\\\|new-user\\\\|org-user\")"
     ]
   }
 }

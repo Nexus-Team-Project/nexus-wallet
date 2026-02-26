@@ -8,12 +8,11 @@
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useNavigate, useParams, useLocation } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useRegistrationStore } from '../../stores/registrationStore';
 import { getFirstOnboardingSlide, getOnboardingTotalWithComplete } from '../../utils/onboardingNavigation';
 import { useTenantStore } from '../../stores/tenantStore';
 import { useImagePreloader } from '../../hooks/useImagePreloader';
-import { mockTenants } from '../../mock/data/tenants.mock';
 import { SmartInsightsCarousel } from '../InsightsPage';
 import GiftCardsPage from '../GiftCardsPage';
 import WalletCardsPage from '../WalletCardsPage';
@@ -21,13 +20,9 @@ import NearbyMapPage from '../NearbyMapPage';
 
 import {
   type FlowType,
-  type OrgInfo,
   FLOW_IMAGES,
   FlowSkeleton,
   SlideNexusHero,
-  SlideWelcomeNew,
-  SlideHowDidYouArrive,
-  SlideSelectOrg,
   SlideWelcomeOrg,
   SlideMatchScreen,
   useStoryFlow,
@@ -50,15 +45,13 @@ const smartStorySteps = [
   { id: 'story-nearby' },
 ];
 
-const newUserSteps  = [{ id: 'nexus-hero' }, ...smartStorySteps];
-const orgUserSteps  = [{ id: 'welcome-org' }, ...smartStorySteps];
+const newUserSteps = [{ id: 'nexus-hero' }, ...smartStorySteps];
+const orgUserSteps = [{ id: 'welcome-org' }, ...smartStorySteps];
 
 // ─────────────────────────────────────────────────────────────────────────────
 export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
   const { lang = 'he' } = useParams();
   const navigate = useNavigate();
-  const location = useLocation();
-  const setTenant    = useTenantStore((s) => s.setTenant);
   const tenantConfig = useTenantStore((s) => s.config);
   const orgMember    = useRegistrationStore((s) => s.orgMember);
 
@@ -75,10 +68,17 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
     : baseSteps;
 
   // ── If user pressed Back from onboarding/membership, restore match-screen ─
-  const returnToMatch = (location.state as { returnToMatch?: boolean } | null)?.returnToMatch ?? false;
-  const initialCurrent = returnToMatch
-    ? Math.max(0, initialSteps.findIndex(s => s.id === 'match-screen'))
-    : 0;
+  // sessionStorage flag is written by SlideMatchScreen BEFORE navigating forward,
+  // so it survives back-navigation (unlike location.state which lives on the
+  // destination history entry and is null when we return via Back).
+  const [initialCurrent] = useState(() => {
+    const flag = sessionStorage.getItem('nexus_return_match') === '1';
+    if (flag) {
+      sessionStorage.removeItem('nexus_return_match');
+      return Math.max(0, initialSteps.findIndex(s => s.id === 'match-screen'));
+    }
+    return 0;
+  });
 
   // ── Step machine (navigation, auto-advance, tap) ─────────────────────────
   const {
@@ -89,54 +89,7 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
     goTo, handleTap,
   } = useStoryFlow({ initialSteps, imagesLoaded, initialCurrent });
 
-  // ── Local state for selected org ──────────────────────────────────────────
-  const [selectedOrg, setSelectedOrg] = useState<OrgInfo | null>(null);
-
   // ── Slide callbacks ───────────────────────────────────────────────────────
-  const handleHowArriveDirect = () => {
-    const firstSlide = getFirstOnboardingSlide(useRegistrationStore.getState());
-    navigate(`/${lang}/register/onboarding/${firstSlide}`);
-  };
-
-  const handleHowArriveOrg = () => {
-    setSteps(newUserSteps);
-    setDirection(1);
-    setCurrent(3);
-  };
-
-  const handleSelectOrg = (org: OrgInfo) => {
-    setSelectedOrg(org);
-    if (org.id === 'nexus') {
-      const firstSlide = getFirstOnboardingSlide(useRegistrationStore.getState());
-      navigate(`/${lang}/register/onboarding/${firstSlide}`);
-      return;
-    }
-    const tenantId = (org as Record<string, unknown>)['tenantId'] as string | undefined;
-    if (tenantId && mockTenants[tenantId]) {
-      setTenant(tenantId, mockTenants[tenantId]);
-      const welcomeIdx = steps.findIndex(s => s.id === 'welcome-org');
-      if (welcomeIdx !== -1) {
-        setDirection(1); setCurrent(welcomeIdx);
-      } else {
-        setSteps(prev => [...prev, { id: 'welcome-org' }]);
-        setDirection(1); setCurrent(steps.length);
-      }
-      return;
-    }
-    const welcomeIdx = steps.findIndex(s => s.id === 'welcome-org');
-    if (welcomeIdx !== -1) {
-      setDirection(1); setCurrent(welcomeIdx);
-    } else {
-      setSteps(prev => [...prev, { id: 'welcome-org' }]);
-      setDirection(1); setCurrent(steps.length);
-    }
-  };
-
-  const handleSelectOrgSkip = () => {
-    const firstSlide = getFirstOnboardingSlide(useRegistrationStore.getState());
-    navigate(`/${lang}/register/onboarding/${firstSlide}`);
-  };
-
   const handleOrgSwitchUser = () => {
     navigate(`/${lang}`, { replace: true });
   };
@@ -174,10 +127,10 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
   }
 
   // ── Org accent colour for CTA bar ─────────────────────────────────────────
-  const orgColor = selectedOrg?.color ?? tenantConfig?.primaryColor ?? '#635bff';
+  const orgColor = tenantConfig?.primaryColor ?? '#635bff';
 
   // ── Slides that own their own bottom UI (no CTA bar overlay) ─────────────
-  const noCTASlides = ['how-did-you-arrive', 'select-org', 'match-screen'];
+  const noCTASlides = ['match-screen'];
 
   // ─────────────────────────────────────────────────────────────────────────
   return (
@@ -222,11 +175,8 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
               transition={{ duration: 0.3, ease: [0.25, 0.46, 0.45, 0.94] }}
               className="absolute inset-0"
             >
-              {steps[current]?.id === 'nexus-hero'        && <SlideNexusHero failedImages={failedImages} />}
-              {steps[current]?.id === 'welcome-new'       && <SlideWelcomeNew />}
-              {steps[current]?.id === 'how-did-you-arrive'&& <SlideHowDidYouArrive onDirect={handleHowArriveDirect} onOrg={handleHowArriveOrg} />}
-              {steps[current]?.id === 'select-org'        && <SlideSelectOrg onSelect={handleSelectOrg} onSkip={handleSelectOrgSkip} />}
-              {steps[current]?.id === 'welcome-org'       && <SlideWelcomeOrg org={selectedOrg} />}
+              {steps[current]?.id === 'nexus-hero'  && <SlideNexusHero failedImages={failedImages} />}
+              {steps[current]?.id === 'welcome-org' && <SlideWelcomeOrg />}
               {steps[current]?.id === 'story-insights'    && (
                 <div className="w-full h-full flex flex-col items-center justify-center px-6 relative overflow-hidden" style={{ backgroundColor: 'var(--color-surface)' }} dir="rtl">
                   <SmartInsightsCarousel />

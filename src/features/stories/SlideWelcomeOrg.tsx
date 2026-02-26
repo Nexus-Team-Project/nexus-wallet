@@ -7,10 +7,10 @@ import type { OrgInfo } from './types';
 import { walletCards, PUSH_IMAGES } from './constants';
 
 interface SlideWelcomeOrgProps {
-  org: OrgInfo | null;
+  org?: OrgInfo | null;
 }
 
-export function SlideWelcomeOrg({ org }: SlideWelcomeOrgProps) {
+export function SlideWelcomeOrg({ org = null }: SlideWelcomeOrgProps) {
   const [imgErrors, setImgErrors] = useState<Set<number>>(new Set());
   const [logoError, setLogoError] = useState(false);
   const [pushIdx, setPushIdx] = useState(0);

@@ -1,5 +1,5 @@
 /**
- * VerifyEmailSlide � optional slide for users who don't yet have an email.
+ * VerifyEmailSlide — optional slide for users who don't yet have an email.
  * Phase 1: just collects the email string, no actual email verification link.
  */
 import { useState } from 'react';
@@ -46,7 +46,7 @@ export default function VerifyEmailSlide() {
   };
 
   const handleSkip = () => {
-    // Don't save anything � email stays blank
+    // Don't save anything — email stays blank
     advance();
   };
 

@@ -40,16 +40,16 @@ export function SlideMatchScreen() {
       : authFirstName ?? phone ?? null;
 
   const handleContinueWithOrg = () => {
-    // Pass returnToMatch so that pressing Back restores the match-screen step.
-    const backState = { returnToMatch: true };
+    // Mark in sessionStorage BEFORE navigating so that pressing Back
+    // restores the match-screen step (location.state doesn't survive back-nav).
+    sessionStorage.setItem('nexus_return_match', '1');
     if (tenantConfig?.requiresMembershipFee) {
-      navigate(`/${lang}/register/membership`, { state: backState });
+      navigate(`/${lang}/register/membership`);
     } else {
       navigate(
         `/${lang}/register/onboarding/${getFirstOnboardingSlide(
           useRegistrationStore.getState()
-        )}`,
-        { state: backState }
+        )}`
       );
     }
   };

@@ -146,7 +146,7 @@ export default function FlowTestPage() {
       phone: '050-0000001',
       missingFields: ['firstName', 'lastName', 'email', 'birthday'],
     });
-    setTimeout(() => navigate(`/${lang}/auth-flow/welcome-new`), 50);
+    setTimeout(() => navigate(`/${lang}/auth-flow/new-user`), 50);
   };
 
   // ─── Flow 1: Existing User ───────────────────────────────────────────
@@ -528,27 +528,6 @@ export default function FlowTestPage() {
         🔄 Reset — נקה state
       </button>
 
-      {/* Quick links */}
-      <div className="mt-6 pt-5 border-t border-border">
-        <p className="text-xs font-bold text-text-muted mb-3">קישורים ישירים לדפים:</p>
-        <div className="grid grid-cols-2 gap-2 text-xs">
-          {[
-            { label: 'Welcome Back', path: 'welcome-back' },
-            { label: 'Welcome New', path: 'welcome-new' },
-            { label: 'How Did You Arrive', path: 'how-did-you-arrive' },
-            { label: 'Select Org', path: 'select-org' },
-            { label: 'Org User Flow', path: 'org-user' },
-          ].map(({ label, path }) => (
-            <button
-              key={path}
-              onClick={() => navigate(`/${lang}/auth-flow/${path}`)}
-              className="py-2 px-3 rounded-xl bg-surface border border-border text-text-secondary text-right hover:border-primary hover:text-primary transition-colors truncate"
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-      </div>
     </div>
   );
 }
