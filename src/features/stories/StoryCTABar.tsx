@@ -11,6 +11,7 @@ interface StoryCTABarProps {
   goTo: (index: number) => void;
   orgColor: string;
   onSwitchUser: () => void;
+  onChangeOrg: () => void;
   /** Called when the primary "קליק להמשך" button is tapped in new-user flow */
   onNewUserContinue: () => void;
 }
@@ -22,6 +23,7 @@ export function StoryCTABar({
   goTo,
   orgColor,
   onSwitchUser,
+  onChangeOrg,
   onNewUserContinue,
 }: StoryCTABarProps) {
   return (
@@ -31,16 +33,25 @@ export function StoryCTABar({
       <div className="bg-black/70 backdrop-blur-sm px-6 pb-6 pt-1 pointer-events-auto" dir="rtl">
         <div className="flex items-center gap-4">
 
-          {/* Secondary link — org flow only */}
-          {flowType === 'org-user' && (
+          {/* Secondary links */}
+          <div className="flex-1 flex flex-col gap-2 text-right">
             <button
-              onClick={(e) => { e.stopPropagation(); onSwitchUser(); }}
-              className="flex-1 text-right active:opacity-70 transition-opacity"
+              onClick={(e) => { e.stopPropagation(); onChangeOrg(); }}
+              className="text-right active:opacity-70 transition-opacity"
             >
-              <p className="text-white/75 text-xs leading-snug">רוצה להתחבר עם משתמש אחר?</p>
+              <p className="text-white/75 text-xs leading-snug">רוצה להתחבר עם ארגון אחר?</p>
               <span className="text-white text-xs font-bold border-b border-white/60 pb-px">הכניסה מכאן</span>
             </button>
-          )}
+            {isOrgFlow && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onSwitchUser(); }}
+                className="text-right active:opacity-70 transition-opacity"
+              >
+                <p className="text-white/75 text-xs leading-snug">רוצה להתחבר עם משתמש אחר?</p>
+                <span className="text-white text-xs font-bold border-b border-white/60 pb-px">הכניסה מכאן</span>
+              </button>
+            )}
+          </div>
 
           {/* Primary CTA */}
           <button
@@ -65,7 +76,7 @@ export function StoryCTABar({
         </div>
 
         {/* Powered by Nexus — org flow only */}
-        {flowType === 'org-user' && (
+        {isOrgFlow && (
           <div className="flex items-center justify-center mt-3 opacity-70">
             <img src="/nexus-logo-animated-white.gif" alt="Nexus" style={{ height: 22, width: 'auto', marginRight: 3 }} />
             <span className="text-white text-[11px] font-medium">powered by</span>

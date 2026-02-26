@@ -94,6 +94,10 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
     navigate(`/${lang}`, { replace: true });
   };
 
+  const handleOrgChangeOrg = () => {
+    navigate(`/${lang}/auth-flow/select-org`);
+  };
+
   const handleNewUserContinue = () => {
     const firstSlide = getFirstOnboardingSlide(useRegistrationStore.getState());
     navigate(`/${lang}/register/onboarding/${firstSlide}`);
@@ -202,6 +206,7 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
             goTo={goTo}
             orgColor={orgColor}
             onSwitchUser={handleOrgSwitchUser}
+            onChangeOrg={handleOrgChangeOrg}
             onNewUserContinue={handleNewUserContinue}
           />
         )}
