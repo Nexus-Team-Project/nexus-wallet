@@ -260,7 +260,8 @@ export default function LoginSheet() {
         return;
       }
 
-      // PATH B: Org member with missing fields → match screen (WelcomeOrgPage)
+      // PATH B: Pre-provisioned org member (no customerId) → Nexus intro stories first,
+      //         then CTA navigates to WelcomeOrgPage (match screen).
       if (orgMember && !profileComplete) {
         startRegistration({
           path: 'org-member-incomplete',
@@ -274,7 +275,7 @@ export default function LoginSheet() {
           missingFields,
         });
         close();
-        navigate(`/${lang}/auth-flow/org-user`);
+        navigate(`/${lang}/auth-flow/new-user`);
         return;
       }
 
@@ -403,7 +404,7 @@ export default function LoginSheet() {
           return;
         }
 
-        // ── Org member via Google → match screen (WelcomeOrgPage) ──
+        // ── Pre-provisioned org member via Google (no customerId) → Nexus intro stories first ──
         if (orgMember) {
           // Google gives email + name, org gives org info → only phone missing
           const missingFields: string[] = ['phone'];
@@ -430,7 +431,7 @@ export default function LoginSheet() {
             });
           }
           close();
-          navigate(`/${lang}/auth-flow/org-user`);
+          navigate(`/${lang}/auth-flow/new-user`);
           return;
         }
 
