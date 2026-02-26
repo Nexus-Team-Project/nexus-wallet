@@ -26,9 +26,30 @@ export default function FlowTestPage() {
   const setTenant = useTenantStore((s) => s.setTenant);
   const clearTenant = useTenantStore((s) => s.clearTenant);
   const tenantId = useTenantStore((s) => s.tenantId);
+  const orgMember = useRegistrationStore((s) => s.orgMember);
 
   // מוצא tenant שיש לו customerId (למשל acme-corp)
   const customerIdTenant = Object.values(mockTenants).find((t) => t.customerId) ?? mockTenants['acme-corp'];
+
+  // ─── Pre-provisioned toggle ───────────────────────────────────────────
+  const isPreProvisioned = !!orgMember;
+  const togglePreProvisioned = () => {
+    if (isPreProvisioned) {
+      clearTenant();
+      useRegistrationStore.setState({ orgMember: null });
+    } else {
+      const hapoelTenant = mockTenants['hapoel-ta'];
+      if (hapoelTenant) setTenant(hapoelTenant.id, hapoelTenant);
+      useRegistrationStore.setState({
+        orgMember: {
+          organizationId: 'org-2',
+          organizationName: 'הפועל תל אביב',
+          firstName: 'יוסי',
+          lastName: 'כהן',
+        },
+      });
+    }
+  };
 
   // reset ללא firebaseSignOut — כדי לא להפעיל את onAuthStateChanged
   // שיקרא logout() שוב ב-async ויאפס את ה-state באמצע הניווט
@@ -289,6 +310,26 @@ export default function FlowTestPage() {
           ✅ Tenant פעיל: {tenantId}
         </div>
       )}
+
+      {/* ── Pre-provisioned toggle ── */}
+      <div className="flex items-center justify-between mb-4 px-4 py-3 bg-white rounded-2xl border border-border" dir="rtl">
+        <div>
+          <p className="text-sm font-bold text-text-primary">פרה-פרויזנד (orgMember)</p>
+          <p className="text-xs text-text-muted">
+            {isPreProvisioned ? 'הפועל תל אביב · יוסי כהן' : 'ללא שיוך לארגון'}
+          </p>
+        </div>
+        <button
+          onClick={togglePreProvisioned}
+          className="relative inline-flex h-7 w-12 flex-shrink-0 items-center rounded-full transition-colors"
+          style={{ background: isPreProvisioned ? '#dc2626' : '#e2e8f0' }}
+        >
+          <span
+            className="inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform"
+            style={{ transform: isPreProvisioned ? 'translateX(22px)' : 'translateX(2px)' }}
+          />
+        </button>
+      </div>
 
       {/* Flow 1 */}
       <div className="bg-white rounded-2xl border border-border p-5 mb-4">
