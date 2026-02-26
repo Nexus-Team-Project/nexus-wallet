@@ -19,6 +19,7 @@ import {
   getNextOnboardingSlide,
   getPrevOnboardingSlide,
   getOnboardingProgress,
+  type OnboardingSlideId,
 } from '../../../utils/onboardingNavigation';
 import {
   getContactsStrategy,
@@ -43,7 +44,7 @@ export default function InviteFriendsSlide() {
   const authMethod = useAuthStore((s) => s.authMethod);
   const tenantId = useTenantStore((s) => s.tenantId);
   const storeState = useRegistrationStore.getState();
-  const { current, total } = getOnboardingProgress('invite-friends', storeState);
+  const { current, total } = getOnboardingProgress('invite-friends' as OnboardingSlideId, storeState);
 
   // Contacts store
   const { contacts, contactsImported, setContacts } = useContactsStore();
@@ -137,7 +138,7 @@ export default function InviteFriendsSlide() {
   // ── Navigation ────────────────────────────────────────────────────────────
 
   const advance = () => {
-    const next = getNextOnboardingSlide('invite-friends', storeState);
+    const next = getNextOnboardingSlide('invite-friends' as OnboardingSlideId, storeState);
     if (next) {
       navigate(`/${lang}/register/onboarding/${next}`, { replace: true });
     } else {
@@ -149,7 +150,7 @@ export default function InviteFriendsSlide() {
   const handleSkip = () => advance();
 
   const handleBack = () => {
-    const prev = getPrevOnboardingSlide('invite-friends', storeState);
+    const prev = getPrevOnboardingSlide('invite-friends' as OnboardingSlideId, storeState);
     if (prev) navigate(`/${lang}/register/onboarding/${prev}`, { replace: true });
   };
 
