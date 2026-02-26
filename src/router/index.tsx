@@ -52,6 +52,9 @@ const WelcomeOrgPage       = lazy(() => import('../pages/auth-flow/WelcomeOrgPag
 const NewUserFlow = lazy(() =>
   import('../pages/auth-flow/AuthFlowStories').then((m) => ({ default: m.NewUserFlow }))
 );
+const OrgUserFlow = lazy(() =>
+  import('../pages/auth-flow/AuthFlowStories').then((m) => ({ default: m.OrgUserFlow }))
+);
 
 // ── Minimal fallback (no spinner — just blank, transitions feel instant) ─────
 function PageFallback() {
@@ -130,8 +133,10 @@ export const router = createBrowserRouter([
           { path: 'select-org',         element: <S><SelectOrgPage /></S> },
           { path: 'test',               element: <S><FlowTestPage /></S> },
           { path: 'new-user',           element: <S><NewUserFlow /></S> },
-          // org-user: Match Screen ("מצאנו התאמה") — for all org-context new users
-          { path: 'org-user',           element: <S><WelcomeOrgPage /></S> },
+          // org-user: pre-provisioned org members — org stories → embedded match screen
+          { path: 'org-user',           element: <S><OrgUserFlow /></S> },
+          // match: standalone match screen (WelcomeOrgPage) — future use / direct link
+          { path: 'match',              element: <S><WelcomeOrgPage /></S> },
         ],
       },
 
