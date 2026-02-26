@@ -7,7 +7,6 @@ import { useRegistrationStore } from '../../stores/registrationStore';
 import { useTenantStore } from '../../stores/tenantStore';
 import { useLoginSheetStore } from '../../stores/loginSheetStore';
 import { getFirstOnboardingSlide } from '../../utils/onboardingNavigation';
-import { auth } from '../../lib/firebase';
 
 /**
  * WelcomeOrgPage — Match Screen ("מצאנו התאמה").
@@ -46,20 +45,17 @@ export default function WelcomeOrgPage() {
   const navigatingAwayRef = useRef(false);
 
   // ── Auth state ───────────────────────────────────────────────
-  const firstName    = useAuthStore((s) => s.firstName);
-  const authMethod   = useAuthStore((s) => s.authMethod);
-  const authEmail    = useAuthStore((s) => s.email);
-  const avatarUrl    = useAuthStore((s) => s.avatarUrl);
+  const firstName  = useAuthStore((s) => s.firstName);
+  const authMethod = useAuthStore((s) => s.authMethod);
+  const logout     = useAuthStore((s) => s.logout);
 
   // ── Registration state ───────────────────────────────────────
-  const orgMember             = useRegistrationStore((s) => s.orgMember);
-  const phone                 = useRegistrationStore((s) => s.phone);
-  const missingFields         = useRegistrationStore((s) => s.missingFields);
-  const profileData           = useRegistrationStore((s) => s.profileData);
-  const registrationPath      = useRegistrationStore((s) => s.registrationPath);
-  const startRegistration     = useRegistrationStore((s) => s.startRegistration);
-  const resetRegistration     = useRegistrationStore((s) => s.resetRegistration);
-  const setMatchScreenReached = useRegistrationStore((s) => s.setMatchScreenReached);
+  const orgMember         = useRegistrationStore((s) => s.orgMember);
+  const phone             = useRegistrationStore((s) => s.phone);
+  const missingFields     = useRegistrationStore((s) => s.missingFields);
+  const profileData       = useRegistrationStore((s) => s.profileData);
+  const startRegistration = useRegistrationStore((s) => s.startRegistration);
+  const resetRegistration = useRegistrationStore((s) => s.resetRegistration);
 
   // ── Login sheet ──────────────────────────────────────────────
   const open = useLoginSheetStore((s) => s.open);
@@ -92,34 +88,21 @@ export default function WelcomeOrgPage() {
   const orgColor    = selectedOrg?.color ?? '#635bff';
 
   // ── User identifier for badge ────────────────────────────────
-  // Priority chain (|| so '' always falls through):
-  //   email : profileData (in-memory) → authStore (localStorage) → auth.currentUser (live Firebase)
-  //   name  : authStore (localStorage) → auth.currentUser displayName (live Firebase)
-  //   phone : registrationStore (in-memory) → auth.currentUser phoneNumber (live Firebase)
-  // The auth.currentUser fallbacks cover existing sessions that pre-date the persisted email/name fields.
-  const firebaseEmail  = auth.currentUser?.email || null;
-  const firebaseName   = auth.currentUser?.displayName?.split(' ')[0] || null;
-  const firebasePhone  = auth.currentUser?.phoneNumber || null;
-  const emailForBadge  = profileData.email || authEmail || firebaseEmail;
+  // Priority: email (Google/Apple) > firstName > phone
   const userIdentifier =
-    (authMethod === 'google' || authMethod === 'apple') && emailForBadge
-      ? emailForBadge
-      : firstName || firebaseName || phone || firebasePhone || null;
+    (authMethod === 'google' || authMethod === 'apple') && profileData.email
+      ? profileData.email
+      : firstName
+        ? firstName
+        : phone
+          ? phone
+          : null;
 
   useEffect(() => { setMounted(true); }, []);
 
-  // WelcomeOrgPage IS the match/identification screen — mark it reached so that
-  // LanguageRouter begins injecting org CSS variables from this page onwards.
-  useEffect(() => {
-    setMatchScreenReached(true);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   // Safety guard: if no org data available, redirect to home.
-  // Suppressed during the switch-account flow via navigatingAwayRef to prevent
-  // a race-condition redirect while clearTenant/resetRegistration settle.
-  // NOTE: handleContinueNoOrg intentionally preserves org data so that back-
-  // navigation returns here rather than triggering this guard.
+  // Suppressed during intentional navigations (switch-account, continue-no-org)
+  // to prevent a race-condition redirect before clearTenant/resetRegistration settle.
   useEffect(() => {
     if (mounted && orgs.length === 0 && !navigatingAwayRef.current) {
       navigate(`/${lang}`, { replace: true });
@@ -130,18 +113,6 @@ export default function WelcomeOrgPage() {
 
   /** Continue with org affiliation → onboarding */
   const handleContinueWithOrg = () => {
-    // Re-commit the registration with noOrgAffiliation = false.
-    // This resets the flag in case the user previously clicked "without org"
-    // and then came back via the system back button.
-    // Without this call, noOrgAffiliation would stay true in the Zustand store
-    // and LanguageRouter would show Nexus colors instead of org colors.
-    startRegistration({
-      path:             registrationPath ?? 'new-user',
-      phone:            phone ?? '',
-      orgMember,
-      missingFields,
-      noOrgAffiliation: false,
-    });
     if (tenantConfig?.requiresMembershipFee) {
       navigate(`/${lang}/register/membership`);
     } else {
@@ -156,19 +127,12 @@ export default function WelcomeOrgPage() {
   /** Continue without org → register as a plain new user (Nexus only, no org affiliation) */
   const handleContinueNoOrg = () => {
     navigatingAwayRef.current = true;
-    // ▸ Do NOT call clearTenant() and do NOT wipe orgMember before navigating.
-    //   useRef values reset on every component mount, so if the user taps the
-    //   system back button this page remounts with navigatingAwayRef.current = false.
-    //   The safety guard then checks orgs.length — if org data has been cleared
-    //   it would redirect to home instead of showing this page again.
-    //   Preserving org data lets back-navigation land here correctly.
-    //   The tenant / org data is cleared when registration completes.
+    clearTenant(); // remove org branding — Nexus colors take over from this point
     startRegistration({
-      path:             'new-user',
-      phone:            phone ?? '',
-      orgMember:        orgMember,   // keep current value — null for tenant-only, set for org-member
+      path:         'new-user',
+      phone:        phone ?? '',
+      orgMember:    null,
       missingFields,
-      noOrgAffiliation: true,
     });
     navigate(
       `/${lang}/register/onboarding/${getFirstOnboardingSlide(
@@ -177,21 +141,16 @@ export default function WelcomeOrgPage() {
     );
   };
 
-  /** Switch account → open auth sheet on same page (page stays untouched until login succeeds) */
-  const handleSwitchAccount = async () => {
-    try {
-      // Open LoginSheet on this page — nothing changes while the sheet is visible.
-      // LoginSheet handles all auth internally and navigates away on success (PATH A → home,
-      // PATH B → stories, etc.).  When it resolves here it means PATH A succeeded and the
-      // user is already set up — do NOT call logout(), just clean up and go home.
-      await open();
-      navigatingAwayRef.current = true; // prevent safety guard during cleanup
-      resetRegistration();
-      clearTenant();
-      navigate(`/${lang}`, { replace: true });
-    } catch {
-      // User dismissed the sheet without logging in → stay on this page, do nothing
-    }
+  /** Switch account → logout, reset state, reopen auth sheet for a fresh flow */
+  const handleSwitchAccount = () => {
+    navigatingAwayRef.current = true;
+    logout();
+    resetRegistration();
+    clearTenant();
+    // Navigate home first, then open the LoginSheet (it's a root portal —
+    // a microtask delay ensures the new page is mounted before the sheet appears)
+    navigate(`/${lang}`, { replace: true });
+    Promise.resolve().then(() => open().catch(() => {}));
   };
 
   // ── Subtitle text ─────────────────────────────────────────────
@@ -250,54 +209,25 @@ export default function WelcomeOrgPage() {
 
           {/* User identity badge */}
           {userIdentifier && (
-            <div className="mt-3 inline-flex items-center gap-2 bg-white border border-border rounded-full px-3 py-1.5">
-              {/* Avatar or auth-method icon */}
-              {avatarUrl ? (
-                <div className="relative flex-shrink-0">
-                  <img
-                    src={avatarUrl}
-                    alt=""
-                    className="rounded-full object-cover"
-                    style={{ width: 22, height: 22 }}
-                  />
-                  {/* Tiny auth-method badge overlaid on avatar */}
-                  {authMethod === 'google' && (
-                    <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-white flex items-center justify-center shadow-sm">
-                      <svg width="9" height="9" viewBox="0 0 24 24" aria-hidden="true">
-                        <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4" />
-                        <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
-                        <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
-                        <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
-                      </svg>
-                    </div>
-                  )}
-                  {authMethod === 'apple' && (
-                    <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-black flex items-center justify-center shadow-sm">
-                      <svg width="7" height="7" viewBox="0 0 24 24" fill="white" aria-hidden="true">
-                        <path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z" />
-                      </svg>
-                    </div>
-                  )}
-                </div>
-              ) : authMethod === 'google' ? (
-                <div className="flex-shrink-0 rounded-full flex items-center justify-center" style={{ width: 22, height: 22, background: 'white', border: '1.5px solid #e8e8e8' }}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true">
-                    <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4" />
-                    <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
-                    <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
-                    <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
-                  </svg>
-                </div>
+            <div className="mt-3 inline-flex items-center gap-1.5 bg-white border border-border rounded-full px-3 py-1">
+              {authMethod === 'google' ? (
+                <svg width="12" height="12" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4" />
+                  <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
+                  <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
+                  <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
+                </svg>
               ) : authMethod === 'apple' ? (
-                <div className="flex-shrink-0 rounded-full flex items-center justify-center" style={{ width: 22, height: 22, background: '#000' }}>
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="white" aria-hidden="true">
-                    <path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z" />
-                  </svg>
-                </div>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="black" aria-hidden="true">
+                  <path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z" />
+                </svg>
               ) : (
-                <div className="flex-shrink-0 rounded-full flex items-center justify-center" style={{ width: 22, height: 22, background: '#f0f0f0', border: '1.5px solid #e0e0e0' }}>
-                  <span className="material-symbols-outlined" style={{ fontSize: '12px', color: '#888' }}>phone</span>
-                </div>
+                <span
+                  className="material-symbols-outlined text-text-muted"
+                  style={{ fontSize: '12px' }}
+                >
+                  phone
+                </span>
               )}
               <span className="text-xs text-text-secondary font-medium truncate max-w-[200px]">
                 {t.authFlow.matchConnectedAs.replace('{{identifier}}', userIdentifier)}
