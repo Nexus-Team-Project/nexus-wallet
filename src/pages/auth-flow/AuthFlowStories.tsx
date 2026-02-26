@@ -197,7 +197,6 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
         {/* ── Persistent CTA bar — hidden on slides that own their own bottom UI ── */}
         {!noCTASlides.includes(steps[current]?.id ?? '') && (
           <StoryCTABar
-            flowType={flowType}
             isOrgFlow={isOrgFlow}
             steps={steps}
             setSteps={setSteps}
