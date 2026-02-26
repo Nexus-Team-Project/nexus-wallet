@@ -183,7 +183,7 @@ function StoryHero({
   primaryColor: string;
   tenantName: string;
 }) {
-  const { t, language } = useLanguage();
+  const { language } = useLanguage();
   const isHe = language === 'he';
   const [imgErrors, setImgErrors] = useState<Set<number>>(new Set());
   const darkColor = darkenColor(primaryColor, 0.3);

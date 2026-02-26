@@ -8,7 +8,7 @@
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useNavigate, useParams, useLocation } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useRegistrationStore } from '../../stores/registrationStore';
 import { getFirstOnboardingSlide, getOnboardingTotalWithComplete } from '../../utils/onboardingNavigation';
 import { useTenantStore } from '../../stores/tenantStore';
@@ -57,7 +57,6 @@ const orgUserSteps  = [{ id: 'welcome-org' }, ...smartStorySteps];
 export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
   const { lang = 'he' } = useParams();
   const navigate = useNavigate();
-  const location = useLocation();
   const setTenant    = useTenantStore((s) => s.setTenant);
   const tenantConfig = useTenantStore((s) => s.config);
   const orgMember    = useRegistrationStore((s) => s.orgMember);
@@ -75,10 +74,17 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
     : baseSteps;
 
   // ── If user pressed Back from onboarding/membership, restore match-screen ─
-  const returnToMatch = (location.state as { returnToMatch?: boolean } | null)?.returnToMatch ?? false;
-  const initialCurrent = returnToMatch
-    ? Math.max(0, initialSteps.findIndex(s => s.id === 'match-screen'))
-    : 0;
+  // sessionStorage flag is written by SlideMatchScreen BEFORE navigating forward,
+  // so it survives back-navigation (unlike location.state which lives on the
+  // destination history entry and is null when we return via Back).
+  const [initialCurrent] = useState(() => {
+    const flag = sessionStorage.getItem('nexus_return_match') === '1';
+    if (flag) {
+      sessionStorage.removeItem('nexus_return_match');
+      return Math.max(0, initialSteps.findIndex(s => s.id === 'match-screen'));
+    }
+    return 0;
+  });
 
   // ── Step machine (navigation, auto-advance, tap) ─────────────────────────
   const {
