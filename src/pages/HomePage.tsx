@@ -13,41 +13,9 @@ export default function HomePage() {
   const { lang = 'he' } = useParams();
   const navigate = useNavigate();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
-  const login = useAuthStore((s) => s.login);
   const logout = useAuthStore((s) => s.logout);
-  const setTenant = useTenantStore((s) => s.setTenant);
   const clearTenant = useTenantStore((s) => s.clearTenant);
   const resetGeolocation = useGeolocationStore((s) => s.reset);
-
-  const handleDevLogin = () => {
-    login({
-      token: `tok_dev_${Date.now()}`,
-      userId: 'usr_001',
-      method: 'google',
-      isOrgMember: true,
-      organizationName: 'מועדון עץ ההטבות של גולני',
-      avatarUrl: 'https://ui-avatars.com/api/?name=Daniel+Cohen&background=635bff&color=fff&size=128&bold=true',
-    });
-    setTenant('golani-club', {
-      id: 'golani-club',
-      name: 'Golani Benefits Club',
-      nameHe: 'מועדון עץ ההטבות של גולני',
-      logo: '/nexus-logo.png',
-      primaryColor: '#635bff',
-      requiresMembershipFee: false,
-      membershipBenefits: [
-        'Exclusive deals up to 50% off',
-        'Early access to new vouchers',
-        'Premium member support',
-      ],
-      membershipBenefitsHe: [
-        'הנחות בלעדיות עד 50%',
-        'גישה מוקדמת לשוברים חדשים',
-        'תמיכת חברים פרימיום',
-      ],
-    });
-    window.location.reload();
-  };
 
   const handleResetUser = () => {
     logout();
@@ -64,16 +32,8 @@ export default function HomePage() {
       <NearYou />
       <ActiveOffers />
 
-      {/* DEV ONLY: Login / Reset buttons */}
+      {/* DEV ONLY: Reset buttons */}
       <div className="px-6 py-4 flex flex-col gap-2">
-        {!isAuthenticated && (
-          <button
-            onClick={handleDevLogin}
-            className="w-full py-3 rounded-2xl bg-primary/10 text-primary text-xs font-semibold border border-primary/20 active:scale-[0.98] transition-all"
-          >
-            כניסה כדניאל (Dev)
-          </button>
-        )}
         {isAuthenticated && (
           <button
             onClick={handleResetUser}

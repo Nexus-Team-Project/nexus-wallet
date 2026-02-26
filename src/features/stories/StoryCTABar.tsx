@@ -19,9 +19,6 @@ export function StoryCTABar({
   flowType,
   isOrgFlow,
   steps,
-  setSteps,
-  setDirection,
-  setCurrent,
   goTo,
   orgColor,
   onSwitchUser,
@@ -34,27 +31,8 @@ export function StoryCTABar({
       <div className="bg-black/70 backdrop-blur-sm px-6 pb-6 pt-1 pointer-events-auto" dir="rtl">
         <div className="flex items-center gap-4">
 
-          {/* Secondary link — differs by flow */}
-          {flowType === 'new-user' ? (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                const orgIdx = steps.findIndex(s => s.id === 'select-org');
-                if (orgIdx !== -1) {
-                  setDirection(1);
-                  setCurrent(orgIdx);
-                } else {
-                  setSteps(prev => [...prev, { id: 'select-org', interactive: true }]);
-                  setDirection(1);
-                  setCurrent(steps.length);
-                }
-              }}
-              className="flex-1 text-right active:opacity-70 transition-opacity"
-            >
-              <p className="text-white/75 text-xs leading-snug">שייך לארגון שעובד עם נקסוס?</p>
-              <span className="text-white text-xs font-bold border-b border-white/60 pb-px">הכניסה מכאן</span>
-            </button>
-          ) : (
+          {/* Secondary link — org flow only */}
+          {flowType === 'org-user' && (
             <button
               onClick={(e) => { e.stopPropagation(); onSwitchUser(); }}
               className="flex-1 text-right active:opacity-70 transition-opacity"

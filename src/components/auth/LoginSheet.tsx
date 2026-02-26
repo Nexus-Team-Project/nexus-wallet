@@ -459,12 +459,9 @@ export default function LoginSheet() {
         close();
         if (tenantConfig?.requiresMembershipFee) {
           navigate(`/${lang}/register/membership`);
-        } else if (tenantConfig) {
-          // Tenant without fee (no customerId) → Nexus stories → Match Screen
-          navigate(`/${lang}/auth-flow/new-user`);
         } else {
-          // No org context → Nexus welcome page
-          navigate(`/${lang}/auth-flow/welcome-new`);
+          // Tenant without fee, or no org context → Nexus stories flow
+          navigate(`/${lang}/auth-flow/new-user`);
         }
       }
     } finally {
@@ -522,12 +519,9 @@ export default function LoginSheet() {
         close();
         if (tenantConfig?.requiresMembershipFee) {
           navigate(`/${lang}/register/membership`);
-        } else if (tenantConfig) {
-          // Tenant without fee (no customerId) → Nexus stories → Match Screen
-          navigate(`/${lang}/auth-flow/new-user`);
         } else {
-          // No org context → Nexus welcome page
-          navigate(`/${lang}/auth-flow/welcome-new`);
+          // Tenant without fee, or no org context → Nexus stories flow
+          navigate(`/${lang}/auth-flow/new-user`);
         }
       }
     } finally {
