@@ -13,7 +13,6 @@ import {
   firebaseSaveConsent,
 } from '../../services/auth.service';
 import { lookupTenantByOrg } from '../../mock/handlers/tenant.handler';
-import { getFirstOnboardingSlide } from '../../utils/onboardingNavigation';
 
 export default function LoginSheet() {
   const { lang = 'he' } = useParams();
@@ -291,8 +290,7 @@ export default function LoginSheet() {
             missingFields: phoneMissing,
           });
           close();
-          // Nexus welcome first, then Match Screen
-          navigate(`/${lang}/auth-flow/welcome-new`);
+          navigate(`/${lang}/auth-flow/new-user`);
         }
         return;
       }
@@ -306,22 +304,10 @@ export default function LoginSheet() {
       // Phone auth — need full profile (name, email, birthday)
       const phoneMissing = ['firstName', 'lastName', 'email', 'birthday'];
 
-      // PATH E: Tenant with membership fee
-      if (tenantConfig?.requiresMembershipFee) {
-        startRegistration({
-          path: 'tenant-with-fee',
-          phone,
-          missingFields: phoneMissing,
-        });
-        close();
-        navigate(`/${lang}/register/membership`);
-        return;
-      }
-
-      // PATH D: Tenant without fee (no customerId) → Nexus stories → Match Screen
+      // PATH D/E: Tenant (with or without fee) → Nexus stories → match-screen → onboarding/membership
       if (tenantConfig) {
         startRegistration({
-          path: 'tenant-no-fee',
+          path: tenantConfig.requiresMembershipFee ? 'tenant-with-fee' : 'tenant-no-fee',
           phone,
           missingFields: phoneMissing,
         });
@@ -330,16 +316,14 @@ export default function LoginSheet() {
         return;
       }
 
-      // PATH C: New user (no tenant, no org) → straight to onboarding
+      // PATH C: New user (no tenant, no org) → Nexus stories → onboarding
       startRegistration({
         path: 'new-user',
         phone,
         missingFields: phoneMissing,
       });
       close();
-      navigate(
-        `/${lang}/register/onboarding/${getFirstOnboardingSlide(useRegistrationStore.getState())}`
-      );
+      navigate(`/${lang}/auth-flow/new-user`);
     } finally {
       setIsLoading(false);
     }
@@ -392,8 +376,7 @@ export default function LoginSheet() {
               });
             }
             close();
-            // Nexus welcome first, then Match Screen
-            navigate(`/${lang}/auth-flow/welcome-new`);
+            navigate(`/${lang}/auth-flow/new-user`);
           }
           return;
         }
@@ -457,12 +440,7 @@ export default function LoginSheet() {
           });
         }
         close();
-        if (tenantConfig?.requiresMembershipFee) {
-          navigate(`/${lang}/register/membership`);
-        } else {
-          // Tenant without fee, or no org context → Nexus stories flow
-          navigate(`/${lang}/auth-flow/new-user`);
-        }
+        navigate(`/${lang}/auth-flow/new-user`);
       }
     } finally {
       setIsLoading(false);
@@ -517,12 +495,7 @@ export default function LoginSheet() {
           });
         }
         close();
-        if (tenantConfig?.requiresMembershipFee) {
-          navigate(`/${lang}/register/membership`);
-        } else {
-          // Tenant without fee, or no org context → Nexus stories flow
-          navigate(`/${lang}/auth-flow/new-user`);
-        }
+        navigate(`/${lang}/auth-flow/new-user`);
       }
     } finally {
       setIsLoading(false);
