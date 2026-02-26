@@ -1186,20 +1186,18 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
 
   const goNext = useCallback(() => {
     if (current + 1 >= steps.length) {
-      // מעגלי — חוזר להתחלה
-      goTo(0, 1);
-    } else {
-      goTo(current + 1);
+      // בסוף הרצף — לא מעגלי, פשוט נשאר
+      return;
     }
+    goTo(current + 1);
   }, [current, steps.length, goTo]);
 
   const goPrev = useCallback(() => {
     if (current === 0) {
-      // מעגלי — חוזר לאחרון
-      goTo(steps.length - 1, -1);
-    } else {
-      goTo(current - 1);
+      // בתחילת הרצף — לא מעגלי, פשוט נשאר
+      return;
     }
+    goTo(current - 1);
   }, [current, steps.length, goTo]);
 
   // Auto-advance: רץ על כל step שאינו interactive
