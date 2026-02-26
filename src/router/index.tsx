@@ -44,6 +44,7 @@ const BenefitCategoriesSlide = lazy(() => import('../pages/register/onboarding/B
 
 // Auth flow
 const FlowTestPage         = lazy(() => import('../pages/auth-flow/FlowTestPage'));
+const SelectOrgPage        = lazy(() => import('../pages/auth-flow/SelectOrgPage'));
 const NewUserFlow = lazy(() =>
   import('../pages/auth-flow/AuthFlowStories').then((m) => ({ default: m.NewUserFlow }))
 );
@@ -119,8 +120,9 @@ export const router = createBrowserRouter([
       {
         path: 'auth-flow',
         children: [
-          { path: 'test',     element: <S><FlowTestPage /></S> },
-          { path: 'new-user', element: <S><NewUserFlow /></S> },
+          { path: 'test',       element: <S><FlowTestPage /></S> },
+          { path: 'new-user',   element: <S><NewUserFlow /></S> },
+          { path: 'select-org', element: <S><SelectOrgPage /></S> },
         ],
       },
 
