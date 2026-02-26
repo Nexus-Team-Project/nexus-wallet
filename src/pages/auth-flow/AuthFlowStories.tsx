@@ -1185,12 +1185,13 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
   );
 
   const goNext = useCallback(() => {
-    if (current + 1 >= steps.length) {
-      // בסוף הרצף — לא מעגלי, פשוט נשאר
-      return;
-    }
-    goTo(current + 1);
-  }, [current, steps.length, goTo]);
+    const next = current + 1;
+    if (next >= steps.length) return;
+    // Interactive steps (e.g. match-screen) are ONLY reachable via the CTA button.
+    // Never allow tap or auto-advance to land on them.
+    if (steps[next]?.interactive) return;
+    goTo(next);
+  }, [current, steps, goTo]);
 
   const goPrev = useCallback(() => {
     if (current === 0) {
