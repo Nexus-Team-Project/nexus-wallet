@@ -34,7 +34,7 @@ export function StoryCTABar({
         <div className="flex items-center gap-4">
 
           {/* Secondary links — org flow only */}
-          {flowType === 'org-user' && (
+          {isOrgFlow && (
             <div className="flex-1 flex flex-col gap-2 text-right">
               <button
                 onClick={(e) => { e.stopPropagation(); onChangeOrg(); }}
@@ -76,7 +76,7 @@ export function StoryCTABar({
         </div>
 
         {/* Powered by Nexus — org flow only */}
-        {flowType === 'org-user' && (
+        {isOrgFlow && (
           <div className="flex items-center justify-center mt-3 opacity-70">
             <img src="/nexus-logo-animated-white.gif" alt="Nexus" style={{ height: 22, width: 'auto', marginRight: 3 }} />
             <span className="text-white text-[11px] font-medium">powered by</span>
