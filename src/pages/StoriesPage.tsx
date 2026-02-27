@@ -10,11 +10,23 @@ import { PremiumRevealContent } from "./PremiumRevealPage"
 const STORY_COUNT = 5
 const STORY_DURATION = 12000 // ms per story
 
+// ── Unique slug for every story slide — used in ?step= URL param ─────────────
+const STORY_IDS = ['insights', 'gift-cards', 'wallet', 'nearby', 'premium-reveal'] as const;
+
 /** Instagram-style stories with progress bars and tap navigation */
 export default function StoriesPage() {
   const { lang = "he" } = useParams()
   const navigate = useNavigate()
-  const [currentStory, setCurrentStory] = useState(0)
+
+  // Restore from URL slug so every slide is directly shareable (?step=wallet etc.)
+  const [currentStory, setCurrentStory] = useState(() => {
+    const stepParam = new URLSearchParams(window.location.search).get('step');
+    if (stepParam) {
+      const idx = STORY_IDS.indexOf(stepParam as typeof STORY_IDS[number]);
+      if (idx !== -1) return idx;
+    }
+    return 0;
+  })
   const [progress, setProgress] = useState(0)
   const timerRef = useRef<number | null>(null)
   const startTimeRef = useRef(Date.now())
@@ -36,6 +48,15 @@ export default function StoriesPage() {
 
   // Last story (premium reveal) is interactive — no auto-advance
   const isInteractiveStory = currentStory === STORY_COUNT - 1
+
+  // Sync current story → URL ?step=<slug> so every slide has a unique shareable URL
+  useEffect(() => {
+    const stepId = STORY_IDS[currentStory];
+    if (!stepId) return;
+    const url = new URL(window.location.href);
+    url.searchParams.set('step', stepId);
+    window.history.replaceState(null, '', url.toString());
+  }, [currentStory]);
 
   // Auto-advance timer (paused on interactive stories)
   useEffect(() => {

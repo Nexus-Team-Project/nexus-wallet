@@ -33,6 +33,9 @@ const FLOATING_BRANDS = [
 const STORY_COUNT = 2;
 const STORY_DURATION = 8000; // ms — auto-advance on story 1 only
 
+// ── Unique slug for every story slide — used in ?step= URL param ─────────────
+const STORY_IDS = ['hero-invite', 'actions'] as const;
+
 // ── Helper: derive a darker shade from a hex color ───────────────────────────
 function darkenColor(hex: string, amount = 0.35): string {
   const h = hex.replace('#', '');
@@ -604,7 +607,15 @@ export default function ReferralStoriesPage() {
   // Derive display name based on language
   const tenantName    = (isHe ? tenantConfig?.nameHe : tenantConfig?.name) ?? 'נקסוס';
 
-  const [currentStory, setCurrentStory] = useState(0);
+  // Restore from URL slug so every slide is directly shareable (?step=actions etc.)
+  const [currentStory, setCurrentStory] = useState(() => {
+    const stepParam = new URLSearchParams(window.location.search).get('step');
+    if (stepParam) {
+      const idx = STORY_IDS.indexOf(stepParam as typeof STORY_IDS[number]);
+      if (idx !== -1) return idx;
+    }
+    return 0;
+  });
   const [progress,     setProgress]     = useState(0);
   const startTimeRef = useRef(0);
   const rafRef       = useRef<number>(0);
@@ -622,6 +633,15 @@ export default function ReferralStoriesPage() {
 
   const isInteractive   = currentStory === 1;
   const displayProgress = isInteractive ? 1 : progress;
+
+  // Sync current story → URL ?step=<slug> so every slide has a unique shareable URL
+  useEffect(() => {
+    const stepId = STORY_IDS[currentStory];
+    if (!stepId) return;
+    const url = new URL(window.location.href);
+    url.searchParams.set('step', stepId);
+    window.history.replaceState(null, '', url.toString());
+  }, [currentStory]);
 
   // Auto-advance timer — story 1 only
   useEffect(() => {
