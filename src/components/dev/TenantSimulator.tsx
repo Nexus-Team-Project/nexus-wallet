@@ -1,4 +1,4 @@
-﻿/**
+/**
  * TenantSimulator — dev toggle (top-left) to simulate tenant context.
  *
  * Visible when ANY of these are true:
@@ -10,9 +10,11 @@
  * LanguageRouter reads ?tenant and calls setTenant / clearTenant.
  *
  * NOTE: Must be rendered inside a RouterProvider (currently in LanguageRouter).
+ * NOTE: No createPortal needed — position:fixed with overflow-x:hidden (not clip)
+ *       works correctly. Portal to body breaks React 18 event delegation (#root
+ *       is a child of body, so events from body-level portal never reach #root).
  */
 
-import { createPortal } from 'react-dom';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { mockTenants } from '../../mock/data/tenants.mock';
 import { useTenantStore } from '../../stores/tenantStore';
@@ -57,7 +59,7 @@ export function TenantSimulator() {
     navigate({ search: next.toString() });
   };
 
-  return createPortal(
+  return (
     <div style={{
       position: 'fixed',
       top: 12,
@@ -66,7 +68,6 @@ export function TenantSimulator() {
       display: 'flex',
       alignItems: 'center',
       gap: 7,
-      pointerEvents: 'all',
     }}>
 
       {/* Toggle pill */}
@@ -75,7 +76,7 @@ export function TenantSimulator() {
         title={isTenantOn ? 'כבה טננט' : 'הדלק טננט'}
         style={{
           position: 'relative',
-          width: 42, height: 24, borderRadius: 12, flexShrink: 0,
+          width: 44, height: 26, borderRadius: 13, flexShrink: 0,
           background: isTenantOn ? activeColor : '#555',
           border: 'none', cursor: 'pointer', padding: 0,
           boxShadow: '0 2px 6px rgba(0,0,0,0.4)',
@@ -84,8 +85,8 @@ export function TenantSimulator() {
       >
         <span style={{
           position: 'absolute',
-          top: 3,
-          left: isTenantOn ? 21 : 3,
+          top: 4,
+          left: isTenantOn ? 22 : 4,
           width: 18, height: 18, borderRadius: '50%',
           background: '#fff',
           transition: 'left 0.2s',
@@ -109,7 +110,6 @@ export function TenantSimulator() {
         </span>
       )}
 
-    </div>,
-    document.body
+    </div>
   );
 }
