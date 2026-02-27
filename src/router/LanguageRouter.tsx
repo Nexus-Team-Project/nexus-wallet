@@ -3,7 +3,7 @@ import { Outlet, useSearchParams } from 'react-router-dom';
 import { LanguageProvider } from '../i18n/LanguageContext';
 import LoginSheet from '../components/auth/LoginSheet';
 import { useTenantStore } from '../stores/tenantStore';
-import { lookupTenant, lookupTenantByCustomerId } from '../mock/handlers/tenant.handler';
+import { lookupTenant } from '../mock/handlers/tenant.handler';
 
 /** Darken a hex color by a given percentage */
 function darkenColor(hex: string, percent: number): string {
@@ -21,19 +21,11 @@ export default function LanguageRouter() {
   // Detect tenant from URL query params on mount
   useEffect(() => {
     const tenantSlug = searchParams.get('tenant');
-    const customerId = searchParams.get('customerId');
 
     if (tenantSlug) {
       const tenantConfig = lookupTenant(tenantSlug);
       if (tenantConfig) {
         setTenant(tenantSlug, tenantConfig);
-      } else {
-        clearTenant();
-      }
-    } else if (customerId) {
-      const tenantConfig = lookupTenantByCustomerId(customerId);
-      if (tenantConfig) {
-        setTenant(tenantConfig.id, tenantConfig);
       } else {
         clearTenant();
       }

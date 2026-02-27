@@ -6,7 +6,7 @@
  *   • ?dev=1 in URL  →  saves to localStorage, persists across navigations
  *   • ?dev=0         →  clears the flag
  *
- * Clicking a tenant navigates to ?customerId=<id> (or ?tenant=<id> if no customerId).
+ * Clicking a tenant navigates to ?tenant=<id>.
  * LanguageRouter already handles those params — no store manipulation needed.
  */
 
@@ -31,26 +31,19 @@ export function TenantSimulator() {
   const goTo = (params: Record<string, string>) => {
     const url = new URL(window.location.href);
     // clear both, then set the right one
-    url.searchParams.delete('customerId');
     url.searchParams.delete('tenant');
     for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
     window.location.href = url.toString();
   };
 
   const activate = (id: string) => {
-    const t = mockTenants[id];
-    if (!t) return;
-    if (t.customerId) {
-      goTo({ customerId: t.customerId });
-    } else {
-      goTo({ tenant: id });
-    }
+    if (!mockTenants[id]) return;
+    goTo({ tenant: id });
     setOpen(false);
   };
 
   const clear = () => {
     const url = new URL(window.location.href);
-    url.searchParams.delete('customerId');
     url.searchParams.delete('tenant');
     window.location.href = url.toString();
     setOpen(false);
@@ -104,7 +97,7 @@ export function TenantSimulator() {
                       {t.nameHe}
                     </p>
                     <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 10, margin: 0, fontFamily: 'monospace', letterSpacing: 0.5 }}>
-                      {t.customerId ? `?customerId=${t.customerId}` : `?tenant=${t.id}`}
+                      {`?tenant=${t.id}`}
                     </p>
                   </div>
                   {isActive && (
