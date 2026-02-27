@@ -24,7 +24,7 @@ export default function LanguageRouter() {
     const tenantSlug = searchParams.get('tenant');
 
     if (tenantSlug) {
-      // ?tenant= in URL ? set (or refresh) tenant
+      // ?tenant= in URL → set (or refresh) tenant
       const tenantConfig = lookupTenant(tenantSlug);
       if (tenantConfig) {
         setTenant(tenantSlug, tenantConfig);
@@ -32,15 +32,27 @@ export default function LanguageRouter() {
         clearTenant();
       }
     } else if (tenantId) {
-      // Tenant is active but missing from URL ? restore it silently
+      // Tenant is active but missing from URL → restore it silently
       const next = new URLSearchParams(searchParams);
       next.set('tenant', tenantId);
       navigate({ search: next.toString() }, { replace: true });
     } else {
-      // No tenant anywhere ? clear (ensures Nexus colors on plain home)
+      // No tenant anywhere → clear (ensures Nexus colors on plain home)
       clearTenant();
     }
-  }, [searchParams, setTenant, clearTenant, tenantId, navigate]);
+    // NOTE: tenantId is intentionally excluded from deps.
+    // This effect must only re-run when the URL (searchParams) changes.
+    // Including tenantId causes a React 18 concurrent-mode race: Zustand's
+    // useSyncExternalStore forces an urgent synchronous re-render after
+    // setTenant() fires (step above), but React Router's location update is
+    // deferred via startTransition and may not have committed yet.  That
+    // stale-searchParams render triggers the else-if(tenantId) branch which
+    // issues a competing navigate({replace}) that races the original push and
+    // causes the URL to immediately revert.  The else-if branch reads tenantId
+    // from the closure of whichever render triggered the effect (always the
+    // render caused by a searchParams change), so the value is always correct.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, setTenant, clearTenant, navigate]);
 
   // Inject tenant CSS variable overrides
   const tenantStyle = config

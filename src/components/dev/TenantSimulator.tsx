@@ -65,7 +65,12 @@ export function TenantSimulator() {
     localStorage.setItem(LAST_TENANT_KEY, target);
     const next = new URLSearchParams(searchParams);
     next.set('tenant', target);
-    navigate({ search: next.toString() });
+    // Use replace (not push) — the tenant toggle is not a navigational action and
+    // must not add a history entry.  A push combined with LanguageRouter's effect
+    // issuing a competing replace() can cause the URL to immediately revert under
+    // React 18 concurrent mode (Zustand useSyncExternalStore urgent re-render sees
+    // stale searchParams before React Router's deferred startTransition commits).
+    navigate({ search: next.toString() }, { replace: true });
   };
 
   const handleAction = isTenantOn ? deactivate : toggleOn;
