@@ -29,6 +29,9 @@ export default function LanguageRouter() {
       } else {
         clearTenant();
       }
+    } else {
+      // No ?tenant= in URL → clear any persisted tenant so home page shows Nexus colors
+      clearTenant();
     }
   }, [searchParams, setTenant, clearTenant]);
 
