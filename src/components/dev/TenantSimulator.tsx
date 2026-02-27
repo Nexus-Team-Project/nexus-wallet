@@ -1,6 +1,11 @@
 /**
- * TenantSimulator — dev-only floating chip to simulate tenant / customerId context.
- * Rendered only when import.meta.env.DEV === true (never in production builds).
+ * TenantSimulator — dev floating chip to simulate tenant / customerId context.
+ *
+ * Visible when:
+ *   • running locally (import.meta.env.DEV), OR
+ *   • localStorage key "nexus_dev_tools" === "1"
+ *     → enable in browser console:  localStorage.setItem('nexus_dev_tools','1'); location.reload()
+ *     → disable:                    localStorage.removeItem('nexus_dev_tools'); location.reload()
  *
  * Activating a tenant:
  *  • sets tenantStore (same as ?tenant= or ?customerId= URL params)
@@ -29,8 +34,9 @@ export function TenantSimulator() {
   const startRegistration = useRegistrationStore(s => s.startRegistration);
   const resetRegistration = useRegistrationStore(s => s.resetRegistration);
 
-  // Never render in production
-  if (!import.meta.env.DEV) return null;
+  // Render only in dev or when manually enabled via localStorage
+  const enabled = import.meta.env.DEV || localStorage.getItem('nexus_dev_tools') === '1';
+  if (!enabled) return null;
 
   const activate = (id: string) => {
     const cfg = mockTenants[id];
