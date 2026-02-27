@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion';
+import { useEffect } from 'react';
 import type { ReactNode } from 'react';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { useRegistrationStore } from '../../stores/registrationStore';
@@ -49,9 +50,20 @@ export default function OnboardingSlideLayout({
   //   isOrgFlow  — persisted to sessionStorage, survives page refreshes for
   //               pure org-member users (who have no tenantConfig in localStorage).
   //   tenantConfig — persisted to localStorage, covers tenant flows.
-  const isOrgFlow    = useRegistrationStore((s) => s.isOrgFlow);
-  const tenantConfig = useTenantStore((s) => s.config);
-  const extraLeading = isOrgFlow || !!tenantConfig ? 1 : 0;
+  const isOrgFlow        = useRegistrationStore((s) => s.isOrgFlow);
+  const registrationPath = useRegistrationStore((s) => s.registrationPath);
+  const tenantConfig     = useTenantStore((s) => s.config);
+  const extraLeading     = isOrgFlow || !!tenantConfig ? 1 : 0;
+
+  // ── Sync ?flow= to URL so every onboarding slide is trackable ────────────
+  const flowLabel: 'new-user' | 'pre-provisioned' =
+    registrationPath === 'org-member-incomplete' ? 'pre-provisioned' : 'new-user';
+
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    url.searchParams.set('flow', flowLabel);
+    window.history.replaceState(null, '', url.toString());
+  }, [flowLabel]);
 
   const ctaLabel = continueLabel ?? t.registration.onboardingContinue;
   const skipLabel = skipLabelProp ?? t.registration.onboardingSkip;

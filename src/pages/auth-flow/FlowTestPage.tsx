@@ -111,7 +111,7 @@ export default function FlowTestPage() {
       firstName: 'רז',
     });
     useAuthStore.getState().setProfileCompleted(true);
-    setTimeout(() => navigate(`/${lang}`), 50);
+    setTimeout(() => navigate(`/${lang}?flow=existed-user`), 50);
   };
 
   /** Flow customerId #2 — משתמש קיים עם ארגון (profileCompleted=true) */
@@ -128,7 +128,7 @@ export default function FlowTestPage() {
     });
     useAuthStore.getState().setProfileCompleted(true);
     // משתמש קיים — ישירות לדף הבית, בלי WelcomeOrg
-    setTimeout(() => navigate(`/${lang}`), 50);
+    setTimeout(() => navigate(`/${lang}?flow=existed-user`), 50);
   };
 
   /** Flow customerId #3 — משתמש חדש */
@@ -159,7 +159,7 @@ export default function FlowTestPage() {
       isOrgMember: false,
     });
     // Existing user — no registration needed, go straight to home
-    navigate(`/${lang}`);
+    navigate(`/${lang}?flow=existed-user`);
   };
 
   const simulateExistingOrgUser = () => {
@@ -174,7 +174,7 @@ export default function FlowTestPage() {
     });
     useAuthStore.getState().setProfileCompleted(true);
     // משתמש קיים — ישירות לדף הבית, בלי WelcomeOrg
-    setTimeout(() => navigate(`/${lang}`), 50);
+    setTimeout(() => navigate(`/${lang}?flow=existed-user`), 50);
   };
 
   // ─── Flow 2: New User ─────────────────────────────────────────────────

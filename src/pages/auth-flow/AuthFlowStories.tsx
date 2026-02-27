@@ -68,6 +68,11 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
   // ── Whether this session has an org/tenant context ────────────────────────
   const isOrgFlow = Boolean(orgMember || tenantConfig);
 
+  // ── Flow label for ?flow= URL param — tracks which onboarding path the user
+  //    arrived on. Based on registrationPath at entry time, not mid-flow state.
+  const flowLabel: 'new-user' | 'pre-provisioned' =
+    registrationPath === 'org-member-incomplete' ? 'pre-provisioned' : 'new-user';
+
   // ── Selected org state (for SlideWelcomeOrg after selecting) ─────────────
   const [selectedOrg, setSelectedOrg] = useState<OrgInfo | null>(null);
 
@@ -103,14 +108,15 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
     goTo, handleTap,
   } = useStoryFlow({ initialSteps, imagesLoaded, initialCurrent });
 
-  // ── Sync current step → URL ?step=<id> so every slide has a unique slug ──
+  // ── Sync current step → URL ?step=<id>&flow=<label> ─────────────────────
   useEffect(() => {
     const stepId = steps[current]?.id;
     if (!stepId) return;
     const url = new URL(window.location.href);
     url.searchParams.set('step', stepId);
+    url.searchParams.set('flow', flowLabel);
     window.history.replaceState(null, '', url.toString());
-  }, [current, steps]);
+  }, [current, steps, flowLabel]);
 
   // ── Slide callbacks ───────────────────────────────────────────────────────
   const handleOrgSwitchUser = () => {
