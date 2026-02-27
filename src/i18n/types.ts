@@ -378,10 +378,6 @@ export interface TranslationKeys {
     howArriveDirectDesc: string;
     howArriveOrgTitle: string;
     howArriveOrgDesc: string;
-    // Flow 2 — Select Org
-    selectOrgTitle: string;
-    selectOrgSearch: string;
-    selectOrgNotFound: string;
     // Flow 3 — Welcome Org (pre-provision splash)
     welcomeOrgTitle: string;
     welcomeOrgSubtitle: string;
