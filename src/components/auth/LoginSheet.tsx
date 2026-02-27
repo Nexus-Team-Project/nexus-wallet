@@ -281,24 +281,6 @@ export default function LoginSheet() {
         return;
       }
 
-      // CUSTOMER-ID FLOW: arrived via ?customerId= link
-      if (tenantConfig?.customerId) {
-        if (useAuthStore.getState().profileCompleted) {
-          // Returning user — go home, not back to org welcome page
-          completeLogin();
-        } else {
-          const phoneMissing = ['firstName', 'lastName', 'email', 'birthday'];
-          startRegistration({
-            path: tenantConfig.requiresMembershipFee ? 'tenant-with-fee' : 'tenant-no-fee',
-            phone,
-            missingFields: phoneMissing,
-          });
-          close();
-          navigate(`/${lang}/auth-flow/new-user`);
-        }
-        return;
-      }
-
       // Returning user (already completed profile before) → go to requested page
       if (useAuthStore.getState().profileCompleted) {
         completeLogin();
@@ -363,30 +345,6 @@ export default function LoginSheet() {
 
         // Show routing overlay — auth is done, deciding which flow to open
         setIsRouting(true);
-
-        // CUSTOMER-ID FLOW: arrived via ?customerId= link
-        if (tenantConfig?.customerId) {
-          if (useAuthStore.getState().profileCompleted) {
-            // Returning user — go home, not back to org welcome page
-            completeLogin();
-          } else {
-            startRegistration({
-              path: tenantConfig.requiresMembershipFee ? 'tenant-with-fee' : 'tenant-no-fee',
-              phone: '',
-              missingFields: ['phone'],
-            });
-            if (result.profile) {
-              useRegistrationStore.getState().setProfileData({
-                firstName: result.profile.firstName,
-                lastName: result.profile.lastName,
-                email: result.profile.email,
-              });
-            }
-            close();
-            navigate(`/${lang}/auth-flow/new-user`);
-          }
-          return;
-        }
 
         // Returning user (already completed profile before) → go to requested page
         if (useAuthStore.getState().profileCompleted) {

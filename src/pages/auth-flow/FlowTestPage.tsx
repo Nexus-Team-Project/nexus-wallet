@@ -28,8 +28,8 @@ export default function FlowTestPage() {
   const tenantId = useTenantStore((s) => s.tenantId);
   const orgMember = useRegistrationStore((s) => s.orgMember);
 
-  // מוצא tenant שיש לו customerId (למשל acme-corp)
-  const customerIdTenant = Object.values(mockTenants).find((t) => t.customerId) ?? mockTenants['acme-corp'];
+  // tenant עם דמי חבר (למשל acme-corp) — לסימולציית flow עם ?tenant=
+  const tenantWithFee = mockTenants['acme-corp'];
 
   // ─── Pre-provisioned toggle ───────────────────────────────────────────
   const isPreProvisioned = !!orgMember;
@@ -91,18 +91,18 @@ export default function FlowTestPage() {
     navigate(`/${lang}`);
   };
 
-  // ─── Customer-ID Flows ────────────────────────────────────────────────
-  /** מגדיר tenant לפי customerId ומסמלץ כניסה */
-  const setupCustomerIdTenant = () => {
-    if (customerIdTenant) {
-      setTenant(customerIdTenant.id, customerIdTenant);
+  // ─── Tenant Flows ────────────────────────────────────────────────────
+  /** מגדיר tenant ומסמלץ כניסה */
+  const setupTenant = () => {
+    if (tenantWithFee) {
+      setTenant(tenantWithFee.id, tenantWithFee);
     }
   };
 
-  /** Flow customerId #1 — משתמש קיים ללא ארגון → דף הבית ישיר */
-  const simulateCustomerIdExisting = () => {
+  /** Flow tenant #1 — משתמש קיים ללא ארגון → דף הבית ישיר */
+  const simulateTenantExisting = () => {
     reset();
-    setupCustomerIdTenant();
+    setupTenant();
     login({
       token: 'mock-token-cid-existing',
       userId: 'user-cid-existing-001',
@@ -114,16 +114,16 @@ export default function FlowTestPage() {
     setTimeout(() => navigate(`/${lang}?flow=existed-user`), 50);
   };
 
-  /** Flow customerId #2 — משתמש קיים עם ארגון (profileCompleted=true) */
-  const simulateCustomerIdExistingOrg = () => {
+  /** Flow tenant #2 — משתמש קיים עם ארגון (profileCompleted=true) */
+  const simulateTenantExistingOrg = () => {
     reset();
-    setupCustomerIdTenant();
+    setupTenant();
     login({
       token: 'mock-token-cid-existing-org',
       userId: 'user-cid-existing-org-002',
       method: 'google',
       isOrgMember: true,
-      organizationName: customerIdTenant?.nameHe ?? 'הארגון',
+      organizationName: tenantWithFee?.nameHe ?? 'הארגון',
       firstName: 'רז',
     });
     useAuthStore.getState().setProfileCompleted(true);
@@ -131,10 +131,10 @@ export default function FlowTestPage() {
     setTimeout(() => navigate(`/${lang}?flow=existed-user`), 50);
   };
 
-  /** Flow customerId #3 — משתמש חדש */
-  const simulateCustomerIdNewUser = () => {
+  /** Flow tenant #3 — משתמש חדש */
+  const simulateTenantNewUser = () => {
     reset();
-    setupCustomerIdTenant();
+    setupTenant();
     login({
       token: 'mock-token-cid-new',
       userId: 'user-cid-new-003',
@@ -142,7 +142,7 @@ export default function FlowTestPage() {
       isOrgMember: false,
     });
     startRegistration({
-      path: customerIdTenant?.requiresMembershipFee ? 'tenant-with-fee' : 'tenant-no-fee',
+      path: tenantWithFee?.requiresMembershipFee ? 'tenant-with-fee' : 'tenant-no-fee',
       phone: '050-0000001',
       missingFields: ['firstName', 'lastName', 'email', 'birthday'],
     });
@@ -302,8 +302,8 @@ export default function FlowTestPage() {
 
       {/* ── tenant badge גלובלי ── */}
       <div className="flex items-center justify-between mb-3 px-3 py-2 bg-orange-50 border border-orange-200 rounded-xl text-xs text-orange-700 font-mono">
-        <span>🔑 customerId tenant: <strong>{customerIdTenant?.nameHe ?? '—'}</strong></span>
-        <span className="opacity-60">ח"פ {customerIdTenant?.customerId ?? '—'}</span>
+        <span>🔑 Tenant עם דמי חבר: <strong>{tenantWithFee?.nameHe ?? '—'}</strong></span>
+        <span className="opacity-60">?tenant={tenantWithFee?.id ?? '—'}</span>
       </div>
       {tenantId && (
         <div className="mb-4 px-3 py-1.5 bg-success/10 rounded-xl text-xs text-success font-semibold">
@@ -347,14 +347,14 @@ export default function FlowTestPage() {
           <button onClick={simulateExistingOrgUser} className="w-full py-3 rounded-xl bg-success/80 text-white text-sm font-semibold active:scale-[0.98] transition-all">
             🏢 משתמש קיים + ארגון (סלקום) → דף הבית
           </button>
-          {/* ── עם customerId ── */}
+          {/* ── עם ?tenant= ── */}
           <div className="border-t border-dashed border-orange-200 pt-2 flex flex-col gap-2">
-            <p className="text-[10px] text-orange-400 font-bold">+ עם ?customerId=</p>
-            <button onClick={simulateCustomerIdExisting} className="w-full py-3 rounded-xl text-white text-sm font-semibold active:scale-[0.98] transition-all" style={{ background: customerIdTenant?.primaryColor }}>
-              👤 קיים ללא ארגון + ח"פ → Welcome Back (נקסוס)
+            <p className="text-[10px] text-orange-400 font-bold">+ עם ?tenant=</p>
+            <button onClick={simulateTenantExisting} className="w-full py-3 rounded-xl text-white text-sm font-semibold active:scale-[0.98] transition-all" style={{ background: tenantWithFee?.primaryColor }}>
+              👤 קיים ללא ארגון + tenant → Welcome Back (נקסוס)
             </button>
-            <button onClick={simulateCustomerIdExistingOrg} className="w-full py-3 rounded-xl text-white text-sm font-semibold active:scale-[0.98] transition-all opacity-80" style={{ background: customerIdTenant?.primaryColor }}>
-              🏢 קיים עם ארגון + ח"פ → דף הבית
+            <button onClick={simulateTenantExistingOrg} className="w-full py-3 rounded-xl text-white text-sm font-semibold active:scale-[0.98] transition-all opacity-80" style={{ background: tenantWithFee?.primaryColor }}>
+              🏢 קיים עם ארגון + tenant → דף הבית
             </button>
           </div>
         </div>
@@ -376,11 +376,11 @@ export default function FlowTestPage() {
           <button onClick={simulateNewUserOTP} className="w-full py-3 rounded-xl bg-primary/80 text-white text-sm font-semibold active:scale-[0.98] transition-all">
             📱 חדש — OTP (טלפון ידוע)
           </button>
-          {/* ── עם customerId ── */}
+          {/* ── עם ?tenant= ── */}
           <div className="border-t border-dashed border-orange-200 pt-2 flex flex-col gap-2">
-            <p className="text-[10px] text-orange-400 font-bold">+ עם ?customerId=</p>
-            <button onClick={simulateCustomerIdNewUser} className="w-full py-3 rounded-xl border-2 text-sm font-semibold active:scale-[0.98] transition-all" style={{ borderColor: customerIdTenant?.primaryColor, color: customerIdTenant?.primaryColor }}>
-              🆕 חדש + ח"פ → Welcome Nexus → דף התאמה → רישום
+            <p className="text-[10px] text-orange-400 font-bold">+ עם ?tenant=</p>
+            <button onClick={simulateTenantNewUser} className="w-full py-3 rounded-xl border-2 text-sm font-semibold active:scale-[0.98] transition-all" style={{ borderColor: tenantWithFee?.primaryColor, color: tenantWithFee?.primaryColor }}>
+              🆕 חדש + ?tenant= → Welcome Nexus → דף התאמה → רישום
             </button>
           </div>
         </div>
@@ -402,11 +402,11 @@ export default function FlowTestPage() {
           <button onClick={simulatePreProvisionedOTP} className="w-full py-3 rounded-xl bg-text-primary/80 text-white text-sm font-semibold active:scale-[0.98] transition-all">
             📱 Pre-provisioned — OTP (טלפון ידוע)
           </button>
-          {/* ── עם customerId ── */}
+          {/* ── עם ?tenant= ── */}
           <div className="border-t border-dashed border-orange-200 pt-2 flex flex-col gap-2">
-            <p className="text-[10px] text-orange-400 font-bold">+ עם ?customerId=</p>
-            <button onClick={simulateCustomerIdNewUser} className="w-full py-3 rounded-xl border-2 text-sm font-semibold active:scale-[0.98] transition-all" style={{ borderColor: customerIdTenant?.primaryColor, color: customerIdTenant?.primaryColor }}>
-              🏅 Pre-provisioned + ח"פ → Welcome Nexus → דף התאמה → רישום
+            <p className="text-[10px] text-orange-400 font-bold">+ עם ?tenant=</p>
+            <button onClick={simulateTenantNewUser} className="w-full py-3 rounded-xl border-2 text-sm font-semibold active:scale-[0.98] transition-all" style={{ borderColor: tenantWithFee?.primaryColor, color: tenantWithFee?.primaryColor }}>
+              🏅 Pre-provisioned + ?tenant= → Welcome Nexus → דף התאמה → רישום
             </button>
           </div>
         </div>

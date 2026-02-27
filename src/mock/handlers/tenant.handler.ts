@@ -18,7 +18,3 @@ export function lookupTenantByOrg(organizationId: string): TenantConfig | null {
   return slug ? (mockTenants[slug] ?? null) : null;
 }
 
-/** Look up tenant config by customerId (ח"פ) */
-export function lookupTenantByCustomerId(customerId: string): TenantConfig | null {
-  return Object.values(mockTenants).find((t) => t.customerId === customerId) ?? null;
-}
