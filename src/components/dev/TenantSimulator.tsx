@@ -1,69 +1,58 @@
 /**
- * TenantSimulator — dev floating chip to simulate tenant / customerId context.
+ * TenantSimulator — dev chip to simulate tenant context via URL params.
  *
  * Visible when:
  *   • running locally (import.meta.env.DEV), OR
- *   • localStorage key "nexus_dev_tools" === "1"
- *     → enable in browser console:  localStorage.setItem('nexus_dev_tools','1'); location.reload()
- *     → disable:                    localStorage.removeItem('nexus_dev_tools'); location.reload()
+ *   • ?dev=1 in URL  →  saves to localStorage, persists across navigations
+ *   • ?dev=0         →  clears the flag
  *
- * Activating a tenant:
- *  • sets tenantStore (same as ?tenant= or ?customerId= URL params)
- *  • sets registrationStore with path:'org-member-incomplete' + orgMember
- *    (simulates a pre-provisioned user arriving via their org's customerId)
+ * Clicking a tenant navigates to ?customerId=<id> (or ?tenant=<id> if no customerId).
+ * LanguageRouter already handles those params — no store manipulation needed.
  */
 
 import { useState } from 'react';
 import { mockTenants } from '../../mock/data/tenants.mock';
 import { useTenantStore } from '../../stores/tenantStore';
-import { useRegistrationStore } from '../../stores/registrationStore';
-
-// mirrors orgToTenant in tenant.handler.ts
-const TENANT_TO_ORG: Record<string, string> = {
-  'acme-corp':  'org_001',
-  'startup-il': 'org_002',
-};
 
 export function TenantSimulator() {
   const [open, setOpen] = useState(false);
 
-  const tenantId          = useTenantStore(s => s.tenantId);
-  const config            = useTenantStore(s => s.config);
-  const setTenant         = useTenantStore(s => s.setTenant);
-  const clearTenant       = useTenantStore(s => s.clearTenant);
-  const startRegistration = useRegistrationStore(s => s.startRegistration);
-  const resetRegistration = useRegistrationStore(s => s.resetRegistration);
+  const tenantId = useTenantStore(s => s.tenantId);
+  const config   = useTenantStore(s => s.config);
 
-  // Enable via: ?dev=1 in URL (saves to localStorage so it persists across navigations)
-  // Disable via: ?dev=0
-  if (typeof window !== 'undefined') {
-    const param = new URLSearchParams(window.location.search).get('dev');
-    if (param === '1') localStorage.setItem('nexus_dev_tools', '1');
-    if (param === '0') localStorage.removeItem('nexus_dev_tools');
-  }
+  // ?dev=1 / ?dev=0 URL param → save to localStorage
+  const devParam = new URLSearchParams(window.location.search).get('dev');
+  if (devParam === '1') localStorage.setItem('nexus_dev_tools', '1');
+  if (devParam === '0') localStorage.removeItem('nexus_dev_tools');
+
   const enabled = import.meta.env.DEV || localStorage.getItem('nexus_dev_tools') === '1';
   if (!enabled) return null;
 
+  const goTo = (params: Record<string, string>) => {
+    const url = new URL(window.location.href);
+    // clear both, then set the right one
+    url.searchParams.delete('customerId');
+    url.searchParams.delete('tenant');
+    for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
+    window.location.href = url.toString();
+  };
+
   const activate = (id: string) => {
-    const cfg = mockTenants[id];
-    if (!cfg) return;
-    // 1. Set tenant context (mirrors LanguageRouter ?tenant= / ?customerId= logic)
-    setTenant(id, cfg);
-    // 2. Set registration store as pre-provisioned org member
-    startRegistration({
-      path: 'org-member-incomplete',
-      phone: '',
-      orgMember: {
-        organizationId: TENANT_TO_ORG[id] ?? id,
-        organizationName: cfg.nameHe ?? cfg.name,
-      },
-    });
+    const t = mockTenants[id];
+    if (!t) return;
+    if (t.customerId) {
+      goTo({ customerId: t.customerId });
+    } else {
+      goTo({ tenant: id });
+    }
     setOpen(false);
   };
 
   const clear = () => {
-    clearTenant();
-    resetRegistration();
+    const url = new URL(window.location.href);
+    url.searchParams.delete('customerId');
+    url.searchParams.delete('tenant');
+    window.location.href = url.toString();
     setOpen(false);
   };
 
@@ -105,24 +94,19 @@ export function TenantSimulator() {
                     textAlign: 'right', direction: 'rtl',
                   }}
                 >
-                  {/* Color dot */}
                   <div style={{
                     width: 9, height: 9, borderRadius: '50%',
                     background: t.primaryColor, flexShrink: 0,
                     boxShadow: isActive ? `0 0 6px ${t.primaryColor}` : 'none',
                   }} />
-
-                  {/* Labels */}
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <p style={{ color: '#fff', fontSize: 12, fontWeight: 600, margin: 0, lineHeight: 1.3 }}>
                       {t.nameHe}
                     </p>
                     <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 10, margin: 0, fontFamily: 'monospace', letterSpacing: 0.5 }}>
-                      {t.customerId ? `customerId: ${t.customerId}` : `id: ${t.id}`}
+                      {t.customerId ? `?customerId=${t.customerId}` : `?tenant=${t.id}`}
                     </p>
                   </div>
-
-                  {/* Active check */}
                   {isActive && (
                     <span style={{ color: t.primaryColor, fontSize: 13, flexShrink: 0, lineHeight: 1 }}>✓</span>
                   )}
@@ -131,7 +115,6 @@ export function TenantSimulator() {
             })}
           </div>
 
-          {/* Clear button — only shown when a tenant is active */}
           {tenantId && (
             <button
               onClick={clear}
