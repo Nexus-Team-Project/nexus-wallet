@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Outlet, useSearchParams } from 'react-router-dom';
+import { Outlet, useNavigate, useSearchParams } from 'react-router-dom';
 import { LanguageProvider } from '../i18n/LanguageContext';
 import LoginSheet from '../components/auth/LoginSheet';
 import { useTenantStore } from '../stores/tenantStore';
@@ -16,24 +16,30 @@ function darkenColor(hex: string, percent: number): string {
 
 export default function LanguageRouter() {
   const [searchParams] = useSearchParams();
-  const { config, setTenant, clearTenant } = useTenantStore();
+  const navigate = useNavigate();
+  const { tenantId, config, setTenant, clearTenant } = useTenantStore();
 
-  // Detect tenant from URL query params on mount
   useEffect(() => {
     const tenantSlug = searchParams.get('tenant');
 
     if (tenantSlug) {
+      // ?tenant= in URL → set (or refresh) tenant
       const tenantConfig = lookupTenant(tenantSlug);
       if (tenantConfig) {
         setTenant(tenantSlug, tenantConfig);
       } else {
         clearTenant();
       }
+    } else if (tenantId) {
+      // Tenant is active but missing from URL → restore it silently
+      const next = new URLSearchParams(searchParams);
+      next.set('tenant', tenantId);
+      navigate({ search: next.toString() }, { replace: true });
     } else {
-      // No ?tenant= in URL → clear any persisted tenant so home page shows Nexus colors
+      // No tenant anywhere → clear (ensures Nexus colors on plain home)
       clearTenant();
     }
-  }, [searchParams, setTenant, clearTenant]);
+  }, [searchParams, setTenant, clearTenant, tenantId, navigate]);
 
   // Inject tenant CSS variable overrides
   const tenantStyle = config
