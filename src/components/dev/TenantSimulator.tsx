@@ -13,12 +13,15 @@
  * NOTE: No createPortal needed — position:fixed with overflow-x:hidden (not clip)
  *       works correctly. Portal to body breaks React 18 event delegation (#root
  *       is a child of body, so events from body-level portal never reach #root).
- * NOTE: Must be rendered LAST among LanguageRouter's children (after <Outlet />).
- *       iOS Safari resolves pointer-event conflicts between a position:fixed
- *       element and a full-screen block element using DOM order as a tiebreaker,
- *       regardless of z-index. Being last in DOM guarantees we win.
- * NOTE: touch-action:manipulation on the wrapper + button, plus an onTouchEnd
- *       handler, prevent iOS from swallowing taps as scroll gestures.
+ * NOTE: Use onClick only — do NOT add onTouchEnd.
+ *       React 18 attaches listeners to #root; touchend listeners there are passive,
+ *       so e.preventDefault() inside onTouchEnd has no effect and the browser
+ *       still synthesises a click. By the time that synthesised click arrives,
+ *       React has already re-rendered (microtask between touchend and click tasks),
+ *       so isTenantOn flipped and the click fires the opposite action — toggling
+ *       the tenant ON then immediately OFF. Removing onTouchEnd and relying solely
+ *       on onClick (with touch-action:manipulation to drop the tap delay) fires
+ *       exactly once and produces the correct result on every platform.
  */
 
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -47,7 +50,7 @@ export function TenantSimulator() {
   const isTenantOn  = !!tenantId;
   const activeColor = config?.primaryColor ?? '#6366f1';
 
-  /** Turn tenant OFF — clearTenant + navigate are batched by React 18 */
+  /** Turn tenant OFF */
   const deactivate = () => {
     clearTenant();
     const next = new URLSearchParams(searchParams);
@@ -76,19 +79,13 @@ export function TenantSimulator() {
       display: 'flex',
       alignItems: 'center',
       gap: 7,
-      /* iOS Safari: let pointer events through to our children */
       pointerEvents: 'auto',
-      /* iOS Safari: treat touch as a click, not a scroll gesture */
       touchAction: 'manipulation',
     }}>
 
       {/* Toggle pill */}
       <button
         onClick={handleAction}
-        /* onTouchEnd fires before the 300 ms iOS "synthesised click" delay.
-           e.preventDefault() cancels that synthetic click so onClick does not
-           double-fire on touch devices. */
-        onTouchEnd={(e) => { e.preventDefault(); handleAction(); }}
         title={isTenantOn ? 'כבה טננט' : 'הדלק טננט'}
         style={{
           position: 'relative',
@@ -97,7 +94,6 @@ export function TenantSimulator() {
           border: 'none', cursor: 'pointer', padding: 0,
           boxShadow: '0 2px 6px rgba(0,0,0,0.4)',
           transition: 'background 0.2s',
-          /* iOS Safari: respond to taps instantly, suppress tap flash */
           touchAction: 'manipulation',
           WebkitTapHighlightColor: 'transparent',
         }}
@@ -111,7 +107,6 @@ export function TenantSimulator() {
           transition: 'left 0.2s',
           display: 'block',
           boxShadow: '0 1px 3px rgba(0,0,0,0.35)',
-          /* pointer events on the span should pass through to button */
           pointerEvents: 'none',
         }} />
       </button>
