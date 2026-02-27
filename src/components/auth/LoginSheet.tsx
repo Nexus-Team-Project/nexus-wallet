@@ -31,6 +31,7 @@ export default function LoginSheet() {
   const [phone, setPhone] = useState('');
   const [otp, setOtp] = useState(['', '', '', '']);
   const [isLoading, setIsLoading] = useState(false);
+  const [isRouting, setIsRouting] = useState(false);
   const [error, setError] = useState('');
   const [, setIsClosing] = useState(false);
   const [marketingOptIn, setMarketingOptIn] = useState(true);
@@ -251,6 +252,9 @@ export default function LoginSheet() {
         }
       }
 
+      // Show routing overlay — auth is done, deciding which flow to open
+      setIsRouting(true);
+
       // PATH A: Org member with complete profile → success animation
       if (orgMember && profileComplete) {
         setSuccessOrgName(orgMember.organizationName);
@@ -356,6 +360,9 @@ export default function LoginSheet() {
             setTenant(orgTenant.id, orgTenant);
           }
         }
+
+        // Show routing overlay — auth is done, deciding which flow to open
+        setIsRouting(true);
 
         // CUSTOMER-ID FLOW: arrived via ?customerId= link
         if (tenantConfig?.customerId) {
@@ -468,6 +475,9 @@ export default function LoginSheet() {
         await firebaseSaveConsent(result.session.userId, marketingOptIn);
         setMarketingConsent(marketingOptIn);
 
+        // Show routing overlay — auth is done, deciding which flow to open
+        setIsRouting(true);
+
         // Returning user (already completed profile before) → go to requested page
         if (useAuthStore.getState().profileCompleted) {
           completeLogin();
@@ -526,8 +536,20 @@ export default function LoginSheet() {
       {/* Sheet */}
       <div
         ref={sheetRef}
-        className="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-3xl max-h-[50vh] flex flex-col animate-slide-up"
+        className="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-3xl max-h-[50vh] flex flex-col animate-slide-up relative"
       >
+        {/* ── Routing overlay — shown after auth succeeds, while flow is being decided ── */}
+        {isRouting && step !== 'success' && (
+          <div className="absolute inset-0 z-20 bg-white/90 rounded-t-3xl flex items-center justify-center">
+            <span
+              className="material-symbols-outlined text-primary animate-spin"
+              style={{ fontSize: '36px', fontVariationSettings: "'wght' 300" }}
+            >
+              progress_activity
+            </span>
+          </div>
+        )}
+
         {/* ── DRAG HEADER ── */}
         <div
           id="login-sheet-header"
