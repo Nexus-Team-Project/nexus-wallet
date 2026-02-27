@@ -1,7 +1,8 @@
-import { useEffect } from 'react';
+﻿import { useEffect } from 'react';
 import { Outlet, useNavigate, useSearchParams } from 'react-router-dom';
 import { LanguageProvider } from '../i18n/LanguageContext';
 import LoginSheet from '../components/auth/LoginSheet';
+import { TenantSimulator } from '../components/dev/TenantSimulator';
 import { useTenantStore } from '../stores/tenantStore';
 import { lookupTenant } from '../mock/handlers/tenant.handler';
 
@@ -11,7 +12,7 @@ function darkenColor(hex: string, percent: number): string {
   const r = Math.max(0, (num >> 16) - Math.round(255 * (percent / 100)));
   const g = Math.max(0, ((num >> 8) & 0x00ff) - Math.round(255 * (percent / 100)));
   const b = Math.max(0, (num & 0x0000ff) - Math.round(255 * (percent / 100)));
-  return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`;
+  return ;
 }
 
 export default function LanguageRouter() {
@@ -52,6 +53,7 @@ export default function LanguageRouter() {
   return (
     <LanguageProvider>
       <div style={tenantStyle}>
+        <TenantSimulator />
         <Outlet />
         <LoginSheet />
       </div>

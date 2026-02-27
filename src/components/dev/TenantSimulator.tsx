@@ -1,60 +1,60 @@
-/**
+﻿/**
  * TenantSimulator — dev toggle (top-left) to simulate tenant context.
  *
  * Visible when ANY of these are true:
- *   • import.meta.env.DEV  (npm run dev locally)
- *   • hostname is localhost / 127.0.0.1  (npm run preview locally)
- *   • ?dev=1 in URL  → saves to localStorage, persists across navigations
- *   • ?dev=0         → clears the localStorage flag
+ *   • import.meta.env.DEV              (npm run dev locally)
+ *   • hostname is localhost / 127.0.0.1 (npm run preview locally)
+ *   • hostname ends with .railway.app   (Railway staging)
+ *
+ * The toggle controls ?tenant in the URL directly.
+ * LanguageRouter reads ?tenant and calls setTenant / clearTenant.
+ *
+ * NOTE: Must be rendered inside a RouterProvider (currently in LanguageRouter).
  */
 
-import { useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { mockTenants } from '../../mock/data/tenants.mock';
 import { useTenantStore } from '../../stores/tenantStore';
 
 const LAST_TENANT_KEY = 'nexus_dev_last_tenant';
-const DEV_FLAG_KEY    = 'nexus_dev_tools';
 
 function isDevEnv(): boolean {
   if (import.meta.env.DEV) return true;
   const h = window.location.hostname;
   if (h === 'localhost' || h === '127.0.0.1') return true;
-  if (localStorage.getItem(DEV_FLAG_KEY) === '1') return true;
+  if (h.endsWith('.railway.app')) return true;
   return false;
 }
 
 export function TenantSimulator() {
-  const tenantId    = useTenantStore(s => s.tenantId);
-  const config      = useTenantStore(s => s.config);
-  const clearTenant = useTenantStore(s => s.clearTenant);
-
-  // Handle ?dev=1 / ?dev=0 inside an effect (not during render)
-  useEffect(() => {
-    const devParam = new URLSearchParams(window.location.search).get('dev');
-    if (devParam === '1') localStorage.setItem(DEV_FLAG_KEY, '1');
-    if (devParam === '0') localStorage.removeItem(DEV_FLAG_KEY);
-  }, []);
+  const [searchParams] = useSearchParams();
+  const navigate       = useNavigate();
+  const tenantId       = useTenantStore(s => s.tenantId);
+  const config         = useTenantStore(s => s.config);
+  const clearTenant    = useTenantStore(s => s.clearTenant);
 
   if (!isDevEnv()) return null;
 
   const isTenantOn  = !!tenantId;
   const activeColor = config?.primaryColor ?? '#6366f1';
 
+  /** Turn tenant OFF — clearTenant + navigate are batched by React 18 */
   const deactivate = () => {
     clearTenant();
-    const url = new URL(window.location.href);
-    url.searchParams.delete('tenant');
-    window.location.href = url.toString();
+    const next = new URLSearchParams(searchParams);
+    next.delete('tenant');
+    navigate({ search: next.toString() }, { replace: true });
   };
 
+  /** Turn tenant ON — navigate with ?tenant; LanguageRouter calls setTenant */
   const toggleOn = () => {
     const last   = localStorage.getItem(LAST_TENANT_KEY);
     const target = (last && mockTenants[last]) ? last : Object.keys(mockTenants)[0];
     localStorage.setItem(LAST_TENANT_KEY, target);
-    const url = new URL(window.location.href);
-    url.searchParams.set('tenant', target);
-    window.location.href = url.toString();
+    const next = new URLSearchParams(searchParams);
+    next.set('tenant', target);
+    navigate({ search: next.toString() });
   };
 
   return createPortal(
@@ -94,7 +94,7 @@ export function TenantSimulator() {
         }} />
       </button>
 
-      {/* Tenant label — only when ON */}
+      {/* Active tenant label */}
       {isTenantOn && (
         <span style={{
           fontSize: 11, fontWeight: 700,
