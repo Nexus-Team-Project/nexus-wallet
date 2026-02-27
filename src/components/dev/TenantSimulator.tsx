@@ -12,6 +12,7 @@
  */
 
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { mockTenants } from '../../mock/data/tenants.mock';
 import { useTenantStore } from '../../stores/tenantStore';
 
@@ -65,7 +66,7 @@ export function TenantSimulator() {
     activate(target);
   };
 
-  return (
+  return createPortal(
     <div style={{ position: 'fixed', bottom: 72, left: 10, zIndex: 9999 }}>
 
       {/* ── Dropdown picker ── */}
@@ -172,6 +173,7 @@ export function TenantSimulator() {
         </button>
 
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

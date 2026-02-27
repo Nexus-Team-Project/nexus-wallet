@@ -129,7 +129,7 @@ html {
   scroll-behavior: smooth;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  overflow-x: clip;
+  overflow-x: hidden; /* clip would create a containing block and break position:fixed */
 }
 
 body {
@@ -137,7 +137,7 @@ body {
   background-color: var(--color-bg-light);
   color: var(--color-text-primary);
   min-height: max(884px, 100dvh);
-  overflow-x: clip;
+  overflow-x: hidden; /* clip would create a containing block and break position:fixed */
   -webkit-text-size-adjust: 100%;
 }
 
