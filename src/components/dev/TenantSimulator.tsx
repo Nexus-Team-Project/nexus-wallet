@@ -14,6 +14,8 @@ import { useState } from 'react';
 import { mockTenants } from '../../mock/data/tenants.mock';
 import { useTenantStore } from '../../stores/tenantStore';
 
+const LAST_TENANT_KEY = 'nexus_dev_last_tenant';
+
 export function TenantSimulator() {
   const [open, setOpen] = useState(false);
 
@@ -28,9 +30,11 @@ export function TenantSimulator() {
   const enabled = import.meta.env.DEV || localStorage.getItem('nexus_dev_tools') === '1';
   if (!enabled) return null;
 
+  const isTenantOn = !!tenantId;
+  const activeColor = config?.primaryColor ?? '#6366f1';
+
   const goTo = (params: Record<string, string>) => {
     const url = new URL(window.location.href);
-    // clear both, then set the right one
     url.searchParams.delete('tenant');
     for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
     window.location.href = url.toString();
@@ -38,15 +42,23 @@ export function TenantSimulator() {
 
   const activate = (id: string) => {
     if (!mockTenants[id]) return;
+    localStorage.setItem(LAST_TENANT_KEY, id);
     goTo({ tenant: id });
     setOpen(false);
   };
 
-  const clear = () => {
+  const deactivate = () => {
     const url = new URL(window.location.href);
     url.searchParams.delete('tenant');
     window.location.href = url.toString();
     setOpen(false);
+  };
+
+  /** Toggle: turn ON → re-activate last tenant (or first available) */
+  const toggleOn = () => {
+    const last = localStorage.getItem(LAST_TENANT_KEY);
+    const target = (last && mockTenants[last]) ? last : Object.keys(mockTenants)[0];
+    activate(target);
   };
 
   return (
@@ -62,16 +74,47 @@ export function TenantSimulator() {
           border: '1px solid rgba(255,255,255,0.12)',
           borderRadius: 14,
           padding: '10px 8px',
-          width: 228,
+          width: 240,
           boxShadow: '0 8px 36px rgba(0,0,0,0.7)',
         }}>
-          <p style={{
-            color: 'rgba(255,255,255,0.35)', fontSize: 9, fontWeight: 800,
-            letterSpacing: 1.2, paddingInline: 8, marginBottom: 8, textTransform: 'uppercase',
-          }}>
-            Simulate Tenant
-          </p>
 
+          {/* ── ON / OFF toggle ── */}
+          <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            paddingInline: 8, marginBottom: 10,
+          }}>
+            <p style={{
+              color: 'rgba(255,255,255,0.35)', fontSize: 9, fontWeight: 800,
+              letterSpacing: 1.2, textTransform: 'uppercase', margin: 0,
+            }}>
+              Tenant Mode
+            </p>
+
+            {/* Toggle switch */}
+            <button
+              onClick={isTenantOn ? deactivate : toggleOn}
+              style={{
+                position: 'relative',
+                width: 40, height: 22, borderRadius: 11,
+                background: isTenantOn ? activeColor : 'rgba(255,255,255,0.15)',
+                border: 'none', cursor: 'pointer', padding: 0,
+                transition: 'background 0.2s',
+                flexShrink: 0,
+              }}
+            >
+              <span style={{
+                position: 'absolute',
+                top: 3,
+                left: isTenantOn ? 21 : 3,
+                width: 16, height: 16, borderRadius: '50%',
+                background: '#fff',
+                transition: 'left 0.2s',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.4)',
+              }} />
+            </button>
+          </div>
+
+          {/* ── Tenant list ── */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
             {Object.values(mockTenants).map(t => {
               const isActive = tenantId === t.id;
@@ -107,19 +150,6 @@ export function TenantSimulator() {
               );
             })}
           </div>
-
-          {tenantId && (
-            <button
-              onClick={clear}
-              style={{
-                marginTop: 8, width: '100%', padding: '7px 10px', borderRadius: 10,
-                background: 'rgba(255,70,70,0.12)', border: '1px solid rgba(255,70,70,0.25)',
-                color: '#ff6b6b', fontSize: 11, fontWeight: 700, cursor: 'pointer',
-              }}
-            >
-              נקה טננט
-            </button>
-          )}
         </div>
       )}
 
