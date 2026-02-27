@@ -512,6 +512,13 @@ export default function LoginSheet() {
     }
   };
 
+  // Reset routing overlay every time the sheet opens fresh —
+  // isRouting persists between opens (component stays mounted), so without
+  // this reset the overlay would block the sheet on every subsequent open.
+  useEffect(() => {
+    if (isOpen) setIsRouting(false);
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   const phoneDigits = phone.replace(/\D/g, '');
@@ -536,7 +543,7 @@ export default function LoginSheet() {
       {/* Sheet */}
       <div
         ref={sheetRef}
-        className="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-3xl max-h-[50vh] flex flex-col animate-slide-up relative"
+        className="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-3xl max-h-[50vh] flex flex-col animate-slide-up"
       >
         {/* ── Routing overlay — shown after auth succeeds, while flow is being decided ── */}
         {isRouting && step !== 'success' && (
