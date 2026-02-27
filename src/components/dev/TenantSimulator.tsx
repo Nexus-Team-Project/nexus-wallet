@@ -34,7 +34,13 @@ export function TenantSimulator() {
   const startRegistration = useRegistrationStore(s => s.startRegistration);
   const resetRegistration = useRegistrationStore(s => s.resetRegistration);
 
-  // Render only in dev or when manually enabled via localStorage
+  // Enable via: ?dev=1 in URL (saves to localStorage so it persists across navigations)
+  // Disable via: ?dev=0
+  if (typeof window !== 'undefined') {
+    const param = new URLSearchParams(window.location.search).get('dev');
+    if (param === '1') localStorage.setItem('nexus_dev_tools', '1');
+    if (param === '0') localStorage.removeItem('nexus_dev_tools');
+  }
   const enabled = import.meta.env.DEV || localStorage.getItem('nexus_dev_tools') === '1';
   if (!enabled) return null;
 
