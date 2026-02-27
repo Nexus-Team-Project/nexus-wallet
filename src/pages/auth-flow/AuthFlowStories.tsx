@@ -6,7 +6,7 @@
  * /:lang/auth-flow/org-user  → Flow 3 (pre-provisioned org)
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useRegistrationStore } from '../../stores/registrationStore';
@@ -78,11 +78,18 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
     : baseSteps;
 
   // ── If user pressed Back from onboarding/membership, restore match-screen ─
+  // Also supports direct-linking via ?step=<stepId> so every slide has a URL.
   const [initialCurrent] = useState(() => {
     const flag = sessionStorage.getItem('nexus_return_match') === '1';
     if (flag) {
       sessionStorage.removeItem('nexus_return_match');
       return Math.max(0, initialSteps.findIndex(s => s.id === 'match-screen'));
+    }
+    // Restore from URL slug if present (e.g. ?step=select-org)
+    const stepParam = new URLSearchParams(window.location.search).get('step');
+    if (stepParam) {
+      const idx = initialSteps.findIndex(s => s.id === stepParam);
+      if (idx !== -1) return idx;
     }
     return 0;
   });
@@ -95,6 +102,15 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
     progress,
     goTo, handleTap,
   } = useStoryFlow({ initialSteps, imagesLoaded, initialCurrent });
+
+  // ── Sync current step → URL ?step=<id> so every slide has a unique slug ──
+  useEffect(() => {
+    const stepId = steps[current]?.id;
+    if (!stepId) return;
+    const url = new URL(window.location.href);
+    url.searchParams.set('step', stepId);
+    window.history.replaceState(null, '', url.toString());
+  }, [current, steps]);
 
   // ── Slide callbacks ───────────────────────────────────────────────────────
   const handleOrgSwitchUser = () => {
@@ -257,6 +273,9 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
             onSwitchUser={handleOrgSwitchUser}
             onChangeOrg={handleOrgChangeOrg}
             onNewUserContinue={handleNewUserContinue}
+            // Hide "switch user" on welcome-org — it would look like a duplicate
+            // "change org" button (both follow the "רוצה להתחבר עם X אחר?" pattern).
+            showSwitchUser={isOrgFlow && steps[current]?.id !== 'welcome-org'}
           />
         )}
       </div>
