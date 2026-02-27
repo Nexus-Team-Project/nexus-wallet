@@ -53,9 +53,14 @@ export default function LanguageRouter() {
   return (
     <LanguageProvider>
       <div style={tenantStyle}>
-        <TenantSimulator />
         <Outlet />
         <LoginSheet />
+        {/* TenantSimulator MUST come last in DOM order.
+            On iOS Safari, position:fixed elements lose pointer-event priority
+            to later-in-DOM block elements even when z-index is higher.
+            Rendering it last guarantees it wins both the CSS stacking AND
+            the iOS hit-test DOM-order tiebreaker. */}
+        <TenantSimulator />
       </div>
     </LanguageProvider>
   );

@@ -13,6 +13,12 @@
  * NOTE: No createPortal needed — position:fixed with overflow-x:hidden (not clip)
  *       works correctly. Portal to body breaks React 18 event delegation (#root
  *       is a child of body, so events from body-level portal never reach #root).
+ * NOTE: Must be rendered LAST among LanguageRouter's children (after <Outlet />).
+ *       iOS Safari resolves pointer-event conflicts between a position:fixed
+ *       element and a full-screen block element using DOM order as a tiebreaker,
+ *       regardless of z-index. Being last in DOM guarantees we win.
+ * NOTE: touch-action:manipulation on the wrapper + button, plus an onTouchEnd
+ *       handler, prevent iOS from swallowing taps as scroll gestures.
  */
 
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -59,6 +65,8 @@ export function TenantSimulator() {
     navigate({ search: next.toString() });
   };
 
+  const handleAction = isTenantOn ? deactivate : toggleOn;
+
   return (
     <div style={{
       position: 'fixed',
@@ -68,11 +76,19 @@ export function TenantSimulator() {
       display: 'flex',
       alignItems: 'center',
       gap: 7,
+      /* iOS Safari: let pointer events through to our children */
+      pointerEvents: 'auto',
+      /* iOS Safari: treat touch as a click, not a scroll gesture */
+      touchAction: 'manipulation',
     }}>
 
       {/* Toggle pill */}
       <button
-        onClick={isTenantOn ? deactivate : toggleOn}
+        onClick={handleAction}
+        /* onTouchEnd fires before the 300 ms iOS "synthesised click" delay.
+           e.preventDefault() cancels that synthetic click so onClick does not
+           double-fire on touch devices. */
+        onTouchEnd={(e) => { e.preventDefault(); handleAction(); }}
         title={isTenantOn ? 'כבה טננט' : 'הדלק טננט'}
         style={{
           position: 'relative',
@@ -81,6 +97,9 @@ export function TenantSimulator() {
           border: 'none', cursor: 'pointer', padding: 0,
           boxShadow: '0 2px 6px rgba(0,0,0,0.4)',
           transition: 'background 0.2s',
+          /* iOS Safari: respond to taps instantly, suppress tap flash */
+          touchAction: 'manipulation',
+          WebkitTapHighlightColor: 'transparent',
         }}
       >
         <span style={{
@@ -92,6 +111,8 @@ export function TenantSimulator() {
           transition: 'left 0.2s',
           display: 'block',
           boxShadow: '0 1px 3px rgba(0,0,0,0.35)',
+          /* pointer events on the span should pass through to button */
+          pointerEvents: 'none',
         }} />
       </button>
 
@@ -105,6 +126,7 @@ export function TenantSimulator() {
           borderRadius: 10,
           boxShadow: '0 1px 4px rgba(0,0,0,0.3)',
           whiteSpace: 'nowrap',
+          pointerEvents: 'none',
         }}>
           {config?.nameHe}
         </span>
