@@ -2,8 +2,8 @@
  * AuthFlowStories — Instagram-style stories for the auth flow.
  * Fullscreen, white background, rich visuals — same style as StoriesPage.
  *
- * /:lang/auth-flow/new-user  → Flow 2 (new user)
- * /:lang/auth-flow/org-user  → Flow 3 (pre-provisioned org)
+ * /:lang/auth-flow/new-user  → all flows (new user, pre-provisioned org, customerId)
+ *                               flowType prop drives which step sequence is used.
  */
 
 import { useState, useEffect } from 'react';
