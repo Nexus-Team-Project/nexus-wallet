@@ -279,9 +279,9 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
             onSwitchUser={handleOrgSwitchUser}
             onChangeOrg={handleOrgChangeOrg}
             onNewUserContinue={handleNewUserContinue}
-            // Hide "switch user" on welcome-org — it would look like a duplicate
-            // "change org" button (both follow the "רוצה להתחבר עם X אחר?" pattern).
-            showSwitchUser={isOrgFlow && steps[current]?.id !== 'welcome-org'}
+            // Hide "switch user" on welcome-org (duplicate pattern) and in the
+            // pre-provisioned flow (only the "change org → select-org" link is needed).
+            showSwitchUser={isOrgFlow && flowLabel !== 'pre-provisioned' && steps[current]?.id !== 'welcome-org'}
           />
         )}
       </div>
