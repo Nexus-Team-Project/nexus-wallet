@@ -71,9 +71,9 @@ export function TenantSimulator() {
       {/* ── Dropdown picker ── */}
       {open && (
         <div style={{
-          position: 'absolute',
-          bottom: 'calc(100% + 8px)',
-          left: 0,
+          position: 'fixed',
+          bottom: 116,   /* 72 chip-bottom + ~36 chip-height + 8 gap */
+          left: 10,
           background: '#0f1123',
           border: '1px solid rgba(255,255,255,0.12)',
           borderRadius: 14,
