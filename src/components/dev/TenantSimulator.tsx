@@ -1,30 +1,42 @@
 /**
  * TenantSimulator — dev toggle (top-left) to simulate tenant context.
  *
- * Visible when:
- *   • running locally (import.meta.env.DEV), OR
- *   • ?dev=1 in URL  →  saves to localStorage, persists across navigations
- *   • ?dev=0         →  clears the flag
+ * Visible when ANY of these are true:
+ *   • import.meta.env.DEV  (npm run dev locally)
+ *   • hostname is localhost / 127.0.0.1  (npm run preview locally)
+ *   • ?dev=1 in URL  → saves to localStorage, persists across navigations
+ *   • ?dev=0         → clears the localStorage flag
  */
 
+import { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { mockTenants } from '../../mock/data/tenants.mock';
 import { useTenantStore } from '../../stores/tenantStore';
 
 const LAST_TENANT_KEY = 'nexus_dev_last_tenant';
+const DEV_FLAG_KEY    = 'nexus_dev_tools';
+
+function isDevEnv(): boolean {
+  if (import.meta.env.DEV) return true;
+  const h = window.location.hostname;
+  if (h === 'localhost' || h === '127.0.0.1') return true;
+  if (localStorage.getItem(DEV_FLAG_KEY) === '1') return true;
+  return false;
+}
 
 export function TenantSimulator() {
   const tenantId    = useTenantStore(s => s.tenantId);
   const config      = useTenantStore(s => s.config);
   const clearTenant = useTenantStore(s => s.clearTenant);
 
-  // ?dev=1 / ?dev=0 URL param → save to localStorage
-  const devParam = new URLSearchParams(window.location.search).get('dev');
-  if (devParam === '1') localStorage.setItem('nexus_dev_tools', '1');
-  if (devParam === '0') localStorage.removeItem('nexus_dev_tools');
+  // Handle ?dev=1 / ?dev=0 inside an effect (not during render)
+  useEffect(() => {
+    const devParam = new URLSearchParams(window.location.search).get('dev');
+    if (devParam === '1') localStorage.setItem(DEV_FLAG_KEY, '1');
+    if (devParam === '0') localStorage.removeItem(DEV_FLAG_KEY);
+  }, []);
 
-  const enabled = import.meta.env.DEV || localStorage.getItem('nexus_dev_tools') === '1';
-  if (!enabled) return null;
+  if (!isDevEnv()) return null;
 
   const isTenantOn  = !!tenantId;
   const activeColor = config?.primaryColor ?? '#6366f1';
