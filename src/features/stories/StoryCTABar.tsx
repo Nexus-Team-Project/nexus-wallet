@@ -9,17 +9,9 @@ interface StoryCTABarProps {
   setCurrent: React.Dispatch<React.SetStateAction<number>>;
   goTo: (index: number) => void;
   orgColor: string;
-  onSwitchUser: () => void;
   onChangeOrg: () => void;
   /** Called when the primary "קליק להמשך" button is tapped in new-user flow */
   onNewUserContinue: () => void;
-  /**
-   * Whether to show the "switch user" secondary link.
-   * Defaults to `isOrgFlow` when omitted.
-   * Pass `false` explicitly to hide it (e.g. on the welcome-org slide where
-   * it would appear as a duplicate of the "change org" link).
-   */
-  showSwitchUser?: boolean;
 }
 
 export function StoryCTABar({
@@ -27,10 +19,8 @@ export function StoryCTABar({
   steps,
   goTo,
   orgColor,
-  onSwitchUser,
   onChangeOrg,
   onNewUserContinue,
-  showSwitchUser,
 }: StoryCTABarProps) {
   return (
     <div className="absolute bottom-0 inset-x-0 z-30 pointer-events-none">
@@ -48,15 +38,6 @@ export function StoryCTABar({
               <p className="text-white/75 text-xs leading-snug">רוצה להתחבר עם ארגון אחר?</p>
               <span className="text-white text-xs font-bold border-b border-white/60 pb-px">הכניסה מכאן</span>
             </button>
-            {(showSwitchUser ?? isOrgFlow) && (
-              <button
-                onClick={(e) => { e.stopPropagation(); onSwitchUser(); }}
-                className="text-right active:opacity-70 transition-opacity"
-              >
-                <p className="text-white/75 text-xs leading-snug">רוצה להתחבר עם משתמש אחר?</p>
-                <span className="text-white text-xs font-bold border-b border-white/60 pb-px">הכניסה מכאן</span>
-              </button>
-            )}
           </div>
 
           {/* Primary CTA */}

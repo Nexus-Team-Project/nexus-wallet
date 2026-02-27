@@ -119,10 +119,6 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
   }, [current, steps, flowLabel]);
 
   // ── Slide callbacks ───────────────────────────────────────────────────────
-  const handleOrgSwitchUser = () => {
-    navigate(`/${lang}`, { replace: true });
-  };
-
   const handleOrgChangeOrg = () => {
     const idx = steps.findIndex(s => s.id === 'select-org');
     if (idx !== -1) goTo(idx);
@@ -276,12 +272,8 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
             setCurrent={setCurrent}
             goTo={goTo}
             orgColor={orgColor}
-            onSwitchUser={handleOrgSwitchUser}
             onChangeOrg={handleOrgChangeOrg}
             onNewUserContinue={handleNewUserContinue}
-            // Hide "switch user" on welcome-org (duplicate pattern) and in the
-            // pre-provisioned flow (only the "change org → select-org" link is needed).
-            showSwitchUser={isOrgFlow && flowLabel !== 'pre-provisioned' && steps[current]?.id !== 'welcome-org'}
           />
         )}
       </div>
