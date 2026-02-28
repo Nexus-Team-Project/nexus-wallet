@@ -18,6 +18,7 @@
  *   5 (5500 ms) — label → "לראות רק את הדברים שחשובים לך."
  */
 import { useState, useEffect } from 'react';
+import { useAuthStore } from '../../stores/authStore';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -77,6 +78,7 @@ function getLabel(phase: Phase): string {
 
 export function MotivationAnimation() {
   const [phase, setPhase] = useState<Phase>(0);
+  const avatarUrl = useAuthStore((s) => s.avatarUrl);
 
   useEffect(() => {
     const timers = PHASE_TIMINGS.map(([delay, p]) =>
@@ -185,7 +187,8 @@ export function MotivationAnimation() {
           width:          60,
           height:         60,
           borderRadius:   '50%',
-          background:     'var(--color-primary, #7c3aed)',
+          background:     avatarUrl ? 'transparent' : 'var(--color-primary, #7c3aed)',
+          overflow:       'hidden',
           display:        'flex',
           alignItems:     'center',
           justifyContent: 'center',
@@ -193,16 +196,24 @@ export function MotivationAnimation() {
           pointerEvents:  'none',
         }}
       >
-        <span
-          className="material-symbols-outlined"
-          style={{
-            fontSize:             30,
-            color:                'white',
-            fontVariationSettings: "'FILL' 1",
-          }}
-        >
-          person
-        </span>
+        {avatarUrl ? (
+          <img
+            src={avatarUrl}
+            alt=""
+            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+          />
+        ) : (
+          <span
+            className="material-symbols-outlined"
+            style={{
+              fontSize:             30,
+              color:                'white',
+              fontVariationSettings: "'FILL' 1",
+            }}
+          >
+            person
+          </span>
+        )}
       </div>
 
       {/* ── Phase label ─────────────────────────────────────────────────────── */}

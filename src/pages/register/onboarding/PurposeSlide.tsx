@@ -89,9 +89,9 @@ export default function PurposeSlide() {
   const advance = () => {
     const next = getNextOnboardingSlide('purpose', storeState);
     if (next) {
-      navigate(`/${lang}/register/onboarding/${next}`, { replace: true });
+      navigate(`/${lang}/register/onboarding/${next}`);
     } else {
-      navigate(`/${lang}/register/complete`, { replace: true });
+      navigate(`/${lang}/register/complete`);
     }
   };
 

@@ -24,6 +24,12 @@ interface OnboardingSlideLayoutProps {
    * such as MotivationAnimation.
    */
   hero?: ReactNode;
+  /**
+   * When provided a secondary (less prominent) button is rendered beside the
+   * primary CTA in a two-column row.  In RTL the primary button sits on the
+   * right (start side) and the secondary on the left.
+   */
+  secondaryCta?: { label: string; onClick: () => void };
   children: ReactNode;
 }
 
@@ -49,6 +55,7 @@ export default function OnboardingSlideLayout({
   footerNote,
   footerExtra,
   hero,
+  secondaryCta,
   children,
 }: OnboardingSlideLayoutProps) {
   const { t, language } = useLanguage();
@@ -164,13 +171,37 @@ export default function OnboardingSlideLayout({
           {footerNote && (
             <p className="text-xs text-error text-center animate-fade-in">{footerNote}</p>
           )}
-          <button
-            onClick={onContinue}
-            disabled={!canContinue}
-            className="w-full py-4 rounded-2xl bg-primary text-white font-bold text-sm active:scale-[0.98] transition-all shadow-lg shadow-primary/25 disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100"
-          >
-            {ctaLabel}
-          </button>
+
+          {secondaryCta ? (
+            /* Two-column button row.
+               DOM order: [primary, secondary].
+               In RTL flex primary ends up on the RIGHT (start side) — the
+               visually dominant position — secondary on the LEFT. */
+            <div className="flex gap-3">
+              <button
+                onClick={onContinue}
+                disabled={!canContinue}
+                className="flex-1 py-4 rounded-2xl bg-primary text-white font-bold text-sm active:scale-[0.98] transition-all shadow-lg shadow-primary/25 disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100"
+              >
+                {ctaLabel}
+              </button>
+              <button
+                onClick={secondaryCta.onClick}
+                className="flex-1 py-4 rounded-2xl bg-surface text-text-muted font-semibold text-sm active:scale-[0.98] transition-all"
+              >
+                {secondaryCta.label}
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={onContinue}
+              disabled={!canContinue}
+              className="w-full py-4 rounded-2xl bg-primary text-white font-bold text-sm active:scale-[0.98] transition-all shadow-lg shadow-primary/25 disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100"
+            >
+              {ctaLabel}
+            </button>
+          )}
+
           {footerExtra}
         </div>
       </div>

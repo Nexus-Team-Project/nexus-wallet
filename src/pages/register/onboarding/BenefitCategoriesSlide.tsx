@@ -67,9 +67,9 @@ export default function BenefitCategoriesSlide() {
   const advance = () => {
     const next = getNextOnboardingSlide('benefit-categories', storeState);
     if (next) {
-      navigate(`/${lang}/register/onboarding/${next}`, { replace: true });
+      navigate(`/${lang}/register/onboarding/${next}`);
     } else {
-      navigate(`/${lang}/register/complete`, { replace: true });
+      navigate(`/${lang}/register/complete`);
     }
   };
 

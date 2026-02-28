@@ -21,11 +21,7 @@ import {
   getOnboardingProgress,
 } from '../../../utils/onboardingNavigation';
 
-const BULLET_ITEMS = [
-  { icon: 'person_check', key: 'motivationBullet1' as const },
-  { icon: 'savings',      key: 'motivationBullet2' as const },
-  { icon: 'tune',         key: 'motivationBullet3' as const },
-] as const;
+// Note: BULLET_ITEMS removed — the hero animation communicates the same narrative visually.
 
 export default function MotivationSlide() {
   const { lang = 'he' } = useParams();
@@ -38,10 +34,15 @@ export default function MotivationSlide() {
   const advance = () => {
     const next = getNextOnboardingSlide('motivation', storeState);
     if (next) {
-      navigate(`/${lang}/register/onboarding/${next}`, { replace: true });
+      navigate(`/${lang}/register/onboarding/${next}`);
     } else {
-      navigate(`/${lang}/register/complete`, { replace: true });
+      navigate(`/${lang}/register/complete`);
     }
+  };
+
+  /** Skip all optional preference questions — go straight to completion. */
+  const handleSkip = () => {
+    navigate(`/${lang}/register/complete`);
   };
 
   const handleBack = () => {
@@ -62,65 +63,49 @@ export default function MotivationSlide() {
       onBack={hasPrev ? handleBack : undefined}
       onContinue={advance}
       continueLabel={t.registration.motivationCta}
+      secondaryCta={{ label: t.registration.motivationSkip, onClick: handleSkip }}
       hero={<MotivationAnimation />}
     >
-      <div className="pt-6 pb-2">
+      <div className="pt-5 pb-2">
 
         {/* Header */}
         <h1
-          className="text-2xl font-bold leading-tight tracking-tight mb-3"
+          className="text-2xl font-bold leading-tight tracking-tight mb-2"
           style={{ color: 'var(--color-primary)' }}
         >
           {t.registration.motivationTitle}
         </h1>
 
-        {/* Subtitle */}
+        {/* Time estimate */}
         <p
-          className="text-sm mb-2 leading-relaxed"
-          style={{ color: 'var(--color-text-primary)' }}
-        >
-          {t.registration.motivationSubtitle}
-        </p>
-
-        {/* Body — time estimate */}
-        <p
-          className="text-sm font-semibold mb-10"
+          className="text-sm font-semibold mb-5"
           style={{ color: 'var(--color-text-muted)' }}
         >
           {t.registration.motivationBody}
         </p>
 
-        {/* Bullet rows */}
-        <ul className="space-y-5">
-          {BULLET_ITEMS.map(({ icon, key }) => (
-            <li key={key} className="flex items-center gap-4">
-              {/* Icon badge */}
-              <span
-                className="w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0"
-                style={{ backgroundColor: 'var(--color-primary-light, #ede9fe)' }}
-              >
-                <span
-                  className="material-symbols-outlined"
-                  style={{
-                    fontSize: '20px',
-                    color: 'var(--color-primary)',
-                    fontVariationSettings: "'FILL' 1",
-                  }}
-                >
-                  {icon}
-                </span>
-              </span>
-
-              {/* Text */}
-              <span
-                className="text-sm leading-relaxed"
-                style={{ color: 'var(--color-text-primary)' }}
-              >
-                {t.registration[key]}
-              </span>
-            </li>
-          ))}
-        </ul>
+        {/* Social-proof badge */}
+        <div
+          className="flex items-center gap-3 rounded-2xl px-4 py-3"
+          style={{ backgroundColor: 'var(--color-primary-light, #ede9fe)' }}
+        >
+          <span
+            className="material-symbols-outlined flex-shrink-0"
+            style={{
+              fontSize:             20,
+              color:                'var(--color-primary)',
+              fontVariationSettings: "'FILL' 1",
+            }}
+          >
+            workspace_premium
+          </span>
+          <span
+            className="text-xs font-semibold leading-relaxed"
+            style={{ color: 'var(--color-primary)' }}
+          >
+            {t.registration.motivationBadge}
+          </span>
+        </div>
 
       </div>
     </OnboardingSlideLayout>
