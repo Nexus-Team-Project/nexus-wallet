@@ -291,6 +291,8 @@ export interface TranslationKeys {
     motivationBullet2: string;
     motivationBullet3: string;
     motivationCta: string;
+    motivationSkip: string;
+    motivationBadge: string;
     // Profile nudge banner (existing users with missing preference fields)
     profileNudgeTitle: string;
     profileNudgeSubtitle: string;

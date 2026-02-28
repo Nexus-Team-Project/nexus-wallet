@@ -1,11 +1,20 @@
 import { create } from 'zustand';
 import type { RegistrationPath } from '../types/registration.types';
 
-// ── sessionStorage persistence for isOrgFlow ─────────────────────────────────
-// Keeps the "org/tenant flow is active" flag alive across React-Router
-// navigations and even across a hard page refresh so that
-// OnboardingSlideLayout always knows to render the match-screen segment.
-const ORG_FLOW_SESSION_KEY = 'nexus_is_org_flow';
+// ── sessionStorage persistence ────────────────────────────────────────────────
+//
+// Two flags are persisted so that:
+//   • Refreshing mid-flow keeps the user on the current onboarding slide
+//     instead of redirecting to home (RegistrationGuard checks isRegistering).
+//   • The "org/tenant flow is active" flag survives navigations so that
+//     OnboardingSlideLayout always renders the match-screen leading segment.
+//
+// sessionStorage is intentionally used (not localStorage) — the data is
+// cleared automatically when the browser tab is closed, which is the
+// appropriate lifetime for an in-progress registration session.
+
+const ORG_FLOW_SESSION_KEY  = 'nexus_is_org_flow';
+const IS_REGISTERING_KEY    = 'nexus_is_registering';
 
 function loadIsOrgFlow(): boolean {
   try { return sessionStorage.getItem(ORG_FLOW_SESSION_KEY) === '1'; }
@@ -16,6 +25,18 @@ function persistIsOrgFlow(value: boolean) {
   try {
     if (value) sessionStorage.setItem(ORG_FLOW_SESSION_KEY, '1');
     else        sessionStorage.removeItem(ORG_FLOW_SESSION_KEY);
+  } catch { /* silently fail */ }
+}
+
+function loadIsRegistering(): boolean {
+  try { return sessionStorage.getItem(IS_REGISTERING_KEY) === '1'; }
+  catch { return false; }
+}
+
+function persistIsRegistering(value: boolean) {
+  try {
+    if (value) sessionStorage.setItem(IS_REGISTERING_KEY, '1');
+    else        sessionStorage.removeItem(IS_REGISTERING_KEY);
   } catch { /* silently fail */ }
 }
 
@@ -97,7 +118,7 @@ interface RegistrationState {
 const DEFAULT_PROFILE_DATA = { firstName: '', lastName: '', email: '', birthday: '' };
 
 export const useRegistrationStore = create<RegistrationState>((set) => ({
-  isRegistering: false,
+  isRegistering: loadIsRegistering(),
   registrationPath: null,
   returnTo: null,
   isOrgFlow: loadIsOrgFlow(),
@@ -116,6 +137,7 @@ export const useRegistrationStore = create<RegistrationState>((set) => ({
     // persists to localStorage and handles the extraLeading independently.
     const isOrgFlow = !!(orgMember);
     persistIsOrgFlow(isOrgFlow);
+    persistIsRegistering(true);
     set({
       isRegistering: true,
       registrationPath: path,
@@ -162,6 +184,7 @@ export const useRegistrationStore = create<RegistrationState>((set) => ({
 
   completeRegistration: () => {
     persistIsOrgFlow(false);
+    persistIsRegistering(false);
     set({
       isRegistering: false,
       registrationPath: null,
@@ -180,6 +203,7 @@ export const useRegistrationStore = create<RegistrationState>((set) => ({
 
   resetRegistration: () => {
     persistIsOrgFlow(false);
+    persistIsRegistering(false);
     set({
       isRegistering: false,
       registrationPath: null,
