@@ -283,6 +283,18 @@ export interface TranslationKeys {
     analyticsConsentDesc: string;
     pushBlockedNote: string;
     consentsRequiredNote: string;
+    // Motivation slide (transitional — between consents and preference questions)
+    motivationTitle: string;
+    motivationSubtitle: string;
+    motivationBody: string;
+    motivationBullet1: string;
+    motivationBullet2: string;
+    motivationBullet3: string;
+    motivationCta: string;
+    // Profile nudge banner (existing users with missing preference fields)
+    profileNudgeTitle: string;
+    profileNudgeSubtitle: string;
+    profileNudgeCta: string;
     // Purpose slide
     purposeTitle: string;
     purposeSubtitle: string;
