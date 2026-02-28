@@ -39,15 +39,15 @@ interface CardDef {
 const CARD_SIZE = 72; // px — fits comfortably in clamp(200px, 38vh, 280px) hero slot
 
 /** Six benefit categories — three selected, three unselected.
- *  Positions are tightened toward the centre of the hero slot so the
- *  cluster feels balanced rather than edge-hugging. */
+ *  Positions are clustered toward the centre of the hero slot so the
+ *  scatter feels tight and intentional rather than edge-hugging. */
 const CARDS: readonly CardDef[] = [
-  { key: 'vacation', emoji: '🏖',   label: 'נופש',        top:  6, left: 16, selected: false, selIdx: -1 },
-  { key: 'super',    emoji: '🛒',   label: 'סופר',        top:  7, left: 54, selected: false, selIdx: -1 },
-  { key: 'family',   emoji: '👨‍👩‍👧', label: 'משפחה',      top: 31, left: 14, selected: true,  selIdx:  0 },
-  { key: 'tech',     emoji: '💻',   label: 'אלקטרוניקה', top: 50, left: 50, selected: true,  selIdx:  1 },
-  { key: 'local',    emoji: '📍',   label: 'ליד הבית',   top: 61, left: 12, selected: true,  selIdx:  2 },
-  { key: 'finance',  emoji: '💳',   label: 'פיננסים',    top: 21, left: 36, selected: false, selIdx: -1 },
+  { key: 'vacation', emoji: '🏖',   label: 'נופש',        top:  8, left: 24, selected: false, selIdx: -1 },
+  { key: 'super',    emoji: '🛒',   label: 'סופר',        top:  6, left: 50, selected: false, selIdx: -1 },
+  { key: 'family',   emoji: '👨‍👩‍👧', label: 'משפחה',      top: 30, left: 18, selected: true,  selIdx:  0 },
+  { key: 'tech',     emoji: '💻',   label: 'אלקטרוניקה', top: 50, left: 44, selected: true,  selIdx:  1 },
+  { key: 'local',    emoji: '📍',   label: 'ליד הבית',   top: 62, left: 20, selected: true,  selIdx:  2 },
+  { key: 'finance',  emoji: '💳',   label: 'פיננסים',    top: 24, left: 36, selected: false, selIdx: -1 },
 ] as const;
 
 /**
@@ -97,8 +97,12 @@ export function MotivationAnimation() {
       className="relative w-full h-full overflow-hidden"
       style={{
         background: [
-          'radial-gradient(ellipse at 25% 35%, rgba(124,58,237,0.10) 0%, transparent 55%)',
-          'linear-gradient(160deg, #0e0e0e 0%, #111 100%)',
+          'radial-gradient(ellipse at 78% 22%, rgba(216,129,244,0.55) 0%, transparent 52%)',
+          'radial-gradient(ellipse at 18% 62%, rgba(128,222,234,0.45) 0%, transparent 52%)',
+          'radial-gradient(ellipse at 52% 92%, rgba(255,183,77,0.35) 0%, transparent 45%)',
+          'radial-gradient(ellipse at 82% 78%, rgba(244,143,177,0.45) 0%, transparent 45%)',
+          'radial-gradient(ellipse at 28% 18%, rgba(179,157,219,0.45) 0%, transparent 48%)',
+          'linear-gradient(135deg, #0d0820 0%, #0a1525 60%, #120820 100%)',
         ].join(', '),
       }}
     >

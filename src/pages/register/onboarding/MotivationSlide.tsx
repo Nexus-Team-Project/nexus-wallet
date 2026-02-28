@@ -76,17 +76,17 @@ export default function MotivationSlide() {
           {t.registration.motivationTitle}
         </h1>
 
-        {/* Social proof — shown as subtitle under title */}
+        {/* Social proof — shown as subtitle under title; constrained to ≤ title width */}
         <p
           className="text-sm font-semibold mb-5 leading-relaxed"
-          style={{ color: 'var(--color-text-muted)' }}
+          style={{ color: 'var(--color-text-muted)', maxWidth: '80%' }}
         >
           {t.registration.motivationBadge}
         </p>
 
-        {/* Time-estimate badge */}
+        {/* Time-estimate badge — shrink-wraps its text, not full-width */}
         <div
-          className="flex items-center gap-3 rounded-2xl px-4 py-3"
+          className="inline-flex items-center gap-3 rounded-2xl px-4 py-3"
           style={{ backgroundColor: 'var(--color-primary-light, #ede9fe)' }}
         >
           <span

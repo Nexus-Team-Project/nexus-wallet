@@ -81,7 +81,7 @@ export const registrationTranslations = {
     motivationBullet2: 'More relevance = more savings',
     motivationBullet3: 'Full control — change anytime',
     motivationCta: 'Let\'s go',
-    motivationSkip: 'Maybe later',
+    motivationSkip: 'Later',
     motivationBadge: 'Users who personalize their experience save on average 20% more.',
     // Profile nudge banner (existing users with missing preference fields)
     profileNudgeTitle: 'Your benefits aren\'t maximized yet',
@@ -242,7 +242,7 @@ export const registrationTranslations = {
     motivationBullet2: 'יותר התאמה = יותר חיסכון',
     motivationBullet3: 'בשליטתך מלאה — שנה בכל עת',
     motivationCta: 'קדימה',
-    motivationSkip: 'אחד בפעם אחרת',
+    motivationSkip: 'בפעם אחרת',
     motivationBadge: 'משתמשים שמעצבים את החוויה שלהם חוסכים בממוצע 20% יותר.',
     // Profile nudge banner (existing users with missing preference fields)
     profileNudgeTitle: 'ההטבות שלך לא ממוקסמות עדיין',
