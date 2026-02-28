@@ -38,14 +38,16 @@ interface CardDef {
 
 const CARD_SIZE = 72; // px — fits comfortably in clamp(200px, 38vh, 280px) hero slot
 
-/** Six benefit categories — three selected, three unselected. */
+/** Six benefit categories — three selected, three unselected.
+ *  Positions are tightened toward the centre of the hero slot so the
+ *  cluster feels balanced rather than edge-hugging. */
 const CARDS: readonly CardDef[] = [
-  { key: 'vacation', emoji: '🏖',   label: 'נופש',        top:  6, left:  6, selected: false, selIdx: -1 },
-  { key: 'super',    emoji: '🛒',   label: 'סופר',        top:  8, left: 62, selected: false, selIdx: -1 },
-  { key: 'family',   emoji: '👨‍👩‍👧', label: 'משפחה',      top: 30, left: 12, selected: true,  selIdx:  0 },
-  { key: 'tech',     emoji: '💻',   label: 'אלקטרוניקה', top: 50, left: 58, selected: true,  selIdx:  1 },
-  { key: 'local',    emoji: '📍',   label: 'ליד הבית',   top: 62, left:  6, selected: true,  selIdx:  2 },
-  { key: 'finance',  emoji: '💳',   label: 'פיננסים',    top: 20, left: 38, selected: false, selIdx: -1 },
+  { key: 'vacation', emoji: '🏖',   label: 'נופש',        top:  6, left: 16, selected: false, selIdx: -1 },
+  { key: 'super',    emoji: '🛒',   label: 'סופר',        top:  7, left: 54, selected: false, selIdx: -1 },
+  { key: 'family',   emoji: '👨‍👩‍👧', label: 'משפחה',      top: 31, left: 14, selected: true,  selIdx:  0 },
+  { key: 'tech',     emoji: '💻',   label: 'אלקטרוניקה', top: 50, left: 50, selected: true,  selIdx:  1 },
+  { key: 'local',    emoji: '📍',   label: 'ליד הבית',   top: 61, left: 12, selected: true,  selIdx:  2 },
+  { key: 'finance',  emoji: '💳',   label: 'פיננסים',    top: 21, left: 36, selected: false, selIdx: -1 },
 ] as const;
 
 /**
@@ -171,6 +173,33 @@ export function MotivationAnimation() {
           </div>
         );
       })}
+
+      {/* ── Scanner sweep (phase 4+) — bright stripe sweeps bottom → top ───── */}
+      <div
+        style={{
+          position:   'absolute',
+          left:       0,
+          right:      0,
+          bottom:     0,
+          height:     '45%',
+          background: [
+            'linear-gradient(to top,',
+            '  transparent 0%,',
+            '  rgba(124,58,237,0.06) 35%,',
+            '  rgba(124,58,237,0.22) 70%,',
+            '  rgba(139,92,246,0.55) 88%,',
+            '  rgba(167,139,250,0.85) 96%,',
+            '  rgba(221,214,254,0.70) 100%',
+            ')',
+          ].join(' '),
+          transform:  `translateY(${showUserIcon ? '-230%' : '115%'})`,
+          transition: showUserIcon
+            ? 'transform 1000ms cubic-bezier(0.22, 0.61, 0.36, 1)'
+            : 'none',
+          pointerEvents: 'none',
+          zIndex:     1,
+        }}
+      />
 
       {/* ── User-icon dot (phases 4 +) ──────────────────────────────────────── */}
       <div
