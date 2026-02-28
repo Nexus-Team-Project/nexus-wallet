@@ -76,15 +76,15 @@ export default function MotivationSlide() {
           {t.registration.motivationTitle}
         </h1>
 
-        {/* Time estimate */}
+        {/* Social proof — shown as subtitle under title */}
         <p
-          className="text-sm font-semibold mb-5"
+          className="text-sm font-semibold mb-5 leading-relaxed"
           style={{ color: 'var(--color-text-muted)' }}
         >
-          {t.registration.motivationBody}
+          {t.registration.motivationBadge}
         </p>
 
-        {/* Social-proof badge */}
+        {/* Time-estimate badge */}
         <div
           className="flex items-center gap-3 rounded-2xl px-4 py-3"
           style={{ backgroundColor: 'var(--color-primary-light, #ede9fe)' }}
@@ -97,13 +97,13 @@ export default function MotivationSlide() {
               fontVariationSettings: "'FILL' 1",
             }}
           >
-            workspace_premium
+            timer
           </span>
           <span
             className="text-xs font-semibold leading-relaxed"
             style={{ color: 'var(--color-primary)' }}
           >
-            {t.registration.motivationBadge}
+            {t.registration.motivationBody}
           </span>
         </div>
 

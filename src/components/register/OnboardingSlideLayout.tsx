@@ -173,25 +173,22 @@ export default function OnboardingSlideLayout({
           )}
 
           {secondaryCta ? (
-            /* Two-column button row.
-               DOM order: [primary, secondary].
-               In RTL flex primary ends up on the RIGHT (start side) — the
-               visually dominant position — secondary on the LEFT. */
-            <div className="flex gap-3">
+            /* Primary button full-width; secondary as plain underlined text link below. */
+            <>
               <button
                 onClick={onContinue}
                 disabled={!canContinue}
-                className="flex-1 py-4 rounded-2xl bg-primary text-white font-bold text-sm active:scale-[0.98] transition-all shadow-lg shadow-primary/25 disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100"
+                className="w-full py-4 rounded-2xl bg-primary text-white font-bold text-sm active:scale-[0.98] transition-all shadow-lg shadow-primary/25 disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100"
               >
                 {ctaLabel}
               </button>
               <button
                 onClick={secondaryCta.onClick}
-                className="flex-1 py-4 rounded-2xl bg-surface text-text-muted font-semibold text-sm active:scale-[0.98] transition-all"
+                className="w-full text-center py-2 text-sm font-semibold text-text-muted active:underline transition-all"
               >
                 {secondaryCta.label}
               </button>
-            </div>
+            </>
           ) : (
             <button
               onClick={onContinue}
