@@ -5,7 +5,8 @@ export type RegistrationPath =
   | 'org-member-incomplete'
   | 'new-user'
   | 'tenant-with-fee'
-  | 'tenant-no-fee';
+  | 'tenant-no-fee'
+  | 'preferences-completion'; // returning user completing optional preference slides from banner
 
 export interface RegistrationContext {
   orgMember: OrgMember | null;

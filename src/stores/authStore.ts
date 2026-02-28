@@ -11,6 +11,9 @@ interface AuthState {
   organizationName: string | null;
   marketingConsent: boolean;
   profileCompleted: boolean;
+  /** True when the user is authenticated but optional preference slides are still missing.
+   *  Triggers the ProfileNudgeBanner. Cleared automatically when profileCompleted → true. */
+  preferencesIncomplete: boolean;
   avatarUrl: string | null;
   firstName: string | null;
 
@@ -27,6 +30,7 @@ interface AuthState {
   setAvatarUrl: (url: string | null) => void;
   setMarketingConsent: (consent: boolean) => void;
   setProfileCompleted: (completed: boolean) => void;
+  setPreferencesIncomplete: (incomplete: boolean) => void;
   logout: () => void;
 }
 
@@ -47,6 +51,7 @@ function loadPersistedAuth(): Partial<AuthState> {
       organizationName: data.organizationName ?? null,
       marketingConsent: data.marketingConsent ?? false,
       profileCompleted: data.profileCompleted ?? false,
+      preferencesIncomplete: data.preferencesIncomplete ?? false,
       avatarUrl: data.avatarUrl ?? null,
       firstName: data.firstName ?? null,
     };
@@ -68,6 +73,7 @@ function persistAuth(state: Partial<AuthState>) {
         organizationName: state.organizationName,
         marketingConsent: state.marketingConsent,
         profileCompleted: state.profileCompleted,
+        preferencesIncomplete: state.preferencesIncomplete,
         avatarUrl: state.avatarUrl,
         firstName: state.firstName,
       })
@@ -96,6 +102,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   organizationName: persisted.organizationName ?? null,
   marketingConsent: persisted.marketingConsent ?? false,
   profileCompleted: persisted.profileCompleted ?? false,
+  preferencesIncomplete: persisted.preferencesIncomplete ?? false,
   avatarUrl: persisted.avatarUrl ?? null,
   firstName: persisted.firstName ?? null,
 
@@ -144,9 +151,22 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   setProfileCompleted: (completed) => {
     set((state) => {
-      const next = { ...state, profileCompleted: completed };
+      const next = {
+        ...state,
+        profileCompleted: completed,
+        // Completing the profile clears the preferences-nudge automatically
+        preferencesIncomplete: completed ? false : state.preferencesIncomplete,
+      };
       persistAuth(next);
-      return { profileCompleted: completed };
+      return { profileCompleted: next.profileCompleted, preferencesIncomplete: next.preferencesIncomplete };
+    });
+  },
+
+  setPreferencesIncomplete: (incomplete) => {
+    set((state) => {
+      const next = { ...state, preferencesIncomplete: incomplete };
+      persistAuth(next);
+      return { preferencesIncomplete: incomplete };
     });
   },
 
@@ -162,6 +182,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       organizationName: null,
       marketingConsent: false,
       profileCompleted: false,
+      preferencesIncomplete: false,
       avatarUrl: null,
       firstName: null,
     });

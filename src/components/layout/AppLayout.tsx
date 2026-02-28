@@ -3,6 +3,7 @@ import { Outlet, useLocation } from 'react-router-dom';
 import TopBar from './TopBar';
 import FloatingActions from './FloatingActions';
 import PopularRetailers from '../home/PopularRetailers';
+import ProfileNudgeBanner from '../profile/ProfileNudgeBanner';
 
 const COLLAPSE_THRESHOLD = 40;
 
@@ -53,6 +54,7 @@ export default function AppLayout() {
         <main className="relative z-10">
           <Outlet />
         </main>
+        <ProfileNudgeBanner />
         <FloatingActions />
       </div>
     </div>

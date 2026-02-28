@@ -73,6 +73,18 @@ export const registrationTranslations = {
     analyticsConsentDesc: 'Allow us to learn your preferences and serve smarter recommendations',
     pushBlockedNote: 'Update in browser settings',
     consentsRequiredNote: 'You must agree to marketing updates to continue',
+    // Motivation slide (transitional — between consents and preference questions)
+    motivationTitle: 'Now let\'s make you a VIP member',
+    motivationSubtitle: 'Members who complete their profile get benefits tailored exactly to them.',
+    motivationBody: '5 short questions. Less than a minute.',
+    motivationBullet1: 'Offers relevant to you — not everyone',
+    motivationBullet2: 'More relevance = more savings',
+    motivationBullet3: 'Full control — change anytime',
+    motivationCta: 'I want more benefits',
+    // Profile nudge banner (existing users with missing preference fields)
+    profileNudgeTitle: 'Your benefits aren\'t maximized yet',
+    profileNudgeSubtitle: 'Complete your profile — 90 sec',
+    profileNudgeCta: 'Complete',
     // Purpose slide
     purposeTitle: 'How do you want to use {appName}?',
     purposeSubtitle: 'We ask this to tailor your experience. And also, we\'re curious.',
@@ -220,6 +232,18 @@ export const registrationTranslations = {
     analyticsConsentDesc: 'אפשר לנו ללמוד את ההעדפות שלך ולהציע המלצות חכמות יותר',
     pushBlockedNote: 'עדכן בהגדרות הדפדפן',
     consentsRequiredNote: 'יש לאשר עדכוני מבצעים כדי להמשיך',
+    // Motivation slide (transitional — between consents and preference questions)
+    motivationTitle: 'עכשיו נהפוך אותך למשתמש VIP',
+    motivationSubtitle: 'חברים שמילאו את הפרופיל שלהם מקבלים הטבות שמותאמות בדיוק להם.',
+    motivationBody: '5 שאלות קצרות. פחות מדקה.',
+    motivationBullet1: 'הצעות שרלוונטיות לך — לא לכולם',
+    motivationBullet2: 'יותר התאמה = יותר חיסכון',
+    motivationBullet3: 'בשליטתך מלאה — שנה בכל עת',
+    motivationCta: 'אני רוצה יותר הטבות',
+    // Profile nudge banner (existing users with missing preference fields)
+    profileNudgeTitle: 'ההטבות שלך לא ממוקסמות עדיין',
+    profileNudgeSubtitle: 'השלם פרופיל — 90 שניות',
+    profileNudgeCta: 'להשלמה',
     // Purpose slide
     purposeTitle: 'איך תרצה להשתמש ב-{appName}?',
     purposeSubtitle: 'אנחנו שואלים את זה כדי להתאים את החוויה שלך, וגם אנחנו סקרנים.',

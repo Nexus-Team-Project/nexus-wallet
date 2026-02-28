@@ -244,8 +244,9 @@ export default function LoginSheet() {
       await firebaseSaveConsent(session.userId, marketingOptIn);
       setMarketingConsent(marketingOptIn);
 
-      // Load tenant config for org members (so TopBar can show the logo)
-      if (orgMember?.organizationId) {
+      // Load tenant config for org members (so TopBar can show the logo).
+      // Only when no URL-tenant is active — tenant URL wins branding conflicts.
+      if (!tenantConfig && orgMember?.organizationId) {
         const orgTenant = lookupTenantByOrg(orgMember.organizationId);
         if (orgTenant) {
           setTenant(orgTenant.id, orgTenant);
@@ -255,15 +256,45 @@ export default function LoginSheet() {
       // Show routing overlay — auth is done, deciding which flow to open
       setIsRouting(true);
 
-      // PATH A: Org member with complete profile → success animation
+      // Helper: preference-type fields that drive the profile nudge banner
+      const PREF_FIELDS = ['purpose', 'lifeStage', 'birthday', 'gender', 'benefitCategories'];
+      const hasMissingPreferences = missingFields.some((f) => PREF_FIELDS.includes(f));
+
+      // Phone auth — need full profile (name, email, birthday)
+      const phoneMissing = ['firstName', 'lastName', 'email', 'birthday'];
+
+      // ── Priority 1: Org member with COMPLETE profile → success animation ──
       if (orgMember && profileComplete) {
+        if (hasMissingPreferences) useAuthStore.getState().setPreferencesIncomplete(true);
         setSuccessOrgName(orgMember.organizationName);
         setStep('success');
         setTimeout(() => completeLogin(), 1500);
         return;
       }
 
-      // PATH B: Org member with missing fields → org stories → match screen
+      // ── Priority 2: Returning user (already completed profile) ──
+      if (useAuthStore.getState().profileCompleted) {
+        if (hasMissingPreferences) useAuthStore.getState().setPreferencesIncomplete(true);
+        completeLogin();
+        return;
+      }
+
+      // ── Priority 3: Tenant URL wins — even when orgMember is present ──
+      // orgMember from a different org is intentionally ignored here.
+      if (tenantConfig) {
+        startRegistration({
+          path: tenantConfig.requiresMembershipFee ? 'tenant-with-fee' : 'tenant-no-fee',
+          phone,
+          missingFields: phoneMissing,
+          // orgMember is NOT passed — tenant branding/flow takes full precedence
+        });
+        close();
+        navigate(`/${lang}/auth-flow/org-user`);
+        return;
+      }
+
+      // ── Priority 4: Org member, incomplete profile, no tenant → nexus-hero first ──
+      // User sees nexus-hero stories first, then the org match screen.
       if (orgMember && !profileComplete) {
         startRegistration({
           path: 'org-member-incomplete',
@@ -277,32 +308,11 @@ export default function LoginSheet() {
           missingFields,
         });
         close();
-        navigate(`/${lang}/auth-flow/org-user`);
+        navigate(`/${lang}/auth-flow/new-user`); // nexus-hero first, match-screen follows
         return;
       }
 
-      // Returning user (already completed profile before) → go to requested page
-      if (useAuthStore.getState().profileCompleted) {
-        completeLogin();
-        return;
-      }
-
-      // Phone auth — need full profile (name, email, birthday)
-      const phoneMissing = ['firstName', 'lastName', 'email', 'birthday'];
-
-      // PATH D/E: Tenant (with or without fee) → org stories → match-screen → onboarding/membership
-      if (tenantConfig) {
-        startRegistration({
-          path: tenantConfig.requiresMembershipFee ? 'tenant-with-fee' : 'tenant-no-fee',
-          phone,
-          missingFields: phoneMissing,
-        });
-        close();
-        navigate(`/${lang}/auth-flow/org-user`);
-        return;
-      }
-
-      // PATH C: New user (no tenant, no org) → Nexus stories → onboarding
+      // ── Priority 5: New user (no tenant, no org) → Nexus stories → onboarding ──
       startRegistration({
         path: 'new-user',
         phone,
@@ -335,8 +345,8 @@ export default function LoginSheet() {
         await firebaseSaveConsent(result.session.userId, marketingOptIn);
         setMarketingConsent(marketingOptIn);
 
-        // Load tenant config for org members
-        if (orgMember?.organizationId) {
+        // Load tenant config for org members — only when no URL-tenant is active
+        if (!tenantConfig && orgMember?.organizationId) {
           const orgTenant = lookupTenantByOrg(orgMember.organizationId);
           if (orgTenant) {
             setTenant(orgTenant.id, orgTenant);
@@ -346,36 +356,23 @@ export default function LoginSheet() {
         // Show routing overlay — auth is done, deciding which flow to open
         setIsRouting(true);
 
-        // Returning user (already completed profile before) → go to requested page
+        const profile = result.profile;
+
+        // ── Priority 1: Returning user ──
         if (useAuthStore.getState().profileCompleted) {
           completeLogin();
           return;
         }
 
-        // ── Org member via Google: Nexus stories → match screen ──
-        if (orgMember) {
-          // Google gives email + name, org gives org info → only phone missing
-          const missingFields: string[] = ['phone'];
-          if (!orgMember.firstName && !result.profile?.firstName) missingFields.push('firstName');
-          if (!orgMember.lastName && !result.profile?.lastName) missingFields.push('lastName');
-
-          startRegistration({
-            path: 'org-member-incomplete',
-            phone: '',
-            orgMember: {
-              organizationId: orgMember.organizationId,
-              organizationName: orgMember.organizationName,
-              firstName: orgMember.firstName || result.profile?.firstName,
-              lastName: orgMember.lastName || result.profile?.lastName,
-            },
-            missingFields,
-          });
-          // Pre-fill email from Google profile
-          if (result.profile) {
+        // ── Priority 2: Tenant URL wins — even when orgMember is present ──
+        if (tenantConfig) {
+          const regPath = tenantConfig.requiresMembershipFee ? 'tenant-with-fee' : 'tenant-no-fee';
+          startRegistration({ path: regPath, phone: '', missingFields: ['phone'] });
+          if (profile) {
             useRegistrationStore.getState().setProfileData({
-              firstName: orgMember.firstName || result.profile.firstName,
-              lastName: orgMember.lastName || result.profile.lastName,
-              email: result.profile.email,
+              firstName: profile.firstName,
+              lastName: profile.lastName,
+              email: profile.email,
             });
           }
           close();
@@ -383,20 +380,38 @@ export default function LoginSheet() {
           return;
         }
 
-        // ── Regular Google sign-in (not org member) ──
-        const profile = result.profile;
-        const regPath = tenantConfig?.requiresMembershipFee
-          ? 'tenant-with-fee'
-          : tenantConfig
-            ? 'tenant-no-fee'
-            : 'new-user';
+        // ── Priority 3: Org member via Google, no tenant → nexus-hero first ──
+        if (orgMember) {
+          // Google provides email + name; org gives org info → only phone missing
+          const missingFields: string[] = ['phone'];
+          if (!orgMember.firstName && !profile?.firstName) missingFields.push('firstName');
+          if (!orgMember.lastName && !profile?.lastName) missingFields.push('lastName');
 
-        startRegistration({
-          path: regPath,
-          phone: '',
-          missingFields: ['phone'],
-        });
-        // Pre-fill AFTER startRegistration (which resets profileData)
+          startRegistration({
+            path: 'org-member-incomplete',
+            phone: '',
+            orgMember: {
+              organizationId: orgMember.organizationId,
+              organizationName: orgMember.organizationName,
+              firstName: orgMember.firstName || profile?.firstName,
+              lastName: orgMember.lastName || profile?.lastName,
+            },
+            missingFields,
+          });
+          if (profile) {
+            useRegistrationStore.getState().setProfileData({
+              firstName: orgMember.firstName || profile.firstName,
+              lastName: orgMember.lastName || profile.lastName,
+              email: profile.email,
+            });
+          }
+          close();
+          navigate(`/${lang}/auth-flow/new-user`); // nexus-hero first, match-screen follows
+          return;
+        }
+
+        // ── Priority 4: Regular Google sign-in (no tenant, no org) ──
+        startRegistration({ path: 'new-user', phone: '', missingFields: ['phone'] });
         if (profile) {
           useRegistrationStore.getState().setProfileData({
             firstName: profile.firstName,
@@ -405,8 +420,7 @@ export default function LoginSheet() {
           });
         }
         close();
-        // Tenant context → org stories; plain new user → nexus hero
-        navigate(`/${lang}/auth-flow/${regPath !== 'new-user' ? 'org-user' : 'new-user'}`);
+        navigate(`/${lang}/auth-flow/new-user`);
       }
     } finally {
       setIsLoading(false);
