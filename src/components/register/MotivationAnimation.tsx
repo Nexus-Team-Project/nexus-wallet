@@ -110,7 +110,7 @@ export function MotivationAnimation() {
 
   const avatarUrl     = useAuthStore((s) => s.avatarUrl);
   const authFirstName = useAuthStore((s) => s.firstName);
-  const regFirstName  = useRegistrationStore((s) => s.firstName);
+  const regFirstName  = useRegistrationStore((s) => s.profileData.firstName);
   const firstName     = regFirstName ?? authFirstName ?? '';
 
   useEffect(() => {
