@@ -76,13 +76,13 @@ export const registrationTranslations = {
     // Motivation slide (transitional — between consents and preference questions)
     motivationTitle: "Let's shape your experience together.",
     motivationSubtitle: 'Members who complete their profile get benefits tailored exactly to them.',
-    motivationBody: 'Under 30 seconds.',
+    motivationBody: 'Those who continue save 20% more on average.',
     motivationBullet1: 'Offers relevant to you — not everyone',
     motivationBullet2: 'More relevance = more savings',
     motivationBullet3: 'Full control — change anytime',
     motivationCta: 'Let\'s go',
     motivationSkip: 'Later',
-    motivationBadge: 'Users who personalize their experience save on average 20% more.',
+    motivationBadge: 'Small questions. Big experience.',
     // Profile nudge banner (existing users with missing preference fields)
     profileNudgeTitle: 'Your benefits aren\'t maximized yet',
     profileNudgeSubtitle: 'Complete your profile — 90 sec',
@@ -237,13 +237,13 @@ export const registrationTranslations = {
     // Motivation slide (transitional — between consents and preference questions)
     motivationTitle: 'נתאים ביחד את החוויה שלך.',
     motivationSubtitle: 'חברים שמילאו את הפרופיל שלהם מקבלים הטבות שמותאמות בדיוק להם.',
-    motivationBody: 'פחות מ30 שניות.',
+    motivationBody: 'ממשיכים חוסכים בממוצע 20% יותר',
     motivationBullet1: 'הצעות שרלוונטיות לך — לא לכולם',
     motivationBullet2: 'יותר התאמה = יותר חיסכון',
     motivationBullet3: 'בשליטתך מלאה — שנה בכל עת',
     motivationCta: 'קדימה',
     motivationSkip: 'בפעם אחרת',
-    motivationBadge: 'משתמשים שמעצבים את החוויה שלהם חוסכים בממוצע 20% יותר.',
+    motivationBadge: 'שאלות קטנות. חוויה גדולה.',
     // Profile nudge banner (existing users with missing preference fields)
     profileNudgeTitle: 'ההטבות שלך לא ממוקסמות עדיין',
     profileNudgeSubtitle: 'השלם פרופיל — 90 שניות',

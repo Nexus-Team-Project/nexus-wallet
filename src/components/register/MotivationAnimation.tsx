@@ -1,28 +1,32 @@
 /**
  * MotivationAnimation — animated hero for MotivationSlide.
  *
- * Concept: benefit-category cards scattered on a dark background →
- * irrelevant cards dim out → selected cards converge to a centre row →
- * they collapse into a single user-icon dot → final label reveal.
- *
- * Inspired by a bespoke HTML/CSS prototype; adapted to the Nexus design
- * context (app colour variables, Material Symbols, appropriate sizing for
- * the onboarding hero slot, RTL Hebrew labels).
+ * Concept:
+ *   1. Narrative text intro (phases 0–3): four short Hebrew lines play in
+ *      sequence, addressing the user by first name and setting up the "why".
+ *   2. Card scatter (phase 4): ten benefit-category cards fly in with a
+ *      uniform grid spread across the full hero slot.
+ *   3. Focus sequence (phases 5–8): irrelevant cards dim → selected cards
+ *      converge to a centred row → they collapse into a user-icon dot.
  *
  * Phases:
- *   0 (0 ms)    — all cards scattered, label "לא הכל חשוב לך."
- *   1 (2000 ms) — label → "מתמקדים."
- *   2 (3000 ms) — non-selected cards dim (opacity 0.15, blur, scale down)
- *   3 (4000 ms) — selected cards group to a centred row
- *   4 (4800 ms) — selected cards absorb to centre, user-icon dot appears
- *   5 (5500 ms) — label → "לראות רק את הדברים שחשובים לך."
+ *   0  (   0 ms) — "{name}, אנחנו יכולים לסייע לך בהרבה תחומים."
+ *   1  (1600 ms) — "אבל לא הכל רלוונטי באותה מידה."
+ *   2  (3000 ms) — "מתמקדים."   (large + bold — dramatic pause)
+ *   3  (3900 ms) — "נתחיל ממה שהכי חשוב לך."
+ *   4  (5000 ms) — text fades out; cards fly in (uniform spread)
+ *   5  (6500 ms) — non-selected cards dim (opacity 0.15, blur, scale down)
+ *   6  (7500 ms) — selected cards group to a centred row
+ *   7  (8300 ms) — selected cards absorb to centre; user-icon dot appears
+ *   8  (9000 ms) — label → "לראות רק את מה שחשוב לך."
  */
 import { useState, useEffect } from 'react';
 import { useAuthStore } from '../../stores/authStore';
+import { useRegistrationStore } from '../../stores/registrationStore';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type Phase = 0 | 1 | 2 | 3 | 4 | 5;
+type Phase = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
 
 interface CardDef {
   key:      string;
@@ -36,51 +40,78 @@ interface CardDef {
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const CARD_SIZE = 72; // px — fits comfortably in clamp(200px, 38vh, 280px) hero slot
+const CARD_SIZE = 72; // px
 
-/** Six benefit categories — three selected, three unselected.
- *  Positions are clustered toward the centre of the hero slot so the
- *  scatter feels tight and intentional rather than edge-hugging. */
+/**
+ * Ten benefit categories arranged in a loose 3×3+1 grid that fills the
+ * entire hero slot uniformly.  Three are pre-selected; the rest dim out
+ * during the focus sequence (phases 5–7).
+ */
 const CARDS: readonly CardDef[] = [
-  { key: 'vacation', emoji: '🏖',   label: 'נופש',        top:  8, left: 24, selected: false, selIdx: -1 },
-  { key: 'super',    emoji: '🛒',   label: 'סופר',        top:  6, left: 50, selected: false, selIdx: -1 },
-  { key: 'family',   emoji: '👨‍👩‍👧', label: 'משפחה',      top: 30, left: 18, selected: true,  selIdx:  0 },
-  { key: 'tech',     emoji: '💻',   label: 'אלקטרוניקה', top: 50, left: 44, selected: true,  selIdx:  1 },
-  { key: 'local',    emoji: '📍',   label: 'ליד הבית',   top: 62, left: 20, selected: true,  selIdx:  2 },
-  { key: 'finance',  emoji: '💳',   label: 'פיננסים',    top: 24, left: 36, selected: false, selIdx: -1 },
+  // Row 0 — top strip
+  { key: 'vacation', emoji: '🏖',    label: 'נופש',        top:  3, left:  1, selected: false, selIdx: -1 },
+  { key: 'super',    emoji: '🛒',    label: 'סופר',        top:  4, left: 33, selected: false, selIdx: -1 },
+  { key: 'food',     emoji: '🍕',    label: 'מסעדות',      top:  2, left: 63, selected: false, selIdx: -1 },
+  // Row 1 — middle strip
+  { key: 'family',   emoji: '👨‍👩‍👧',  label: 'משפחה',      top: 38, left:  3, selected: true,  selIdx:  0 },
+  { key: 'finance',  emoji: '💳',    label: 'פיננסים',    top: 37, left: 34, selected: false, selIdx: -1 },
+  { key: 'tech',     emoji: '💻',    label: 'אלקטרוניקה', top: 39, left: 62, selected: true,  selIdx:  1 },
+  // Row 2 — bottom strip
+  { key: 'local',    emoji: '📍',    label: 'ליד הבית',   top: 65, left:  1, selected: true,  selIdx:  2 },
+  { key: 'fashion',  emoji: '👗',    label: 'אופנה',       top: 67, left: 32, selected: false, selIdx: -1 },
+  { key: 'sports',   emoji: '⚽',    label: 'ספורט',       top: 64, left: 63, selected: false, selIdx: -1 },
+  // Extra — right-edge slot (fills gap between rows 0 and 1 on the right)
+  { key: 'beauty',   emoji: '💄',    label: 'יופי',        top: 21, left: 74, selected: false, selIdx: -1 },
 ] as const;
 
 /**
- * Horizontal offsets (px) applied to each selected card during the grouped
+ * Horizontal offsets (px) for the three selected cards during the converge
  * phase.  Three 72 px cards spaced 92 px apart → 256 px total row width,
- * which fits comfortably on a ≥ 320 px screen.
+ * fitting comfortably on a ≥ 320 px screen.
  */
 const SEL_OFFSETS = [-92, 0, 92] as const;
 
-/** Easing for card position / scale transitions. */
 const EASE = 'cubic-bezier(0.22, 0.61, 0.36, 1)';
 
 const PHASE_TIMINGS: ReadonlyArray<[delayMs: number, phase: Phase]> = [
-  [2000, 1],
-  [3000, 2],
-  [4000, 3],
-  [4800, 4],
-  [5500, 5],
+  [1600, 1], // "אבל לא הכל רלוונטי..."
+  [3000, 2], // "מתמקדים."
+  [3900, 3], // "נתחיל ממה שהכי..."
+  [5000, 4], // cards enter; text fades out
+  [6500, 5], // non-selected dim
+  [7500, 6], // selected converge
+  [8300, 7], // absorb → user icon
+  [9000, 8], // final label
 ];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function getLabel(phase: Phase): string {
-  if (phase === 0) return 'לא הכל חשוב לך.';
-  if (phase >= 5)  return 'לראות רק את הדברים שחשובים לך.';
-  return 'מתמקדים.';
+function getTextLine(phase: Phase, name: string): string | null {
+  const greeting = name ? `${name}, ` : '';
+  if (phase === 0) return `${greeting}אנחנו יכולים לסייע לך בהרבה תחומים.`;
+  if (phase === 1) return 'אבל לא הכל רלוונטי באותה מידה.';
+  if (phase === 2) return 'מתמקדים.';
+  if (phase === 3) return 'נתחיל ממה שהכי חשוב לך.';
+  return null;
+}
+
+function getCardLabel(phase: Phase): string | null {
+  if (phase < 5)  return null;
+  if (phase <= 5) return 'לא הכל רלוונטי באותה מידה.';
+  if (phase <= 6) return 'מתמקדים.';
+  if (phase >= 8) return 'לראות רק את מה שחשוב לך.';
+  return null;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function MotivationAnimation() {
   const [phase, setPhase] = useState<Phase>(0);
-  const avatarUrl = useAuthStore((s) => s.avatarUrl);
+
+  const avatarUrl     = useAuthStore((s) => s.avatarUrl);
+  const authFirstName = useAuthStore((s) => s.firstName);
+  const regFirstName  = useRegistrationStore((s) => s.firstName);
+  const firstName     = regFirstName ?? authFirstName ?? '';
 
   useEffect(() => {
     const timers = PHASE_TIMINGS.map(([delay, p]) =>
@@ -89,8 +120,10 @@ export function MotivationAnimation() {
     return () => { timers.forEach(clearTimeout); };
   }, []);
 
-  const labelText    = getLabel(phase);
-  const showUserIcon = phase >= 4;
+  const showCards    = phase >= 4;
+  const showUserIcon = phase >= 7;
+  const textLine     = getTextLine(phase, firstName);
+  const cardLabel    = getCardLabel(phase);
 
   return (
     <div
@@ -107,13 +140,46 @@ export function MotivationAnimation() {
       }}
     >
 
-      {/* ── Category cards ─────────────────────────────────────────────────── */}
-      {CARDS.map((card) => {
-        const dimmed   = phase >= 2 && !card.selected;
-        const grouped  = phase >= 3 &&  card.selected;
-        const absorbed = phase >= 4 &&  card.selected;
+      {/* ── Narrative text intro (phases 0–3) ──────────────────────────────── */}
+      <div
+        style={{
+          position:       'absolute',
+          inset:          0,
+          display:        'flex',
+          alignItems:     'center',
+          justifyContent: 'center',
+          padding:        '0 28px',
+          opacity:        phase < 4 ? 1 : 0,
+          transition:     'opacity 600ms ease',
+          pointerEvents:  'none',
+          zIndex:         2,
+        }}
+      >
+        {textLine && (
+          <span
+            key={textLine}
+            className="animate-fade-in"
+            style={{
+              fontSize:      phase === 2 ? 24 : 17,
+              fontWeight:    phase === 2 ? 800 : 600,
+              color:         'rgba(255,255,255,0.94)',
+              textAlign:     'center',
+              lineHeight:    1.55,
+              letterSpacing: phase === 2 ? '-0.025em' : '-0.01em',
+              direction:     'rtl',
+            }}
+          >
+            {textLine}
+          </span>
+        )}
+      </div>
 
-        // In the grouped phase selected cards converge to a centred row.
+      {/* ── Category cards (visible from phase 4) ──────────────────────────── */}
+      {CARDS.map((card) => {
+        const dimmed   = phase >= 5 && !card.selected;
+        const grouped  = phase >= 6 &&  card.selected;
+        const absorbed = phase >= 7 &&  card.selected;
+
         const top  = grouped
           ? `calc(50% - ${CARD_SIZE / 2}px)`
           : `${card.top}%`;
@@ -121,9 +187,9 @@ export function MotivationAnimation() {
           ? `calc(50% - ${CARD_SIZE / 2}px + ${SEL_OFFSETS[card.selIdx] ?? 0}px)`
           : `${card.left}%`;
 
-        const opacity   = absorbed ? 0 : dimmed ? 0.15 : 1;
-        const scale     = absorbed ? 0.4 : dimmed ? 0.92 : 1;
-        const blurPx    = dimmed ? 4 : 0;
+        const opacity = !showCards ? 0 : absorbed ? 0 : dimmed ? 0.15 : 1;
+        const scale   = !showCards ? 0.8 : absorbed ? 0.4 : dimmed ? 0.92 : 1;
+        const blurPx  = dimmed ? 4 : 0;
 
         return (
           <div
@@ -137,7 +203,7 @@ export function MotivationAnimation() {
               opacity,
               filter:         blurPx ? `blur(${blurPx}px)` : undefined,
               transform:      `scale(${scale})`,
-              transition:     [
+              transition: [
                 `top 900ms ${EASE}`,
                 `left 900ms ${EASE}`,
                 `opacity 700ms ease`,
@@ -178,7 +244,7 @@ export function MotivationAnimation() {
         );
       })}
 
-      {/* ── Scanner sweep (phase 4+) — bright stripe sweeps bottom → top ───── */}
+      {/* ── Scanner sweep (phase 7+) — bright stripe sweeps bottom → top ───── */}
       <div
         style={{
           position:   'absolute',
@@ -205,7 +271,7 @@ export function MotivationAnimation() {
         }}
       />
 
-      {/* ── User-icon dot (phases 4 +) ──────────────────────────────────────── */}
+      {/* ── User-icon dot (phase 7+) ─────────────────────────────────────────── */}
       <div
         style={{
           position:       'absolute',
@@ -213,7 +279,7 @@ export function MotivationAnimation() {
           left:           '50%',
           transform:      `translate(-50%, -50%) scale(${showUserIcon ? 1 : 0})`,
           opacity:        showUserIcon ? 1 : 0,
-          transition:     [
+          transition: [
             'transform 600ms cubic-bezier(0.34, 1.56, 0.64, 1)',
             'opacity 500ms ease',
           ].join(', '),
@@ -227,6 +293,7 @@ export function MotivationAnimation() {
           justifyContent: 'center',
           boxShadow:      '0 0 28px rgba(124,58,237,0.45)',
           pointerEvents:  'none',
+          zIndex:         2,
         }}
       >
         {avatarUrl ? (
@@ -249,34 +316,36 @@ export function MotivationAnimation() {
         )}
       </div>
 
-      {/* ── Phase label ─────────────────────────────────────────────────────── */}
-      <div
-        style={{
-          position:      'absolute',
-          bottom:        16,
-          left:          0,
-          right:         0,
-          textAlign:     'center',
-          padding:       '0 20px',
-          pointerEvents: 'none',
-        }}
-      >
-        {/* key re-mounts the span on every label change → animate-fade-in re-triggers */}
-        <span
-          key={labelText}
-          className="animate-fade-in"
+      {/* ── Card-phase label (shown from phase 5 onwards) ────────────────────── */}
+      {cardLabel && (
+        <div
           style={{
-            display:       'inline-block',
-            fontSize:      14,
-            fontWeight:    700,
-            color:         'rgba(255,255,255,0.92)',
-            letterSpacing: '-0.01em',
-            direction:     'rtl',
+            position:      'absolute',
+            bottom:        16,
+            left:          0,
+            right:         0,
+            textAlign:     'center',
+            padding:       '0 20px',
+            pointerEvents: 'none',
+            zIndex:        3,
           }}
         >
-          {labelText}
-        </span>
-      </div>
+          <span
+            key={cardLabel}
+            className="animate-fade-in"
+            style={{
+              display:       'inline-block',
+              fontSize:      14,
+              fontWeight:    700,
+              color:         'rgba(255,255,255,0.92)',
+              letterSpacing: '-0.01em',
+              direction:     'rtl',
+            }}
+          >
+            {cardLabel}
+          </span>
+        </div>
+      )}
 
     </div>
   );

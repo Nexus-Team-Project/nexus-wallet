@@ -97,7 +97,7 @@ export default function MotivationSlide() {
               fontVariationSettings: "'FILL' 1",
             }}
           >
-            timer
+            trending_up
           </span>
           <span
             className="text-xs font-semibold leading-relaxed"
