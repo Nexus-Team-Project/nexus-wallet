@@ -146,7 +146,7 @@ export default function FlowTestPage() {
       phone: '050-0000001',
       missingFields: ['firstName', 'lastName', 'email', 'birthday'],
     });
-    setTimeout(() => navigate(`/${lang}/auth-flow/new-user`), 50);
+    setTimeout(() => navigate(`/${lang}/auth-flow/org-user`), 50);
   };
 
   // ─── Flow 1: Existing User ───────────────────────────────────────────
@@ -240,7 +240,7 @@ export default function FlowTestPage() {
       missingFields: ['phone', 'email', 'birthday'],
       returnTo: `/${lang}`,
     });
-    setTimeout(() => navigate(`/${lang}/auth-flow/new-user`), 50);
+    setTimeout(() => navigate(`/${lang}/auth-flow/org-user`), 50);
   };
 
   /** Phone OTP sign-in — phone known, org has name */
@@ -267,7 +267,7 @@ export default function FlowTestPage() {
       missingFields: ['email', 'birthday'],
       returnTo: `/${lang}`,
     });
-    setTimeout(() => navigate(`/${lang}/auth-flow/new-user`), 50);
+    setTimeout(() => navigate(`/${lang}/auth-flow/org-user`), 50);
   };
 
   return (

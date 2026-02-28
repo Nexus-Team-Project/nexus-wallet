@@ -263,7 +263,7 @@ export default function LoginSheet() {
         return;
       }
 
-      // PATH B: Org member with missing fields → Nexus stories → match screen
+      // PATH B: Org member with missing fields → org stories → match screen
       if (orgMember && !profileComplete) {
         startRegistration({
           path: 'org-member-incomplete',
@@ -277,7 +277,7 @@ export default function LoginSheet() {
           missingFields,
         });
         close();
-        navigate(`/${lang}/auth-flow/new-user`);
+        navigate(`/${lang}/auth-flow/org-user`);
         return;
       }
 
@@ -290,7 +290,7 @@ export default function LoginSheet() {
       // Phone auth — need full profile (name, email, birthday)
       const phoneMissing = ['firstName', 'lastName', 'email', 'birthday'];
 
-      // PATH D/E: Tenant (with or without fee) → Nexus stories → match-screen → onboarding/membership
+      // PATH D/E: Tenant (with or without fee) → org stories → match-screen → onboarding/membership
       if (tenantConfig) {
         startRegistration({
           path: tenantConfig.requiresMembershipFee ? 'tenant-with-fee' : 'tenant-no-fee',
@@ -298,7 +298,7 @@ export default function LoginSheet() {
           missingFields: phoneMissing,
         });
         close();
-        navigate(`/${lang}/auth-flow/new-user`);
+        navigate(`/${lang}/auth-flow/org-user`);
         return;
       }
 
@@ -379,7 +379,7 @@ export default function LoginSheet() {
             });
           }
           close();
-          navigate(`/${lang}/auth-flow/new-user`);
+          navigate(`/${lang}/auth-flow/org-user`);
           return;
         }
 
@@ -405,7 +405,8 @@ export default function LoginSheet() {
           });
         }
         close();
-        navigate(`/${lang}/auth-flow/new-user`);
+        // Tenant context → org stories; plain new user → nexus hero
+        navigate(`/${lang}/auth-flow/${regPath !== 'new-user' ? 'org-user' : 'new-user'}`);
       }
     } finally {
       setIsLoading(false);
@@ -463,7 +464,8 @@ export default function LoginSheet() {
           });
         }
         close();
-        navigate(`/${lang}/auth-flow/new-user`);
+        // Tenant context → org stories; plain new user → nexus hero
+        navigate(`/${lang}/auth-flow/${regPath !== 'new-user' ? 'org-user' : 'new-user'}`);
       }
     } finally {
       setIsLoading(false);
