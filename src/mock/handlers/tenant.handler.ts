@@ -10,6 +10,7 @@ export function lookupTenant(tenantId: string): TenantConfig | null {
 const orgToTenant: Record<string, string> = {
   org_001: 'acme-corp',
   org_002: 'startup-il',
+  'org-2': 'hapoel-ta',  // UserTypeSimulator 'pre-provisioned' uses this ID
 };
 
 /** Look up tenant config by organizationId */
