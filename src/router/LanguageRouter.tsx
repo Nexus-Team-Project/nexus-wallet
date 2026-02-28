@@ -3,6 +3,7 @@ import { Outlet, useNavigate, useSearchParams } from 'react-router-dom';
 import { LanguageProvider } from '../i18n/LanguageContext';
 import LoginSheet from '../components/auth/LoginSheet';
 import { TenantSimulator } from '../components/dev/TenantSimulator';
+import { UserTypeSimulator } from '../components/dev/UserTypeSimulator';
 import { useTenantStore } from '../stores/tenantStore';
 import { lookupTenant } from '../mock/handlers/tenant.handler';
 
@@ -67,12 +68,15 @@ export default function LanguageRouter() {
       <div style={tenantStyle}>
         <Outlet />
         <LoginSheet />
-        {/* TenantSimulator MUST come last in DOM order.
+        {/* Dev overlays MUST come last in DOM order.
             On iOS Safari, position:fixed elements lose pointer-event priority
             to later-in-DOM block elements even when z-index is higher.
-            Rendering it last guarantees it wins both the CSS stacking AND
-            the iOS hit-test DOM-order tiebreaker. */}
+            Rendering them last guarantees they win both the CSS stacking AND
+            the iOS hit-test DOM-order tiebreaker.
+            TenantSimulator: top-left pill toggle (top: 12).
+            UserTypeSimulator: below it (top: 44), same left edge. */}
         <TenantSimulator />
+        <UserTypeSimulator />
       </div>
     </LanguageProvider>
   );

@@ -48,6 +48,9 @@ const FlowTestPage         = lazy(() => import('../pages/auth-flow/FlowTestPage'
 const NewUserFlow = lazy(() =>
   import('../pages/auth-flow/AuthFlowStories').then((m) => ({ default: m.NewUserFlow }))
 );
+const OrgUserFlow = lazy(() =>
+  import('../pages/auth-flow/AuthFlowStories').then((m) => ({ default: m.OrgUserFlow }))
+);
 
 // ── Minimal fallback (no spinner — just blank, transitions feel instant) ─────
 function PageFallback() {
@@ -123,6 +126,7 @@ export const router = createBrowserRouter([
         children: [
           { path: 'test',       element: <S><FlowTestPage /></S> },
           { path: 'new-user',   element: <S><NewUserFlow /></S> },
+          { path: 'org-user',   element: <S><OrgUserFlow /></S> },
         ],
       },
 
