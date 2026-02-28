@@ -14,6 +14,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useLanguage } from '../../../i18n/LanguageContext';
 import { useRegistrationStore } from '../../../stores/registrationStore';
 import OnboardingSlideLayout from '../../../components/register/OnboardingSlideLayout';
+import { MotivationAnimation } from '../../../components/register/MotivationAnimation';
 import {
   getNextOnboardingSlide,
   getPrevOnboardingSlide,
@@ -61,6 +62,7 @@ export default function MotivationSlide() {
       onBack={hasPrev ? handleBack : undefined}
       onContinue={advance}
       continueLabel={t.registration.motivationCta}
+      hero={<MotivationAnimation />}
     >
       <div className="pt-6 pb-2">
 

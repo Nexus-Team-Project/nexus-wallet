@@ -17,6 +17,13 @@ interface OnboardingSlideLayoutProps {
   skipLabel?: string;
   footerNote?: string;
   footerExtra?: ReactNode;
+  /**
+   * Optional hero element rendered in the dark region between the progress
+   * bar and the white card.  Rendered inside a flex-shrink-0 container
+   * (height: clamp(200px, 38vh, 280px)).  Intended for decorative animations
+   * such as MotivationAnimation.
+   */
+  hero?: ReactNode;
   children: ReactNode;
 }
 
@@ -41,6 +48,7 @@ export default function OnboardingSlideLayout({
   skipLabel: skipLabelProp,
   footerNote,
   footerExtra,
+  hero,
   children,
 }: OnboardingSlideLayoutProps) {
   const { t, language } = useLanguage();
@@ -99,9 +107,20 @@ export default function OnboardingSlideLayout({
         })}
       </div>
 
+      {/* ── Optional hero (dark area, between progress bar and white card) ── */}
+      {hero && (
+        <div
+          className="flex-shrink-0 relative overflow-hidden"
+          style={{ height: 'clamp(200px, 38vh, 280px)' }}
+        >
+          {hero}
+        </div>
+      )}
+
       {/* ── Single scrollable white card ── */}
       {/* scroll-padding-bottom tells iOS's auto-scroll to keep the button visible */}
-      <div className="flex-1 bg-white rounded-t-2xl overflow-y-auto" style={{ scrollPaddingBottom: 80 }}>
+      {/* min-h-0 prevents the card from overflowing when a hero is present    */}
+      <div className="flex-1 min-h-0 bg-white rounded-t-2xl overflow-y-auto" style={{ scrollPaddingBottom: 80 }}>
 
         {/* Top nav */}
         <div className="flex items-center justify-between px-4 pt-4 pb-1">
