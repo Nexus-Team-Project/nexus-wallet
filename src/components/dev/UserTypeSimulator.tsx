@@ -3,11 +3,19 @@
  *
  * Cycles through 3 modes on each click:
  *   new-user        — plain new user, no org affiliation (default / "off")
- *   pre-provisioned — org member: sets orgMember in registrationStore
+ *   pre-provisioned — org member: sets orgMember in registrationStore + tenant in tenantStore
  *   existing        — returning user: sets profileCompleted = true in authStore
  *
  * Persists mode to localStorage (nexus_dev_user_type).
  * Applies store mutations immediately when mode changes.
+ *
+ * On page refresh the mode is restored from localStorage via a useLayoutEffect
+ * (not useEffect) — useLayoutEffect flushes synchronously before the browser
+ * paints and before LanguageRouter's useEffect runs, so the tenantStore is
+ * populated when LanguageRouter reads it in its own effect and adds the
+ * ?tenant= URL param.  Without this, refreshing the page would keep the UI
+ * label (localStorage) but lose the store state, causing the auth sheet to fall
+ * back to default Nexus branding instead of showing the org's colours.
  *
  * Visible under the same conditions as TenantSimulator:
  *   • import.meta.env.DEV              (npm run dev locally)
@@ -19,7 +27,8 @@
  *       onTouchEnd must not be added alongside onClick.
  */
 
-import { useState } from 'react';
+import { useState, useLayoutEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useRegistrationStore } from '../../stores/registrationStore';
 import { useAuthStore } from '../../stores/authStore';
 import { useTenantStore } from '../../stores/tenantStore';
@@ -89,6 +98,25 @@ export function UserTypeSimulator() {
   const [mode, setMode] = useState<UserType>(
     () => (localStorage.getItem(KEY) as UserType | null) ?? 'new-user'
   );
+  const navigate       = useNavigate();
+  const [searchParams] = useSearchParams();
+
+  /**
+   * Restore store state on page refresh.
+   *
+   * useLayoutEffect fires synchronously after DOM mutations and before the
+   * browser paints.  Crucially, any Zustand store update triggered here
+   * flushes synchronously, so LanguageRouter re-renders with the new tenantId
+   * BEFORE its own useEffect runs.  LanguageRouter's effect then enters the
+   * `else if (tenantId)` branch and adds ?tenant=<slug> to the URL — making
+   * the org tenant just as durable as a URL-based TenantSimulator tenant.
+   *
+   * A plain useEffect would not work: both effects share the same stale render
+   * closure (tenantId = null from the initial render), so LanguageRouter's
+   * effect would call clearTenant() and undo whatever applyMode set.
+   */
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useLayoutEffect(() => { if (mode !== 'new-user') applyMode(mode); }, []);
 
   if (!isDevEnv()) return null;
 
@@ -102,6 +130,15 @@ export function UserTypeSimulator() {
     localStorage.setItem(KEY, next.type);
     setMode(next.type);
     applyMode(next.type);
+
+    // When reverting to new-user, remove any ?tenant= param that LanguageRouter
+    // may have added while the org mode was active.  Leaving it would cause
+    // LanguageRouter to re-apply the org tenant on the next searchParams change.
+    if (next.type === 'new-user' && searchParams.has('tenant')) {
+      const p = new URLSearchParams(searchParams);
+      p.delete('tenant');
+      navigate({ search: p.toString() }, { replace: true });
+    }
   };
 
   return (
