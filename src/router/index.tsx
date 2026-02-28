@@ -36,6 +36,7 @@ const VerifyPhoneSlide       = lazy(() => import('../pages/register/onboarding/V
 const FirstNameSlide         = lazy(() => import('../pages/register/onboarding/FirstNameSlide'));
 const VerifyEmailSlide       = lazy(() => import('../pages/register/onboarding/VerifyEmailSlide'));
 const ConsentsSlide          = lazy(() => import('../pages/register/onboarding/ConsentsSlide'));
+const MotivationSlide        = lazy(() => import('../pages/register/onboarding/MotivationSlide'));
 const PurposeSlide           = lazy(() => import('../pages/register/onboarding/PurposeSlide'));
 const LifeStageSlide         = lazy(() => import('../pages/register/onboarding/LifeStageSlide'));
 const BirthdaySlide          = lazy(() => import('../pages/register/onboarding/BirthdaySlide'));
@@ -110,6 +111,7 @@ export const router = createBrowserRouter([
           { path: 'onboarding/first-name',         element: <S><FirstNameSlide /></S> },
           { path: 'onboarding/verify-email',       element: <S><VerifyEmailSlide /></S> },
           { path: 'onboarding/consents',           element: <S><ConsentsSlide /></S> },
+          { path: 'onboarding/motivation',         element: <S><MotivationSlide /></S> },
           { path: 'onboarding/purpose',            element: <S><PurposeSlide /></S> },
           { path: 'onboarding/life-stage',         element: <S><LifeStageSlide /></S> },
           { path: 'onboarding/birthday',           element: <S><BirthdaySlide /></S> },

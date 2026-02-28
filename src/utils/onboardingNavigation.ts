@@ -6,7 +6,8 @@ export const ONBOARDING_SLIDE_ORDER = [
   'verify-phone',        // conditional — only when phone is in missingFields
   'first-name',          // conditional — shown when firstName OR lastName is missing (collects both)
   'verify-email',        // conditional — only when email is missing AND not already known
-  'consents',            // mandatory — always shown
+  'consents',            // mandatory — always shown (skipped for preferences-completion path)
+  'motivation',          // mandatory — transitional "VIP" slide before preference questions
   'purpose',             // optional — user can skip
   'life-stage',          // optional — user can skip
   'birthday',            // optional — user can skip
@@ -31,6 +32,11 @@ function buildActiveSlides(state: RegistrationState): OnboardingSlideId[] {
     }
     if (slide === 'verify-email') {
       return state.missingFields.includes('email') && !state.profileData.email;
+    }
+    if (slide === 'consents') {
+      // Skip consents for preferences-completion path:
+      // returning users already gave consent at initial signup.
+      return state.registrationPath !== 'preferences-completion';
     }
     return true;
   });
@@ -102,7 +108,12 @@ export function getOnboardingProgress(
 
 /** Returns true if the given slide is mandatory (cannot be skipped) */
 export function isMandatorySlide(slide: OnboardingSlideId): boolean {
-  return slide === 'verify-phone' || slide === 'first-name' || slide === 'consents';
+  return (
+    slide === 'verify-phone' ||
+    slide === 'first-name' ||
+    slide === 'consents' ||
+    slide === 'motivation'
+  );
 }
 
 /**
