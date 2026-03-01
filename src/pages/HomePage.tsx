@@ -1,4 +1,4 @@
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import HeroBanner from '../components/home/HeroBanner';
 import BrandSlider from '../components/home/BrandSlider';
 import ActiveOffers from '../components/home/ActiveOffers';
@@ -8,7 +8,8 @@ import ReferralBanner from '../components/home/ReferralBanner';
 import TenantOffers from '../components/home/TenantOffers';
 
 export default function HomePage() {
-  const { lang: _lang } = useParams();
+  const { lang = 'he' } = useParams();
+  const navigate = useNavigate();
 
   return (
     <div className="animate-fade-in">
@@ -19,6 +20,16 @@ export default function HomePage() {
       <TenantOffers />
       <NearYou />
       <ActiveOffers />
+
+      {/* DEV ONLY */}
+      <div className="px-6 py-4">
+        <button
+          onClick={() => navigate(`/${lang}/auth-flow/test`)}
+          className="w-full py-3 rounded-2xl bg-warning/10 text-warning text-xs font-semibold border border-warning/20 active:scale-[0.98] transition-all"
+        >
+          🧪 Auth Flow Test (Dev)
+        </button>
+      </div>
     </div>
   );
 }

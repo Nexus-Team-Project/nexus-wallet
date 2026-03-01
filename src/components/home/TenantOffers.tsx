@@ -75,8 +75,8 @@ function TenantBenefitCard({
         </span>
 
         {/* Tenant logo badge — top-right */}
-        <div className="absolute top-2.5 right-2.5 z-10 w-10 h-10 rounded-full bg-white/90 shadow-sm border border-white/60 flex items-center justify-center">
-          <span style={{ fontSize: 20 }}>{logo}</span>
+        <div className="absolute top-2.5 right-2.5 z-10 w-10 h-10 rounded-full bg-white/90 shadow-sm border border-white/60 flex items-center justify-center overflow-hidden">
+          <img src={logo} alt="" className="w-7 h-7 object-contain" />
         </div>
       </div>
 
@@ -151,7 +151,7 @@ export default function TenantOffers() {
       {/* Section header */}
       <div className="flex items-center justify-between px-5 mb-3">
         <div className="flex items-center gap-2">
-          <span style={{ fontSize: 18 }}>{config.logo}</span>
+          <img src={config.logo} alt="" className="w-[18px] h-[18px] object-contain" />
           <h3 className="text-base font-bold">{sectionTitle}</h3>
         </div>
         <button
