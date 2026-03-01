@@ -68,7 +68,23 @@ export default function MotivationSlide() {
     >
       <div className="pt-5 pb-2">
 
-        {/* Trending badge */}
+        {/* Header */}
+        <h1
+          className="text-2xl font-bold leading-tight tracking-tight mb-2"
+          style={{ color: 'var(--color-primary)' }}
+        >
+          {t.registration.motivationTitle}
+        </h1>
+
+        {/* Subtitle */}
+        <p
+          className="text-sm font-semibold mb-5 leading-relaxed"
+          style={{ color: 'var(--color-text-muted)', maxWidth: '80%' }}
+        >
+          {t.registration.motivationBadge}
+        </p>
+
+        {/* Social proof badge */}
         <div
           className="inline-flex items-center gap-3 rounded-2xl px-4 py-3"
           style={{ backgroundColor: 'var(--color-primary-light, #ede9fe)' }}
@@ -91,7 +107,7 @@ export default function MotivationSlide() {
           </span>
         </div>
 
-        {/* Time-estimate badge */}
+        {/* Time badge */}
         <div
           className="inline-flex items-center gap-3 rounded-2xl px-4 py-3 mt-3"
           style={{ backgroundColor: 'var(--color-primary-light, #ede9fe)' }}

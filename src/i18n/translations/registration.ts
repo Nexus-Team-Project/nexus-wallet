@@ -74,7 +74,7 @@ export const registrationTranslations = {
     pushBlockedNote: 'Update in browser settings',
     consentsRequiredNote: 'You must agree to marketing updates to continue',
     // Motivation slide (transitional — between consents and preference questions)
-    motivationTitle: "Let's shape your experience together.",
+    motivationTitle: 'Tailoring your experience just for you',
     motivationSubtitle: 'Members who complete their profile get benefits tailored exactly to them.',
     motivationBody: 'Those who continue save 20% more on average.',
     motivationBullet1: 'Offers relevant to you — not everyone',
@@ -236,7 +236,7 @@ export const registrationTranslations = {
     pushBlockedNote: 'עדכן בהגדרות הדפדפן',
     consentsRequiredNote: 'יש לאשר עדכוני מבצעים כדי להמשיך',
     // Motivation slide (transitional — between consents and preference questions)
-    motivationTitle: 'נתאים ביחד את החוויה שלך.',
+    motivationTitle: 'מתאימים את החוויה שלך במיוחד עבורך',
     motivationSubtitle: 'חברים שמילאו את הפרופיל שלהם מקבלים הטבות שמותאמות בדיוק להם.',
     motivationBody: 'ממשיכים חוסכים בממוצע 20% יותר',
     motivationBullet1: 'הצעות שרלוונטיות לך — לא לכולם',
