@@ -362,7 +362,6 @@ export default function ActiveOffers() {
   const navigate = useNavigate();
   const isHe = language === 'he';
   const { recommendations, isLoading, isError, refetch } = useRecommendations({ maxResults: 8 });
-  const preferencesIncomplete = useAuthStore((s) => s.preferencesIncomplete);
   const firstName = useAuthStore((s) => s.firstName);
   const [showInfo, setShowInfo] = useState(false);
 
@@ -382,8 +381,8 @@ export default function ActiveOffers() {
     return <SectionError section="ActiveOffers" onRetry={refetch} />;
   }
 
-  // Show personalization teaser when preferences haven't been filled yet
-  if (preferencesIncomplete || recommendations.length === 0) {
+  // Show personalization teaser only when the engine produced no recommendations
+  if (recommendations.length === 0) {
     return (
       <section className="mb-6">
         <div className="flex items-center justify-between px-5 mb-3">

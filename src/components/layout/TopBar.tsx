@@ -37,7 +37,7 @@ export default function TopBar({ collapsed = false }: TopBarProps) {
   const logoSrc = hasTenant ? (tenantConfig?.logo ?? '/nexus-logo.png') : '/nexus-logo.png';
   const logoAlt = hasTenant ? (organizationName ?? tenantConfig?.name ?? 'Nexus') : 'Nexus';
 
-  const displayFirstName = user?.firstName ?? authFirstName;
+  const displayFirstName = authFirstName ?? user?.firstName;
   const showGreeting = isAuthenticated && !!displayFirstName;
   const greetingText = getGreeting(t);
 
