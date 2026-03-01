@@ -43,25 +43,25 @@ interface CardDef {
 const CARD_SIZE = 72; // px
 
 /**
- * Ten benefit categories arranged in a loose 3×3+1 grid that fills the
- * entire hero slot uniformly.  Three are pre-selected; the rest dim out
- * during the focus sequence (phases 5–7).
+ * Ten benefit categories with organic, scattered positions — no two cards
+ * share the same top value, giving a natural feel instead of a rigid grid.
+ * Three are pre-selected; the rest dim out during the focus sequence (phases 5–7).
  */
 const CARDS: readonly CardDef[] = [
-  // Row 0 — top strip
-  { key: 'vacation', emoji: '🏖',    label: 'נופש',        top:  3, left:  1, selected: false, selIdx: -1 },
-  { key: 'super',    emoji: '🛒',    label: 'סופר',        top:  4, left: 33, selected: false, selIdx: -1 },
-  { key: 'food',     emoji: '🍕',    label: 'מסעדות',      top:  2, left: 63, selected: false, selIdx: -1 },
-  // Row 1 — middle strip
-  { key: 'family',   emoji: '👨‍👩‍👧',  label: 'משפחה',      top: 38, left:  3, selected: true,  selIdx:  0 },
-  { key: 'finance',  emoji: '💳',    label: 'פיננסים',    top: 37, left: 34, selected: false, selIdx: -1 },
-  { key: 'tech',     emoji: '💻',    label: 'אלקטרוניקה', top: 39, left: 62, selected: true,  selIdx:  1 },
-  // Row 2 — bottom strip
-  { key: 'local',    emoji: '📍',    label: 'ליד הבית',   top: 65, left:  1, selected: true,  selIdx:  2 },
-  { key: 'fashion',  emoji: '👗',    label: 'אופנה',       top: 67, left: 32, selected: false, selIdx: -1 },
-  { key: 'sports',   emoji: '⚽',    label: 'ספורט',       top: 64, left: 63, selected: false, selIdx: -1 },
-  // Extra — right-edge slot (fills gap between rows 0 and 1 on the right)
-  { key: 'beauty',   emoji: '💄',    label: 'יופי',        top: 21, left: 74, selected: false, selIdx: -1 },
+  // Cluster A — top-left zone
+  { key: 'vacation', emoji: '🏖',    label: 'נופש',        top:  5, left:  2, selected: false, selIdx: -1 },
+  { key: 'super',    emoji: '🛒',    label: 'סופר',        top: 18, left: 28, selected: false, selIdx: -1 },
+  { key: 'food',     emoji: '🍕',    label: 'מסעדות',      top:  8, left: 56, selected: false, selIdx: -1 },
+  // Cluster B — middle zone
+  { key: 'family',   emoji: '👨‍👩‍👧',  label: 'משפחה',      top: 35, left:  4, selected: true,  selIdx:  0 },
+  { key: 'finance',  emoji: '💳',    label: 'פיננסים',    top: 44, left: 38, selected: false, selIdx: -1 },
+  { key: 'tech',     emoji: '💻',    label: 'אלקטרוניקה', top: 31, left: 62, selected: true,  selIdx:  1 },
+  // Cluster C — bottom zone
+  { key: 'local',    emoji: '📍',    label: 'ליד הבית',   top: 62, left:  6, selected: true,  selIdx:  2 },
+  { key: 'fashion',  emoji: '👗',    label: 'אופנה',       top: 70, left: 35, selected: false, selIdx: -1 },
+  { key: 'sports',   emoji: '⚽',    label: 'ספורט',       top: 58, left: 60, selected: false, selIdx: -1 },
+  // Extra — scattered fill
+  { key: 'beauty',   emoji: '💄',    label: 'יופי',        top: 24, left: 72, selected: false, selIdx: -1 },
 ] as const;
 
 /**

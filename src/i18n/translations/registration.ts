@@ -83,6 +83,7 @@ export const registrationTranslations = {
     motivationCta: 'Let\'s go',
     motivationSkip: 'Later',
     motivationBadge: 'Small questions. Big experience.',
+    motivationTime: 'Under 30 seconds.',
     // Profile nudge banner (existing users with missing preference fields)
     profileNudgeTitle: 'Your benefits aren\'t maximized yet',
     profileNudgeSubtitle: 'Complete your profile — 90 sec',
@@ -244,6 +245,7 @@ export const registrationTranslations = {
     motivationCta: 'קדימה',
     motivationSkip: 'בפעם אחרת',
     motivationBadge: 'שאלות קטנות. חוויה גדולה.',
+    motivationTime: 'פחות מ30 שניות.',
     // Profile nudge banner (existing users with missing preference fields)
     profileNudgeTitle: 'ההטבות שלך לא ממוקסמות עדיין',
     profileNudgeSubtitle: 'השלם פרופיל — 90 שניות',

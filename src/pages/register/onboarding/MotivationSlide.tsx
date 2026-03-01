@@ -68,23 +68,7 @@ export default function MotivationSlide() {
     >
       <div className="pt-5 pb-2">
 
-        {/* Header */}
-        <h1
-          className="text-2xl font-bold leading-tight tracking-tight mb-2"
-          style={{ color: 'var(--color-primary)' }}
-        >
-          {t.registration.motivationTitle}
-        </h1>
-
-        {/* Social proof — shown as subtitle under title; constrained to ≤ title width */}
-        <p
-          className="text-sm font-semibold mb-5 leading-relaxed"
-          style={{ color: 'var(--color-text-muted)', maxWidth: '80%' }}
-        >
-          {t.registration.motivationBadge}
-        </p>
-
-        {/* Time-estimate badge — shrink-wraps its text, not full-width */}
+        {/* Trending badge */}
         <div
           className="inline-flex items-center gap-3 rounded-2xl px-4 py-3"
           style={{ backgroundColor: 'var(--color-primary-light, #ede9fe)' }}
@@ -104,6 +88,29 @@ export default function MotivationSlide() {
             style={{ color: 'var(--color-primary)' }}
           >
             {t.registration.motivationBody}
+          </span>
+        </div>
+
+        {/* Time-estimate badge */}
+        <div
+          className="inline-flex items-center gap-3 rounded-2xl px-4 py-3 mt-3"
+          style={{ backgroundColor: 'var(--color-primary-light, #ede9fe)' }}
+        >
+          <span
+            className="material-symbols-outlined flex-shrink-0"
+            style={{
+              fontSize:             20,
+              color:                'var(--color-primary)',
+              fontVariationSettings: "'FILL' 1",
+            }}
+          >
+            timer
+          </span>
+          <span
+            className="text-xs font-semibold leading-relaxed"
+            style={{ color: 'var(--color-primary)' }}
+          >
+            {t.registration.motivationTime}
           </span>
         </div>
 
