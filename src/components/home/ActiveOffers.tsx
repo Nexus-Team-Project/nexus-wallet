@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { useRecommendations } from '../../hooks/useRecommendations';
+import { useAuthStore } from '../../stores/authStore';
 import Skeleton from '../ui/Skeleton';
 import SectionError from '../ui/SectionError';
 import type { ScoredVoucher } from '../../types/recommendation.types';
@@ -236,11 +237,17 @@ function OfferCard({
 
 function PersonalizationTeaserCard({
   isHe,
+  firstName,
   onCta,
 }: {
   isHe: boolean;
+  firstName: string | null;
   onCta: () => void;
 }) {
+  const greeting = firstName
+    ? (isHe ? `${firstName}, ` : `${firstName}, `)
+    : '';
+
   return (
     <div className="flex-none w-[75vw] max-w-[300px] bg-white border border-border rounded-lg shadow-sm overflow-hidden text-start snap-start flex flex-col">
       {/* Visual header */}
@@ -280,8 +287,8 @@ function PersonalizationTeaserCard({
         <div className="absolute bottom-0 left-0 right-0 bg-primary/80 backdrop-blur-sm py-2 px-3">
           <p className="text-white text-[11px] text-center leading-relaxed">
             {isHe
-              ? 'נגלה יחד מה הכי מתאים לך'
-              : 'Let\'s discover what suits you best'}
+              ? `${greeting}נגלה יחד מה הכי מתאים לך`
+              : `${greeting}let's find what suits you best`}
           </p>
         </div>
       </div>
@@ -355,6 +362,8 @@ export default function ActiveOffers() {
   const navigate = useNavigate();
   const isHe = language === 'he';
   const { recommendations, isLoading, isError, refetch } = useRecommendations({ maxResults: 8 });
+  const preferencesIncomplete = useAuthStore((s) => s.preferencesIncomplete);
+  const firstName = useAuthStore((s) => s.firstName);
   const [showInfo, setShowInfo] = useState(false);
 
   if (isLoading) {
@@ -373,7 +382,8 @@ export default function ActiveOffers() {
     return <SectionError section="ActiveOffers" onRetry={refetch} />;
   }
 
-  if (recommendations.length === 0) {
+  // Show personalization teaser when preferences haven't been filled yet
+  if (preferencesIncomplete || recommendations.length === 0) {
     return (
       <section className="mb-6">
         <div className="flex items-center justify-between px-5 mb-3">
@@ -382,6 +392,7 @@ export default function ActiveOffers() {
         <div className="flex overflow-x-auto hide-scrollbar gap-3 px-5 snap-x snap-mandatory items-stretch">
           <PersonalizationTeaserCard
             isHe={isHe}
+            firstName={firstName}
             onCta={() => navigate(`/${lang}/register/onboarding/motivation`)}
           />
         </div>
