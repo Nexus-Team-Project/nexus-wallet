@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { useRecommendations } from '../../hooks/useRecommendations';
 import { useAuthStore } from '../../stores/authStore';
+import { useRegistrationStore } from '../../stores/registrationStore';
 import Skeleton from '../ui/Skeleton';
 import SectionError from '../ui/SectionError';
 import type { ScoredVoucher } from '../../types/recommendation.types';
@@ -363,7 +364,15 @@ export default function ActiveOffers() {
   const isHe = language === 'he';
   const { recommendations, isLoading, isError, refetch } = useRecommendations({ maxResults: 8 });
   const firstName = useAuthStore((s) => s.firstName);
+  const startRegistration = useRegistrationStore((s) => s.startRegistration);
   const [showInfo, setShowInfo] = useState(false);
+
+  // Start a preferences-completion flow and navigate to the motivation slide.
+  // Must call startRegistration() first so RegistrationGuard allows the route.
+  const handlePersonalizeNavigate = () => {
+    startRegistration({ path: 'preferences-completion', phone: '', missingFields: [] });
+    navigate(`/${lang}/register/onboarding/motivation`);
+  };
 
   if (isLoading) {
     return (
@@ -392,7 +401,7 @@ export default function ActiveOffers() {
           <PersonalizationTeaserCard
             isHe={isHe}
             firstName={firstName}
-            onCta={() => navigate(`/${lang}/register/onboarding/motivation`)}
+            onCta={handlePersonalizeNavigate}
           />
         </div>
       </section>
@@ -431,7 +440,7 @@ export default function ActiveOffers() {
             ctaLabel={t.home.fillQuestionnaire}
             onCta={() => {
               setShowInfo(false);
-              navigate(`/${lang}/register/preferences`);
+              handlePersonalizeNavigate();
             }}
             onClose={() => setShowInfo(false)}
           />
