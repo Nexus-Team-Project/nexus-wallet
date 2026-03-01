@@ -232,6 +232,79 @@ function OfferCard({
   );
 }
 
+// ── Personalization Teaser Card ──
+
+function PersonalizationTeaserCard({
+  isHe,
+  onCta,
+}: {
+  isHe: boolean;
+  onCta: () => void;
+}) {
+  return (
+    <div className="flex-none w-[75vw] max-w-[300px] bg-white border border-border rounded-lg shadow-sm overflow-hidden text-start snap-start flex flex-col">
+      {/* Visual header */}
+      <div
+        className="relative overflow-hidden"
+        style={{
+          height: '20vh',
+          background: 'linear-gradient(135deg, #f3f0ff 0%, #ede9fe 50%, #ddd6fe 100%)',
+        }}
+      >
+        {/* Sparkle ring decoration */}
+        <div
+          className="absolute"
+          style={{
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -60%)',
+            width: 72,
+            height: 72,
+            borderRadius: '50%',
+            background: 'rgba(124,58,237,0.12)',
+            boxShadow: '0 0 0 12px rgba(124,58,237,0.06)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <span
+            className="material-symbols-outlined text-primary"
+            style={{ fontSize: '36px', fontVariationSettings: "'FILL' 1" }}
+          >
+            auto_awesome
+          </span>
+        </div>
+
+        {/* Bottom caption bar */}
+        <div className="absolute bottom-0 left-0 right-0 bg-primary/80 backdrop-blur-sm py-2 px-3">
+          <p className="text-white text-[11px] text-center leading-relaxed">
+            {isHe
+              ? 'נגלה יחד מה הכי מתאים לך'
+              : 'Let\'s discover what suits you best'}
+          </p>
+        </div>
+      </div>
+
+      {/* CTA area */}
+      <div className="px-3 py-3 flex items-center justify-center">
+        <button
+          onClick={onCta}
+          className="px-5 py-2 rounded-full bg-primary text-white text-xs font-semibold active:scale-[0.97] transition-transform flex items-center gap-1.5"
+        >
+          <span
+            className="material-symbols-outlined text-white"
+            style={{ fontSize: '14px' }}
+          >
+            tune
+          </span>
+          {isHe ? 'התאמה אישית' : 'Personalize'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ── Arrow Bubble ──
 
 function MoreBubble({ onNavigate }: { onNavigate: () => void }) {
@@ -300,7 +373,21 @@ export default function ActiveOffers() {
     return <SectionError section="ActiveOffers" onRetry={refetch} />;
   }
 
-  if (recommendations.length === 0) return null;
+  if (recommendations.length === 0) {
+    return (
+      <section className="mb-6">
+        <div className="flex items-center justify-between px-5 mb-3">
+          <h3 className="text-base font-bold">{t.home.especiallyForYou}</h3>
+        </div>
+        <div className="flex overflow-x-auto hide-scrollbar gap-3 px-5 snap-x snap-mandatory items-stretch">
+          <PersonalizationTeaserCard
+            isHe={isHe}
+            onCta={() => navigate(`/${lang}/register/onboarding/motivation`)}
+          />
+        </div>
+      </section>
+    );
+  }
 
   // Top category for the gradient label
   const topCategory = recommendations[0]?.voucher.category || 'food';

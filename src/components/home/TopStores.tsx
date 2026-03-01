@@ -218,7 +218,7 @@ export default function TopStores() {
     return null;
   }
 
-  // Top stores by rating — represents Daniel's past orders
+  // Top stores by rating
   const topStores = [...mockBusinesses]
     .sort((a, b) => b.rating - a.rating)
     .slice(0, 8);
