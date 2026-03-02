@@ -364,6 +364,8 @@ export default function ActiveOffers() {
   const isHe = language === 'he';
   const { recommendations, isLoading, isError, refetch } = useRecommendations({ maxResults: 8 });
   const firstName = useAuthStore((s) => s.firstName);
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const profileCompleted = useAuthStore((s) => s.profileCompleted);
   const startRegistration = useRegistrationStore((s) => s.startRegistration);
   const [showInfo, setShowInfo] = useState(false);
 
@@ -390,8 +392,13 @@ export default function ActiveOffers() {
     return <SectionError section="ActiveOffers" onRetry={refetch} />;
   }
 
-  // Show personalization teaser only when the engine produced no recommendations
-  if (recommendations.length === 0) {
+  // Show personalization teaser when the user hasn't completed their profile yet
+  // (not authenticated, or authenticated but onboarding not finished).
+  // rankVouchers always returns results for any user, so checking recommendations.length
+  // would never show the teaser — we gate on profile completion instead.
+  const showTeaser = !isAuthenticated || !profileCompleted;
+
+  if (showTeaser) {
     return (
       <section className="mb-6">
         <div className="flex items-center justify-between px-5 mb-3">
