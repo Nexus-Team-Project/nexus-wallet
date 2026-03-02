@@ -1,11 +1,18 @@
 /**
- * StoreSliders — three horizontal slider sections rendered on the
- * StorePage when no filter / search is active.
+ * StoreSliders — horizontal slider sections.
  *
- * Sections:
- *  1. חדש / New     (isNew: true)
- *  2. הכי פופולרים  (popular: true)
- *  3. מומלץ         (all, sorted by discountPercent desc)
+ * Named exports (individual sliders, placed at specific spots in HomePage):
+ *   EspeciallyForYouSlider  — במיוחד בשבילך  (top of home)
+ *   PopularSlider           — הכי פופולרים
+ *   RecommendedSlider       — מומלץ
+ *   NewSlider               — חדש
+ *   OnlineSlider            — הטבות אונליין
+ *   ComingSoonSlider        — בקרוב
+ *
+ * Default export: all sliders combined, used inside StorePage.
+ *
+ * Card design intentionally matches TopStores / TenantOffers:
+ *   w-[75vw] max-w-[300px] · image area 20vh · sky-blue "More" button
  */
 import { useState } from 'react';
 import { useLanguage } from '../../i18n/LanguageContext';
@@ -13,91 +20,89 @@ import { useVouchers } from '../../hooks/useVouchers';
 import VoucherDetail from './VoucherDetail';
 import type { Voucher, StoreFilter } from '../../types/voucher.types';
 
-// ── Gradient definitions per slider ──────────────────────────────────────────
+// ── Gradient label colours per slider ─────────────────────────────────────────
 const GRADIENTS = {
-  new:         'linear-gradient(to bottom, #3b82f6, #1d4ed8)',   // blue
-  popular:     'linear-gradient(to bottom, #f97316, #c2410c)',   // orange
-  recommended: 'linear-gradient(to bottom, #a855f7, #7e22ce)',   // purple
+  especiallyForYou: 'linear-gradient(to bottom, #ec4899, #be185d)', // rose
+  popular:          'linear-gradient(to bottom, #f97316, #c2410c)', // orange
+  recommended:      'linear-gradient(to bottom, #a855f7, #7e22ce)', // purple
+  new:              'linear-gradient(to bottom, #3b82f6, #1d4ed8)', // blue
+  online:           'linear-gradient(to bottom, #0ea5e9, #0369a1)', // sky
+  comingSoon:       'linear-gradient(to bottom, #06b6d4, #0e7490)', // cyan
 } as const;
 
-// ── Compact slider card ───────────────────────────────────────────────────────
+// ── Card — matches TopStores / TenantOffers dimensions ────────────────────────
 
 function SliderCard({
   voucher,
   isHe,
   onSelect,
+  comingSoonLabel,
+  outOfStockLabel,
 }: {
   voucher: Voucher;
   isHe: boolean;
   onSelect: (v: Voucher) => void;
+  comingSoonLabel: string;
+  outOfStockLabel: string;
 }) {
-  const { t } = useLanguage();
   const isUnavailable = !!voucher.comingSoon || !voucher.inStock;
 
   return (
     <button
       onClick={() => !isUnavailable && onSelect(voucher)}
       disabled={isUnavailable}
-      className="flex-none w-[44vw] max-w-[190px] bg-white border border-border rounded-xl shadow-sm overflow-hidden text-start snap-start active:scale-[0.97] transition-transform duration-150 flex flex-col disabled:opacity-60"
+      className="flex-none w-[75vw] max-w-[300px] bg-white border border-border rounded-lg shadow-sm overflow-hidden text-start snap-start active:scale-[0.97] transition-transform duration-150 flex flex-col disabled:opacity-60"
     >
-      {/* Emoji / image area */}
-      <div className="relative bg-surface flex items-center justify-center" style={{ height: '13vh' }}>
-        <span style={{ fontSize: 38 }}>{voucher.image}</span>
+      {/* Emoji / image area — same height as TopStores (20vh) */}
+      <div className="relative bg-surface flex items-center justify-center" style={{ height: '20vh' }}>
+        <span style={{ fontSize: 56 }}>{voucher.image}</span>
 
-        {/* Discount badge */}
-        <div className="absolute top-1.5 end-1.5">
-          <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-pink-100 text-pink-700">
+        {/* Discount badge — top end */}
+        <div className="absolute top-2 end-2">
+          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-pink-100 text-pink-700">
             {voucher.discountPercent}%
           </span>
         </div>
 
         {/* Coming soon overlay */}
         {voucher.comingSoon && (
-          <div className="absolute inset-0 bg-primary/70 flex items-center justify-center">
-            <span className="text-white text-xs font-semibold">{t.store.comingSoon}</span>
+          <div className="absolute inset-0 bg-cyan-600/75 flex items-center justify-center">
+            <span className="text-white text-sm font-semibold">{comingSoonLabel}</span>
           </div>
         )}
 
-        {/* Out of stock overlay */}
+        {/* Out-of-stock overlay */}
         {!voucher.comingSoon && !voucher.inStock && (
           <div className="absolute inset-0 bg-text-primary/40 flex items-center justify-center">
-            <span className="text-white text-xs font-semibold">{t.store.outOfStock}</span>
+            <span className="text-white text-sm font-semibold">{outOfStockLabel}</span>
           </div>
         )}
       </div>
 
-      {/* Text */}
-      <div className="px-2.5 py-2 flex-1">
+      {/* Bottom info — merchant · title · price */}
+      <div className="px-3 py-3">
         <p className="text-[10px] text-text-secondary leading-tight">{voucher.merchantName}</p>
-        <p className="text-xs font-semibold text-text-primary line-clamp-2 leading-snug mt-0.5">
+        <p className="text-sm font-semibold text-text-primary line-clamp-1 leading-snug mt-0.5">
           {isHe ? voucher.titleHe : voucher.title}
         </p>
-        <p className="text-sm font-bold text-primary mt-1">₪{voucher.discountedPrice}</p>
+        {!voucher.comingSoon && (
+          <p className="text-sm font-bold text-primary mt-0.5">₪{voucher.discountedPrice}</p>
+        )}
       </div>
     </button>
   );
 }
 
-// ── More bubble ───────────────────────────────────────────────────────────────
+// ── More bubble — sky-blue to match TopStores ──────────────────────────────────
 
-function MoreBubble({
-  color,
-  onNavigate,
-}: {
-  color: string;
-  onNavigate: () => void;
-}) {
+function MoreBubble({ onNavigate }: { onNavigate: () => void }) {
   return (
     <div className="flex-none flex items-center justify-center px-1">
       <button
         onClick={onNavigate}
-        className="w-10 h-10 flex items-center justify-center active:scale-90 transition-transform rounded-full"
-        style={{ background: `${color}22` }}
+        className="w-10 h-10 bg-sky-100 flex items-center justify-center active:scale-90 transition-transform rounded-full"
       >
-        <span
-          className="material-symbols-outlined"
-          style={{ fontSize: '20px', color }}
-        >
+        <span className="material-symbols-outlined text-sky-600" style={{ fontSize: '20px' }}>
           chevron_left
         </span>
       </button>
@@ -105,49 +110,50 @@ function MoreBubble({
   );
 }
 
-// ── Single slider section ─────────────────────────────────────────────────────
+// ── Generic section ────────────────────────────────────────────────────────────
 
 function SliderSection({
   title,
   gradient,
-  accentColor,
   vouchers,
   isHe,
   filter,
   onSelectFilter,
   onSelectVoucher,
+  comingSoonLabel,
+  outOfStockLabel,
 }: {
   title: string;
   gradient: string;
-  accentColor: string;
   vouchers: Voucher[];
   isHe: boolean;
   filter: StoreFilter;
   onSelectFilter: (f: StoreFilter) => void;
   onSelectVoucher: (v: Voucher) => void;
+  comingSoonLabel: string;
+  outOfStockLabel: string;
 }) {
   if (!vouchers.length) return null;
 
   return (
-    <section className="mb-4">
-      {/* Header */}
+    <section className="mb-6">
+      {/* Header — same layout / sky-blue "More" as TopStores */}
       <div className="flex items-center justify-between px-5 mb-3">
         <h3 className="text-base font-bold">{title}</h3>
         <button
           onClick={() => onSelectFilter(filter)}
-          className="px-3 py-1 rounded-md text-xs font-normal active:scale-95 transition-colors"
-          style={{ background: `${accentColor}1a`, color: accentColor }}
+          className="px-3 py-1 rounded-md bg-sky-100 text-sky-600 text-xs font-normal active:scale-95 transition-colors"
         >
           {isHe ? 'עוד' : 'More'}
         </button>
       </div>
 
-      {/* Scroll row */}
+      {/* Horizontal scroll row */}
       <div className="flex overflow-x-auto hide-scrollbar gap-3 px-5 snap-x snap-mandatory items-stretch">
-        {/* Gradient label rectangle */}
+        {/* Gradient label rectangle — matches TenantOffers / TopStores pattern */}
         <div
-          className="flex-none w-[90px] rounded-xl flex items-center justify-center flex-shrink-0"
-          style={{ background: gradient, minHeight: '13vh' }}
+          className="flex-none w-[90px] rounded-lg flex items-center justify-center flex-shrink-0"
+          style={{ background: gradient, minHeight: '20vh' }}
         >
           <span
             className="text-white text-sm font-bold whitespace-nowrap"
@@ -157,20 +163,194 @@ function SliderSection({
           </span>
         </div>
 
-        {/* Cards */}
+        {/* Voucher cards */}
         {vouchers.map((v) => (
-          <SliderCard key={v.id} voucher={v} isHe={isHe} onSelect={onSelectVoucher} />
+          <SliderCard
+            key={v.id}
+            voucher={v}
+            isHe={isHe}
+            onSelect={onSelectVoucher}
+            comingSoonLabel={comingSoonLabel}
+            outOfStockLabel={outOfStockLabel}
+          />
         ))}
 
-        {/* More bubble */}
-        <MoreBubble color={accentColor} onNavigate={() => onSelectFilter(filter)} />
+        {/* Arrow bubble */}
+        <MoreBubble onNavigate={() => onSelectFilter(filter)} />
       </div>
     </section>
   );
 }
 
+// ── Shared hook for all individual slider components ──────────────────────────
+
+function useSlider() {
+  const { t, language } = useLanguage();
+  const isHe = language === 'he';
+  const { data: allVouchers } = useVouchers();
+  const [selectedVoucher, setSelectedVoucher] = useState<Voucher | null>(null);
+  return { t, isHe, all: allVouchers ?? [], selectedVoucher, setSelectedVoucher };
+}
+
 // ═══════════════════════════════════════
-//  MAIN COMPONENT
+//  NAMED EXPORTS — individual sliders
+// ═══════════════════════════════════════
+
+interface SliderProps {
+  onSelectFilter: (filter: StoreFilter) => void;
+}
+
+// ── 1. במיוחד בשבילך ──────────────────────────────────────────────────────────
+export function EspeciallyForYouSlider({ onSelectFilter }: SliderProps) {
+  const { t, isHe, all, selectedVoucher, setSelectedVoucher } = useSlider();
+  const vouchers = all
+    .filter((v) => !v.comingSoon && v.inStock)
+    .sort((a, b) => b.discountPercent - a.discountPercent)
+    .slice(0, 8);
+  return (
+    <>
+      <SliderSection
+        title={t.home.especiallyForYou}
+        gradient={GRADIENTS.especiallyForYou}
+        vouchers={vouchers}
+        isHe={isHe}
+        filter="recommended"
+        onSelectFilter={onSelectFilter}
+        onSelectVoucher={setSelectedVoucher}
+        comingSoonLabel={t.store.comingSoon}
+        outOfStockLabel={t.store.outOfStock}
+      />
+      {selectedVoucher && (
+        <VoucherDetail voucher={selectedVoucher} onClose={() => setSelectedVoucher(null)} />
+      )}
+    </>
+  );
+}
+
+// ── 2. הכי פופולרים ───────────────────────────────────────────────────────────
+export function PopularSlider({ onSelectFilter }: SliderProps) {
+  const { t, isHe, all, selectedVoucher, setSelectedVoucher } = useSlider();
+  const vouchers = all.filter((v) => v.popular).slice(0, 8);
+  return (
+    <>
+      <SliderSection
+        title={t.store.mostPopular}
+        gradient={GRADIENTS.popular}
+        vouchers={vouchers}
+        isHe={isHe}
+        filter="popular"
+        onSelectFilter={onSelectFilter}
+        onSelectVoucher={setSelectedVoucher}
+        comingSoonLabel={t.store.comingSoon}
+        outOfStockLabel={t.store.outOfStock}
+      />
+      {selectedVoucher && (
+        <VoucherDetail voucher={selectedVoucher} onClose={() => setSelectedVoucher(null)} />
+      )}
+    </>
+  );
+}
+
+// ── 3. מומלץ ──────────────────────────────────────────────────────────────────
+export function RecommendedSlider({ onSelectFilter }: SliderProps) {
+  const { t, isHe, all, selectedVoucher, setSelectedVoucher } = useSlider();
+  const vouchers = [...all]
+    .sort((a, b) => b.discountPercent - a.discountPercent)
+    .slice(0, 8);
+  return (
+    <>
+      <SliderSection
+        title={t.store.recommended}
+        gradient={GRADIENTS.recommended}
+        vouchers={vouchers}
+        isHe={isHe}
+        filter="recommended"
+        onSelectFilter={onSelectFilter}
+        onSelectVoucher={setSelectedVoucher}
+        comingSoonLabel={t.store.comingSoon}
+        outOfStockLabel={t.store.outOfStock}
+      />
+      {selectedVoucher && (
+        <VoucherDetail voucher={selectedVoucher} onClose={() => setSelectedVoucher(null)} />
+      )}
+    </>
+  );
+}
+
+// ── 4. חדש ────────────────────────────────────────────────────────────────────
+export function NewSlider({ onSelectFilter }: SliderProps) {
+  const { t, isHe, all, selectedVoucher, setSelectedVoucher } = useSlider();
+  const vouchers = all.filter((v) => v.isNew).slice(0, 8);
+  return (
+    <>
+      <SliderSection
+        title={t.store.newDeals}
+        gradient={GRADIENTS.new}
+        vouchers={vouchers}
+        isHe={isHe}
+        filter="new"
+        onSelectFilter={onSelectFilter}
+        onSelectVoucher={setSelectedVoucher}
+        comingSoonLabel={t.store.comingSoon}
+        outOfStockLabel={t.store.outOfStock}
+      />
+      {selectedVoucher && (
+        <VoucherDetail voucher={selectedVoucher} onClose={() => setSelectedVoucher(null)} />
+      )}
+    </>
+  );
+}
+
+// ── 5. הטבות אונליין ──────────────────────────────────────────────────────────
+export function OnlineSlider({ onSelectFilter }: SliderProps) {
+  const { t, isHe, all, selectedVoucher, setSelectedVoucher } = useSlider();
+  const vouchers = all.filter((v) => v.isOnline && !v.comingSoon).slice(0, 8);
+  return (
+    <>
+      <SliderSection
+        title={t.store.online}
+        gradient={GRADIENTS.online}
+        vouchers={vouchers}
+        isHe={isHe}
+        filter="online"
+        onSelectFilter={onSelectFilter}
+        onSelectVoucher={setSelectedVoucher}
+        comingSoonLabel={t.store.comingSoon}
+        outOfStockLabel={t.store.outOfStock}
+      />
+      {selectedVoucher && (
+        <VoucherDetail voucher={selectedVoucher} onClose={() => setSelectedVoucher(null)} />
+      )}
+    </>
+  );
+}
+
+// ── 6. בקרוב ──────────────────────────────────────────────────────────────────
+export function ComingSoonSlider({ onSelectFilter }: SliderProps) {
+  const { t, isHe, all, selectedVoucher, setSelectedVoucher } = useSlider();
+  const vouchers = all.filter((v) => v.comingSoon).slice(0, 8);
+  return (
+    <>
+      <SliderSection
+        title={t.store.comingSoon}
+        gradient={GRADIENTS.comingSoon}
+        vouchers={vouchers}
+        isHe={isHe}
+        filter="coming-soon"
+        onSelectFilter={onSelectFilter}
+        onSelectVoucher={setSelectedVoucher}
+        comingSoonLabel={t.store.comingSoon}
+        outOfStockLabel={t.store.outOfStock}
+      />
+      {selectedVoucher && (
+        <VoucherDetail voucher={selectedVoucher} onClose={() => setSelectedVoucher(null)} />
+      )}
+    </>
+  );
+}
+
+// ═══════════════════════════════════════
+//  DEFAULT — all sliders combined (StorePage)
 // ═══════════════════════════════════════
 
 interface StoreSlidersProps {
@@ -178,61 +358,13 @@ interface StoreSlidersProps {
 }
 
 export default function StoreSliders({ onSelectFilter }: StoreSlidersProps) {
-  const { t, language } = useLanguage();
-  const isHe = language === 'he';
-  const { data: allVouchers } = useVouchers();
-  const [selectedVoucher, setSelectedVoucher] = useState<Voucher | null>(null);
-
-  if (!allVouchers?.length) return null;
-
-  const newVouchers = allVouchers.filter((v) => v.isNew).slice(0, 8);
-  const popularVouchers = allVouchers.filter((v) => v.popular).slice(0, 8);
-  const recommendedVouchers = [...allVouchers]
-    .sort((a, b) => b.discountPercent - a.discountPercent)
-    .slice(0, 8);
-
   return (
     <>
-      <SliderSection
-        title={t.store.newDeals}
-        gradient={GRADIENTS.new}
-        accentColor="#3b82f6"
-        vouchers={newVouchers}
-        isHe={isHe}
-        filter="new"
-        onSelectFilter={onSelectFilter}
-        onSelectVoucher={setSelectedVoucher}
-      />
-
-      <SliderSection
-        title={t.store.mostPopular}
-        gradient={GRADIENTS.popular}
-        accentColor="#f97316"
-        vouchers={popularVouchers}
-        isHe={isHe}
-        filter="popular"
-        onSelectFilter={onSelectFilter}
-        onSelectVoucher={setSelectedVoucher}
-      />
-
-      <SliderSection
-        title={t.store.recommended}
-        gradient={GRADIENTS.recommended}
-        accentColor="#a855f7"
-        vouchers={recommendedVouchers}
-        isHe={isHe}
-        filter="recommended"
-        onSelectFilter={onSelectFilter}
-        onSelectVoucher={setSelectedVoucher}
-      />
-
-      {/* Detail sheet — shared across all sliders */}
-      {selectedVoucher && (
-        <VoucherDetail
-          voucher={selectedVoucher}
-          onClose={() => setSelectedVoucher(null)}
-        />
-      )}
+      <ComingSoonSlider onSelectFilter={onSelectFilter} />
+      <NewSlider onSelectFilter={onSelectFilter} />
+      <PopularSlider onSelectFilter={onSelectFilter} />
+      <RecommendedSlider onSelectFilter={onSelectFilter} />
+      <OnlineSlider onSelectFilter={onSelectFilter} />
     </>
   );
 }
