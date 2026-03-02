@@ -168,6 +168,21 @@ export default function TenantOffers() {
 
       {/* Horizontal scroll row */}
       <div className="flex overflow-x-auto hide-scrollbar gap-3 px-5 snap-x snap-mandatory items-stretch">
+        {/* Gradient label rectangle — matches TopStores pattern */}
+        <div
+          className="flex-none w-[90px] rounded-lg flex items-center justify-center flex-shrink-0"
+          style={{
+            background: `linear-gradient(to bottom, ${config.primaryColor}cc, ${config.primaryColor})`,
+          }}
+        >
+          <span
+            className="text-white text-sm font-bold whitespace-nowrap"
+            style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}
+          >
+            {isHe ? config.nameHe : config.name}
+          </span>
+        </div>
+
         {rawBenefits.map((label, idx) => (
           <TenantBenefitCard
             key={idx}
