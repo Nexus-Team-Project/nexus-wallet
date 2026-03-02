@@ -2,7 +2,6 @@
  * StoreSliders — horizontal slider sections.
  *
  * Named exports (individual sliders, placed at specific spots in HomePage):
- *   EspeciallyForYouSlider  — במיוחד בשבילך  (top of home)
  *   PopularSlider           — הכי פופולרים
  *   RecommendedSlider       — מומלץ
  *   NewSlider               — חדש
@@ -22,12 +21,11 @@ import type { Voucher, StoreFilter } from '../../types/voucher.types';
 
 // ── Gradient label colours per slider ─────────────────────────────────────────
 const GRADIENTS = {
-  especiallyForYou: 'linear-gradient(to bottom, #ec4899, #be185d)', // rose
-  popular:          'linear-gradient(to bottom, #f97316, #c2410c)', // orange
-  recommended:      'linear-gradient(to bottom, #a855f7, #7e22ce)', // purple
-  new:              'linear-gradient(to bottom, #3b82f6, #1d4ed8)', // blue
-  online:           'linear-gradient(to bottom, #0ea5e9, #0369a1)', // sky
-  comingSoon:       'linear-gradient(to bottom, #06b6d4, #0e7490)', // cyan
+  popular:     'linear-gradient(to bottom, #f97316, #c2410c)', // orange
+  recommended: 'linear-gradient(to bottom, #a855f7, #7e22ce)', // purple
+  new:         'linear-gradient(to bottom, #3b82f6, #1d4ed8)', // blue
+  online:      'linear-gradient(to bottom, #0ea5e9, #0369a1)', // sky
+  comingSoon:  'linear-gradient(to bottom, #06b6d4, #0e7490)', // cyan
 } as const;
 
 // ── Card — matches TopStores / TenantOffers dimensions ────────────────────────
@@ -200,34 +198,7 @@ interface SliderProps {
   onSelectFilter: (filter: StoreFilter) => void;
 }
 
-// ── 1. במיוחד בשבילך ──────────────────────────────────────────────────────────
-export function EspeciallyForYouSlider({ onSelectFilter }: SliderProps) {
-  const { t, isHe, all, selectedVoucher, setSelectedVoucher } = useSlider();
-  const vouchers = all
-    .filter((v) => !v.comingSoon && v.inStock)
-    .sort((a, b) => b.discountPercent - a.discountPercent)
-    .slice(0, 8);
-  return (
-    <>
-      <SliderSection
-        title={t.home.especiallyForYou}
-        gradient={GRADIENTS.especiallyForYou}
-        vouchers={vouchers}
-        isHe={isHe}
-        filter="recommended"
-        onSelectFilter={onSelectFilter}
-        onSelectVoucher={setSelectedVoucher}
-        comingSoonLabel={t.store.comingSoon}
-        outOfStockLabel={t.store.outOfStock}
-      />
-      {selectedVoucher && (
-        <VoucherDetail voucher={selectedVoucher} onClose={() => setSelectedVoucher(null)} />
-      )}
-    </>
-  );
-}
-
-// ── 2. הכי פופולרים ───────────────────────────────────────────────────────────
+// ── 1. הכי פופולרים ───────────────────────────────────────────────────────────
 export function PopularSlider({ onSelectFilter }: SliderProps) {
   const { t, isHe, all, selectedVoucher, setSelectedVoucher } = useSlider();
   const vouchers = all.filter((v) => v.popular).slice(0, 8);
@@ -251,7 +222,7 @@ export function PopularSlider({ onSelectFilter }: SliderProps) {
   );
 }
 
-// ── 3. מומלץ ──────────────────────────────────────────────────────────────────
+// ── 2. מומלץ ──────────────────────────────────────────────────────────────────
 export function RecommendedSlider({ onSelectFilter }: SliderProps) {
   const { t, isHe, all, selectedVoucher, setSelectedVoucher } = useSlider();
   const vouchers = [...all]
@@ -277,7 +248,7 @@ export function RecommendedSlider({ onSelectFilter }: SliderProps) {
   );
 }
 
-// ── 4. חדש ────────────────────────────────────────────────────────────────────
+// ── 3. חדש ────────────────────────────────────────────────────────────────────
 export function NewSlider({ onSelectFilter }: SliderProps) {
   const { t, isHe, all, selectedVoucher, setSelectedVoucher } = useSlider();
   const vouchers = all.filter((v) => v.isNew).slice(0, 8);
@@ -301,7 +272,7 @@ export function NewSlider({ onSelectFilter }: SliderProps) {
   );
 }
 
-// ── 5. הטבות אונליין ──────────────────────────────────────────────────────────
+// ── 4. הטבות אונליין ──────────────────────────────────────────────────────────
 export function OnlineSlider({ onSelectFilter }: SliderProps) {
   const { t, isHe, all, selectedVoucher, setSelectedVoucher } = useSlider();
   const vouchers = all.filter((v) => v.isOnline && !v.comingSoon).slice(0, 8);
@@ -325,7 +296,7 @@ export function OnlineSlider({ onSelectFilter }: SliderProps) {
   );
 }
 
-// ── 6. בקרוב ──────────────────────────────────────────────────────────────────
+// ── 5. בקרוב ──────────────────────────────────────────────────────────────────
 export function ComingSoonSlider({ onSelectFilter }: SliderProps) {
   const { t, isHe, all, selectedVoucher, setSelectedVoucher } = useSlider();
   const vouchers = all.filter((v) => v.comingSoon).slice(0, 8);
