@@ -6,7 +6,14 @@ import TopStores from '../components/home/TopStores';
 import NearYou from '../components/home/NearYou';
 import ReferralBanner from '../components/home/ReferralBanner';
 import TenantOffers from '../components/home/TenantOffers';
-import StoreSliders from '../components/store/StoreSliders';
+import {
+  EspeciallyForYouSlider,
+  PopularSlider,
+  RecommendedSlider,
+  NewSlider,
+  OnlineSlider,
+  ComingSoonSlider,
+} from '../components/store/StoreSliders';
 import type { StoreFilter } from '../types/voucher.types';
 
 export default function HomePage() {
@@ -21,11 +28,36 @@ export default function HomePage() {
     <div className="animate-fade-in">
       <HeroBanner />
       <BrandSlider />
-      <TopStores />
+
+      {/* במיוחד בשבילך — top of home */}
+      <EspeciallyForYouSlider onSelectFilter={handleSelectFilter} />
+
+      {/* הכי פופולרים */}
+      <PopularSlider onSelectFilter={handleSelectFilter} />
+
       <ReferralBanner />
+
+      {/* הטבות הטננט */}
       <TenantOffers />
-      <StoreSliders onSelectFilter={handleSelectFilter} />
+
+      {/* Top stores */}
+      <TopStores />
+
+      {/* קרוב אליך */}
       <NearYou />
+
+      {/* מומלץ */}
+      <RecommendedSlider onSelectFilter={handleSelectFilter} />
+
+      {/* חדש */}
+      <NewSlider onSelectFilter={handleSelectFilter} />
+
+      {/* הטבות אונליין */}
+      <OnlineSlider onSelectFilter={handleSelectFilter} />
+
+      {/* בקרוב */}
+      <ComingSoonSlider onSelectFilter={handleSelectFilter} />
+
       <ActiveOffers />
 
       {/* DEV ONLY */}
