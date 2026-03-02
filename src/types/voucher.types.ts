@@ -1,5 +1,9 @@
 export type VoucherCategory = 'food' | 'shopping' | 'entertainment' | 'travel' | 'health' | 'education' | 'tech';
 
+export type SpecialFilter = 'coming-soon' | 'expiring' | 'online' | 'new' | 'popular' | 'recommended';
+
+export type StoreFilter = VoucherCategory | SpecialFilter;
+
 export interface Voucher {
   id: string;
   title: string;
@@ -19,6 +23,9 @@ export interface Voucher {
   termsAndConditionsHe: string;
   inStock: boolean;
   popular: boolean;
+  isOnline?: boolean;
+  isNew?: boolean;
+  comingSoon?: boolean;
 }
 
 export interface UserVoucher {

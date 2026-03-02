@@ -21,6 +21,14 @@ export const storeTranslations = {
     purchaseSuccess: 'Purchase Successful!',
     price: 'Price',
     originalPrice: 'Original Price',
+    // Special filter pills
+    comingSoon: 'Coming Soon',
+    expiring: 'Almost Gone',
+    online: 'Online Deals',
+    // Slider section titles
+    newDeals: 'New',
+    mostPopular: 'Most Popular',
+    recommended: 'Recommended',
   },
   he: {
     title: 'חנות שוברים',
@@ -44,5 +52,13 @@ export const storeTranslations = {
     purchaseSuccess: 'הרכישה בוצעה בהצלחה!',
     price: 'מחיר',
     originalPrice: 'מחיר מקורי',
+    // Special filter pills
+    comingSoon: 'בקרוב',
+    expiring: 'אוטוטו נגמר',
+    online: 'הטבות אונליין',
+    // Slider section titles
+    newDeals: 'חדש',
+    mostPopular: 'הכי פופולרים',
+    recommended: 'מומלץ',
   },
 };

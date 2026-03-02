@@ -102,6 +102,14 @@ export interface TranslationKeys {
     purchaseSuccess: string;
     price: string;
     originalPrice: string;
+    // Special filter pills
+    comingSoon: string;
+    expiring: string;
+    online: string;
+    // Slider section titles
+    newDeals: string;
+    mostPopular: string;
+    recommended: string;
   };
   wallet: {
     title: string;
