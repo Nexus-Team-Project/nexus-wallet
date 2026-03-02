@@ -2,11 +2,18 @@
  * RegistrationCompletePage — final step of the onboarding flow.
  * Shows the PremiumReveal interactive experience with the onboarding
  * progress bars at the top (all filled — this is the last slide).
+ *
+ * EXCEPTION — 'preferences-completion' path:
+ * When the user enters the questionnaire from the home-screen personalization
+ * teaser (ActiveOffers), they should NOT see the "הכל מוכן" reveal page.
+ * Instead we mark the profile complete, clear the registration session, and
+ * navigate straight back to home.
  */
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useRegistrationStore } from '../../stores/registrationStore';
+import { useAuthStore } from '../../stores/authStore';
 import { useTenantStore } from '../../stores/tenantStore';
 import { getOnboardingTotalWithComplete } from '../../utils/onboardingNavigation';
 import { PremiumRevealContent } from '../PremiumRevealPage';
@@ -14,8 +21,15 @@ import { PremiumRevealContent } from '../PremiumRevealPage';
 export default function RegistrationCompletePage() {
   const { lang = 'he' } = useParams();
   const navigate = useNavigate();
-  const returnTo    = useRegistrationStore((s) => s.returnTo);
+  const returnTo             = useRegistrationStore((s) => s.returnTo);
   const completeRegistration = useRegistrationStore((s) => s.completeRegistration);
+  const setProfileCompleted  = useAuthStore((s) => s.setProfileCompleted);
+
+  // Snapshot the path at mount — completeRegistration() clears it, so we
+  // need the value before it's wiped.
+  const [pathOnMount] = useState(
+    () => useRegistrationStore.getState().registrationPath,
+  );
 
   // Snapshot total ONCE at mount — avoids the bar shrinking when
   // completeRegistration() fires (which clears isOrgFlow/orgMember) right
@@ -27,7 +41,26 @@ export default function RegistrationCompletePage() {
     return getOnboardingTotalWithComplete(s) + extraLeading;
   });
 
+  // ── preferences-completion fast-exit ────────────────────────────────────
+  // Coming from the home-screen personalization teaser: skip the reveal,
+  // mark profile as complete, and return straight to home.
+  useEffect(() => {
+    if (pathOnMount === 'preferences-completion') {
+      setProfileCompleted(true);
+      completeRegistration();
+      navigate(`/${returnTo ?? lang}`, { replace: true });
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Show nothing while the redirect is in flight
+  if (pathOnMount === 'preferences-completion') {
+    return null;
+  }
+
+  // ── Regular onboarding path ─────────────────────────────────────────────
+
   // Lock scroll/touch on body for the reveal experience
+  // (only applied for the full reveal path)
   useEffect(() => {
     const prevent = (e: TouchEvent) => e.preventDefault();
     document.addEventListener('touchmove', prevent, { passive: false });
@@ -42,7 +75,8 @@ export default function RegistrationCompletePage() {
     };
   }, []);
 
-  const handleReveal = () => {
+  const finish = () => {
+    setProfileCompleted(true);
     completeRegistration();
     navigate(`/${returnTo ?? lang}`, { replace: true });
   };
@@ -77,10 +111,7 @@ export default function RegistrationCompletePage() {
 
       {/* ── Close button ── */}
       <button
-        onClick={() => {
-          completeRegistration();
-          navigate(`/${returnTo ?? lang}`, { replace: true });
-        }}
+        onClick={finish}
         className="absolute top-10 right-3 z-50 w-8 h-8 rounded-full flex items-center justify-center"
         style={{ background: 'rgba(0,0,0,0.3)', backdropFilter: 'blur(8px)' }}
       >
@@ -91,7 +122,7 @@ export default function RegistrationCompletePage() {
 
       {/* ── PremiumReveal content ── */}
       <div className="flex-1 relative overflow-hidden rounded-t-2xl">
-        <PremiumRevealContent onReveal={handleReveal} />
+        <PremiumRevealContent onReveal={finish} />
       </div>
     </motion.div>
   );
