@@ -6,10 +6,16 @@ import TopStores from '../components/home/TopStores';
 import NearYou from '../components/home/NearYou';
 import ReferralBanner from '../components/home/ReferralBanner';
 import TenantOffers from '../components/home/TenantOffers';
+import StoreSliders from '../components/store/StoreSliders';
+import type { StoreFilter } from '../types/voucher.types';
 
 export default function HomePage() {
   const { lang = 'he' } = useParams();
   const navigate = useNavigate();
+
+  const handleSelectFilter = (filter: StoreFilter) => {
+    navigate(`/${lang}/store`, { state: { filter } });
+  };
 
   return (
     <div className="animate-fade-in">
@@ -18,6 +24,7 @@ export default function HomePage() {
       <TopStores />
       <ReferralBanner />
       <TenantOffers />
+      <StoreSliders onSelectFilter={handleSelectFilter} />
       <NearYou />
       <ActiveOffers />
 
