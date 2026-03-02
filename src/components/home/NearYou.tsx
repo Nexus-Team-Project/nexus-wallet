@@ -529,8 +529,8 @@ export default function NearYou() {
       </div>
 
       <div className="flex overflow-x-auto hide-scrollbar gap-3 px-5 snap-x snap-mandatory items-stretch">
-        {/* Category gradient label — narrow rectangle at start */}
-        {hasDeals && (
+        {/* Category gradient label — only when cards are visible */}
+        {hasDeals && !showTeaser && (
           <div
             className={`flex-none w-[120px] rounded-lg bg-gradient-to-b ${gradient} flex items-center justify-center`}
           >
@@ -552,8 +552,8 @@ export default function NearYou() {
           />
         )}
 
-        {/* Deal cards sorted by proximity */}
-        {deals.map((deal) => (
+        {/* Deal cards — hidden until user grants location */}
+        {!showTeaser && deals.map((deal) => (
           <NearYouCard
             key={deal.voucher.id}
             deal={deal}
@@ -563,7 +563,7 @@ export default function NearYou() {
         ))}
 
         {/* Arrow bubble at the end */}
-        {hasDeals && <MoreBubble onNavigate={() => navigate(`/${lang}/store`)} />}
+        {hasDeals && !showTeaser && <MoreBubble onNavigate={() => navigate(`/${lang}/store`)} />}
       </div>
 
       {/* Denied bottom sheet */}
