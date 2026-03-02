@@ -32,24 +32,30 @@ export const TEL_AVIV_FALLBACK: GeoCoordinates = {
   lng: 34.7818,
 };
 
-function loadPersisted(): Partial<GeolocationState> {
+function loadPersisted(): { coords: GeoCoordinates | null; lastUpdated: number | null } {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return {};
-    return JSON.parse(raw);
+    if (!raw) return { coords: null, lastUpdated: null };
+    const data = JSON.parse(raw);
+    return {
+      coords: data.coords ?? null,
+      lastUpdated: data.lastUpdated ?? null,
+    };
   } catch {
-    return {};
+    return { coords: null, lastUpdated: null };
   }
 }
 
-function persist(
-  coords: GeoCoordinates | null,
-  permission: GeolocationPermission,
-) {
+// Only persist coords — never persist permission.
+// Permission always starts as 'prompt' on every app load so the teaser
+// is shown until the user explicitly clicks "Share Location" in the
+// current session. The browser remembers the grant natively, so
+// requestLocation() will auto-resolve without a popup on repeat visits.
+function persist(coords: GeoCoordinates | null) {
   try {
     localStorage.setItem(
       STORAGE_KEY,
-      JSON.stringify({ coords, permission, lastUpdated: Date.now() }),
+      JSON.stringify({ coords, lastUpdated: Date.now() }),
     );
   } catch {
     /* silently fail */
@@ -59,11 +65,13 @@ function persist(
 const persisted = loadPersisted();
 
 export const useGeolocationStore = create<GeolocationState>((set) => ({
-  permission:
-    (persisted.permission as GeolocationPermission) ?? 'prompt',
-  coords: (persisted.coords as GeoCoordinates) ?? null,
+  // Always start as 'prompt' — never restore from localStorage.
+  // This ensures NearYou shows the teaser on every app load until
+  // the user actively clicks the CTA in the current session.
+  permission: 'prompt' as GeolocationPermission,
+  coords: persisted.coords,
   error: null,
-  lastUpdated: (persisted.lastUpdated as number) ?? null,
+  lastUpdated: persisted.lastUpdated,
 
   setCoords: (coords) => {
     set({
@@ -72,12 +80,12 @@ export const useGeolocationStore = create<GeolocationState>((set) => ({
       error: null,
       lastUpdated: Date.now(),
     });
-    persist(coords, 'granted');
+    persist(coords);
   },
 
   setPermission: (permission) => {
+    // Only update in-memory state — permission is intentionally NOT persisted.
     set({ permission });
-    persist(null, permission);
   },
 
   setError: (error) => set({ error }),
