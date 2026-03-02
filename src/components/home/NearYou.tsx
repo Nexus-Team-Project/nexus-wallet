@@ -109,44 +109,61 @@ function NearYouCard({
   const distanceText = formatDistance(deal.distanceKm, isHe);
   const bgColor = categoryColors[v.category] || 'bg-gray-50';
   const slides = categorySlides[v.category] || ['🎁', '🎉', '⭐'];
+  const hasMultipleSlides = slides.length > 1;
 
-  // Swipeable emoji slides
-  const [slideIndex, setSlideIndex] = useState(0);
+  // Richer crossfade swipe — same pattern as OfferCard in ActiveOffers
+  const [current, setCurrent] = useState(0);
   const touchStartX = useRef(0);
-  const handleTouchStart = (e: React.TouchEvent) => { touchStartX.current = e.touches[0].clientX; };
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    const diff = touchStartX.current - e.changedTouches[0].clientX;
-    if (Math.abs(diff) > 40) {
-      setSlideIndex((prev) => (diff > 0 ? (prev + 1) % slides.length : (prev - 1 + slides.length) % slides.length));
+  const touchEndX = useRef(0);
+  const isSwiping = useRef(false);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+    touchEndX.current = e.touches[0].clientX;
+    isSwiping.current = false;
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    touchEndX.current = e.touches[0].clientX;
+    if (Math.abs(touchStartX.current - touchEndX.current) > 3) {
+      isSwiping.current = true;
+    }
+  };
+
+  const handleTouchEnd = () => {
+    const diff = touchStartX.current - touchEndX.current;
+    if (hasMultipleSlides && isSwiping.current && Math.abs(diff) > 20) {
+      if (diff > 0) {
+        setCurrent((prev) => (prev + 1) % slides.length);
+      } else {
+        setCurrent((prev) => (prev - 1 + slides.length) % slides.length);
+      }
+    } else if (!isSwiping.current) {
+      onNavigate();
     }
   };
 
   return (
     <div className="flex-none w-[75vw] max-w-[300px] bg-white border border-border rounded-lg shadow-sm overflow-hidden text-start snap-start active:scale-[0.97] transition-transform duration-150">
-      {/* Pastel image area with emoji slides */}
+      {/* Pastel image area — crossfade emoji slides */}
       <div
         className={`relative overflow-hidden ${bgColor}`}
         style={{ height: '20vh' }}
-        onClick={onNavigate}
         onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
       >
-        {/* Emoji slide */}
-        <div className="absolute inset-0 flex items-center justify-center">
-          <span className="text-6xl transition-all duration-300" style={{ opacity: 1 }}>
-            {slides[slideIndex]}
-          </span>
-        </div>
-
-        {/* Slide dots */}
-        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1.5">
-          {slides.map((_, i) => (
-            <div
-              key={i}
-              className={`w-1.5 h-1.5 rounded-full transition-colors ${i === slideIndex ? 'bg-gray-800' : 'bg-gray-300'}`}
-            />
-          ))}
-        </div>
+        {/* Crossfade slides */}
+        {slides.map((emoji, idx) => (
+          <div
+            key={idx}
+            className={`absolute inset-0 flex items-center justify-center transition-opacity duration-300 ${
+              idx === current ? 'opacity-100' : 'opacity-0'
+            }`}
+          >
+            <span className="text-7xl">{emoji}</span>
+          </div>
+        ))}
 
         {/* Logo badge — top-right corner */}
         <div className="absolute top-2.5 right-2.5 z-10 w-14 h-14 rounded-full bg-white shadow-md border border-border/40 flex items-center justify-center">
@@ -165,6 +182,20 @@ function NearYouCard({
             {distanceText}
           </span>
         </div>
+
+        {/* Dot indicators — pill for active, dot for inactive */}
+        {hasMultipleSlides && (
+          <div className="absolute bottom-2 left-0 right-0 z-10 flex items-center justify-center gap-1">
+            {slides.map((_, idx) => (
+              <span
+                key={idx}
+                className={`block rounded-full transition-all duration-300 ${
+                  idx === current ? 'w-4 h-1.5 bg-gray-800' : 'w-1.5 h-1.5 bg-gray-500'
+                }`}
+              />
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Bottom info */}

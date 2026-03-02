@@ -7,9 +7,70 @@ import { useRegistrationStore } from '../../stores/registrationStore';
 import Skeleton from '../ui/Skeleton';
 import SectionError from '../ui/SectionError';
 import type { ScoredVoucher } from '../../types/recommendation.types';
+import type { Voucher as _Voucher } from '../../types/voucher.types';
 
-// ── Pastel backgrounds per category ──
+// ── Info Tooltip ──
 
+function InfoTooltip({
+  isHe: _isHe,
+  text,
+  ctaLabel,
+  onCta,
+  onClose,
+}: {
+  isHe: boolean;
+  text: string;
+  ctaLabel: string;
+  onCta: () => void;
+  onClose: () => void;
+}) {
+  const tooltipRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent | TouchEvent) => {
+      if (tooltipRef.current && !tooltipRef.current.contains(e.target as Node)) {
+        onClose();
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    document.addEventListener('touchstart', handler);
+    return () => {
+      document.removeEventListener('mousedown', handler);
+      document.removeEventListener('touchstart', handler);
+    };
+  }, [onClose]);
+
+  return (
+    <div
+      ref={tooltipRef}
+      className="absolute top-full mt-2 start-0 z-50 w-[calc(100vw-40px)] max-w-[340px] bg-white rounded-xl shadow-xl border border-border/60 p-4 animate-fade-in"
+    >
+      {/* Close button */}
+      <button
+        onClick={onClose}
+        className="absolute top-2 end-2 w-6 h-6 flex items-center justify-center rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200"
+      >
+        <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>close</span>
+      </button>
+
+      {/* Sparkle icon + text */}
+      <div className="flex gap-2 mb-3">
+        <span className="text-xl shrink-0 mt-0.5">✨</span>
+        <p className="text-xs text-text-secondary leading-relaxed pe-4">{text}</p>
+      </div>
+
+      {/* CTA */}
+      <button
+        onClick={onCta}
+        className="w-full py-2.5 rounded-xl bg-primary text-white text-xs font-semibold active:scale-[0.97] transition-transform"
+      >
+        {ctaLabel}
+      </button>
+    </div>
+  );
+}
+
+// ── Pastel backgrounds per voucher category ──
 const categoryColors: Record<string, string> = {
   food: 'bg-orange-50',
   shopping: 'bg-pink-50',
@@ -30,6 +91,7 @@ const categoryGradients: Record<string, string> = {
   education: 'from-amber-400 to-amber-600',
 };
 
+// Extra emojis per category to create multiple slides per card
 const categorySlides: Record<string, string[]> = {
   food: ['🍔', '🍟', '🥤'],
   shopping: ['👕', '👗', '👜'],
@@ -50,7 +112,7 @@ const categoryLabels: Record<string, { en: string; he: string }> = {
   education: { en: 'Education', he: 'לימודים' },
 };
 
-// ── Offer Card — mirrors NearYouCard structure exactly ──
+// ── Swipeable Card ──
 
 function OfferCard({
   scored,
@@ -62,70 +124,91 @@ function OfferCard({
   onNavigate: () => void;
 }) {
   const v = scored.voucher;
-  const slides = categorySlides[v.category] || ['🎁', '🎉', '⭐'];
-  const catLabel = categoryLabels[v.category] || { en: v.category, he: v.category };
-
-  const [slideIndex, setSlideIndex] = useState(0);
+  const slideEmojis = categorySlides[v.category] || [v.image];
+  const hasMultipleSlides = slideEmojis.length > 1;
+  const [current, setCurrent] = useState(0);
   const touchStartX = useRef(0);
+  const touchEndX = useRef(0);
+  const isSwiping = useRef(false);
+
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX;
+    touchEndX.current = e.touches[0].clientX;
+    isSwiping.current = false;
   };
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    const diff = touchStartX.current - e.changedTouches[0].clientX;
-    if (Math.abs(diff) > 40) {
-      setSlideIndex((prev) =>
-        diff > 0 ? (prev + 1) % slides.length : (prev - 1 + slides.length) % slides.length,
-      );
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    touchEndX.current = e.touches[0].clientX;
+    if (Math.abs(touchStartX.current - touchEndX.current) > 3) {
+      isSwiping.current = true;
     }
   };
 
+  const handleTouchEnd = () => {
+    const diff = touchStartX.current - touchEndX.current;
+    if (hasMultipleSlides && isSwiping.current && Math.abs(diff) > 20) {
+      if (diff > 0) {
+        setCurrent((prev) => (prev + 1) % slideEmojis.length);
+      } else {
+        setCurrent((prev) => (prev - 1 + slideEmojis.length) % slideEmojis.length);
+      }
+    } else if (!isSwiping.current) {
+      onNavigate();
+    }
+  };
+
+  const catLabel = categoryLabels[v.category] || { en: v.category, he: v.category };
+
   return (
     <div className="flex-none w-[75vw] max-w-[300px] bg-white border border-border rounded-lg shadow-sm overflow-hidden text-start snap-start active:scale-[0.97] transition-transform duration-150">
-      {/* Pastel image area with swipeable emoji — same structure as NearYouCard */}
+      {/* Swipeable image area */}
       <div
         className={`relative overflow-hidden ${categoryColors[v.category] || 'bg-surface'}`}
         style={{ height: '20vh' }}
-        onClick={onNavigate}
         onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
       >
-        {/* Emoji slide */}
-        <div className="absolute inset-0 flex items-center justify-center">
-          <span className="text-6xl transition-all duration-300">{slides[slideIndex]}</span>
-        </div>
+        {/* Slides — crossfade */}
+        {slideEmojis.map((emoji, idx) => (
+          <div
+            key={idx}
+            className={`absolute inset-0 flex items-center justify-center transition-opacity duration-300 ${
+              idx === current ? 'opacity-100' : 'opacity-0'
+            }`}
+          >
+            <span className="text-7xl">{emoji}</span>
+          </div>
+        ))}
 
-        {/* Slide dots */}
-        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1.5">
-          {slides.map((_, i) => (
-            <div
-              key={i}
-              className={`w-1.5 h-1.5 rounded-full transition-colors ${
-                i === slideIndex ? 'bg-gray-800' : 'bg-gray-300'
-              }`}
-            />
-          ))}
-        </div>
-
-        {/* Logo badge — top-right (identical to NearYouCard) */}
+        {/* Logo badge — top-right corner */}
         <div className="absolute top-2.5 right-2.5 z-10 w-14 h-14 rounded-full bg-white shadow-md border border-border/40 flex items-center justify-center">
           <span className="text-2xl">{v.merchantLogo}</span>
         </div>
 
-        {/* Recommendation reason badge — top-left, styled like distance badge */}
-        <div className="absolute top-2.5 left-2.5 z-10 bg-white/90 backdrop-blur-sm rounded-full px-2.5 py-1 flex items-center gap-1">
-          <span
-            className="material-symbols-outlined text-primary"
-            style={{ fontSize: '12px', fontVariationSettings: "'FILL' 1" }}
-          >
-            auto_awesome
-          </span>
-          <span className="text-[10px] font-bold text-primary">
+        {/* Recommendation reason badge — top-left */}
+        <div className="absolute top-2.5 left-2.5 z-10 bg-white/90 backdrop-blur-sm rounded-full px-2 py-0.5">
+          <span className="text-[9px] font-semibold text-primary">
             {isHe ? scored.reasonHe : scored.reason}
           </span>
         </div>
+
+        {/* Dot indicators */}
+        {hasMultipleSlides && (
+          <div className="absolute bottom-2 left-0 right-0 z-10 flex items-center justify-center gap-1">
+            {slideEmojis.map((_, idx) => (
+              <span
+                key={idx}
+                className={`block rounded-full transition-all duration-300 ${
+                  idx === current ? 'w-4 h-1.5 bg-gray-800' : 'w-1.5 h-1.5 bg-gray-500'
+                }`}
+              />
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* Bottom info — identical to NearYouCard */}
+      {/* Bottom info */}
       <button
         onClick={onNavigate}
         className="w-full px-3 py-4 flex items-center justify-between"
@@ -151,7 +234,7 @@ function OfferCard({
   );
 }
 
-// ── Personalization Teaser Card — mirrors LocationTeaserCard pattern ──
+// ── Personalization Teaser Card ──
 
 function PersonalizationTeaserCard({
   isHe,
@@ -162,36 +245,47 @@ function PersonalizationTeaserCard({
   firstName: string | null;
   onCta: () => void;
 }) {
-  const greeting = firstName ? `${firstName}, ` : '';
+  const greeting = firstName
+    ? (isHe ? `${firstName}, ` : `${firstName}, `)
+    : '';
 
   return (
     <div className="flex-none w-[75vw] max-w-[300px] bg-white border border-border rounded-lg shadow-sm overflow-hidden text-start snap-start flex flex-col">
-      {/* Visual header — same layout as LocationTeaserCard */}
+      {/* Visual header */}
       <div
         className="relative overflow-hidden"
         style={{
           height: '20vh',
-          background: 'linear-gradient(135deg, #ede9fe 0%, #ddd6fe 50%, #c4b5fd 100%)',
+          background: 'linear-gradient(135deg, #f3f0ff 0%, #ede9fe 50%, #ddd6fe 100%)',
         }}
       >
-        {/* Light overlay — same as LocationTeaserCard's bg-white/40 */}
-        <div className="absolute inset-0 bg-white/20" />
-
-        {/* Centered sparkle icon — mirrors the location_on pin */}
+        {/* Sparkle ring decoration */}
         <div
-          className="absolute inset-0 flex items-center justify-center"
-          style={{ paddingBottom: '28px' }}
+          className="absolute"
+          style={{
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -60%)',
+            width: 72,
+            height: 72,
+            borderRadius: '50%',
+            background: 'rgba(124,58,237,0.12)',
+            boxShadow: '0 0 0 12px rgba(124,58,237,0.06)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
         >
           <span
-            className="material-symbols-outlined text-primary drop-shadow-md"
-            style={{ fontSize: '56px', fontVariationSettings: "'FILL' 1" }}
+            className="material-symbols-outlined text-primary"
+            style={{ fontSize: '36px', fontVariationSettings: "'FILL' 1" }}
           >
             auto_awesome
           </span>
         </div>
 
-        {/* Bottom text bar — same bg-black/50 pattern as LocationTeaserCard */}
-        <div className="absolute bottom-0 left-0 right-0 bg-black/50 backdrop-blur-sm py-2 px-3">
+        {/* Bottom caption bar */}
+        <div className="absolute bottom-0 left-0 right-0 bg-primary/80 backdrop-blur-sm py-2 px-3">
           <p className="text-white text-[11px] text-center leading-relaxed">
             {isHe
               ? `${greeting}נגלה יחד מה הכי מתאים לך`
@@ -200,7 +294,7 @@ function PersonalizationTeaserCard({
         </div>
       </div>
 
-      {/* CTA area — identical to LocationTeaserCard bottom */}
+      {/* CTA area */}
       <div className="px-3 py-3 flex items-center justify-center">
         <button
           onClick={onCta}
@@ -219,7 +313,7 @@ function PersonalizationTeaserCard({
   );
 }
 
-// ── Arrow Bubble — identical to NearYou ──
+// ── Arrow Bubble ──
 
 function MoreBubble({ onNavigate }: { onNavigate: () => void }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -271,7 +365,9 @@ export default function ActiveOffers() {
   const { recommendations, isLoading, isError, refetch } = useRecommendations({ maxResults: 8 });
   const firstName = useAuthStore((s) => s.firstName);
   const startRegistration = useRegistrationStore((s) => s.startRegistration);
+  const [showInfo, setShowInfo] = useState(false);
 
+  // Start a preferences-completion flow and navigate to the motivation slide.
   // Must call startRegistration() first so RegistrationGuard allows the route.
   const handlePersonalizeNavigate = () => {
     startRegistration({ path: 'preferences-completion', phone: '', missingFields: [] });
@@ -294,23 +390,40 @@ export default function ActiveOffers() {
     return <SectionError section="ActiveOffers" onRetry={refetch} />;
   }
 
-  const hasRecommendations = recommendations.length > 0;
+  // Show personalization teaser only when the engine produced no recommendations
+  if (recommendations.length === 0) {
+    return (
+      <section className="mb-6">
+        <div className="flex items-center justify-between px-5 mb-3">
+          <h3 className="text-base font-bold">{t.home.especiallyForYou}</h3>
+        </div>
+        <div className="flex overflow-x-auto hide-scrollbar gap-3 px-5 snap-x snap-mandatory items-stretch">
+          <PersonalizationTeaserCard
+            isHe={isHe}
+            firstName={firstName}
+            onCta={handlePersonalizeNavigate}
+          />
+        </div>
+      </section>
+    );
+  }
+
+  // Top category for the gradient label
   const topCategory = recommendations[0]?.voucher.category || 'food';
   const topCategoryLabel = categoryLabels[topCategory] || { en: 'Deals', he: 'מבצעים' };
   const gradient = categoryGradients[topCategory] || 'from-primary to-primary-dark';
 
   return (
     <section className="mb-6">
-      {/* Header — matches NearYou pattern exactly */}
-      <div className="flex items-center justify-between px-5 mb-3">
+      <div className="relative flex items-center justify-between px-5 mb-3">
         <div className="flex items-center gap-1.5">
           <h3 className="text-base font-bold">{t.home.especiallyForYou}</h3>
-          <span
-            className="material-symbols-outlined text-primary"
-            style={{ fontSize: '16px', fontVariationSettings: "'FILL' 1" }}
+          <button
+            onClick={() => setShowInfo((p) => !p)}
+            className="w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center active:scale-90 transition-transform"
           >
-            auto_awesome
-          </span>
+            <span className="text-[10px] font-bold text-gray-500 leading-none">i</span>
+          </button>
         </div>
         <button
           onClick={() => navigate(`/${lang}/store`)}
@@ -318,33 +431,34 @@ export default function ActiveOffers() {
         >
           {isHe ? 'עוד' : 'More'}
         </button>
-      </div>
 
-      {/* Single unified scroll row — same architecture as NearYou */}
-      <div className="flex overflow-x-auto hide-scrollbar gap-3 px-5 snap-x snap-mandatory items-stretch">
-
-        {/* Category gradient label — only when recommendations exist (mirrors hasDeals in NearYou) */}
-        {hasRecommendations && (
-          <div
-            className={`flex-none w-[120px] rounded-lg bg-gradient-to-b ${gradient} flex items-center justify-center`}
-          >
-            <span
-              className="text-white text-sm font-bold whitespace-nowrap"
-              style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}
-            >
-              {isHe ? topCategoryLabel.he : topCategoryLabel.en}
-            </span>
-          </div>
-        )}
-
-        {/* Personalization teaser — shown when no recommendations (mirrors LocationTeaserCard) */}
-        {!hasRecommendations && (
-          <PersonalizationTeaserCard
+        {/* Info tooltip */}
+        {showInfo && (
+          <InfoTooltip
             isHe={isHe}
-            firstName={firstName}
-            onCta={handlePersonalizeNavigate}
+            text={t.home.smartRecoInfo}
+            ctaLabel={t.home.fillQuestionnaire}
+            onCta={() => {
+              setShowInfo(false);
+              handlePersonalizeNavigate();
+            }}
+            onClose={() => setShowInfo(false)}
           />
         )}
+      </div>
+
+      <div className="flex overflow-x-auto hide-scrollbar gap-3 px-5 snap-x snap-mandatory items-stretch">
+        {/* Category gradient label — narrow rectangle at start */}
+        <div
+          className={`flex-none w-[120px] rounded-lg bg-gradient-to-b ${gradient} flex items-center justify-center`}
+        >
+          <span
+            className="text-white text-sm font-bold whitespace-nowrap"
+            style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}
+          >
+            {isHe ? topCategoryLabel.he : topCategoryLabel.en}
+          </span>
+        </div>
 
         {/* Recommendation cards */}
         {recommendations.map((scored) => (
@@ -356,8 +470,8 @@ export default function ActiveOffers() {
           />
         ))}
 
-        {/* Arrow bubble — only when there are cards (mirrors NearYou's hasDeals guard) */}
-        {hasRecommendations && <MoreBubble onNavigate={() => navigate(`/${lang}/store`)} />}
+        {/* Arrow bubble at the end */}
+        <MoreBubble onNavigate={() => navigate(`/${lang}/store`)} />
       </div>
     </section>
   );
