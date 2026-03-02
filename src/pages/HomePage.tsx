@@ -7,18 +7,25 @@ import NearYou from '../components/home/NearYou';
 import ReferralBanner from '../components/home/ReferralBanner';
 import TenantOffers from '../components/home/TenantOffers';
 import {
-  EspeciallyForYouSlider,
   PopularSlider,
   RecommendedSlider,
   NewSlider,
   OnlineSlider,
   ComingSoonSlider,
 } from '../components/store/StoreSliders';
+import { useAuthStore } from '../stores/authStore';
 import type { StoreFilter } from '../types/voucher.types';
 
 export default function HomePage() {
   const { lang = 'he' } = useParams();
   const navigate = useNavigate();
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const profileCompleted = useAuthStore((s) => s.profileCompleted);
+
+  // "במיוחד בשבילך" (ActiveOffers) position:
+  //   hasProfile  → 2nd: right after TopStores (real personalized recommendations)
+  //   !hasProfile → 3rd: after PopularSlider  (shows teaser card only)
+  const hasProfile = isAuthenticated && profileCompleted;
 
   const handleSelectFilter = (filter: StoreFilter) => {
     navigate(`/${lang}/store`, { state: { filter } });
@@ -29,19 +36,22 @@ export default function HomePage() {
       <HeroBanner />
       <BrandSlider />
 
-      {/* במיוחד בשבילך — top of home */}
-      <EspeciallyForYouSlider onSelectFilter={handleSelectFilter} />
+      {/* הזמנות חוזרות */}
+      <TopStores />
+
+      {/* במיוחד בשבילך — 2nd when questionnaire is filled */}
+      {hasProfile && <ActiveOffers />}
 
       {/* הכי פופולרים */}
       <PopularSlider onSelectFilter={handleSelectFilter} />
+
+      {/* במיוחד בשבילך — 3rd (teaser) when questionnaire is not yet filled */}
+      {!hasProfile && <ActiveOffers />}
 
       <ReferralBanner />
 
       {/* הטבות הטננט */}
       <TenantOffers />
-
-      {/* Top stores */}
-      <TopStores />
 
       {/* קרוב אליך */}
       <NearYou />
@@ -57,8 +67,6 @@ export default function HomePage() {
 
       {/* בקרוב */}
       <ComingSoonSlider onSelectFilter={handleSelectFilter} />
-
-      <ActiveOffers />
 
       {/* DEV ONLY */}
       <div className="px-6 py-4">
