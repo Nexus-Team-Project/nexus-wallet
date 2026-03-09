@@ -1,4 +1,4 @@
-import { NavLink, useParams } from 'react-router-dom';
+import { NavLink, useParams, useLocation } from 'react-router-dom';
 import { useLanguage } from '../../i18n/LanguageContext';
 
 const navItems = [
@@ -11,11 +11,13 @@ const navItems = [
 export default function BottomNav() {
   const { lang = 'he' } = useParams();
   const { t } = useLanguage();
+  const location = useLocation();
+  const isWalletPage = location.pathname.includes('/wallet');
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50">
       <div className="max-w-md mx-auto bg-white/95 backdrop-blur-lg border-t border-border px-8 py-3 pb-6 flex justify-around items-center">
-        {navItems.map(({ key, path, icon, iconFilled }) => (
+        {navItems.filter(({ key }) => !(isWalletPage && key === 'wallet')).map(({ key, path, icon, iconFilled }) => (
           <NavLink
             key={key}
             to={`/${lang}${path}`}
