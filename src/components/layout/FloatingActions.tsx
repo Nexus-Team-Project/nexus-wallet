@@ -16,6 +16,7 @@ export default function FloatingActions() {
   const [showFilter, setShowFilter] = useState(false);
 
   const isHome = location.pathname === `/${lang}` || location.pathname === `/${lang}/`;
+  const isWallet = location.pathname.includes('/wallet');
 
   const handleWallet = async () => {
     if (isAuthenticated) {
@@ -33,6 +34,7 @@ export default function FloatingActions() {
         {/* Search pill wrapper — relative so wallet + home can anchor to it */}
         <div className="relative">
           {/* Wallet FAB — anchored to the right of the pill (right in RTL = end) */}
+          {!isWallet && (
           <div className="absolute end-full me-3 top-1/2 -translate-y-1/2">
             <button
               onClick={handleWallet}
@@ -55,6 +57,7 @@ export default function FloatingActions() {
               )}
             </button>
           </div>
+          )}
 
           {/* Home FAB — anchored to the left of the pill (left in RTL = start) */}
           {!isHome && (
