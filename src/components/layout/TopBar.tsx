@@ -34,8 +34,9 @@ export default function TopBar({ collapsed = false }: TopBarProps) {
   const { data: user } = useUser();
 
   const hasTenant = isAuthenticated && isOrgMember && !!tenantConfig;
-  const logoSrc = hasTenant ? (tenantConfig?.logo ?? '/nexus-logo.png') : '/nexus-logo.png';
-  const logoAlt = hasTenant ? (organizationName ?? tenantConfig?.name ?? 'Nexus') : 'Nexus';
+  const hasTenantLogo = !!tenantConfig?.logo;
+  const logoSrc = hasTenantLogo ? tenantConfig.logo : '/nexus-logo.png';
+  const logoAlt = hasTenantLogo ? (organizationName ?? tenantConfig?.name ?? 'Nexus') : 'Nexus';
 
   const displayFirstName = authFirstName ?? user?.firstName;
   const showGreeting = isAuthenticated && !!displayFirstName;
@@ -103,7 +104,7 @@ export default function TopBar({ collapsed = false }: TopBarProps) {
                     (e.target as HTMLImageElement).style.display = 'none';
                     const fallback = document.createElement('span');
                     fallback.className = 'text-[11px] font-bold text-primary';
-                    fallback.textContent = hasTenant ? (organizationName?.charAt(0) ?? '?') : 'N';
+                    fallback.textContent = hasTenantLogo ? (organizationName?.charAt(0) ?? tenantConfig?.name?.charAt(0) ?? '?') : 'N';
                     parent.appendChild(fallback);
                   }
                 }}
