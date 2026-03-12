@@ -28,12 +28,14 @@ const cardThemes: [string, string][] = [
   ['from-zinc-200 via-zinc-400 to-zinc-700', 'bg-black/10'],
 ];
 
-// ── Selectable card designs for Story 3 ──────────────────────────────────────
-const cardDesigns = [
-  { id: 'black', label: 'Midnight', bg: 'bg-black', textColor: 'text-white', accent: '#635bff', ring: 'ring-white/20' },
-  { id: 'blue', label: 'Ocean', bg: 'bg-gradient-to-br from-blue-500 to-indigo-700', textColor: 'text-white', accent: '#00d4ff', ring: 'ring-white/20' },
-  { id: 'white', label: 'Pearl', bg: 'bg-white', textColor: 'text-gray-800', accent: '#635bff', ring: 'ring-gray-200' },
-  { id: 'purple', label: 'Violet', bg: 'bg-gradient-to-br from-violet-500 to-purple-800', textColor: 'text-white', accent: '#c084fc', ring: 'ring-white/20' },
+// ── Selectable card colors for Story 3 (Revolut-style) ───────────────────────
+const cardColors = [
+  { id: 'teal',   color: '#65D2AD', label: 'Mint' },
+  { id: 'yellow', color: '#FCD860', label: 'Gold' },
+  { id: 'coral',  color: '#EF7E8B', label: 'Coral' },
+  { id: 'purple', color: '#9885F0', label: 'Violet' },
+  { id: 'slate',  color: '#8CA6C0', label: 'Steel' },
+  { id: 'dark',   color: '#5E676F', label: 'Graphite' },
 ];
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -342,149 +344,171 @@ function Story2ValueProposition() {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 function Story3CardSelection({ onContinue }: { onContinue: () => void }) {
-  const [selected, setSelected] = useState(cardDesigns[0].id);
+  const [selected, setSelected] = useState('purple');
 
-  const active = cardDesigns.find((d) => d.id === selected) ?? cardDesigns[0];
+  const activeColor = cardColors.find((c) => c.id === selected) ?? cardColors[3];
+
+  // Determine if card color is light (needs dark text)
+  const isLightCard = ['yellow', 'teal'].includes(selected);
+  const textClass = isLightCard ? 'text-gray-900' : 'text-white';
+  const textOpacity = isLightCard ? 'opacity-70' : 'opacity-90';
+  const textSubOpacity = isLightCard ? 'opacity-50' : 'opacity-80';
+  const mcRedOpacity = isLightCard ? 'opacity-70' : 'opacity-80';
 
   return (
-    <div className="h-full w-full overflow-y-auto bg-white text-gray-900">
-      <div className="mx-auto max-w-lg px-6 pb-32 pt-10 flex flex-col items-center">
-        {/* Headline */}
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="text-center"
-        >
-          <h2 className="text-2xl font-bold tracking-tight text-gray-900">
-            Choose your card
-          </h2>
-          <p className="mt-2 text-sm text-gray-500">Pick a design that fits your style</p>
-        </motion.div>
+    <div className="h-full w-full flex flex-col bg-white text-gray-900">
+      {/* Main content — centered */}
+      <div className="flex-1 flex flex-col items-center justify-center px-8 relative overflow-visible">
 
-        {/* Card preview */}
+        {/* Card preview — portrait Revolut-style */}
         <motion.div
-          initial={{ opacity: 0, scale: 0.92 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.6, delay: 0.2 }}
-          className="mt-8 mb-8"
+          initial={{ opacity: 0, scale: 0.9, y: 20 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          transition={{ duration: 0.6, ease: 'easeOut' }}
+          className="relative"
         >
+          {/* Hint of next card (peeking from right) */}
+          <div
+            className="absolute -right-16 top-8 w-20 rounded-l-2xl"
+            style={{
+              aspectRatio: '1 / 1.58',
+              backgroundColor: cardColors[(cardColors.findIndex(c => c.id === selected) + 1) % cardColors.length].color,
+              opacity: 0.45,
+            }}
+          />
+
           <AnimatePresence mode="wait">
             <motion.div
-              key={active.id}
-              initial={{ opacity: 0, scale: 0.95 }}
+              key={activeColor.id}
+              initial={{ opacity: 0, scale: 0.96 }}
               animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              transition={{ duration: 0.3 }}
-              className={`relative w-72 aspect-[1.6/1] rounded-2xl shadow-2xl ${active.bg} ${active.textColor} ring-1 ${active.ring} overflow-hidden`}
+              exit={{ opacity: 0, scale: 0.96 }}
+              transition={{ duration: 0.35 }}
+              className="relative w-[240px] rounded-3xl flex flex-col items-center justify-between p-7 transition-colors duration-500"
+              style={{
+                aspectRatio: '1 / 1.58',
+                backgroundColor: activeColor.color,
+                boxShadow: '0 20px 50px rgba(0, 0, 0, 0.12)',
+              }}
             >
-              {/* Card content */}
-              <div className="absolute inset-0 flex flex-col justify-between p-5">
-                {/* Top row */}
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-2">
-                    <div
-                      className="h-3 w-3 rounded-full"
-                      style={{ backgroundColor: active.accent }}
-                    />
-                    <span className="text-xs font-bold tracking-[0.2em] uppercase opacity-80">
-                      Nexus
-                    </span>
-                  </div>
-                  <span className="text-sm font-medium tracking-widest opacity-70">****</span>
-                </div>
-
-                {/* Decorative chip */}
-                <div className="flex items-center gap-3">
-                  <div
-                    className="h-8 w-11 rounded-md"
-                    style={{
-                      background: active.id === 'white'
-                        ? 'linear-gradient(135deg, #e5e7eb, #d1d5db)'
-                        : 'linear-gradient(135deg, rgba(255,255,255,0.25), rgba(255,255,255,0.1))',
-                    }}
-                  />
-                </div>
-
-                {/* Bottom row */}
-                <div className="flex items-end justify-between">
-                  <div>
-                    <div className="text-[9px] uppercase tracking-[0.15em] opacity-50">
-                      Club Member Card
-                    </div>
-                  </div>
-                  <span className="text-xs font-bold opacity-70">MC</span>
-                </div>
+              {/* Top — vertical branding */}
+              <div className="w-full flex justify-end">
+                <span
+                  className={`text-3xl font-bold tracking-tight ${textClass} ${textOpacity}`}
+                  style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}
+                >
+                  Nexus
+                </span>
               </div>
 
-              {/* Sheen */}
+              {/* Bottom — MC logo + card label */}
+              <div className="w-full flex justify-between items-end">
+                {/* Mastercard circles */}
+                <div className="relative w-10 h-7">
+                  <div className={`absolute left-0 w-7 h-7 rounded-full bg-[#EB001B] ${mcRedOpacity}`} />
+                  <div className={`absolute right-0 w-7 h-7 rounded-full bg-[#F79E1B] ${mcRedOpacity}`} />
+                </div>
+                {/* Card type label */}
+                <span
+                  className={`text-xs font-bold uppercase tracking-widest ${textClass} ${textSubOpacity}`}
+                  style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}
+                >
+                  Virtual
+                </span>
+              </div>
+
+              {/* Ghosted card details overlay */}
               <div
-                className="absolute inset-0 pointer-events-none"
+                className="absolute inset-0 flex items-center justify-center pointer-events-none"
+                style={{ opacity: 0.08 }}
+              >
+                <span
+                  className="text-sm font-mono tracking-tighter text-black"
+                  style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}
+                >
+                  **** **** **** 0842
+                </span>
+              </div>
+
+              {/* Sheen highlight */}
+              <div
+                className="absolute inset-0 rounded-3xl pointer-events-none"
                 style={{
-                  background:
-                    'linear-gradient(135deg, transparent 30%, rgba(255,255,255,0.12) 50%, transparent 70%)',
+                  background: 'linear-gradient(135deg, rgba(255,255,255,0.2) 0%, transparent 50%, rgba(255,255,255,0.05) 100%)',
                 }}
               />
             </motion.div>
           </AnimatePresence>
         </motion.div>
 
-        {/* Design picker */}
+        {/* Card type + description */}
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3, duration: 0.5 }}
+          className="mt-8 text-center"
+        >
+          <h1 className="text-xl font-bold text-gray-900">Virtual</h1>
+          <p className="mt-3 text-gray-500 text-sm leading-relaxed max-w-[280px] mx-auto">
+            Instantly create your virtual club card to unlock benefits, manage spending, and start using it right away.
+          </p>
+        </motion.div>
+
+        {/* Color picker */}
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
-          className="flex items-center gap-3"
+          transition={{ delay: 0.45, duration: 0.4 }}
+          className="mt-8 flex items-center justify-center gap-3 overflow-x-auto no-scrollbar px-4"
         >
-          {cardDesigns.map((d) => {
-            const isActive = d.id === selected;
+          {cardColors.map((c) => {
+            const isActive = c.id === selected;
             return (
               <button
-                key={d.id}
+                key={c.id}
                 onClick={(e) => {
                   e.stopPropagation();
-                  setSelected(d.id);
+                  setSelected(c.id);
                 }}
-                className="flex flex-col items-center gap-1.5"
+                className="shrink-0 focus:outline-none"
               >
-                <div
-                  className={`h-12 w-12 rounded-xl ${d.bg} ring-1 ${d.ring} transition-all ${
-                    isActive ? 'scale-110 ring-2 ring-[#635bff]' : 'opacity-60 hover:opacity-80'
-                  }`}
-                />
-                <span
-                  className={`text-[10px] font-medium ${
-                    isActive ? 'text-gray-900' : 'text-gray-400'
-                  }`}
-                >
-                  {d.label}
-                </span>
+                {isActive ? (
+                  <div className="flex items-center justify-center p-1 rounded-full border-2 border-gray-200">
+                    <div
+                      className="w-9 h-9 rounded-full"
+                      style={{ backgroundColor: c.color }}
+                    />
+                  </div>
+                ) : (
+                  <div
+                    className="w-9 h-9 rounded-full border-2 border-transparent transition-transform hover:scale-110"
+                    style={{ backgroundColor: c.color }}
+                  />
+                )}
               </button>
             );
           })}
         </motion.div>
-
-        {/* CTA */}
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.6 }}
-          className="fixed bottom-0 left-0 right-0 p-5 bg-gradient-to-t from-white via-white to-white/0 z-40"
-        >
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onContinue();
-            }}
-            className="w-full py-3.5 rounded-2xl bg-[#635bff] text-white font-bold text-sm tracking-wide active:scale-[0.98] transition-transform shadow-lg shadow-[#635bff]/25"
-          >
-            Continue to issuance
-          </button>
-          <p className="mt-2 text-center text-[10px] text-gray-400">
-            You can review all details before confirming
-          </p>
-        </motion.div>
       </div>
+
+      {/* Sticky CTA footer */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.6 }}
+        className="px-8 pt-4 pb-8 bg-white z-40"
+      >
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onContinue();
+          }}
+          className="w-full py-4 rounded-full bg-[#635bff] text-white font-semibold text-sm tracking-wide active:scale-[0.98] transition-all"
+          style={{ boxShadow: '0 10px 20px rgba(99, 91, 255, 0.3)' }}
+        >
+          Get your club card for FREE
+        </button>
+      </motion.div>
     </div>
   );
 }
