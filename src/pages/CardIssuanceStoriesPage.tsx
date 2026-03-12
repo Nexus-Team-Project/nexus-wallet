@@ -28,14 +28,17 @@ const cardThemes: [string, string][] = [
   ['from-zinc-200 via-zinc-400 to-zinc-700', 'bg-black/10'],
 ];
 
-// ── Selectable card colors for Story 3 (Revolut-style) ───────────────────────
-const cardColors = [
-  { id: 'teal',   color: '#65D2AD', label: 'Mint' },
-  { id: 'yellow', color: '#FCD860', label: 'Gold' },
-  { id: 'coral',  color: '#EF7E8B', label: 'Coral' },
-  { id: 'purple', color: '#9885F0', label: 'Violet' },
-  { id: 'slate',  color: '#8CA6C0', label: 'Steel' },
-  { id: 'dark',   color: '#5E676F', label: 'Graphite' },
+// ── Swipeable card gallery for Story 3 (Revolut-style) ───────────────────────
+const CARD_WIDTH = 240;
+const CARD_GAP = 20;
+
+const cardGallery = [
+  { id: 'purple', color: '#9885F0', label: 'Violet',   lightText: false },
+  { id: 'coral',  color: '#EF7E8B', label: 'Coral',    lightText: false },
+  { id: 'teal',   color: '#65D2AD', label: 'Mint',     lightText: true },
+  { id: 'yellow', color: '#FCD860', label: 'Gold',     lightText: true },
+  { id: 'slate',  color: '#8CA6C0', label: 'Steel',    lightText: false },
+  { id: 'dark',   color: '#5E676F', label: 'Graphite', lightText: false },
 ];
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -343,151 +346,184 @@ function Story2ValueProposition() {
 //  STORY 3 — CARD SELECTION
 // ═══════════════════════════════════════════════════════════════════════════════
 
+function CardFace({ card, scale = 1 }: { card: typeof cardGallery[number]; scale?: number }) {
+  const light = card.lightText;
+  const textCls = light ? 'text-gray-900' : 'text-white';
+
+  return (
+    <div
+      className="relative rounded-3xl flex flex-col items-center justify-between p-7 select-none"
+      style={{
+        width: CARD_WIDTH * scale,
+        aspectRatio: '1 / 1.58',
+        backgroundColor: card.color,
+        boxShadow: '0 20px 50px rgba(0, 0, 0, 0.12)',
+      }}
+    >
+      {/* Top — vertical branding */}
+      <div className="w-full flex justify-end">
+        <span
+          className={`text-3xl font-bold tracking-tight ${textCls} ${light ? 'opacity-70' : 'opacity-90'}`}
+          style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}
+        >
+          Nexus
+        </span>
+      </div>
+
+      {/* Bottom — MC logo + label */}
+      <div className="w-full flex justify-between items-end">
+        <div className="relative w-10 h-7">
+          <div className={`absolute left-0 w-7 h-7 rounded-full bg-[#EB001B] ${light ? 'opacity-70' : 'opacity-80'}`} />
+          <div className={`absolute right-0 w-7 h-7 rounded-full bg-[#F79E1B] ${light ? 'opacity-70' : 'opacity-80'}`} />
+        </div>
+        <span
+          className={`text-xs font-bold uppercase tracking-widest ${textCls} ${light ? 'opacity-50' : 'opacity-80'}`}
+          style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}
+        >
+          Virtual
+        </span>
+      </div>
+
+      {/* Ghosted card number */}
+      <div className="absolute inset-0 flex items-center justify-center pointer-events-none" style={{ opacity: 0.08 }}>
+        <span className="text-sm font-mono tracking-tighter text-black" style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}>
+          **** **** **** 0842
+        </span>
+      </div>
+
+      {/* Sheen */}
+      <div
+        className="absolute inset-0 rounded-3xl pointer-events-none"
+        style={{ background: 'linear-gradient(135deg, rgba(255,255,255,0.22) 0%, transparent 50%, rgba(255,255,255,0.06) 100%)' }}
+      />
+    </div>
+  );
+}
+
 function Story3CardSelection({ onContinue }: { onContinue: () => void }) {
-  const [selected, setSelected] = useState('purple');
+  const [activeIdx, setActiveIdx] = useState(0);
+  const dragX = useRef(0);
+  const containerRef = useRef<HTMLDivElement>(null);
 
-  const activeColor = cardColors.find((c) => c.id === selected) ?? cardColors[3];
+  const totalCards = cardGallery.length;
+  const slideWidth = CARD_WIDTH + CARD_GAP;
 
-  // Determine if card color is light (needs dark text)
-  const isLightCard = ['yellow', 'teal'].includes(selected);
-  const textClass = isLightCard ? 'text-gray-900' : 'text-white';
-  const textOpacity = isLightCard ? 'opacity-70' : 'opacity-90';
-  const textSubOpacity = isLightCard ? 'opacity-50' : 'opacity-80';
-  const mcRedOpacity = isLightCard ? 'opacity-70' : 'opacity-80';
+  const snapTo = (idx: number) => {
+    setActiveIdx(Math.max(0, Math.min(idx, totalCards - 1)));
+  };
+
+  const handleDragEnd = (_: unknown, info: { offset: { x: number }; velocity: { x: number } }) => {
+    const swipe = info.offset.x + info.velocity.x * 0.3;
+    if (swipe < -50) {
+      snapTo(activeIdx + 1);
+    } else if (swipe > 50) {
+      snapTo(activeIdx - 1);
+    }
+  };
+
+  const activeCard = cardGallery[activeIdx];
 
   return (
     <div className="h-full w-full flex flex-col bg-white text-gray-900">
-      {/* Main content — centered */}
-      <div className="flex-1 flex flex-col items-center justify-center px-8 relative overflow-visible">
+      {/* Main content — vertically centered */}
+      <div className="flex-1 flex flex-col items-center justify-center relative overflow-hidden">
 
-        {/* Card preview — portrait Revolut-style */}
+        {/* Swipeable card carousel */}
         <motion.div
-          initial={{ opacity: 0, scale: 0.9, y: 20 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          transition={{ duration: 0.6, ease: 'easeOut' }}
-          className="relative"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+          ref={containerRef}
+          className="relative w-full"
+          style={{ height: CARD_WIDTH * 1.58 + 20 }}
         >
-          {/* Hint of next card (peeking from right) */}
-          <div
-            className="absolute -right-16 top-8 w-20 rounded-l-2xl"
+          <motion.div
+            drag="x"
+            dragConstraints={{ left: 0, right: 0 }}
+            dragElastic={0.15}
+            onDragEnd={handleDragEnd}
+            animate={{ x: -activeIdx * slideWidth }}
+            transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+            className="absolute flex items-center"
             style={{
-              aspectRatio: '1 / 1.58',
-              backgroundColor: cardColors[(cardColors.findIndex(c => c.id === selected) + 1) % cardColors.length].color,
-              opacity: 0.45,
+              left: '50%',
+              marginLeft: -(CARD_WIDTH / 2),
+              gap: CARD_GAP,
+              touchAction: 'pan-y',
+              cursor: 'grab',
             }}
-          />
-
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={activeColor.id}
-              initial={{ opacity: 0, scale: 0.96 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.96 }}
-              transition={{ duration: 0.35 }}
-              className="relative w-[240px] rounded-3xl flex flex-col items-center justify-between p-7 transition-colors duration-500"
-              style={{
-                aspectRatio: '1 / 1.58',
-                backgroundColor: activeColor.color,
-                boxShadow: '0 20px 50px rgba(0, 0, 0, 0.12)',
-              }}
-            >
-              {/* Top — vertical branding */}
-              <div className="w-full flex justify-end">
-                <span
-                  className={`text-3xl font-bold tracking-tight ${textClass} ${textOpacity}`}
-                  style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}
+          >
+            {cardGallery.map((card, i) => {
+              const isActive = i === activeIdx;
+              return (
+                <motion.div
+                  key={card.id}
+                  animate={{
+                    scale: isActive ? 1 : 0.88,
+                    opacity: isActive ? 1 : 0.5,
+                  }}
+                  transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                  className="shrink-0"
+                  style={{ width: CARD_WIDTH }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (!isActive) snapTo(i);
+                  }}
                 >
-                  Nexus
-                </span>
-              </div>
-
-              {/* Bottom — MC logo + card label */}
-              <div className="w-full flex justify-between items-end">
-                {/* Mastercard circles */}
-                <div className="relative w-10 h-7">
-                  <div className={`absolute left-0 w-7 h-7 rounded-full bg-[#EB001B] ${mcRedOpacity}`} />
-                  <div className={`absolute right-0 w-7 h-7 rounded-full bg-[#F79E1B] ${mcRedOpacity}`} />
-                </div>
-                {/* Card type label */}
-                <span
-                  className={`text-xs font-bold uppercase tracking-widest ${textClass} ${textSubOpacity}`}
-                  style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}
-                >
-                  Virtual
-                </span>
-              </div>
-
-              {/* Ghosted card details overlay */}
-              <div
-                className="absolute inset-0 flex items-center justify-center pointer-events-none"
-                style={{ opacity: 0.08 }}
-              >
-                <span
-                  className="text-sm font-mono tracking-tighter text-black"
-                  style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}
-                >
-                  **** **** **** 0842
-                </span>
-              </div>
-
-              {/* Sheen highlight */}
-              <div
-                className="absolute inset-0 rounded-3xl pointer-events-none"
-                style={{
-                  background: 'linear-gradient(135deg, rgba(255,255,255,0.2) 0%, transparent 50%, rgba(255,255,255,0.05) 100%)',
-                }}
-              />
-            </motion.div>
-          </AnimatePresence>
+                  <CardFace card={card} />
+                </motion.div>
+              );
+            })}
+          </motion.div>
         </motion.div>
 
-        {/* Card type + description */}
+        {/* Card name + description */}
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3, duration: 0.5 }}
-          className="mt-8 text-center"
+          className="mt-6 text-center px-8"
         >
-          <h1 className="text-xl font-bold text-gray-900">Virtual</h1>
+          <AnimatePresence mode="wait">
+            <motion.h1
+              key={activeCard.id}
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+              transition={{ duration: 0.2 }}
+              className="text-xl font-bold text-gray-900"
+            >
+              {activeCard.label}
+            </motion.h1>
+          </AnimatePresence>
           <p className="mt-3 text-gray-500 text-sm leading-relaxed max-w-[280px] mx-auto">
             Instantly create your virtual club card to unlock benefits, manage spending, and start using it right away.
           </p>
         </motion.div>
 
-        {/* Color picker */}
+        {/* Dot indicators */}
         <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.45, duration: 0.4 }}
-          className="mt-8 flex items-center justify-center gap-3 overflow-x-auto no-scrollbar px-4"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.45 }}
+          className="mt-6 flex items-center justify-center gap-2"
         >
-          {cardColors.map((c) => {
-            const isActive = c.id === selected;
-            return (
-              <button
-                key={c.id}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setSelected(c.id);
-                }}
-                className="shrink-0 focus:outline-none"
-              >
-                {isActive ? (
-                  <div className="flex items-center justify-center p-1 rounded-full border-2 border-gray-200">
-                    <div
-                      className="w-9 h-9 rounded-full"
-                      style={{ backgroundColor: c.color }}
-                    />
-                  </div>
-                ) : (
-                  <div
-                    className="w-9 h-9 rounded-full border-2 border-transparent transition-transform hover:scale-110"
-                    style={{ backgroundColor: c.color }}
-                  />
-                )}
-              </button>
-            );
-          })}
+          {cardGallery.map((c, i) => (
+            <button
+              key={c.id}
+              onClick={(e) => {
+                e.stopPropagation();
+                snapTo(i);
+              }}
+              className="transition-all duration-300"
+              style={{
+                width: i === activeIdx ? 24 : 8,
+                height: 8,
+                borderRadius: 4,
+                backgroundColor: i === activeIdx ? c.color : '#e5e7eb',
+              }}
+            />
+          ))}
         </motion.div>
       </div>
 
