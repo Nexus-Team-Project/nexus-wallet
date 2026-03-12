@@ -402,7 +402,6 @@ function CardFace({ card, scale = 1 }: { card: typeof cardGallery[number]; scale
 
 function Story3CardSelection({ onContinue }: { onContinue: () => void }) {
   const [activeIdx, setActiveIdx] = useState(0);
-  const dragX = useRef(0);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const totalCards = cardGallery.length;
