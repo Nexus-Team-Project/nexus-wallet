@@ -28,17 +28,43 @@ const cardThemes: [string, string][] = [
   ['from-zinc-200 via-zinc-400 to-zinc-700', 'bg-black/10'],
 ];
 
-// ── Swipeable card gallery for Story 3 (Revolut-style) ───────────────────────
-const CARD_WIDTH = 240;
-const CARD_GAP = 20;
+// ── Card types for Story 3 deck carousel ─────────────────────────────────────
+const CARD_W = 220;
+const CARD_H = Math.round(CARD_W * 1.58);
 
-const cardGallery = [
-  { id: 'purple', color: '#9885F0', label: 'Violet',   lightText: false },
-  { id: 'coral',  color: '#EF7E8B', label: 'Coral',    lightText: false },
-  { id: 'teal',   color: '#65D2AD', label: 'Mint',     lightText: true },
-  { id: 'yellow', color: '#FCD860', label: 'Gold',     lightText: true },
-  { id: 'slate',  color: '#8CA6C0', label: 'Steel',    lightText: false },
-  { id: 'dark',   color: '#5E676F', label: 'Graphite', lightText: false },
+const cardTypes = [
+  {
+    id: 'virtual',
+    color: '#9885F0',
+    label: 'Virtual',
+    subtitle: 'Instant digital card for online payments',
+    lightText: false,
+    badge: 'FREE',
+  },
+  {
+    id: 'classic',
+    color: '#5E676F',
+    label: 'Classic',
+    subtitle: 'Physical card delivered to your door',
+    lightText: false,
+    badge: null,
+  },
+  {
+    id: 'gold',
+    color: '#FCD860',
+    label: 'Gold',
+    subtitle: 'Premium benefits & higher limits',
+    lightText: true,
+    badge: 'POPULAR',
+  },
+  {
+    id: 'platinum',
+    color: '#2D2D3A',
+    label: 'Platinum',
+    subtitle: 'Exclusive perks, priority support & lounge access',
+    lightText: false,
+    badge: null,
+  },
 ];
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -346,46 +372,56 @@ function Story2ValueProposition() {
 //  STORY 3 — CARD SELECTION
 // ═══════════════════════════════════════════════════════════════════════════════
 
-function CardFace({ card, scale = 1 }: { card: typeof cardGallery[number]; scale?: number }) {
+/** Single card face used in the deck carousel */
+function DeckCard({ card }: { card: typeof cardTypes[number] }) {
   const light = card.lightText;
-  const textCls = light ? 'text-gray-900' : 'text-white';
+  const txt = light ? 'text-gray-900' : 'text-white';
 
   return (
     <div
-      className="relative rounded-3xl flex flex-col items-center justify-between p-7 select-none"
+      className="relative rounded-3xl flex flex-col items-center justify-between p-6 select-none"
       style={{
-        width: CARD_WIDTH * scale,
-        aspectRatio: '1 / 1.58',
+        width: CARD_W,
+        height: CARD_H,
         backgroundColor: card.color,
-        boxShadow: '0 20px 50px rgba(0, 0, 0, 0.12)',
+        boxShadow: '0 24px 48px rgba(0,0,0,0.18)',
       }}
     >
       {/* Top — vertical branding */}
-      <div className="w-full flex justify-end">
+      <div className="w-full flex justify-between items-start">
+        {card.badge && (
+          <span
+            className={`text-[9px] font-bold tracking-wider px-2 py-0.5 rounded-full ${
+              light ? 'bg-gray-900/10 text-gray-900' : 'bg-white/20 text-white'
+            }`}
+          >
+            {card.badge}
+          </span>
+        )}
         <span
-          className={`text-3xl font-bold tracking-tight ${textCls} ${light ? 'opacity-70' : 'opacity-90'}`}
+          className={`text-3xl font-bold tracking-tight ${txt} ${light ? 'opacity-70' : 'opacity-90'} ml-auto`}
           style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}
         >
           Nexus
         </span>
       </div>
 
-      {/* Bottom — MC logo + label */}
+      {/* Bottom — MC logo + card type */}
       <div className="w-full flex justify-between items-end">
         <div className="relative w-10 h-7">
           <div className={`absolute left-0 w-7 h-7 rounded-full bg-[#EB001B] ${light ? 'opacity-70' : 'opacity-80'}`} />
           <div className={`absolute right-0 w-7 h-7 rounded-full bg-[#F79E1B] ${light ? 'opacity-70' : 'opacity-80'}`} />
         </div>
         <span
-          className={`text-xs font-bold uppercase tracking-widest ${textCls} ${light ? 'opacity-50' : 'opacity-80'}`}
+          className={`text-xs font-bold uppercase tracking-widest ${txt} ${light ? 'opacity-50' : 'opacity-80'}`}
           style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}
         >
-          Virtual
+          {card.label}
         </span>
       </div>
 
       {/* Ghosted card number */}
-      <div className="absolute inset-0 flex items-center justify-center pointer-events-none" style={{ opacity: 0.08 }}>
+      <div className="absolute inset-0 flex items-center justify-center pointer-events-none" style={{ opacity: 0.07 }}>
         <span className="text-sm font-mono tracking-tighter text-black" style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}>
           **** **** **** 0842
         </span>
@@ -394,7 +430,7 @@ function CardFace({ card, scale = 1 }: { card: typeof cardGallery[number]; scale
       {/* Sheen */}
       <div
         className="absolute inset-0 rounded-3xl pointer-events-none"
-        style={{ background: 'linear-gradient(135deg, rgba(255,255,255,0.22) 0%, transparent 50%, rgba(255,255,255,0.06) 100%)' }}
+        style={{ background: 'linear-gradient(135deg, rgba(255,255,255,0.25) 0%, transparent 50%, rgba(255,255,255,0.05) 100%)' }}
       />
     </div>
   );
@@ -402,102 +438,136 @@ function CardFace({ card, scale = 1 }: { card: typeof cardGallery[number]; scale
 
 function Story3CardSelection({ onContinue }: { onContinue: () => void }) {
   const [activeIdx, setActiveIdx] = useState(0);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const startX = useRef(0);
+  const dragging = useRef(false);
 
-  const totalCards = cardGallery.length;
-  const slideWidth = CARD_WIDTH + CARD_GAP;
+  const total = cardTypes.length;
 
-  const snapTo = (idx: number) => {
-    setActiveIdx(Math.max(0, Math.min(idx, totalCards - 1)));
+  const goTo = (idx: number) => {
+    setActiveIdx(Math.max(0, Math.min(idx, total - 1)));
   };
 
-  const handleDragEnd = (_: unknown, info: { offset: { x: number }; velocity: { x: number } }) => {
-    const swipe = info.offset.x + info.velocity.x * 0.3;
-    if (swipe < -50) {
-      snapTo(activeIdx + 1);
-    } else if (swipe > 50) {
-      snapTo(activeIdx - 1);
+  // Touch / pointer handlers for swipe
+  const onPointerDown = (e: React.PointerEvent) => {
+    startX.current = e.clientX;
+    dragging.current = true;
+  };
+  const onPointerUp = (e: React.PointerEvent) => {
+    if (!dragging.current) return;
+    dragging.current = false;
+    const diff = e.clientX - startX.current;
+    if (diff < -40) goTo(activeIdx + 1);
+    else if (diff > 40) goTo(activeIdx - 1);
+  };
+
+  const active = cardTypes[activeIdx];
+
+  /**
+   * 3D deck layout: each card is positioned absolutely in the center,
+   * then translated on X and rotated on Y based on its offset from activeIdx.
+   * The active card faces forward (rotateY=0), side cards rotate ±55°.
+   */
+  const getCardStyle = (i: number) => {
+    const offset = i - activeIdx; // -2, -1, 0, 1, 2 …
+    const absOff = Math.abs(offset);
+
+    // Clamp offsets beyond ±2 out of sight
+    if (absOff > 2) {
+      return { opacity: 0, zIndex: 0, transform: 'translateX(0) rotateY(90deg) scale(0.7)' };
     }
-  };
 
-  const activeCard = cardGallery[activeIdx];
+    const rotateY = offset * 55;           // degrees
+    const translateX = offset * 80;        // px — spread cards apart
+    const translateZ = -absOff * 120;      // push side cards back
+    const scale = 1 - absOff * 0.12;       // shrink side cards slightly
+    const opacity = absOff === 0 ? 1 : absOff === 1 ? 0.55 : 0.3;
+    const zIndex = 10 - absOff;
+
+    return {
+      opacity,
+      zIndex,
+      transform: `translateX(${translateX}px) translateZ(${translateZ}px) rotateY(${rotateY}deg) scale(${scale})`,
+    };
+  };
 
   return (
     <div className="h-full w-full flex flex-col bg-white text-gray-900">
-      {/* Main content — vertically centered */}
       <div className="flex-1 flex flex-col items-center justify-center relative overflow-hidden">
 
-        {/* Swipeable card carousel */}
+        {/* 3D Deck carousel */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 24 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          ref={containerRef}
-          className="relative w-full"
-          style={{ height: CARD_WIDTH * 1.58 + 20 }}
+          transition={{ duration: 0.6, ease: 'easeOut' }}
+          className="relative"
+          style={{
+            width: CARD_W + 200,
+            height: CARD_H + 20,
+            perspective: 1000,
+            touchAction: 'pan-y',
+          }}
+          onPointerDown={onPointerDown}
+          onPointerUp={onPointerUp}
         >
-          <motion.div
-            drag="x"
-            dragConstraints={{ left: 0, right: 0 }}
-            dragElastic={0.15}
-            onDragEnd={handleDragEnd}
-            animate={{ x: -activeIdx * slideWidth }}
-            transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-            className="absolute flex items-center"
-            style={{
-              left: '50%',
-              marginLeft: -(CARD_WIDTH / 2),
-              gap: CARD_GAP,
-              touchAction: 'pan-y',
-              cursor: 'grab',
-            }}
-          >
-            {cardGallery.map((card, i) => {
-              const isActive = i === activeIdx;
-              return (
+          {cardTypes.map((card, i) => {
+            const s = getCardStyle(i);
+            return (
+              <motion.div
+                key={card.id}
+                animate={{
+                  opacity: s.opacity,
+                  zIndex: s.zIndex,
+                }}
+                transition={{ type: 'spring', stiffness: 260, damping: 26 }}
+                className="absolute"
+                style={{
+                  width: CARD_W,
+                  height: CARD_H,
+                  left: '50%',
+                  top: '50%',
+                  marginLeft: -(CARD_W / 2),
+                  marginTop: -(CARD_H / 2),
+                  transformStyle: 'preserve-3d',
+                  cursor: i !== activeIdx ? 'pointer' : 'grab',
+                }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (i !== activeIdx) goTo(i);
+                }}
+              >
                 <motion.div
-                  key={card.id}
-                  animate={{
-                    scale: isActive ? 1 : 0.88,
-                    opacity: isActive ? 1 : 0.5,
-                  }}
-                  transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-                  className="shrink-0"
-                  style={{ width: CARD_WIDTH }}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (!isActive) snapTo(i);
-                  }}
+                  animate={{ transform: s.transform }}
+                  transition={{ type: 'spring', stiffness: 260, damping: 26 }}
+                  style={{ transformStyle: 'preserve-3d' }}
                 >
-                  <CardFace card={card} />
+                  <DeckCard card={card} />
                 </motion.div>
-              );
-            })}
-          </motion.div>
+              </motion.div>
+            );
+          })}
         </motion.div>
 
-        {/* Card name + description */}
+        {/* Card type name + subtitle */}
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3, duration: 0.5 }}
-          className="mt-6 text-center px-8"
+          className="mt-4 text-center px-8"
         >
           <AnimatePresence mode="wait">
-            <motion.h1
-              key={activeCard.id}
-              initial={{ opacity: 0, y: 6 }}
+            <motion.div
+              key={active.id}
+              initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -6 }}
-              transition={{ duration: 0.2 }}
-              className="text-xl font-bold text-gray-900"
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.22 }}
             >
-              {activeCard.label}
-            </motion.h1>
+              <h1 className="text-xl font-bold text-gray-900">{active.label}</h1>
+              <p className="mt-2 text-gray-500 text-sm leading-relaxed max-w-[280px] mx-auto">
+                {active.subtitle}
+              </p>
+            </motion.div>
           </AnimatePresence>
-          <p className="mt-3 text-gray-500 text-sm leading-relaxed max-w-[280px] mx-auto">
-            Instantly create your virtual club card to unlock benefits, manage spending, and start using it right away.
-          </p>
         </motion.div>
 
         {/* Dot indicators */}
@@ -505,14 +575,14 @@ function Story3CardSelection({ onContinue }: { onContinue: () => void }) {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.45 }}
-          className="mt-6 flex items-center justify-center gap-2"
+          className="mt-5 flex items-center justify-center gap-2"
         >
-          {cardGallery.map((c, i) => (
+          {cardTypes.map((c, i) => (
             <button
               key={c.id}
               onClick={(e) => {
                 e.stopPropagation();
-                snapTo(i);
+                goTo(i);
               }}
               className="transition-all duration-300"
               style={{
