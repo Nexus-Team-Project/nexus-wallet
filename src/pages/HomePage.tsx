@@ -7,6 +7,7 @@ import TopStores from '../components/home/TopStores';
 import NearYou from '../components/home/NearYou';
 import ReferralBanner from '../components/home/ReferralBanner';
 import TenantOffers from '../components/home/TenantOffers';
+import BalanceCard from '../components/home/BalanceCard';
 import {
   PopularSlider,
   RecommendedSlider,
@@ -35,7 +36,6 @@ export default function HomePage() {
   return (
     <div className="animate-fade-in">
       <HeroBanner />
-      <CardIssuanceBanner />
       <BrandSlider />
 
       {/* הזמנות חוזרות */}
@@ -57,6 +57,14 @@ export default function HomePage() {
 
       {/* קרוב אליך */}
       <NearYou />
+
+      {/* באנר כרטיס אשראי — מעל הסליידרים */}
+      <CardIssuanceBanner />
+
+      {/* באנר יתרה */}
+      <section className="px-5 mb-6">
+        <BalanceCard />
+      </section>
 
       {/* מומלץ */}
       <RecommendedSlider onSelectFilter={handleSelectFilter} />
