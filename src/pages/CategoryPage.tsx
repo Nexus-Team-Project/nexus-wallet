@@ -32,7 +32,7 @@ const CATEGORY_TO_BIZ: Record<VoucherCategory, string[]> = {
 export default function CategoryPage() {
   const { categoryId: rawCategoryId } = useParams<{ categoryId: string }>();
   const categoryId = (rawCategoryId || 'food') as VoucherCategory;
-  const { language } = useLanguage();
+  useLanguage();
 
   const { data: allVouchers } = useVouchers();
 

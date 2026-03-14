@@ -28,7 +28,7 @@ export default function CategoryFilterSheet({
   filters,
   onApply,
   categoryId,
-  resultCount,
+  resultCount: _resultCount,
 }: CategoryFilterSheetProps) {
   const { t, language } = useLanguage();
   const isHe = language === 'he';
