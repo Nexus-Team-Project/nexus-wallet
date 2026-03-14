@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import TopBar from './TopBar';
 import FloatingActions from './FloatingActions';
-import PopularRetailers from '../home/PopularRetailers';
+import CategoryRow from '../home/CategoryRow';
 import ProfileNudgeBanner from '../profile/ProfileNudgeBanner';
 
 const COLLAPSE_THRESHOLD = 40;
@@ -46,7 +46,7 @@ export default function AppLayout() {
           <TopBar collapsed={collapsed} />
           {isHome && (
             <div className="overflow-hidden">
-              <PopularRetailers collapsed={collapsed} />
+              <CategoryRow collapsed={collapsed} />
             </div>
           )}
         </div>

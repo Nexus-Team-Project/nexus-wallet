@@ -15,6 +15,19 @@ const categoryBg: Record<string, string> = {
   'Supermarket': 'bg-green-50',
 };
 
+// Map business category → VoucherCategory for navigation
+const bizToCategory: Record<string, string> = {
+  'Fast Food': 'food',
+  'Fashion': 'shopping',
+  'Entertainment': 'entertainment',
+  'Cafe': 'food',
+  'Hotels': 'travel',
+  'Health & Beauty': 'health',
+  'Electronics': 'tech',
+  'Fitness': 'health',
+  'Supermarket': 'food',
+};
+
 function getUniqueCategories() {
   const seen = new Set<string>();
   return mockBusinesses.filter((b) => {
@@ -24,11 +37,11 @@ function getUniqueCategories() {
   });
 }
 
-interface PopularRetailersProps {
+interface CategoryRowProps {
   collapsed?: boolean;
 }
 
-export default function PopularRetailers({ collapsed = false }: PopularRetailersProps) {
+export default function CategoryRow({ collapsed = false }: CategoryRowProps) {
   const { language } = useLanguage();
   const { lang = 'he' } = useParams();
   const navigate = useNavigate();
@@ -52,7 +65,7 @@ export default function PopularRetailers({ collapsed = false }: PopularRetailers
         {categories.map((biz) => (
           <button
             key={biz.category}
-            onClick={() => navigate(`/${lang}/store`)}
+            onClick={() => navigate(`/${lang}/category/${bizToCategory[biz.category] || 'food'}`)}
             className="flex flex-col items-center gap-2 shrink-0 active:scale-95 transition-transform duration-100"
           >
             <div
@@ -79,7 +92,7 @@ export default function PopularRetailers({ collapsed = false }: PopularRetailers
         {categories.map((biz) => (
           <button
             key={biz.category}
-            onClick={() => navigate(`/${lang}/store`)}
+            onClick={() => navigate(`/${lang}/category/${bizToCategory[biz.category] || 'food'}`)}
             className={`flex items-center gap-2 shrink-0 px-3 py-1.5 rounded-full border border-border/60 shadow-sm active:scale-95 transition-transform duration-100 ${categoryBg[biz.category] || 'bg-surface'}`}
           >
             <span className="text-base leading-none">{biz.logo}</span>
