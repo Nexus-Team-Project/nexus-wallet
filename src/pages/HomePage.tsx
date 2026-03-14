@@ -1,7 +1,7 @@
 import { useNavigate, useParams } from 'react-router-dom';
 import HeroBanner from '../components/home/HeroBanner';
-import HomeCategoryRow from '../components/home/HomeCategoryRow';
 import CardIssuanceBanner from '../components/home/CardIssuanceBanner';
+import BrandSlider from '../components/home/BrandSlider';
 import ActiveOffers from '../components/home/ActiveOffers';
 import TopStores from '../components/home/TopStores';
 import NearYou from '../components/home/NearYou';
@@ -36,7 +36,7 @@ export default function HomePage() {
   return (
     <div className="animate-fade-in">
       <HeroBanner />
-      <HomeCategoryRow />
+      <BrandSlider />
 
       {/* הזמנות חוזרות */}
       <TopStores />
