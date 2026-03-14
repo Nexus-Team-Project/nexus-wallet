@@ -25,6 +25,7 @@ const InsightsPage       = lazy(() => import('../pages/InsightsPage'));
 const StoriesPage        = lazy(() => import('../pages/StoriesPage'));
 const ReferralStoriesPage = lazy(() => import('../pages/ReferralStoriesPage'));
 const PremiumRevealPage  = lazy(() => import('../pages/PremiumRevealPage'));
+const CategoryPage       = lazy(() => import('../pages/CategoryPage'));
 
 // Registration flow — single chunk (user goes through all slides sequentially)
 const RegisterMembershipPage   = lazy(() => import('../pages/RegisterMembershipPage'));
@@ -103,6 +104,7 @@ export const router = createBrowserRouter([
       { path: 'referral-stories', element: <S><ReferralStoriesPage /></S> },
       { path: 'premium-reveal',   element: <S><PremiumRevealPage /></S> },
       { path: 'card-issuance',    element: <S><CardIssuanceStoriesPage /></S> },
+      { path: 'category/:categoryId', element: <S><CategoryPage /></S> },
 
       // Registration flow
       {
