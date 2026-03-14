@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useLanguage } from '../i18n/LanguageContext';
+import { useTenantStore } from '../stores/tenantStore';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // CARD ISSUANCE ONBOARDING — 3-story flow
@@ -36,34 +38,46 @@ const cardTypes = [
   {
     id: 'virtual',
     color: '#9885F0',
-    label: 'Virtual',
-    subtitle: 'Instant digital card for online payments',
+    label: 'וירטואלי',
+    labelEn: 'Virtual',
+    subtitle: 'כרטיס דיגיטלי מיידי לתשלומים אונליין',
+    subtitleEn: 'Instant digital card for online payments',
     lightText: false,
-    badge: 'FREE',
+    badge: 'חינם',
+    badgeEn: 'FREE',
   },
   {
     id: 'classic',
     color: '#5E676F',
-    label: 'Classic',
-    subtitle: 'Physical card delivered to your door',
+    label: 'קלאסי',
+    labelEn: 'Classic',
+    subtitle: 'כרטיס פיזי ישירות עד אליך',
+    subtitleEn: 'Physical card delivered to your door',
     lightText: false,
     badge: null,
+    badgeEn: null,
   },
   {
     id: 'gold',
     color: '#FCD860',
-    label: 'Gold',
-    subtitle: 'Premium benefits & higher limits',
+    label: 'זהב',
+    labelEn: 'Gold',
+    subtitle: 'הטבות פרימיום ומסגרת גבוהה יותר',
+    subtitleEn: 'Premium benefits & higher limits',
     lightText: true,
-    badge: 'POPULAR',
+    badge: 'פופולרי',
+    badgeEn: 'POPULAR',
   },
   {
     id: 'platinum',
     color: '#2D2D3A',
-    label: 'Platinum',
-    subtitle: 'Exclusive perks, priority support & lounge access',
+    label: 'פלטינום',
+    labelEn: 'Platinum',
+    subtitle: 'הטבות בלעדיות, תמיכה מועדפת וכניסה ללאונג׳ים',
+    subtitleEn: 'Exclusive perks, priority support & lounge access',
     lightText: false,
     badge: null,
+    badgeEn: null,
   },
 ];
 
@@ -71,12 +85,12 @@ const cardTypes = [
 //  FLOATING CARD (orbit animation)
 // ═══════════════════════════════════════════════════════════════════════════════
 
-function NexusMark() {
+function NexusMark({ name }: { name: string }) {
   return (
     <div className="flex items-center gap-1.5">
       <div className="h-2 w-2 rounded-full bg-white/90" />
       <div className="text-[8px] font-semibold tracking-[0.22em] text-white/90 uppercase">
-        Nexus
+        {name}
       </div>
     </div>
   );
@@ -92,9 +106,11 @@ interface FloatingCardProps {
   theme: [string, string];
   tilt?: number;
   network?: string;
+  brandName: string;
+  isHe: boolean;
 }
 
-function FloatingCard({ index, total, radiusX, radiusY, duration, delay, theme, tilt = 0, network = 'VISA' }: FloatingCardProps) {
+function FloatingCard({ index, total, radiusX, radiusY, duration, delay, theme, tilt = 0, network = 'VISA', brandName, isHe }: FloatingCardProps) {
   const angle = (index / total) * Math.PI * 2;
   const x = Math.cos(angle) * radiusX;
   const y = Math.sin(angle) * radiusY;
@@ -122,9 +138,11 @@ function FloatingCard({ index, total, radiusX, radiusY, duration, delay, theme, 
           <div className="absolute left-0 top-0 h-full w-full bg-[radial-gradient(circle_at_20%_20%,rgba(255,255,255,0.35),transparent_35%),radial-gradient(circle_at_80%_70%,rgba(255,255,255,0.2),transparent_28%)]" />
         </div>
         <div className="relative z-10 flex h-full flex-col justify-between p-2.5">
-          <NexusMark />
+          <NexusMark name={brandName} />
           <div className="flex items-end justify-between">
-            <div className="text-[7px] uppercase tracking-[0.18em] text-white/60">Member</div>
+            <div className="text-[7px] uppercase tracking-[0.18em] text-white/60">
+              {isHe ? 'חבר' : 'Member'}
+            </div>
             <div className="text-[8px] font-semibold text-white/80">{network}</div>
           </div>
         </div>
@@ -137,7 +155,7 @@ function FloatingCard({ index, total, radiusX, radiusY, duration, delay, theme, 
 //  STORY 1 — PARTNER CARDS ORBIT SHOWCASE
 // ═══════════════════════════════════════════════════════════════════════════════
 
-function Story1CardsShowcase() {
+function Story1CardsShowcase({ isHe, brandName }: { isHe: boolean; brandName: string }) {
   const outerCards = useMemo(
     () =>
       Array.from({ length: 14 }, (_, i) => ({
@@ -172,7 +190,13 @@ function Story1CardsShowcase() {
     [],
   );
 
-  const words = useMemo(() => ['Discover', 'Premium', 'Partner', 'Cards'], []);
+  const words = useMemo(
+    () =>
+      isHe
+        ? ['גלה', 'פרימיום', 'שותפים', 'כרטיסים']
+        : ['Discover', 'Premium', 'Partner', 'Cards'],
+    [isHe],
+  );
   const [wordIdx, setWordIdx] = useState(0);
 
   useEffect(() => {
@@ -195,7 +219,7 @@ function Story1CardsShowcase() {
         transition={{ duration: 16, repeat: Infinity, ease: 'linear' }}
       >
         {outerCards.map((c) => (
-          <FloatingCard key={c.id} {...c} />
+          <FloatingCard key={c.id} {...c} brandName={brandName} isHe={isHe} />
         ))}
       </motion.div>
 
@@ -206,7 +230,7 @@ function Story1CardsShowcase() {
         transition={{ duration: 10, repeat: Infinity, ease: 'linear' }}
       >
         {innerCards.map((c) => (
-          <FloatingCard key={c.id} {...c} />
+          <FloatingCard key={c.id} {...c} brandName={brandName} isHe={isHe} />
         ))}
       </motion.div>
 
@@ -236,7 +260,9 @@ function Story1CardsShowcase() {
           transition={{ delay: 0.6 }}
           className="text-sm text-white/50 tracking-wide"
         >
-          A premium card experience built for your community
+          {isHe
+            ? 'חוויית כרטיס פרימיום שנבנתה עבור הקהילה שלך'
+            : 'A premium card experience built for your community'}
         </motion.p>
       </div>
     </div>
@@ -247,22 +273,38 @@ function Story1CardsShowcase() {
 //  STORY 2 — VALUE INSIDE THE CARD
 // ═══════════════════════════════════════════════════════════════════════════════
 
-const benefits = [
+const benefitsHe = [
+  { icon: 'account_balance_wallet', title: 'גמישות אשראי נוספת', desc: 'קו אשראי חוץ-בנקאי נוסף להוצאות יומיומיות' },
+  { icon: 'language', title: 'תנאים מועדפים בחו"ל', desc: 'חיוב מועדף ברכישות בינלאומיות ואונליין' },
+  { icon: 'currency_exchange', title: 'יתרונות במט"ח', desc: 'חיובים נדחים במט"ח ותנאי המרה משופרים' },
+  { icon: 'savings', title: 'קאשבק', desc: '2%–5% קאשבק אצל בתי עסק שותפים נבחרים' },
+];
+
+const benefitsEn = [
   { icon: 'account_balance_wallet', title: 'Extra credit flexibility', desc: 'An additional non-bank credit line for everyday spending' },
   { icon: 'language', title: 'Better terms abroad', desc: 'Preferred billing on international and online purchases' },
   { icon: 'currency_exchange', title: 'Foreign currency advantages', desc: 'Deferred foreign charges and better conversion terms' },
   { icon: 'savings', title: 'Cashback rewards', desc: '2%–5% cashback at selected partner merchants' },
 ];
 
-const faqItems = [
+const faqItemsHe = [
+  { q: 'מה אני מקבל עם הכרטיס?', a: 'קו אשראי נוסף, קאשבק אצל בתי עסק נבחרים, תנאים מועדפים לרכישות בינלאומיות ועוד — הכל בכרטיס אחד.' },
+  { q: 'מה ההבדל מהכרטיס הרגיל שלי?', a: 'זהו כרטיס מועדון ייעודי עם הטבות מותאמות לקהילה שלך, כולל אשראי חוץ-בנקאי ותנאי חיוב מועדפים.' },
+  { q: 'אפשר להשתמש בו בחו"ל ואונליין?', a: 'כן. הכרטיס תקף לרכישות בינלאומיות וקניות אונליין עם תנאים מועדפים בעסקאות מט"ח.' },
+  { q: 'כל ההטבות תמיד זמינות?', a: 'ההטבות כפופות לתנאי הסדר המועדון שלך. רוב ההטבות זמינות מיד עם הנפקת הכרטיס.' },
+];
+
+const faqItemsEn = [
   { q: 'What do I get with this card?', a: 'An additional credit line, cashback at selected merchants, preferred terms for international purchases, and more — all in one card.' },
   { q: 'How is this different from my regular card?', a: 'This is a dedicated club card with benefits tailored to your community, including non-bank credit and preferred billing terms.' },
   { q: 'Can I use it abroad and online?', a: 'Yes. The card works for international purchases and online shopping with preferential terms on foreign currency transactions.' },
   { q: 'Are all benefits always available?', a: 'Benefits are subject to the terms of your club arrangement. Most benefits are available immediately upon card issuance.' },
 ];
 
-function Story2ValueProposition() {
+function Story2ValueProposition({ isHe }: { isHe: boolean }) {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+  const benefits = isHe ? benefitsHe : benefitsEn;
+  const faqItems = isHe ? faqItemsHe : faqItemsEn;
 
   return (
     <div className="h-full w-full overflow-y-auto bg-white text-gray-900">
@@ -274,10 +316,12 @@ function Story2ValueProposition() {
           transition={{ duration: 0.5 }}
         >
           <h2 className="text-2xl font-bold leading-snug tracking-tight text-gray-900">
-            A card that gives you more
+            {isHe ? 'כרטיס שנותן לך יותר' : 'A card that gives you more'}
           </h2>
           <p className="mt-2 text-sm text-gray-500 leading-relaxed">
-            Unlock benefits designed to make everyday spending smarter and more rewarding.
+            {isHe
+              ? 'גלה הטבות שהופכות כל הוצאה לחכמה ומשתלמת יותר.'
+              : 'Unlock benefits designed to make everyday spending smarter and more rewarding.'}
           </p>
         </motion.div>
 
@@ -314,7 +358,9 @@ function Story2ValueProposition() {
           transition={{ delay: 0.7, duration: 0.45 }}
           className="mt-10"
         >
-          <h3 className="text-base font-bold text-gray-900 mb-3">Frequently asked questions</h3>
+          <h3 className="text-base font-bold text-gray-900 mb-3">
+            {isHe ? 'שאלות נפוצות' : 'Frequently asked questions'}
+          </h3>
           <div className="space-y-2">
             {faqItems.map((f, i) => (
               <div key={i} className="rounded-xl border border-gray-100 bg-gray-50 overflow-hidden">
@@ -361,7 +407,9 @@ function Story2ValueProposition() {
           transition={{ delay: 1 }}
           className="mt-8 text-[10px] text-gray-400 leading-relaxed text-center"
         >
-          Benefits, eligibility, and terms are subject to the organization's applicable arrangement and terms.
+          {isHe
+            ? 'ההטבות, הזכאות והתנאים כפופים להסדר ולתנאים החלים של הארגון.'
+            : 'Benefits, eligibility, and terms are subject to the organization\'s applicable arrangement and terms.'}
         </motion.p>
       </div>
     </div>
@@ -373,7 +421,7 @@ function Story2ValueProposition() {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 /** Single card face used in the deck carousel */
-function DeckCard({ card }: { card: typeof cardTypes[number] }) {
+function DeckCard({ card, brandName, isHe }: { card: typeof cardTypes[number]; brandName: string; isHe: boolean }) {
   const light = card.lightText;
   const txt = light ? 'text-gray-900' : 'text-white';
 
@@ -389,20 +437,20 @@ function DeckCard({ card }: { card: typeof cardTypes[number] }) {
     >
       {/* Top — vertical branding */}
       <div className="w-full flex justify-between items-start">
-        {card.badge && (
+        {(isHe ? card.badge : card.badgeEn) && (
           <span
             className={`text-[9px] font-bold tracking-wider px-2 py-0.5 rounded-full ${
               light ? 'bg-gray-900/10 text-gray-900' : 'bg-white/20 text-white'
             }`}
           >
-            {card.badge}
+            {isHe ? card.badge : card.badgeEn}
           </span>
         )}
         <span
           className={`text-3xl font-bold tracking-tight ${txt} ${light ? 'opacity-70' : 'opacity-90'} ml-auto`}
           style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}
         >
-          Nexus
+          {brandName}
         </span>
       </div>
 
@@ -416,7 +464,7 @@ function DeckCard({ card }: { card: typeof cardTypes[number] }) {
           className={`text-xs font-bold uppercase tracking-widest ${txt} ${light ? 'opacity-50' : 'opacity-80'}`}
           style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}
         >
-          {card.label}
+          {isHe ? card.label : card.labelEn}
         </span>
       </div>
 
@@ -436,7 +484,7 @@ function DeckCard({ card }: { card: typeof cardTypes[number] }) {
   );
 }
 
-function Story3CardSelection({ onContinue }: { onContinue: () => void }) {
+function Story3CardSelection({ onContinue, isHe, brandName }: { onContinue: () => void; isHe: boolean; brandName: string }) {
   const [activeIdx, setActiveIdx] = useState(0);
   const startX = useRef(0);
   const dragging = useRef(false);
@@ -540,7 +588,7 @@ function Story3CardSelection({ onContinue }: { onContinue: () => void }) {
                   transition={{ type: 'spring', stiffness: 260, damping: 26 }}
                   style={{ transformStyle: 'preserve-3d' }}
                 >
-                  <DeckCard card={card} />
+                  <DeckCard card={card} brandName={brandName} isHe={isHe} />
                 </motion.div>
               </motion.div>
             );
@@ -562,9 +610,11 @@ function Story3CardSelection({ onContinue }: { onContinue: () => void }) {
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.22 }}
             >
-              <h1 className="text-xl font-bold text-gray-900">{active.label}</h1>
+              <h1 className="text-xl font-bold text-gray-900">
+                {isHe ? active.label : active.labelEn}
+              </h1>
               <p className="mt-2 text-gray-500 text-sm leading-relaxed max-w-[280px] mx-auto">
-                {active.subtitle}
+                {isHe ? active.subtitle : active.subtitleEn}
               </p>
             </motion.div>
           </AnimatePresence>
@@ -611,7 +661,7 @@ function Story3CardSelection({ onContinue }: { onContinue: () => void }) {
           className="w-full py-4 rounded-full bg-[#635bff] text-white font-semibold text-sm tracking-wide active:scale-[0.98] transition-all"
           style={{ boxShadow: '0 10px 20px rgba(99, 91, 255, 0.3)' }}
         >
-          Get your club card for FREE
+          {isHe ? 'קבל את כרטיס המועדון שלך בחינם' : 'Get your club card for FREE'}
         </button>
       </motion.div>
     </div>
@@ -625,6 +675,11 @@ function Story3CardSelection({ onContinue }: { onContinue: () => void }) {
 export default function CardIssuanceStoriesPage() {
   const { lang = 'he' } = useParams();
   const navigate = useNavigate();
+  const { language } = useLanguage();
+  const isHe = language === 'he';
+  const tenantConfig = useTenantStore((s) => s.config);
+  const brandName = (isHe ? tenantConfig?.nameHe : null) || tenantConfig?.name || 'Nexus';
+
   const [currentStory, setCurrentStory] = useState(0);
   const [progress, setProgress] = useState(0);
   const timerRef = useRef<number | null>(null);
@@ -737,9 +792,9 @@ export default function CardIssuanceStoriesPage() {
             transition={{ duration: 0.3 }}
             className="absolute inset-0"
           >
-            {currentStory === 0 && <Story1CardsShowcase />}
-            {currentStory === 1 && <Story2ValueProposition />}
-            {currentStory === 2 && <Story3CardSelection onContinue={handleContinueToIssuance} />}
+            {currentStory === 0 && <Story1CardsShowcase isHe={isHe} brandName={brandName} />}
+            {currentStory === 1 && <Story2ValueProposition isHe={isHe} />}
+            {currentStory === 2 && <Story3CardSelection onContinue={handleContinueToIssuance} isHe={isHe} brandName={brandName} />}
           </motion.div>
         </AnimatePresence>
       </div>
