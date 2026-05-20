@@ -17,6 +17,10 @@ export default function FloatingActions() {
 
   const isHome = location.pathname === `/${lang}` || location.pathname === `/${lang}/`;
   const isWallet = location.pathname.includes('/wallet');
+  const isBusiness = /\/business\/[^/]+/.test(location.pathname);
+  const isVoucherPurchase = /\/business\/[^/]+\/voucher\//.test(location.pathname);
+
+  if (isBusiness || isVoucherPurchase) return null;
 
   const handleWallet = async () => {
     if (isAuthenticated) {

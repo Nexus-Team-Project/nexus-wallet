@@ -10,6 +10,16 @@ export interface Business {
   location: string;
   locationHe: string;
   hasVouchers: boolean;
+  description?: string;
+  descriptionHe?: string;
+  website?: string;
+  phone?: string;
+  whatsapp?: string;
+  logoUrl?: string;
+  heroImageUrl?: string;
+  heroImages?: string[];
+  products?: Product[];
+  services?: Service[];
 }
 
 export interface Product {

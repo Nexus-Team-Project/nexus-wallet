@@ -8,6 +8,7 @@ import { authTranslations } from './auth';
 import { registrationTranslations } from './registration';
 import { authFlowTranslations } from './authFlow';
 import { categoryTranslations } from './category';
+import { businessTranslations } from './business';
 import type { Translations } from '../types';
 
 const navTranslations = {
@@ -40,6 +41,7 @@ export const translations: Translations = {
     registration: registrationTranslations.en,
     authFlow: authFlowTranslations.en,
     category: categoryTranslations.en,
+    business: businessTranslations.en,
   },
   he: {
     common: commonTranslations.he,
@@ -53,5 +55,6 @@ export const translations: Translations = {
     registration: registrationTranslations.he,
     authFlow: authFlowTranslations.he,
     category: categoryTranslations.he,
+    business: businessTranslations.he,
   },
 };

@@ -43,6 +43,12 @@ export interface TranslationKeys {
     heroBannerTitle: string;
     heroBannerTitle2: string;
     heroBannerTitle3: string;
+    heroBannerTitleWallet: string;
+    heroBannerTitleInsights: string;
+    heroBannerInsightsSub: string;
+    heroBannerInsightsCta: string;
+    heroBannerTenantSub: string;
+    heroBannerTenantCta: string;
     heroBannerCta: string;
     popularRetailers: string;
     curatedForYou: string;
@@ -79,6 +85,10 @@ export interface TranslationKeys {
     mapDetailAvailableDeals: string;
     mapDetailViewStore: string;
     mapDetailNavigate: string;
+    addToHomeScreen: string;
+    addToHomeScreenSubtitle: string;
+    addToHomeScreenCta: string;
+    addToHomeScreenCancel: string;
   };
   store: {
     title: string;
@@ -132,6 +142,53 @@ export interface TranslationKeys {
     paymentApproved: string;
     paymentApprovedMsg: string;
     paymentDeclinedMsg: string;
+    // Balance & actions
+    yourBalance: string;
+    nexusBalance: string;
+    newBadge: string;
+    earnCashback: string;
+    addMoney: string;
+    payment: string;
+    issueCard: string;
+    payInStore: string;
+    more: string;
+    transfer: string;
+    request: string;
+    // Pay in store sheet
+    payInStoreTitle: string;
+    payInStoreSubtitle: string;
+    dontShareCode: string;
+    includesStacking: string;
+    excludesStacking: string;
+    moreInfo: string;
+    stackingExplanation: string;
+    maximizeCashback: string;
+    howItWorks: string;
+    // Add money flow
+    howMuch: string;
+    continueBtn: string;
+    canAddMore: string;
+    addMoneyTitle: string;
+    fromWhere: string;
+    mainCard: string;
+    processing: string;
+    addedSuccessfully: string;
+    addCard: string;
+    addCardDescription: string;
+    // More actions sheet
+    moreActionsTitle: string;
+    addPaymentMethod: string;
+    walletHistory: string;
+    moreActions: string;
+    // Voucher detail page
+    paymentTicket: string;
+    scanAtRegister: string;
+    receipt: string;
+    termsLabel: string;
+    statusLabel: string;
+    securePayment: string;
+    issuedOn: string;
+    filterVouchers: string;
   };
   activity: {
     title: string;
@@ -487,6 +544,47 @@ export interface TranslationKeys {
     highlightSubtitleTech: string;
     availableInStores: string;
     stores: string;
+  };
+  business: {
+    description: string;
+    openingHours: string;
+    locations: string;
+    offers: string;
+    products: string;
+    services: string;
+    openNow: string;
+    closedNow: string;
+    closesAt: string;
+    opensAt: string;
+    opensTomorrow: string;
+    temporarilyClosed: string;
+    alwaysOpen: string;
+    readMore: string;
+    readLess: string;
+    allOffers: string;
+    allProducts: string;
+    viewOnMap: string;
+    navigateTo: string;
+    share: string;
+    newBusiness: string;
+    reviews: string;
+    onlineAndInStore: string;
+    visitWebsite: string;
+    call: string;
+    stories: string;
+    buyInStore: string;
+    helpful: string;
+    showAllReviews: string;
+    branches: string;
+    payAt: string;
+    similarBusinesses: string;
+    sunday: string;
+    monday: string;
+    tuesday: string;
+    wednesday: string;
+    thursday: string;
+    friday: string;
+    saturday: string;
   };
 }
 

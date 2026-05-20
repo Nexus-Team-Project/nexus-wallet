@@ -1,6 +1,7 @@
 import type { ChatMessage as ChatMessageType } from '../../types/chat.types';
 import type { Voucher } from '../../types/voucher.types';
 import ProductCard from './ProductCard';
+import GaliAvatar from './GaliAvatar';
 
 interface ChatMessageProps {
   message: ChatMessageType;
@@ -15,13 +16,8 @@ export default function ChatMessage({ message, onSelectProduct, onSuggestionClic
     <div className={`flex gap-3 px-5 py-2 ${isUser ? 'flex-row-reverse' : 'flex-row'}`}>
       {/* Avatar */}
       {!isUser && (
-        <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 mt-1">
-          <span
-            className="material-symbols-outlined text-primary"
-            style={{ fontSize: '16px' }}
-          >
-            auto_awesome
-          </span>
+        <div className="flex-shrink-0 mt-1">
+          <GaliAvatar size={32} />
         </div>
       )}
 

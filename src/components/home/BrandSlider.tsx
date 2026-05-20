@@ -3,16 +3,18 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { mockBusinesses } from '../../mock/data/businesses.mock';
 
-const brandColors: Record<string, string> = {
-  'Fast Food': 'bg-orange-50 border-orange-200',
-  'Fashion': 'bg-pink-50 border-pink-200',
-  'Entertainment': 'bg-purple-50 border-purple-200',
-  'Cafe': 'bg-amber-50 border-amber-200',
-  'Hotels': 'bg-sky-50 border-sky-200',
-  'Health & Beauty': 'bg-emerald-50 border-emerald-200',
-  'Electronics': 'bg-blue-50 border-blue-200',
-  'Fitness': 'bg-lime-50 border-lime-200',
-  'Supermarket': 'bg-green-50 border-green-200',
+/** Circle background colors that match each brand's logo image background */
+const brandBgColors: Record<string, string> = {
+  biz_001: '#FFFFFF', // McDonald's – transparent
+  biz_002: '#000000', // Castro – black
+  biz_003: '#FFFFFF', // Cinema City – transparent
+  biz_004: '#000000', // Aroma – black
+  biz_005: '#274968', // Isrotel – dark blue
+  biz_006: '#FFFFFF', // Superpharm – white
+  biz_007: '#3478BE', // KSP – blue
+  biz_008: '#C44530', // Holmes Place – red
+  biz_009: '#FFFFFF', // Shufersal – white
+  biz_010: '#FFFFFF', // H&M – transparent
 };
 
 function ArrowBubble({ onNavigate }: { onNavigate: () => void }) {
@@ -78,13 +80,18 @@ export default function BrandSlider() {
         {mockBusinesses.map((biz) => (
           <button
             key={biz.id}
-            onClick={() => navigate(`/${lang}/store`)}
+            onClick={() => navigate(`/${lang}/business/${biz.id}`)}
             className="flex flex-col items-center gap-1.5 shrink-0 active:scale-95 transition-transform duration-100"
           >
             <div
-              className={`w-[60px] h-[60px] rounded-full flex items-center justify-center border-2 shadow-sm ${brandColors[biz.category] || 'bg-surface border-border'}`}
+              className="w-[60px] h-[60px] rounded-full overflow-hidden shadow-sm flex items-center justify-center"
+              style={{ backgroundColor: brandBgColors[biz.id] || '#FFFFFF' }}
             >
-              <span className="text-2xl">{biz.logo}</span>
+              {biz.logoUrl ? (
+                <img src={biz.logoUrl} alt={biz.name} className={biz.id === 'biz_007' ? 'w-full h-full object-cover' : 'w-[85%] h-[85%] object-contain'} />
+              ) : (
+                <span className="text-2xl">{biz.logo}</span>
+              )}
             </div>
             <span className="text-[10px] font-semibold text-text-primary leading-tight text-center max-w-[60px] line-clamp-1">
               {isHe ? biz.nameHe : biz.name}

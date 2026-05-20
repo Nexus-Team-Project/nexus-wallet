@@ -7,7 +7,7 @@ import type { Business, Product, Service } from '../../types/search.types';
 import type { Offer } from '../../types/offer.types';
 import type { Voucher } from '../../types/voucher.types';
 
-const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
 
 export interface SearchResults {
   vouchers: Voucher[];
@@ -18,7 +18,7 @@ export interface SearchResults {
 }
 
 export async function mockSearch(query: string): Promise<SearchResults> {
-  await delay(200);
+
 
   const q = query.toLowerCase().trim();
 
@@ -64,16 +64,16 @@ export async function mockSearch(query: string): Promise<SearchResults> {
 }
 
 export async function mockGetBusinesses(): Promise<Business[]> {
-  await delay(200);
+
   return [...mockBusinesses];
 }
 
 export async function mockGetProducts(): Promise<Product[]> {
-  await delay(200);
+
   return [...mockProducts];
 }
 
 export async function mockGetServices(): Promise<Service[]> {
-  await delay(200);
+
   return [...mockServices];
 }

@@ -70,17 +70,6 @@ function InfoTooltip({
   );
 }
 
-// ── Pastel backgrounds per voucher category ──
-const categoryColors: Record<string, string> = {
-  food: 'bg-orange-50',
-  shopping: 'bg-pink-50',
-  entertainment: 'bg-purple-50',
-  tech: 'bg-blue-50',
-  travel: 'bg-sky-50',
-  health: 'bg-emerald-50',
-  education: 'bg-amber-50',
-};
-
 const categoryGradients: Record<string, string> = {
   food: 'from-orange-400 to-orange-600',
   shopping: 'from-pink-400 to-pink-600',
@@ -89,17 +78,6 @@ const categoryGradients: Record<string, string> = {
   travel: 'from-sky-400 to-sky-600',
   health: 'from-emerald-400 to-emerald-600',
   education: 'from-amber-400 to-amber-600',
-};
-
-// Extra emojis per category to create multiple slides per card
-const categorySlides: Record<string, string[]> = {
-  food: ['🍔', '🍟', '🥤'],
-  shopping: ['👕', '👗', '👜'],
-  entertainment: ['🎬', '🍿', '🎭'],
-  tech: ['💻', '📱', '🎧'],
-  travel: ['🏨', '🏖️', '🌅'],
-  health: ['💊', '💄', '🧴'],
-  education: ['📚', '🎓', '📖'],
 };
 
 const categoryLabels: Record<string, { en: string; he: string }> = {
@@ -124,95 +102,49 @@ function OfferCard({
   onNavigate: () => void;
 }) {
   const v = scored.voucher;
-  const slideEmojis = categorySlides[v.category] || [v.image];
-  const hasMultipleSlides = slideEmojis.length > 1;
-  const [current, setCurrent] = useState(0);
-  const touchStartX = useRef(0);
-  const touchEndX = useRef(0);
-  const isSwiping = useRef(false);
-
-  const handleTouchStart = (e: React.TouchEvent) => {
-    touchStartX.current = e.touches[0].clientX;
-    touchEndX.current = e.touches[0].clientX;
-    isSwiping.current = false;
-  };
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    touchEndX.current = e.touches[0].clientX;
-    if (Math.abs(touchStartX.current - touchEndX.current) > 3) {
-      isSwiping.current = true;
-    }
-  };
-
-  const handleTouchEnd = () => {
-    const diff = touchStartX.current - touchEndX.current;
-    if (hasMultipleSlides && isSwiping.current && Math.abs(diff) > 20) {
-      if (diff > 0) {
-        setCurrent((prev) => (prev + 1) % slideEmojis.length);
-      } else {
-        setCurrent((prev) => (prev - 1 + slideEmojis.length) % slideEmojis.length);
-      }
-    } else if (!isSwiping.current) {
-      onNavigate();
-    }
-  };
-
   const catLabel = categoryLabels[v.category] || { en: v.category, he: v.category };
 
   return (
-    <div className="flex-none w-[75vw] max-w-[300px] bg-white border border-border rounded-lg shadow-sm overflow-hidden text-start snap-start active:scale-[0.97] transition-transform duration-150">
-      {/* Swipeable image area */}
+    <button
+      onClick={onNavigate}
+      className="flex-none w-[75vw] max-w-[300px] bg-white border border-border rounded-lg shadow-sm overflow-hidden text-start snap-start active:scale-[0.97] transition-transform duration-150"
+    >
+      {/* Atmosphere image area */}
       <div
-        className={`relative overflow-hidden ${categoryColors[v.category] || 'bg-surface'}`}
+        className="relative overflow-hidden bg-surface"
         style={{ height: '20vh' }}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
       >
-        {/* Slides — crossfade */}
-        {slideEmojis.map((emoji, idx) => (
-          <div
-            key={idx}
-            className={`absolute inset-0 flex items-center justify-center transition-opacity duration-300 ${
-              idx === current ? 'opacity-100' : 'opacity-0'
-            }`}
-          >
-            <span className="text-7xl">{emoji}</span>
+        {v.imageUrl ? (
+          <img src={v.imageUrl} alt={v.title} className="absolute inset-0 w-full h-full object-cover" />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <span className="text-7xl">{v.image}</span>
           </div>
-        ))}
+        )}
 
-        {/* Logo badge — top-right corner */}
-        <div className="absolute top-2.5 right-2.5 z-10 w-14 h-14 rounded-full bg-white shadow-md border border-border/40 flex items-center justify-center">
-          <span className="text-2xl">{v.merchantLogo}</span>
-        </div>
+        {/* Dark gradient overlay */}
+        <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/30 to-transparent" />
 
-        {/* Recommendation reason badge — top-left */}
-        <div className="absolute top-2.5 left-2.5 z-10 bg-white/90 backdrop-blur-sm rounded-full px-2 py-0.5">
+        {/* Brand logo circle — top-end */}
+        {v.brandLogo && (
+          <div
+            className="absolute top-2.5 end-2.5 z-10 w-10 h-10 rounded-full shadow-md border-2 border-white flex items-center justify-center overflow-hidden"
+            style={{ backgroundColor: v.brandColor || '#FFFFFF' }}
+          >
+            <img src={v.brandLogo} alt={v.merchantName} className="w-[80%] h-[80%] object-contain" />
+          </div>
+        )}
+
+        {/* Recommendation reason badge — top-start */}
+        <div className="absolute top-2.5 start-2.5 z-10 bg-white/90 backdrop-blur-sm rounded-full px-2 py-0.5">
           <span className="text-[9px] font-semibold text-primary">
             {isHe ? scored.reasonHe : scored.reason}
           </span>
         </div>
-
-        {/* Dot indicators */}
-        {hasMultipleSlides && (
-          <div className="absolute bottom-2 left-0 right-0 z-10 flex items-center justify-center gap-1">
-            {slideEmojis.map((_, idx) => (
-              <span
-                key={idx}
-                className={`block rounded-full transition-all duration-300 ${
-                  idx === current ? 'w-4 h-1.5 bg-gray-800' : 'w-1.5 h-1.5 bg-gray-500'
-                }`}
-              />
-            ))}
-          </div>
-        )}
       </div>
 
       {/* Bottom info */}
-      <button
-        onClick={onNavigate}
-        className="w-full px-3 py-4 flex items-center justify-between"
-      >
+      <div className="w-full px-3 py-4 flex items-center justify-between">
         <div className="flex flex-col">
           <span className="text-sm font-bold text-text-primary">
             {isHe ? v.titleHe : v.title}
@@ -229,8 +161,8 @@ function OfferCard({
             </span>
           )}
         </div>
-      </button>
-    </div>
+      </div>
+    </button>
   );
 }
 

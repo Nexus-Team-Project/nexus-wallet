@@ -160,7 +160,7 @@ export default function VerifyPhoneSlide() {
     try {
       // TODO: Replace with real Firebase confirmation
       await new Promise((r) => setTimeout(r, 600));
-      if (code === '0000') throw new Error('wrong');
+      if (code !== '1111' && code !== '9999') throw new Error('wrong');
       const normalizedPhone = `050-${phone.slice(-7)}`;
       useRegistrationStore.setState({ phone: normalizedPhone });
       goNext();

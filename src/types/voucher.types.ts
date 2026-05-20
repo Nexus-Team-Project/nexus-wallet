@@ -18,14 +18,37 @@ export interface Voucher {
   discountPercent: number;
   currency: string;
   image: string;
+  imageUrl?: string;
   validUntil: string;
   termsAndConditions: string;
   termsAndConditionsHe: string;
+  brandColor?: string;
+  brandLogo?: string;
   inStock: boolean;
   popular: boolean;
   isOnline?: boolean;
   isNew?: boolean;
   comingSoon?: boolean;
+}
+
+export interface VoucherConditions {
+  usableInStore: boolean;
+  usableOnline: boolean;
+  usableAtOutlets: boolean;
+  stackable: boolean;          // כפל מבצעים
+  minPurchase?: number;
+  maxPerTransaction?: number;
+  notes?: string;
+  notesHe?: string;
+}
+
+export interface VoucherVariant {
+  id: string;
+  name: string;
+  nameHe: string;
+  icon: string;                // material symbol icon name
+  conditions: VoucherConditions;
+  discountPercent?: number;    // override per variant
 }
 
 export interface UserVoucher {

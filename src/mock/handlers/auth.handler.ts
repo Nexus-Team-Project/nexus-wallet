@@ -1,7 +1,6 @@
 import type { AuthSession, OrgMember, OtpVerifyResult } from '../../types/auth.types';
 import { mockUser } from '../data/user.mock';
 
-const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 // Simulated org member list (pre-loaded from org admin)
 const orgMembers: OrgMember[] = [
@@ -60,7 +59,7 @@ function getMissingFields(member: OrgMember | undefined): string[] {
 
 /** Send OTP to phone (mock — always succeeds) */
 export async function mockSendOtp(phone: string): Promise<{ success: boolean }> {
-  await delay(800);
+
   // In real app: send SMS via Twilio / Firebase etc.
   console.log(`[Mock] OTP sent to ${phone}: 1234`);
   return { success: true };
@@ -71,7 +70,7 @@ export async function mockVerifyOtp(
   phone: string,
   code: string
 ): Promise<OtpVerifyResult> {
-  await delay(1000);
+
 
   if (code !== '1234') {
     return { success: false };
@@ -115,7 +114,7 @@ export async function mockGoogleSignIn(): Promise<{
     picture: string;
   };
 }> {
-  await delay(1200);
+
 
   const session: AuthSession = {
     token: `tok_google_${Date.now()}`,
@@ -148,7 +147,7 @@ export async function mockAppleSignIn(): Promise<{
     picture: string;
   };
 }> {
-  await delay(1200);
+
 
   const session: AuthSession = {
     token: `tok_apple_${Date.now()}`,
@@ -175,7 +174,7 @@ export async function mockSaveConsent(
   userId: string,
   consent: boolean
 ): Promise<{ success: boolean }> {
-  await delay(300);
+
   console.log(`[Mock] Marketing consent for ${userId}: ${consent}`);
   return { success: true };
 }

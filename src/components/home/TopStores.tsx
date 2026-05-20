@@ -1,21 +1,22 @@
-import { useState, useRef, useEffect } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { useAuthStore } from '../../stores/authStore';
 import { mockBusinesses } from '../../mock/data/businesses.mock';
 import type { Business } from '../../types/search.types';
 
-// Pastel backgrounds per category for visual variety
-const categoryColors: Record<string, string> = {
-  'Fast Food': 'bg-orange-50',
-  'Fashion': 'bg-pink-50',
-  'Entertainment': 'bg-purple-50',
-  'Cafe': 'bg-amber-50',
-  'Hotels': 'bg-sky-50',
-  'Health & Beauty': 'bg-emerald-50',
-  'Electronics': 'bg-blue-50',
-  'Fitness': 'bg-lime-50',
-  'Supermarket': 'bg-green-50',
+/** Circle background colors that match each brand's logo */
+const brandBgColors: Record<string, string> = {
+  biz_001: '#FFFFFF', // McDonald's
+  biz_002: '#000000', // Castro
+  biz_003: '#FFFFFF', // Cinema City
+  biz_004: '#000000', // Aroma
+  biz_005: '#274968', // Isrotel
+  biz_006: '#FFFFFF', // Superpharm
+  biz_007: '#3478BE', // KSP
+  biz_008: '#C44530', // Holmes Place
+  biz_009: '#FFFFFF', // Shufersal
+  biz_010: '#FFFFFF', // H&M
 };
 
 const categoryGradients: Record<string, string> = {
@@ -37,107 +38,50 @@ const businessDiscount: Record<string, number> = {
   'biz_009': 12, 'biz_010': 25,
 };
 
-// Extra emojis per category to create multiple slides per store
-const categorySlides: Record<string, string[]> = {
-  'Fast Food': ['🍔', '🍟', '🥤'],
-  'Fashion': ['👕', '👗', '👜'],
-  'Entertainment': ['🎬', '🍿', '🎭'],
-  'Cafe': ['☕', '🥐', '🍰'],
-  'Hotels': ['🏨', '🏖️', '🌅'],
-  'Health & Beauty': ['💊', '💄', '🧴'],
-  'Electronics': ['💻', '📱', '🎧'],
-  'Fitness': ['💪', '🏋️', '🧘'],
-  'Supermarket': ['🛒', '🥑', '🧀'],
-};
 
 function StoreCard({ store, isHe, onNavigate }: { store: Business; isHe: boolean; onNavigate: () => void }) {
-  const slideEmojis = categorySlides[store.category] || [store.logo];
-  const hasMultipleSlides = slideEmojis.length > 1;
   const discount = businessDiscount[store.id] || 0;
-  const [current, setCurrent] = useState(0);
-  const touchStartX = useRef(0);
-  const touchEndX = useRef(0);
-  const isSwiping = useRef(false);
-
-  const handleTouchStart = (e: React.TouchEvent) => {
-    touchStartX.current = e.touches[0].clientX;
-    touchEndX.current = e.touches[0].clientX;
-    isSwiping.current = false;
-  };
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    touchEndX.current = e.touches[0].clientX;
-    if (Math.abs(touchStartX.current - touchEndX.current) > 3) {
-      isSwiping.current = true;
-    }
-  };
-
-  const handleTouchEnd = () => {
-    const diff = touchStartX.current - touchEndX.current;
-    const swipeThreshold = 20;
-    if (hasMultipleSlides && isSwiping.current && Math.abs(diff) > swipeThreshold) {
-      if (diff > 0) {
-        setCurrent((prev) => (prev + 1) % slideEmojis.length);
-      } else {
-        setCurrent((prev) => (prev - 1 + slideEmojis.length) % slideEmojis.length);
-      }
-    } else if (!isSwiping.current) {
-      onNavigate();
-    }
-  };
 
   return (
-    <div
+    <button
+      onClick={onNavigate}
       className="flex-none w-[75vw] max-w-[300px] bg-white border border-border rounded-lg shadow-sm overflow-hidden text-start snap-start active:scale-[0.97] transition-transform duration-150"
     >
-      {/* Swipeable image area */}
+      {/* Atmosphere image area */}
       <div
-        className={`relative overflow-hidden ${categoryColors[store.category] || 'bg-surface'}`}
+        className="relative overflow-hidden bg-surface"
         style={{ height: '20vh' }}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
       >
-        {/* Slides — crossfade */}
-        {slideEmojis.map((emoji, idx) => (
-          <div
-            key={idx}
-            className={`absolute inset-0 flex items-center justify-center transition-opacity duration-300 ${
-              idx === current ? 'opacity-100' : 'opacity-0'
-            }`}
-          >
-            <span className="text-7xl">{emoji}</span>
-          </div>
-        ))}
-
-        {/* Logo badge — top-right corner */}
-        <div className="absolute top-2.5 right-2.5 z-10 w-14 h-14 rounded-full bg-white shadow-md border border-border/40 flex items-center justify-center">
-          <span className="text-2xl">{store.logo}</span>
-        </div>
-
-        {/* Dot indicators — only when multiple slides */}
-        {hasMultipleSlides && (
-          <div className="absolute bottom-2 left-0 right-0 z-10 flex items-center justify-center gap-1">
-            {slideEmojis.map((_, idx) => (
-              <span
-                key={idx}
-                className={`block rounded-full transition-all duration-300 ${
-                  idx === current
-                    ? 'w-4 h-1.5 bg-gray-800'
-                    : 'w-1.5 h-1.5 bg-gray-500'
-                }`}
-              />
-            ))}
+        {store.heroImageUrl ? (
+          <img
+            src={store.heroImageUrl}
+            alt={store.name}
+            className="absolute inset-0 w-full h-full object-cover"
+          />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <span className="text-7xl">{store.logo}</span>
           </div>
         )}
+
+        {/* Dark gradient overlay at bottom for readability */}
+        <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/30 to-transparent" />
+
+        {/* Brand logo circle — top-end corner */}
+        <div
+          className="absolute top-2.5 end-2.5 z-10 w-12 h-12 rounded-full shadow-md border-2 border-white flex items-center justify-center overflow-hidden"
+          style={{ backgroundColor: brandBgColors[store.id] || '#FFFFFF' }}
+        >
+          {store.logoUrl ? (
+            <img src={store.logoUrl} alt={store.name} className={store.id === 'biz_007' ? 'w-full h-full object-cover' : 'w-[80%] h-[80%] object-contain'} />
+          ) : (
+            <span className="text-xl">{store.logo}</span>
+          )}
+        </div>
       </div>
 
       {/* Bottom info — title right, tags left */}
-      <button
-        onClick={onNavigate}
-        className="w-full px-3 py-4 flex items-center justify-between"
-      >
-        {/* Title + subtitle — right side in RTL (comes first in DOM) */}
+      <div className="w-full px-3 py-4 flex items-center justify-between">
         <div className="flex flex-col">
           <span className="text-sm font-bold text-text-primary">
             {isHe ? store.nameHe : store.name}
@@ -146,7 +90,6 @@ function StoreCard({ store, isHe, onNavigate }: { store: Business; isHe: boolean
             {isHe ? store.locationHe : store.location}
           </span>
         </div>
-        {/* Tags — left side in RTL (comes second in DOM) */}
         <div className="flex items-center gap-1.5">
           <span className="text-[10px] text-primary bg-primary/10 px-1.5 py-0.5 rounded font-semibold">
             {isHe ? store.categoryHe : store.category}
@@ -157,8 +100,8 @@ function StoreCard({ store, isHe, onNavigate }: { store: Business; isHe: boolean
             </span>
           )}
         </div>
-      </button>
-    </div>
+      </div>
+    </button>
   );
 }
 

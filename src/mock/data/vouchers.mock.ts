@@ -1,4 +1,4 @@
-import type { Voucher, UserVoucher } from '../../types/voucher.types';
+import type { Voucher, UserVoucher, VoucherVariant } from '../../types/voucher.types';
 
 export const mockVouchers: Voucher[] = [
   {
@@ -6,8 +6,9 @@ export const mockVouchers: Voucher[] = [
     description: "Enjoy a complete meal at any McDonald's branch", descriptionHe: 'ארוחה מלאה בכל סניפי מקדונלדס',
     merchantName: "McDonald's", merchantLogo: '🍔', category: 'food',
     originalPrice: 60, discountedPrice: 45, discountPercent: 25, currency: 'ILS',
-    image: '🍔', validUntil: '2026-03-22',
+    image: '🍔', imageUrl: 'https://images.unsplash.com/photo-1550547660-d9450f859349?w=400&q=80', validUntil: '2026-03-22',
     termsAndConditions: 'Valid at all branches.', termsAndConditionsHe: 'בתוקף בכל הסניפים.',
+    brandColor: '#DA291C', brandLogo: '/brands/mcdonalds.png',
     inStock: true, popular: true,
   },
   {
@@ -15,8 +16,9 @@ export const mockVouchers: Voucher[] = [
     description: '₪100 gift card for Castro stores', descriptionHe: 'גיפט קארד בשווי ₪100 לרשת קסטרו',
     merchantName: 'Castro', merchantLogo: '👕', category: 'shopping',
     originalPrice: 100, discountedPrice: 80, discountPercent: 20, currency: 'ILS',
-    image: '👕', validUntil: '2026-12-31',
+    image: '👕', imageUrl: 'https://images.unsplash.com/photo-1523381210434-271e8be1f52b?w=400&q=80', validUntil: '2026-12-31',
     termsAndConditions: 'Valid in all Castro branches.', termsAndConditionsHe: 'בתוקף בכל סניפי קסטרו.',
+    brandColor: '#000000', brandLogo: '/castro-logo.png',
     inStock: true, popular: true,
   },
   {
@@ -24,8 +26,9 @@ export const mockVouchers: Voucher[] = [
     description: 'Single movie ticket at Cinema City', descriptionHe: 'כרטיס בודד לסרט בסינמה סיטי',
     merchantName: 'Cinema City', merchantLogo: '🎬', category: 'entertainment',
     originalPrice: 50, discountedPrice: 35, discountPercent: 30, currency: 'ILS',
-    image: '🎬', validUntil: '2026-09-30',
+    image: '🎬', imageUrl: 'https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?w=400&q=80', validUntil: '2026-09-30',
     termsAndConditions: 'Valid for standard screenings only.', termsAndConditionsHe: 'בתוקף להקרנות רגילות בלבד.',
+    brandColor: '#1B1464', brandLogo: '/brands/cinema-city.png',
     inStock: true, popular: false,
   },
   {
@@ -33,8 +36,9 @@ export const mockVouchers: Voucher[] = [
     description: 'Any coffee drink at Aroma', descriptionHe: 'כל משקה קפה בארומה',
     merchantName: 'Aroma', merchantLogo: '☕', category: 'food',
     originalPrice: 25, discountedPrice: 18, discountPercent: 28, currency: 'ILS',
-    image: '☕', validUntil: '2026-03-28',
+    image: '☕', imageUrl: 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=400&q=80', validUntil: '2026-03-28',
     termsAndConditions: 'One drink per voucher.', termsAndConditionsHe: 'משקה אחד לשובר.',
+    brandColor: '#000000', brandLogo: '/brands/aroma.png',
     inStock: true, popular: true,
   },
   {
@@ -42,8 +46,9 @@ export const mockVouchers: Voucher[] = [
     description: '₪200 off any Isrotel hotel booking', descriptionHe: '₪200 הנחה על הזמנת מלון ישרוטל',
     merchantName: 'Isrotel', merchantLogo: '🏨', category: 'travel',
     originalPrice: 200, discountedPrice: 150, discountPercent: 25, currency: 'ILS',
-    image: '🏨', validUntil: '2026-08-31',
+    image: '🏨', imageUrl: 'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?w=400&q=80', validUntil: '2026-08-31',
     termsAndConditions: 'Subject to availability.', termsAndConditionsHe: 'בכפוף לזמינות.',
+    brandColor: '#003366', brandLogo: '/brands/isrotel.png',
     inStock: true, popular: false,
   },
   {
@@ -51,8 +56,9 @@ export const mockVouchers: Voucher[] = [
     description: '₪75 voucher for health products', descriptionHe: 'שובר ₪75 למוצרי בריאות',
     merchantName: 'Superpharm', merchantLogo: '💊', category: 'health',
     originalPrice: 75, discountedPrice: 55, discountPercent: 27, currency: 'ILS',
-    image: '💊', validUntil: '2026-07-31',
+    image: '💊', imageUrl: 'https://images.unsplash.com/photo-1556228578-0d85b1a4d571?w=400&q=80', validUntil: '2026-07-31',
     termsAndConditions: 'Valid for health products only.', termsAndConditionsHe: 'בתוקף למוצרי בריאות בלבד.',
+    brandColor: '#00A651', brandLogo: '/brands/superpharm.png',
     inStock: true, popular: false,
   },
   {
@@ -60,8 +66,9 @@ export const mockVouchers: Voucher[] = [
     description: '₪150 voucher for electronics', descriptionHe: 'שובר ₪150 למוצרי אלקטרוניקה',
     merchantName: 'KSP', merchantLogo: '💻', category: 'tech',
     originalPrice: 150, discountedPrice: 120, discountPercent: 20, currency: 'ILS',
-    image: '💻', validUntil: '2026-10-31',
+    image: '💻', imageUrl: 'https://images.unsplash.com/photo-1498049794561-7780e7231661?w=400&q=80', validUntil: '2026-10-31',
     termsAndConditions: 'Minimum purchase ₪300.', termsAndConditionsHe: 'מינימום רכישה ₪300.',
+    brandColor: '#FF6600', brandLogo: '/brands/ksp.png',
     inStock: true, popular: true, isNew: true,
   },
   {
@@ -78,8 +85,9 @@ export const mockVouchers: Voucher[] = [
     description: '₪200 gift card for Shufersal', descriptionHe: 'גיפט קארד ₪200 לשופרסל',
     merchantName: 'Shufersal', merchantLogo: '🛒', category: 'food',
     originalPrice: 200, discountedPrice: 180, discountPercent: 10, currency: 'ILS',
-    image: '🛒', validUntil: '2026-03-18',
+    image: '🛒', imageUrl: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=400&q=80', validUntil: '2026-03-18',
     termsAndConditions: 'Valid at all branches.', termsAndConditionsHe: 'בתוקף בכל הסניפים.',
+    brandColor: '#E31E24', brandLogo: '/brands/shufersal.png',
     inStock: true, popular: false,
   },
   {
@@ -96,8 +104,9 @@ export const mockVouchers: Voucher[] = [
     description: '₪80 voucher for H&M stores', descriptionHe: 'שובר ₪80 לרשת H&M',
     merchantName: 'H&M', merchantLogo: '👗', category: 'shopping',
     originalPrice: 80, discountedPrice: 60, discountPercent: 25, currency: 'ILS',
-    image: '👗', validUntil: '2026-08-31',
+    image: '👗', imageUrl: 'https://images.unsplash.com/photo-1445205170230-053b83016050?w=400&q=80', validUntil: '2026-08-31',
     termsAndConditions: 'Valid at all H&M branches.', termsAndConditionsHe: 'בתוקף בכל סניפי H&M.',
+    brandColor: '#CC0000', brandLogo: '/brands/hm.png',
     inStock: false, popular: false,
   },
   {
@@ -105,8 +114,9 @@ export const mockVouchers: Voucher[] = [
     description: 'Day pass for Holmes Place gym', descriptionHe: 'כניסה יומית להולמס פלייס',
     merchantName: 'Holmes Place', merchantLogo: '💪', category: 'health',
     originalPrice: 80, discountedPrice: 55, discountPercent: 31, currency: 'ILS',
-    image: '💪', validUntil: '2026-06-30',
+    image: '💪', imageUrl: 'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=400&q=80', validUntil: '2026-06-30',
     termsAndConditions: 'Valid at selected branches.', termsAndConditionsHe: 'בתוקף בסניפים נבחרים.',
+    brandColor: '#1a1a2e', brandLogo: '/brands/holmesplace.png',
     inStock: true, popular: false, isNew: true,
   },
   {
@@ -181,6 +191,26 @@ export const mockVouchers: Voucher[] = [
     termsAndConditions: 'Coming soon to Nexus Wallet.', termsAndConditionsHe: 'בקרוב ב-Nexus Wallet.',
     inStock: false, popular: false, comingSoon: true,
   },
+  {
+    id: 'v_021', title: 'Acme Corporation Gift Card', titleHe: 'גיפט קארד תאגיד אקמה',
+    description: '₪200 gift card for Acme Corp employees', descriptionHe: 'גיפט קארד ₪200 לעובדי תאגיד אקמה',
+    merchantName: 'Acme Corporation', merchantLogo: '🏢', category: 'shopping',
+    originalPrice: 200, discountedPrice: 0, discountPercent: 100, currency: 'ILS',
+    image: '🏢', validUntil: '2026-12-31',
+    termsAndConditions: 'Exclusive for Acme Corp members. Valid at all partner stores.', termsAndConditionsHe: 'בלעדי לחברי תאגיד אקמה. בתוקף בכל החנויות השותפות.',
+    brandColor: '#1e40af', brandLogo: '/tenants/acme-logo.svg',
+    inStock: true, popular: true,
+  },
+  {
+    id: 'v_022', title: 'Hapoel Tel Aviv Gift Card', titleHe: 'גיפט קארד הפועל תל אביב',
+    description: '₪150 gift card for Hapoel Tel Aviv fans', descriptionHe: 'גיפט קארד ₪150 לאוהדי הפועל תל אביב',
+    merchantName: 'Hapoel Tel Aviv', merchantLogo: '⚽', category: 'entertainment',
+    originalPrice: 150, discountedPrice: 0, discountPercent: 100, currency: 'ILS',
+    image: '⚽', validUntil: '2026-12-31',
+    termsAndConditions: 'Exclusive for Hapoel Tel Aviv members. Valid for merchandise and tickets.', termsAndConditionsHe: 'בלעדי לחברי הפועל תל אביב. בתוקף למרצ׳נדייז וכרטיסים.',
+    brandColor: '#dc2626', brandLogo: '/tenants/hapoel-logo.svg',
+    inStock: true, popular: true,
+  },
 ];
 
 export const mockUserVouchers: UserVoucher[] = [
@@ -221,5 +251,102 @@ export const mockUserVouchers: UserVoucher[] = [
     purchasedAt: '2025-08-10T10:00:00Z', expiresAt: '2025-12-31T23:59:59Z',
     status: 'expired', redemptionCode: 'NXS-SHF-7788',
     qrCode: 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=NXS-SHF-7788',
+  },
+  {
+    id: 'uv_007', voucherId: 'v_021', voucher: mockVouchers[20],
+    purchasedAt: '2026-03-01T08:00:00Z', expiresAt: '2026-12-31T23:59:59Z',
+    status: 'active', redemptionCode: 'NXS-ACM-1234',
+    qrCode: 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=NXS-ACM-1234',
+  },
+  {
+    id: 'uv_008', voucherId: 'v_022', voucher: mockVouchers[21],
+    purchasedAt: '2026-03-15T12:00:00Z', expiresAt: '2026-12-31T23:59:59Z',
+    status: 'active', redemptionCode: 'NXS-HPL-5678',
+    qrCode: 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=NXS-HPL-5678',
+  },
+];
+
+// ── Voucher Variants ──────────────────────────────────────────────────────────
+// Keyed by merchant name — each merchant can have multiple variant types.
+export const mockVoucherVariants: Record<string, VoucherVariant[]> = {
+  "McDonald's": [
+    {
+      id: 'var_mcd_1', name: 'Regular', nameHe: 'רגיל', icon: 'restaurant',
+      conditions: { usableInStore: true, usableOnline: false, usableAtOutlets: false, stackable: false },
+    },
+    {
+      id: 'var_mcd_2', name: 'Online Order', nameHe: 'הזמנה אונליין', icon: 'language',
+      conditions: { usableInStore: false, usableOnline: true, usableAtOutlets: false, stackable: true,
+        notes: 'Valid for delivery orders above ₪50.', notesHe: 'בתוקף להזמנות משלוח מעל ₪50.' },
+    },
+    {
+      id: 'var_mcd_3', name: 'All Channels', nameHe: 'כל הערוצים', icon: 'select_all',
+      conditions: { usableInStore: true, usableOnline: true, usableAtOutlets: false, stackable: true },
+      discountPercent: 20,
+    },
+  ],
+  'Castro': [
+    {
+      id: 'var_cas_1', name: 'In-Store', nameHe: 'בחנות', icon: 'storefront',
+      conditions: { usableInStore: true, usableOnline: false, usableAtOutlets: false, stackable: false },
+    },
+    {
+      id: 'var_cas_2', name: 'Online', nameHe: 'אונליין', icon: 'shopping_cart',
+      conditions: { usableInStore: false, usableOnline: true, usableAtOutlets: false, stackable: true },
+    },
+    {
+      id: 'var_cas_3', name: 'Outlet', nameHe: 'עודפים', icon: 'sell',
+      conditions: { usableInStore: true, usableOnline: false, usableAtOutlets: true, stackable: false,
+        notes: 'Valid at Castro outlet stores only.', notesHe: 'בתוקף בחנויות עודפים של קסטרו בלבד.' },
+      discountPercent: 30,
+    },
+    {
+      id: 'var_cas_4', name: 'Everything', nameHe: 'הכל כלול', icon: 'diamond',
+      conditions: { usableInStore: true, usableOnline: true, usableAtOutlets: true, stackable: true },
+      discountPercent: 15,
+    },
+  ],
+  'Cinema City': [
+    {
+      id: 'var_cc_1', name: 'Standard', nameHe: 'רגיל', icon: 'movie',
+      conditions: { usableInStore: true, usableOnline: true, usableAtOutlets: false, stackable: false },
+    },
+    {
+      id: 'var_cc_2', name: 'VIP', nameHe: 'VIP', icon: 'stars',
+      conditions: { usableInStore: true, usableOnline: true, usableAtOutlets: false, stackable: false,
+        notes: 'Includes VIP lounge access.', notesHe: 'כולל גישה ללאונג\' VIP.' },
+      discountPercent: 20,
+    },
+  ],
+  'Shufersal': [
+    {
+      id: 'var_shuf_1', name: 'Regular', nameHe: 'רגיל', icon: 'shopping_basket',
+      conditions: { usableInStore: true, usableOnline: false, usableAtOutlets: false, stackable: false },
+    },
+    {
+      id: 'var_shuf_2', name: 'Online', nameHe: 'אונליין', icon: 'local_shipping',
+      conditions: { usableInStore: false, usableOnline: true, usableAtOutlets: false, stackable: true,
+        notes: 'Minimum order ₪100.', notesHe: 'מינימום הזמנה ₪100.' },
+    },
+    {
+      id: 'var_shuf_3', name: 'All Channels', nameHe: 'כל הערוצים', icon: 'select_all',
+      conditions: { usableInStore: true, usableOnline: true, usableAtOutlets: false, stackable: true },
+    },
+  ],
+};
+
+// Default variants for merchants without specific variants
+export const defaultVoucherVariants: VoucherVariant[] = [
+  {
+    id: 'var_default_1', name: 'Standard', nameHe: 'רגיל', icon: 'redeem',
+    conditions: { usableInStore: true, usableOnline: false, usableAtOutlets: false, stackable: false },
+  },
+  {
+    id: 'var_default_2', name: 'Online', nameHe: 'אונליין', icon: 'language',
+    conditions: { usableInStore: false, usableOnline: true, usableAtOutlets: false, stackable: true },
+  },
+  {
+    id: 'var_default_3', name: 'Universal', nameHe: 'אוניברסלי', icon: 'public',
+    conditions: { usableInStore: true, usableOnline: true, usableAtOutlets: true, stackable: true },
   },
 ];

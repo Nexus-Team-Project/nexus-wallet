@@ -241,6 +241,9 @@ export default function LoginSheet() {
         isOrgMember: session.isOrgMember,
         organizationName: orgMember?.organizationName,
       });
+      if (profileComplete) {
+        useAuthStore.getState().setProfileCompleted(true);
+      }
       await firebaseSaveConsent(session.userId, marketingOptIn);
       setMarketingConsent(marketingOptIn);
 

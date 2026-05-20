@@ -1,11 +1,13 @@
 import { useState, useRef, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '../i18n/LanguageContext';
 import { useAuthGate } from '../hooks/useAuthGate';
 import { useSearch } from '../hooks/useSearch';
 import MaskedPrice from '../components/ui/MaskedPrice';
 import { MicButton } from '../components/ui/MicButton';
 import VoucherDetail from '../components/store/VoucherDetail';
+import ActiveOffers from '../components/home/ActiveOffers';
+import SearchGaliPrompt from '../components/search/SearchGaliPrompt';
 import type { Voucher, VoucherCategory } from '../types/voucher.types';
 
 const categories: { key: VoucherCategory; emoji: string; bg: string }[] = [
@@ -25,16 +27,8 @@ export default function SearchPage() {
   const isHe = language === 'he';
   const { isAuthenticated } = useAuthGate();
 
-  const { lang = 'he' } = useParams();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedVoucher, setSelectedVoucher] = useState<Voucher | null>(null);
-
-  const openAiChat = (suggestion?: string) => {
-    const url = suggestion
-      ? `/${lang}/chat?q=${encodeURIComponent(suggestion)}`
-      : `/${lang}/chat`;
-    navigate(url);
-  };
 
   const { data: results } = useSearch(searchQuery);
 
@@ -51,9 +45,9 @@ export default function SearchPage() {
     (results?.services?.length || 0);
 
   return (
-    <div className="min-h-screen bg-white" style={{ animation: 'sheet-up 0.35s ease-out' }}>
+    <div className="bg-white" style={{ animation: 'sheet-up 0.35s ease-out' }}>
       {/* Search header */}
-      <div className="sticky top-0 z-40 bg-white px-5 pt-4 pb-3">
+      <div className="bg-white px-5 pt-4 pb-3">
         <div className="flex items-center gap-3">
           <div className="flex-1 flex items-center bg-surface rounded-full px-4 py-2.5 transition-all focus-within:ring-2 focus-within:ring-primary/40">
             <span
@@ -100,53 +94,13 @@ export default function SearchPage() {
         </div>
       </div>
 
+      {/* Especially for you — card slider like home page */}
+      <ActiveOffers />
+
       {/* Content */}
       {!isSearching ? (
         /* Browse mode - category grid */
         <div className="px-5 pt-5">
-          {/* AI Assistant Card */}
-          <button
-            onClick={() => openAiChat()}
-            className="w-full mb-6 p-4 rounded-2xl text-start transition-all hover:shadow-md active:scale-[0.98]"
-            style={{ background: 'linear-gradient(135deg, #635bff 0%, #7c6cff 50%, #5649d8 100%)' }}
-          >
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
-                <span
-                  className="material-symbols-outlined text-white"
-                  style={{ fontSize: '22px' }}
-                >
-                  auto_awesome
-                </span>
-              </div>
-              <div>
-                <h3 className="text-sm font-bold text-white">
-                  {isHe ? 'לא בטוח מה לחפש?' : "Not sure what to look for?"}
-                </h3>
-                <p className="text-[11px] text-white/70">
-                  {isHe ? 'בוא נמצא ביחד את ההטבה המושלמת' : "Let's find the perfect deal together"}
-                </p>
-              </div>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {(isHe
-                ? ['מתנה ליום הולדת', 'בילוי זוגי', 'הנחה שווה']
-                : ['Birthday gift', 'Date night', 'Best deal']
-              ).map((chip) => (
-                <span
-                  key={chip}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    openAiChat(chip);
-                  }}
-                  className="px-3 py-1.5 rounded-full bg-white/15 text-[11px] font-medium text-white hover:bg-white/25 transition-colors cursor-pointer"
-                >
-                  {chip}
-                </span>
-              ))}
-            </div>
-          </button>
-
           <h3 className="text-base font-bold text-text-primary mb-4">
             {isHe ? 'קטגוריות' : 'Categories'}
           </h3>
@@ -173,7 +127,7 @@ export default function SearchPage() {
           <h3 className="text-base font-bold text-text-primary mt-8 mb-4">
             {isHe ? 'חיפושים פופולריים' : 'Popular searches'}
           </h3>
-          <div className="flex flex-wrap gap-2 pb-8">
+          <div className="flex flex-wrap gap-2 pb-4">
             {(isHe
               ? ['קפה', 'קניות', 'קולנוע', 'ספורט', 'אוכל', 'טכנולוגיה']
               : ['coffee', 'shopping', 'cinema', 'fitness', 'food', 'tech']
@@ -181,12 +135,14 @@ export default function SearchPage() {
               <button
                 key={term}
                 onClick={() => setSearchQuery(term)}
-                className="flex items-center gap-2 px-3.5 py-2 rounded-full bg-surface border border-border hover:bg-border/50 transition-colors"
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-surface border border-border hover:bg-border/50 transition-colors"
               >
+                <span className="material-symbols-outlined text-text-muted" style={{ fontSize: '14px' }}>search</span>
                 <span className="text-xs font-medium text-text-secondary">{term}</span>
               </button>
             ))}
           </div>
+
         </div>
       ) : (
         /* Search results - grouped by type */
@@ -421,6 +377,9 @@ export default function SearchPage() {
           )}
         </div>
       )}
+
+      {/* Floating Gali AI prompt */}
+      {!isSearching && <SearchGaliPrompt />}
 
       {/* Voucher detail bottom sheet */}
       {selectedVoucher && (

@@ -237,7 +237,27 @@ export async function firebaseVerifyOtp(
   _phone: string,
   code: string
 ): Promise<OtpVerifyResult> {
-  // ── Dev bypass: code 9999 skips Firebase Auth entirely ──
+  // ── Dev bypass: code 1111 skips Firebase Auth + Firestore entirely ──
+  if (code === '1111') {
+    const e164 = toE164(_phone || lastPhone);
+    return {
+      success: true,
+      session: {
+        token: 'dev-token-1111',
+        userId: `dev-${e164.replace('+', '')}`,
+        method: 'phone',
+        isOrgMember: false,
+        marketingConsent: false,
+      },
+      registrationContext: {
+        orgMember: null,
+        profileComplete: true,
+        missingFields: [],
+      },
+    };
+  }
+
+  // ── Dev bypass: code 9999 skips Firebase Auth but checks Firestore ──
   if (code === '9999') {
     const e164 = toE164(_phone || lastPhone);
     const orgMember = await lookupOrgMember({ phone: e164 });
