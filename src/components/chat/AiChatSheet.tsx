@@ -6,6 +6,7 @@ import { getWelcomeMessage, mockAiResponse } from '../../mock/handlers/chat.hand
 import ChatMessage from './ChatMessage';
 import ChatInput from './ChatInput';
 import TypingIndicator from './TypingIndicator';
+import GaliAvatar from './GaliAvatar';
 import VoucherDetail from '../store/VoucherDetail';
 
 interface AiChatSheetProps {
@@ -178,18 +179,11 @@ export default function AiChatSheet({ onClose, initialMessage }: AiChatSheetProp
           {/* Title */}
           <div className="flex items-center justify-between px-5 pb-3 border-b border-border">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                <span
-                  className="material-symbols-outlined text-primary"
-                  style={{ fontSize: '18px' }}
-                >
-                  auto_awesome
-                </span>
-              </div>
+              <GaliAvatar size={32} />
               <div>
-                <h2 className="text-sm font-bold text-text-primary">Nexus AI</h2>
+                <h2 className="text-sm font-bold text-text-primary">גלי</h2>
                 <p className="text-[10px] text-text-muted">
-                  {isHe ? 'העוזר החכם שלך' : 'Your smart assistant'}
+                  {isHe ? 'העוזרת החכמה שלך' : 'Your smart assistant'}
                 </p>
               </div>
             </div>

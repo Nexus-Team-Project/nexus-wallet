@@ -26,6 +26,14 @@ const StoriesPage        = lazy(() => import('../pages/StoriesPage'));
 const ReferralStoriesPage = lazy(() => import('../pages/ReferralStoriesPage'));
 const PremiumRevealPage  = lazy(() => import('../pages/PremiumRevealPage'));
 const CategoryPage       = lazy(() => import('../pages/CategoryPage'));
+const BusinessPage       = lazy(() => import('../pages/BusinessPage'));
+const VoucherPurchasePage = lazy(() => import('../pages/VoucherPurchasePage'));
+
+// Wallet add-money flow
+const AddMoneyPage       = lazy(() => import('../pages/AddMoneyPage'));
+const AddMoneySourcePage = lazy(() => import('../pages/AddMoneySourcePage'));
+const AddMoneyLoadingPage = lazy(() => import('../pages/AddMoneyLoadingPage'));
+const VoucherDetailPage  = lazy(() => import('../pages/VoucherDetailPage'));
 
 // Registration flow — single chunk (user goes through all slides sequentially)
 const RegisterMembershipPage   = lazy(() => import('../pages/RegisterMembershipPage'));
@@ -82,6 +90,21 @@ export const router = createBrowserRouter([
           // === PUBLIC routes ===
           { index: true,      element: <S><HomePage /></S> },
           { path: 'store',    element: <S><StorePage /></S> },
+          { path: 'search',           element: <S><SearchPage /></S> },
+          { path: 'chat',             element: <S><AiChatPage /></S> },
+          { path: 'near-you-map',     element: <S><NearYouMapPage /></S> },
+          { path: 'insights',         element: <S><InsightsPage /></S> },
+          { path: 'stories',          element: <S><StoriesPage /></S> },
+          { path: 'referral-stories', element: <S><ReferralStoriesPage /></S> },
+          { path: 'premium-reveal',   element: <S><PremiumRevealPage /></S> },
+          { path: 'card-issuance',    element: <S><CardIssuanceStoriesPage /></S> },
+          { path: 'category/:categoryId', element: <S><CategoryPage /></S> },
+          { path: 'business/:businessId', element: <S><BusinessPage /></S> },
+          { path: 'business/:businessId/voucher/:voucherId', element: <S><VoucherPurchasePage /></S> },
+          { path: 'wallet/add-money',          element: <S><AddMoneyPage /></S> },
+          { path: 'wallet/add-money/source',   element: <S><AddMoneySourcePage /></S> },
+          { path: 'wallet/add-money/loading',  element: <S><AddMoneyLoadingPage /></S> },
+          { path: 'wallet/voucher/:voucherId', element: <S><VoucherDetailPage /></S> },
 
           // === PROTECTED routes ===
           {
@@ -94,17 +117,6 @@ export const router = createBrowserRouter([
           },
         ],
       },
-
-      // Outside AppLayout (own headers)
-      { path: 'search',           element: <S><SearchPage /></S> },
-      { path: 'chat',             element: <S><AiChatPage /></S> },
-      { path: 'near-you-map',     element: <S><NearYouMapPage /></S> },
-      { path: 'insights',         element: <S><InsightsPage /></S> },
-      { path: 'stories',          element: <S><StoriesPage /></S> },
-      { path: 'referral-stories', element: <S><ReferralStoriesPage /></S> },
-      { path: 'premium-reveal',   element: <S><PremiumRevealPage /></S> },
-      { path: 'card-issuance',    element: <S><CardIssuanceStoriesPage /></S> },
-      { path: 'category/:categoryId', element: <S><CategoryPage /></S> },
 
       // Registration flow
       {

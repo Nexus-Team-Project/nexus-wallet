@@ -17,9 +17,10 @@ function getGreeting(t: { home: { goodMorning: string; goodAfternoon: string; go
 
 interface TopBarProps {
   collapsed?: boolean;
+  showBack?: boolean;
 }
 
-export default function TopBar({ collapsed = false }: TopBarProps) {
+export default function TopBar({ collapsed = false, showBack = false }: TopBarProps) {
   const internalRef = useRef<HTMLElement>(null);
 
   const { lang = 'he' } = useParams();
@@ -80,8 +81,20 @@ export default function TopBar({ collapsed = false }: TopBarProps) {
       {/* ── Main row ── */}
       <div className="relative flex items-center justify-between">
 
-        {/* Left: avatars + greeting */}
-        <div className="flex items-center gap-2.5">
+        {/* Left: back button (non-home) + avatars + greeting */}
+        <div className="flex items-center gap-2">
+          {/* Back button — non-home pages only */}
+          {showBack && (
+            <button
+              onClick={() => navigate(-1)}
+              className="w-9 h-9 rounded-full bg-white/80 backdrop-blur-sm flex items-center justify-center shadow-sm active:scale-95 transition-transform"
+              aria-label={t.common?.back ?? 'Back'}
+            >
+              <span className="material-symbols-outlined text-text-primary" style={{ fontSize: 20 }}>
+                arrow_forward
+              </span>
+            </button>
+          )}
           {/* Avatar cluster */}
           <button
             onClick={handleProfile}

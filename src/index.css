@@ -197,3 +197,43 @@ body {
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+
+/* ── Gali orb ─────────────────────────────────────────────────────────────── */
+
+.gali-orb-socket {
+  background: #e2e8f0;
+  transition: background 0.3s ease;
+}
+
+.gali-spin-ring {
+  position: relative;
+  overflow: hidden;
+  background: transparent;
+}
+
+.gali-spin-ring::before {
+  content: '';
+  position: absolute;
+  inset: -50%;
+  background: conic-gradient(
+    from 0deg,
+    #635bff,
+    #00d4ff,
+    #7dd3a8,
+    #f59e0b,
+    #ef4444,
+    #635bff
+  );
+  animation: gali-ring-spin 1.2s linear infinite;
+  border-radius: 9999px;
+  z-index: 0;
+}
+
+.gali-spin-ring > * {
+  position: relative;
+  z-index: 1;
+}
+
+@keyframes gali-ring-spin {
+  to { transform: rotate(360deg); }
+}

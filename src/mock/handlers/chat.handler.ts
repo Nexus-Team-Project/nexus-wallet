@@ -1,7 +1,7 @@
 import { mockVouchers } from '../data/vouchers.mock';
 import type { ChatMessage } from '../../types/chat.types';
 
-const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms)); // keep for AI "thinking" UX
 
 // Keyword → category/voucher mapping for smart recommendations
 const keywordMap: Record<string, { ids: string[]; responseHe: string; responseEn: string }> = {
@@ -189,8 +189,8 @@ export function getWelcomeMessage(isHe: boolean): ChatMessage {
     id: 'welcome',
     role: 'assistant',
     content: isHe
-      ? 'היי! 👋 אני Nexus AI — אני כאן לעזור לך למצוא את ההטבה המושלמת. ספר לי מה אתה מחפש, או בחר מההצעות למטה:'
-      : "Hi! 👋 I'm Nexus AI — I'm here to help you find the perfect deal. Tell me what you're looking for, or pick from the suggestions below:",
+      ? 'היי! 👋 אני גלי — אני כאן לעזור לך למצוא את ההטבה המושלמת. ספר לי מה אתה מחפש, או בחר מההצעות למטה:'
+      : "Hi! 👋 I'm Gali — I'm here to help you find the perfect deal. Tell me what you're looking for, or pick from the suggestions below:",
     suggestions: isHe
       ? ['מתנה ליום הולדת', 'בילוי זוגי', 'ההנחה הכי שווה', 'קפה טוב']
       : ['Birthday gift', 'Date night', 'Best discount', 'Good coffee'],

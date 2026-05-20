@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "nexus-wallet",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["node_modules/vite/bin/vite.js"],
+      "runtimeEnv": { "PORT": "8082" },
+      "port": 8082
+    }
+  ]
+}

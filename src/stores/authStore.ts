@@ -188,3 +188,8 @@ export const useAuthStore = create<AuthState>((set) => ({
     });
   },
 }));
+
+// DEV ONLY: expose store for console testing
+if (import.meta.env.DEV) {
+  (window as any).__authStore = useAuthStore;
+}

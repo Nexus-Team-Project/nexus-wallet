@@ -7,17 +7,6 @@ import Skeleton from '../ui/Skeleton';
 import SectionError from '../ui/SectionError';
 import type { NearbyDeal } from '../../types/branch.types';
 
-// ── Pastel backgrounds per voucher category ──
-const categoryColors: Record<string, string> = {
-  food: 'bg-orange-50',
-  shopping: 'bg-pink-50',
-  entertainment: 'bg-purple-50',
-  tech: 'bg-blue-50',
-  travel: 'bg-sky-50',
-  health: 'bg-emerald-50',
-  education: 'bg-amber-50',
-};
-
 const categoryGradients: Record<string, string> = {
   food: 'from-orange-400 to-orange-600',
   shopping: 'from-pink-400 to-pink-600',
@@ -26,16 +15,6 @@ const categoryGradients: Record<string, string> = {
   travel: 'from-sky-400 to-sky-600',
   health: 'from-emerald-400 to-emerald-600',
   education: 'from-amber-400 to-amber-600',
-};
-
-const categorySlides: Record<string, string[]> = {
-  food: ['🍔', '🍟', '🥤'],
-  shopping: ['👕', '👗', '👜'],
-  entertainment: ['🎬', '🍿', '🎭'],
-  tech: ['💻', '📱', '🎧'],
-  travel: ['🏨', '🏖️', '🌅'],
-  health: ['💊', '💄', '🧴'],
-  education: ['📚', '🎓', '📖'],
 };
 
 const categoryLabels: Record<string, { en: string; he: string }> = {
@@ -107,71 +86,40 @@ function NearYouCard({
   const v = deal.voucher;
   const catLabel = categoryLabels[v.category] || { en: v.category, he: v.category };
   const distanceText = formatDistance(deal.distanceKm, isHe);
-  const bgColor = categoryColors[v.category] || 'bg-gray-50';
-  const slides = categorySlides[v.category] || ['🎁', '🎉', '⭐'];
-  const hasMultipleSlides = slides.length > 1;
-
-  // Richer crossfade swipe — same pattern as OfferCard in ActiveOffers
-  const [current, setCurrent] = useState(0);
-  const touchStartX = useRef(0);
-  const touchEndX = useRef(0);
-  const isSwiping = useRef(false);
-
-  const handleTouchStart = (e: React.TouchEvent) => {
-    touchStartX.current = e.touches[0].clientX;
-    touchEndX.current = e.touches[0].clientX;
-    isSwiping.current = false;
-  };
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    touchEndX.current = e.touches[0].clientX;
-    if (Math.abs(touchStartX.current - touchEndX.current) > 3) {
-      isSwiping.current = true;
-    }
-  };
-
-  const handleTouchEnd = () => {
-    const diff = touchStartX.current - touchEndX.current;
-    if (hasMultipleSlides && isSwiping.current && Math.abs(diff) > 20) {
-      if (diff > 0) {
-        setCurrent((prev) => (prev + 1) % slides.length);
-      } else {
-        setCurrent((prev) => (prev - 1 + slides.length) % slides.length);
-      }
-    } else if (!isSwiping.current) {
-      onNavigate();
-    }
-  };
 
   return (
-    <div className="flex-none w-[75vw] max-w-[300px] bg-white border border-border rounded-lg shadow-sm overflow-hidden text-start snap-start active:scale-[0.97] transition-transform duration-150">
-      {/* Pastel image area — crossfade emoji slides */}
+    <button
+      onClick={onNavigate}
+      className="flex-none w-[75vw] max-w-[300px] bg-white border border-border rounded-lg shadow-sm overflow-hidden text-start snap-start active:scale-[0.97] transition-transform duration-150"
+    >
+      {/* Atmosphere image area */}
       <div
-        className={`relative overflow-hidden ${bgColor}`}
+        className="relative overflow-hidden bg-surface"
         style={{ height: '20vh' }}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
       >
-        {/* Crossfade slides */}
-        {slides.map((emoji, idx) => (
-          <div
-            key={idx}
-            className={`absolute inset-0 flex items-center justify-center transition-opacity duration-300 ${
-              idx === current ? 'opacity-100' : 'opacity-0'
-            }`}
-          >
-            <span className="text-7xl">{emoji}</span>
+        {v.imageUrl ? (
+          <img src={v.imageUrl} alt={v.title} className="absolute inset-0 w-full h-full object-cover" />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <span className="text-7xl">{v.image}</span>
           </div>
-        ))}
+        )}
 
-        {/* Logo badge — top-right corner */}
-        <div className="absolute top-2.5 right-2.5 z-10 w-14 h-14 rounded-full bg-white shadow-md border border-border/40 flex items-center justify-center">
-          <span className="text-2xl">{v.merchantLogo}</span>
-        </div>
+        {/* Dark gradient overlay */}
+        <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/30 to-transparent" />
 
-        {/* Distance badge — top-left */}
-        <div className="absolute top-2.5 left-2.5 z-10 bg-white/90 backdrop-blur-sm rounded-full px-2.5 py-1 flex items-center gap-1">
+        {/* Brand logo circle — top-end */}
+        {v.brandLogo && (
+          <div
+            className="absolute top-2.5 end-2.5 z-10 w-10 h-10 rounded-full shadow-md border-2 border-white flex items-center justify-center overflow-hidden"
+            style={{ backgroundColor: v.brandColor || '#FFFFFF' }}
+          >
+            <img src={v.brandLogo} alt={v.merchantName} className="w-[80%] h-[80%] object-contain" />
+          </div>
+        )}
+
+        {/* Distance badge — top-start */}
+        <div className="absolute top-2.5 start-2.5 z-10 bg-white/90 backdrop-blur-sm rounded-full px-2.5 py-1 flex items-center gap-1">
           <span
             className="material-symbols-outlined text-primary"
             style={{ fontSize: '12px' }}
@@ -182,27 +130,10 @@ function NearYouCard({
             {distanceText}
           </span>
         </div>
-
-        {/* Dot indicators — pill for active, dot for inactive */}
-        {hasMultipleSlides && (
-          <div className="absolute bottom-2 left-0 right-0 z-10 flex items-center justify-center gap-1">
-            {slides.map((_, idx) => (
-              <span
-                key={idx}
-                className={`block rounded-full transition-all duration-300 ${
-                  idx === current ? 'w-4 h-1.5 bg-gray-800' : 'w-1.5 h-1.5 bg-gray-500'
-                }`}
-              />
-            ))}
-          </div>
-        )}
       </div>
 
       {/* Bottom info */}
-      <button
-        onClick={onNavigate}
-        className="w-full px-3 py-4 flex items-center justify-between"
-      >
+      <div className="w-full px-3 py-4 flex items-center justify-between">
         <div className="flex flex-col">
           <span className="text-sm font-bold text-text-primary">
             {isHe ? v.titleHe : v.title}
@@ -221,8 +152,8 @@ function NearYouCard({
             </span>
           )}
         </div>
-      </button>
-    </div>
+      </div>
+    </button>
   );
 }
 
@@ -276,15 +207,30 @@ function LocationTeaserCard({
         {/* Semi-transparent overlay for readability */}
         <div className="absolute inset-0 bg-white/40 backdrop-blur-[1px]" />
 
-        {/* Location pin icon */}
-        <div className="absolute inset-0 flex items-center justify-center" style={{ paddingBottom: '28px' }}>
-          <span
-            className="material-symbols-outlined text-primary drop-shadow-md"
-            style={{ fontSize: '56px' }}
+        {/* Brand circles scattered on the map */}
+        {[
+          { src: '/brands/mcdonalds.png', bg: '#FFFFFF', top: '20%', left: '25%', size: 44 },
+          { src: '/brands/aroma.png', bg: '#000000', top: '50%', left: '60%', size: 44 },
+          { src: '/brands/ksp.png', bg: '#3478BE', top: '25%', left: '70%', size: 44 },
+        ].map((brand) => (
+          <div
+            key={brand.src}
+            className="absolute z-10 rounded-full shadow-md border border-white/60 flex items-center justify-center overflow-hidden"
+            style={{
+              top: brand.top,
+              left: brand.left,
+              width: brand.size,
+              height: brand.size,
+              backgroundColor: brand.bg,
+            }}
           >
-            location_on
-          </span>
-        </div>
+            <img
+              src={brand.src}
+              alt=""
+              className={brand.src.includes('ksp') ? 'w-full h-full object-cover' : 'w-[70%] h-[70%] object-contain'}
+            />
+          </div>
+        ))}
 
         {/* Semi-transparent black bar at the bottom with descriptive text */}
         <div className="absolute bottom-0 left-0 right-0 bg-black/50 backdrop-blur-sm py-2 px-3">

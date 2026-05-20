@@ -6,8 +6,29 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   assetsInclude: ['**/*.lottie'],
   server: {
-    port: 3001,
+    port: parseInt(process.env.PORT || '8080'),
     host: true,
+    watch: {
+      // Prevent watching node_modules — huge perf win on Windows
+      ignored: ['**/node_modules/**', '**/.git/**'],
+    },
+  },
+  optimizeDeps: {
+    // Pre-bundle heavy deps once so Vite doesn't re-scan on every start
+    include: [
+      'react',
+      'react-dom',
+      'react-router-dom',
+      'framer-motion',
+      '@tanstack/react-query',
+      'zustand',
+      'firebase/app',
+      'firebase/auth',
+      'clsx',
+      'tailwind-merge',
+      'lucide-react',
+      'zod',
+    ],
   },
   build: {
     target: 'esnext',

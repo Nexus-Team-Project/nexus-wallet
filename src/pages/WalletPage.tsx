@@ -1,162 +1,144 @@
 import { useState, useRef } from 'react';
-import { DotLottieReact } from '@lottiefiles/dotlottie-react';
-import type { DotLottie } from '@lottiefiles/dotlottie-react';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useLanguage } from '../i18n/LanguageContext';
+import { useWallet } from '../hooks/useWallet';
+import { formatCurrency } from '../utils/formatCurrency';
 import WalletTabs from '../components/wallet/WalletTabs';
+import PayInStoreSheet from '../components/wallet/PayInStoreSheet';
+import MoreActionsSheet from '../components/wallet/MoreActionsSheet';
 import type { UserVoucher } from '../types/voucher.types';
 
 // Logos
 import MastercardLogo from '../assets/logos/mastercard-logo-transperant.png';
-import MigdalLogo from '../assets/logos/migdal_logo_transparent.png';
-
-// Lottie animations
-// @ts-ignore
-import ApplePayAnimation from '../assets/animations/Apple Pay Face ID Checkout.lottie';
-// @ts-ignore
-import UnsuccessfulAnimation from '../assets/animations/Card Payment Unsuccessful.lottie';
+import NexusWideLogo from '../assets/logos/Nexus_Wide_Logo_Animation_Black_Whithout_Slogan.gif';
 
 export default function WalletPage() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+  const { lang = 'he' } = useParams();
+  const navigate = useNavigate();
+  const locale = language === 'he' ? 'he-IL' : 'en-IL';
+  const { data: wallet } = useWallet();
   const [activeTab, setActiveTab] = useState<UserVoucher['status']>('active');
 
-  // NFC animation state
-  const [isAnimating, setIsAnimating] = useState(false);
-  const [isUnsuccessful, setIsUnsuccessful] = useState(false);
-  const animationRef = useRef<DotLottie | null>(null);
-  const unsuccessfulRef = useRef<DotLottie | null>(null);
+  // Collapsible section states
+  const [cardOpen, setCardOpen] = useState(true);
+  const [vouchersOpen, setVouchersOpen] = useState(true);
 
-  // Drag to scroll state
-  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
-  const [isDragging, setIsDragging] = useState(false);
-  const [startX, setStartX] = useState(0);
-  const [scrollLeft, setScrollLeft] = useState(0);
+  // Sheet states
+  const [showPaySheet, setShowPaySheet] = useState(false);
+  const [showMoreSheet, setShowMoreSheet] = useState(false);
 
   // Notification state
   const [showNotification, setShowNotification] = useState(false);
-  const [notificationType, setNotificationType] = useState<'success' | 'declined'>('success');
-  const [merchantName, setMerchantName] = useState('');
-
-  // Drag to scroll handlers
-  const handleMouseDown = (e: React.MouseEvent) => {
-    if (!scrollContainerRef.current) return;
-    setIsDragging(true);
-    setStartX(e.pageX - scrollContainerRef.current.offsetLeft);
-    setScrollLeft(scrollContainerRef.current.scrollLeft);
-
-    const handleGlobalMouseMove = (e: MouseEvent) => {
-      if (!scrollContainerRef.current) return;
-      e.preventDefault();
-      const x = e.pageX - scrollContainerRef.current.offsetLeft;
-      const walk = (x - startX) * 2;
-      scrollContainerRef.current.scrollLeft = scrollLeft - walk;
-    };
-
-    const handleGlobalMouseUp = () => {
-      setIsDragging(false);
-      document.removeEventListener('mousemove', handleGlobalMouseMove);
-      document.removeEventListener('mouseup', handleGlobalMouseUp);
-    };
-
-    document.addEventListener('mousemove', handleGlobalMouseMove);
-    document.addEventListener('mouseup', handleGlobalMouseUp);
-  };
-
-  const handleCardClick = (e: React.MouseEvent) => {
-    if (isDragging) {
-      e.preventDefault();
-      e.stopPropagation();
-      return;
-    }
-
-    e.preventDefault();
-    e.stopPropagation();
-
-    if (isUnsuccessful) {
-      setIsUnsuccessful(false);
-      unsuccessfulRef.current?.stop();
-    }
-
-    if (animationRef.current) {
-      setIsAnimating(true);
-      animationRef.current.stop();
-      animationRef.current.play();
-
-      setTimeout(() => {
-        setIsAnimating(false);
-        animationRef.current?.stop();
-
-        setNotificationType('success');
-        setMerchantName('מרפאת בריאות');
-        setShowNotification(true);
-      }, 6500);
-    }
-  };
-
-  const handleIconClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-
-    if (isAnimating) {
-      setIsAnimating(false);
-      animationRef.current?.stop();
-    }
-
-    if (unsuccessfulRef.current) {
-      setIsUnsuccessful(true);
-      unsuccessfulRef.current.stop();
-      unsuccessfulRef.current.play();
-
-      setTimeout(() => {
-        setIsUnsuccessful(false);
-        unsuccessfulRef.current?.stop();
-
-        setNotificationType('declined');
-        setMerchantName("ג'לטו");
-        setShowNotification(true);
-      }, 3000);
-    }
-  };
+  const [notificationType, _setNotificationType] = useState<'success' | 'declined'>('success');
+  const [merchantName, _setMerchantName] = useState('');
 
   return (
-    <div className="animate-fade-in">
-      {/* ══════ DIGITAL CARDS SECTION ══════ */}
-      <div className="mb-6">
-        <h2 className="text-lg font-bold text-text-primary px-5 mb-3">
-          {t.wallet.digitalCards}
-        </h2>
+    <div className="animate-fade-in pt-16">
+      {/* ══════ BALANCE CARD (Klarna-style) ══════ */}
+      <section className="mt-4 mb-8 px-5">
+        <div className="relative bg-white border border-gray-100 rounded-[32px] p-8 shadow-[0_8px_30px_rgb(0,0,0,0.04)] text-center">
+          {/* New badge — top-start corner */}
+          <span className="absolute top-4 start-4 bg-success/20 text-success text-xs font-bold px-2.5 py-0.5 rounded-full">
+            {t.wallet.newBadge}
+          </span>
 
-        {/* Scrollable Card Gallery */}
-        <div
-          ref={scrollContainerRef}
-          onMouseDown={handleMouseDown}
-          className={`w-full overflow-x-auto px-5 no-scrollbar ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
-          style={{ userSelect: 'none' }}
-        >
-          <div className="flex gap-4 pb-2">
-            {/* First Card - Black */}
-            <div
-              onClick={handleCardClick}
-              className="flex-shrink-0 w-[300px] aspect-[1.7/1] rounded-2xl shadow-2xl relative p-5 flex flex-col justify-between transform transition-transform active:scale-[0.98] cursor-pointer bg-black"
+          {/* Label */}
+          <div className="flex items-center justify-center gap-2 mb-2">
+            <span className="inline-flex items-center gap-1 text-text-secondary font-medium">
+              <span>יתרת</span>
+              <span className="inline-flex items-center bg-sky-300 rounded-xl px-3 py-1 overflow-hidden" style={{ transform: 'scale(0.873)' }}>
+                <img
+                  src="/nexus-logo-black.png"
+                  alt="Nexus"
+                  className="h-7 w-auto object-contain"
+                  style={{ transform: 'scale(1.373)' }}
+                />
+              </span>
+            </span>
+            <span className="material-symbols-outlined text-text-muted" style={{ fontSize: '16px' }}>
+              chevron_right
+            </span>
+          </div>
+
+          {/* Balance Amount */}
+          <h1 className="text-6xl font-bold text-text-primary mb-1 tracking-tight">
+            {formatCurrency(wallet?.balance || 0, 'ILS', locale)}
+          </h1>
+
+          {/* Action Buttons Row + Cashback */}
+          <div className="flex items-center justify-center gap-3 mt-6">
+            <button
+              onClick={() => navigate(`/${lang}/wallet/add-money`)}
+              className="bg-bg-dark text-white px-8 py-3.5 rounded-full font-bold text-base active:scale-95 transition-transform"
             >
-              <div className="flex justify-between items-start">
-                <div className="-ml-2 h-16 flex items-center">
-                  <img
-                    src={MigdalLogo}
-                    alt="Migdal"
-                    className="h-16 brightness-0 invert mix-blend-screen"
-                    style={{ filter: 'brightness(0) invert(1)', mixBlendMode: 'screen' }}
-                  />
-                </div>
-                <span className="text-white text-lg font-medium tracking-widest opacity-90">
-                  822V
-                </span>
+              {t.wallet.addMoney}
+            </button>
+            <button
+              onClick={() => setShowPaySheet(true)}
+              className="bg-surface text-text-primary px-6 py-3.5 rounded-full font-bold text-base active:scale-95 transition-transform border border-border"
+            >
+              {t.wallet.payment}
+            </button>
+            <button
+              onClick={() => setShowMoreSheet(true)}
+              className="w-12 h-12 flex items-center justify-center rounded-full bg-surface border border-border active:scale-95 transition-transform flex-shrink-0"
+            >
+              <span className="material-symbols-outlined text-text-secondary rotate-90" style={{ fontSize: '20px' }}>more_horiz</span>
+            </button>
+          </div>
+
+          {/* Cashback Text — attached to buttons */}
+          <p className="text-success font-semibold text-sm mt-2">{t.wallet.earnCashback}</p>
+        </div>
+      </section>
+
+      {/* ══════ DIGITAL CARD SECTION (collapsible) ══════ */}
+      <div className="mb-6">
+        <button
+          onClick={() => setCardOpen(!cardOpen)}
+          className="flex items-center justify-between w-full px-5 mb-3 active:opacity-70 transition-opacity"
+        >
+          <h2 className="text-lg font-bold text-text-primary">
+            {t.wallet.digitalCards}
+          </h2>
+          <span
+            className={`material-symbols-outlined text-text-muted transition-transform duration-300 ${cardOpen ? 'rotate-180' : ''}`}
+            style={{ fontSize: '20px' }}
+          >
+            expand_more
+          </span>
+        </button>
+
+        <div className={`overflow-hidden transition-all duration-300 ease-in-out ${cardOpen ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}`}>
+          {/* Single Centered Card */}
+          <div className="px-5">
+            <div className="w-full aspect-[1.7/1] rounded-2xl shadow-2xl relative p-5 flex flex-col justify-between bg-black overflow-hidden">
+              {/* Decorative background K */}
+              <div
+                className="absolute -bottom-10 left-3 text-[200px] font-extrabold leading-none text-white/[0.04] select-none pointer-events-none"
+                aria-hidden="true"
+              >
+                N
               </div>
-              <div className="flex justify-between items-end">
-                <div className="relative ml-12">
+
+              {/* Top row: Nexus wide logo (white) */}
+              <div className="flex items-start z-10">
+                <img
+                  src={NexusWideLogo}
+                  alt="Nexus"
+                  className="h-10"
+                  style={{ filter: 'invert(1)', mixBlendMode: 'screen' }}
+                />
+              </div>
+
+              {/* Bottom row: Mastercard (scheme) + contactless */}
+              <div className="flex justify-between items-end z-10">
+                <div className="relative ml-8">
                   <img
                     src={MastercardLogo}
                     alt="Mastercard"
-                    className="h-24 opacity-90"
+                    className="h-20 opacity-90"
                     style={{ transform: 'translate(16px, 16px)' }}
                   />
                 </div>
@@ -165,103 +147,16 @@ export default function WalletPage() {
                 </span>
               </div>
             </div>
+          </div>
 
-            {/* Second Card - Blue */}
-            <div
-              className="flex-shrink-0 w-[300px] aspect-[1.7/1] rounded-2xl shadow-2xl relative p-5 flex flex-col justify-between transform transition-transform active:scale-[0.98] cursor-pointer"
-              style={{ background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 50%, #1d4ed8 100%)' }}
+          {/* Issue Card Button */}
+          <div className="flex justify-center mt-5">
+            <button
+              onClick={() => navigate(`/${lang}/card-issuance`)}
+              className="px-6 py-3 rounded-full bg-bg-dark text-white font-bold text-sm active:scale-95 transition-transform shadow-md"
             >
-              <div className="flex justify-between items-start">
-                <div className="-ml-2 h-16 flex items-center">
-                  <img src={MigdalLogo} alt="Migdal" className="h-16 brightness-0 invert mix-blend-screen" style={{ filter: 'brightness(0) invert(1)', mixBlendMode: 'screen' }} />
-                </div>
-                <span className="text-white text-lg font-medium tracking-widest opacity-90">823V</span>
-              </div>
-              <div className="flex justify-between items-end">
-                <div className="relative ml-12">
-                  <img src={MastercardLogo} alt="Mastercard" className="h-24 opacity-90" style={{ transform: 'translate(16px, 16px)' }} />
-                </div>
-                <span className="material-symbols-outlined text-white/40 text-2xl rotate-90 -mr-1">contactless</span>
-              </div>
-            </div>
-
-            {/* Third Card - White */}
-            <div className="flex-shrink-0 w-[300px] aspect-[1.7/1] rounded-2xl shadow-2xl relative p-5 flex flex-col justify-between transform transition-transform active:scale-[0.98] cursor-pointer bg-white">
-              <div className="flex justify-between items-start">
-                <div className="-ml-2 h-16 flex items-center">
-                  <img src={MigdalLogo} alt="Migdal" className="h-16" />
-                </div>
-                <span className="text-gray-800 text-lg font-medium tracking-widest opacity-90">824V</span>
-              </div>
-              <div className="flex justify-between items-end">
-                <div className="relative ml-12">
-                  <img src={MastercardLogo} alt="Mastercard" className="h-24 opacity-90" style={{ transform: 'translate(16px, 16px)' }} />
-                </div>
-                <span className="material-symbols-outlined text-gray-400 text-2xl rotate-90 -mr-1">contactless</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* NFC / Payment Animation Section */}
-        <div className="flex flex-col items-center justify-center mt-8">
-          <div className="relative mx-auto flex items-center justify-center min-h-[180px]">
-            {/* Successful Payment Animation */}
-            <div className={`absolute inset-0 flex flex-col items-center justify-center transition-opacity duration-500 ${isAnimating ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
-              <DotLottieReact
-                src={ApplePayAnimation}
-                loop={false}
-                autoplay={false}
-                speed={1}
-                dotLottieRefCallback={(dotLottie) => {
-                  animationRef.current = dotLottie;
-                }}
-              />
-            </div>
-
-            {/* Unsuccessful Payment Animation */}
-            <div className={`absolute inset-0 flex flex-col items-center justify-center transition-opacity duration-500 ${isUnsuccessful ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
-              <DotLottieReact
-                src={UnsuccessfulAnimation}
-                loop={false}
-                autoplay={false}
-                speed={1}
-                dotLottieRefCallback={(dotLottie) => {
-                  unsuccessfulRef.current = dotLottie;
-                }}
-              />
-            </div>
-
-            {/* Initial State - Contactless Icon */}
-            <div className={`transition-opacity duration-500 ${isAnimating || isUnsuccessful ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
-              <div
-                onClick={handleIconClick}
-                className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center cursor-pointer hover:bg-primary/20 transition-colors active:scale-95"
-              >
-                <span className="material-symbols-outlined text-primary text-2xl">
-                  contactless
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Text Below Animations/Icon */}
-          <div className="mt-1 text-center">
-            {isAnimating && (
-              <p className="text-text-muted text-sm font-normal tracking-tight">
-                {t.wallet.holdNearReader}
-              </p>
-            )}
-            {isUnsuccessful && (
-              <p className="text-red-500 text-sm font-semibold tracking-tight">
-                {t.wallet.paymentDeclined}
-              </p>
-            )}
-            {!isAnimating && !isUnsuccessful && (
-              <p className="text-text-muted text-sm font-normal tracking-tight">
-                {t.wallet.tapToPay}
-              </p>
-            )}
+              {t.wallet.issueCard}
+            </button>
           </div>
         </div>
       </div>
@@ -269,11 +164,34 @@ export default function WalletPage() {
       {/* ══════ DIVIDER ══════ */}
       <div className="h-px bg-border mx-5 mb-5" />
 
-      {/* ══════ VOUCHERS SECTION ══════ */}
+      {/* ══════ VOUCHERS SECTION (collapsible) ══════ */}
       <div className="px-5 space-y-4">
-        <h2 className="text-lg font-bold text-text-primary">{t.wallet.myVouchers}</h2>
-        <WalletTabs activeTab={activeTab} onTabChange={setActiveTab} />
+        <div className="flex items-center justify-between">
+          <button
+            onClick={() => setVouchersOpen(!vouchersOpen)}
+            className="flex items-center gap-1 active:opacity-70 transition-opacity"
+          >
+            <h2 className="text-lg font-bold text-text-primary">{t.wallet.myVouchers}</h2>
+            <span
+              className={`material-symbols-outlined text-text-muted transition-transform duration-300 ${vouchersOpen ? 'rotate-180' : ''}`}
+              style={{ fontSize: '20px' }}
+            >
+              expand_more
+            </span>
+          </button>
+          <button className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-surface text-text-secondary text-xs font-medium active:scale-95 transition-transform">
+            <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>tune</span>
+            {t.wallet.filterVouchers}
+          </button>
+        </div>
+        <div className={`overflow-hidden transition-all duration-300 ease-in-out ${vouchersOpen ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'}`}>
+          <WalletTabs activeTab={activeTab} onTabChange={setActiveTab} />
+        </div>
       </div>
+
+      {/* ══════ BOTTOM SHEETS ══════ */}
+      {showPaySheet && <PayInStoreSheet onClose={() => setShowPaySheet(false)} />}
+      {showMoreSheet && <MoreActionsSheet onClose={() => setShowMoreSheet(false)} />}
 
       {/* ══════ NOTIFICATION OVERLAY ══════ */}
       {showNotification && (

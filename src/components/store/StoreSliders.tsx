@@ -51,12 +51,35 @@ function SliderCard({
       disabled={isUnavailable}
       className="flex-none w-[75vw] max-w-[300px] bg-white border border-border rounded-lg shadow-sm overflow-hidden text-start snap-start active:scale-[0.97] transition-transform duration-150 flex flex-col disabled:opacity-60"
     >
-      {/* Emoji / image area — same height as TopStores (20vh) */}
-      <div className="relative bg-surface flex items-center justify-center" style={{ height: '20vh' }}>
-        <span style={{ fontSize: 56 }}>{voucher.image}</span>
+      {/* Atmosphere image area */}
+      <div className="relative bg-surface overflow-hidden" style={{ height: '20vh' }}>
+        {voucher.imageUrl ? (
+          <img
+            src={voucher.imageUrl}
+            alt={voucher.title}
+            className="absolute inset-0 w-full h-full object-cover"
+          />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <span style={{ fontSize: 56 }}>{voucher.image}</span>
+          </div>
+        )}
+
+        {/* Dark gradient overlay for readability */}
+        <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/30 to-transparent" />
+
+        {/* Brand logo circle — top-start corner */}
+        {voucher.brandLogo && (
+          <div
+            className="absolute top-2.5 start-2.5 z-10 w-10 h-10 rounded-full shadow-md border-2 border-white flex items-center justify-center overflow-hidden"
+            style={{ backgroundColor: voucher.brandColor || '#FFFFFF' }}
+          >
+            <img src={voucher.brandLogo} alt={voucher.merchantName} className="w-[80%] h-[80%] object-contain" />
+          </div>
+        )}
 
         {/* Discount badge — top end */}
-        <div className="absolute top-2 end-2">
+        <div className="absolute top-2.5 end-2.5 z-10">
           <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-pink-100 text-pink-700">
             {voucher.discountPercent}%
           </span>
