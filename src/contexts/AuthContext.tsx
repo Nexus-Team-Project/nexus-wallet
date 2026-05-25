@@ -14,6 +14,7 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { api, setAccessToken, getAccessToken } from '../lib/api';
 import { useAuthStore } from '../stores/authStore';
+import { useRegistrationStore } from '../stores/registrationStore';
 import { exchangeGoogleCode } from '../services/auth.service';
 
 /**
@@ -160,16 +161,46 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (initialGoogleCode) {
         const r = await exchangeGoogleCode(initialGoogleCode);
         if (r) {
-          // Hard-navigate to the chooser. Using window.location.replace
-          // instead of the React Router state signal because the
-          // signal+effect pattern raced with IndexRoute's Navigate-to-
-          // store and ended up on /:lang/store about half the time.
-          // A hard nav is deterministic: page reloads, bootstrap re-runs
-          // without a ?code, refresh cookie hydrates the session, and
-          // /api/me lands the user on /:lang/router cleanly. The brief
-          // double-flash is acceptable for a once-per-login event.
+          setAccessToken(r.accessToken);
           const lang = window.location.pathname.split('/')[1] || 'he';
-          window.location.replace(`/${lang}/router`);
+
+          // Decide where the Google login lands BEFORE the hard-nav.
+          // - Returning user (profile.completedAt set) -> chooser.
+          // - New user (no completedAt) -> the same onboarding story
+          //   chain phone-OTP signups see. We seed the registration
+          //   session in sessionStorage before reloading so
+          //   useRegistrationStore.isRegistering is true on the next
+          //   bootstrap and RegistrationGuard lets the slide chain run.
+          // /api/me failure falls back to /router so a hiccup never
+          // strands the user mid-bootstrap.
+          let destination = `/${lang}/router`;
+          try {
+            const me = await api<WalletMeResponse>('/api/me');
+            if (!me.profile?.completedAt) {
+              const nameParts = (me.user.name ?? '').trim().split(/\s+/).filter(Boolean);
+              const firstName = nameParts[0] ?? '';
+              const lastName = nameParts.slice(1).join(' ');
+              const regStore = useRegistrationStore.getState();
+              regStore.startRegistration({
+                path: 'new-user',
+                phone: '',
+                missingFields: ['birthday'],
+              });
+              regStore.setProfileData({
+                firstName,
+                lastName,
+                email: me.user.email,
+              });
+              destination = `/${lang}/auth-flow/new-user`;
+            }
+          } catch (err) {
+            console.error('[wallet-auth] /api/me failed after Google exchange:', err);
+          }
+
+          // Hard-navigate. Page reloads at the destination, bootstrap
+          // re-runs without a ?code, refresh cookie hydrates the
+          // session, and /api/me lands the user on the right screen.
+          window.location.replace(destination);
           return; // page is unloading; do not continue bootstrap
         }
       }
