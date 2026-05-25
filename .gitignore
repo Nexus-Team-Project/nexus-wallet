@@ -27,3 +27,7 @@ dist-ssr
 # Firebase service account key (sensitive)
 serviceAccountKey.json
 scripts/serviceAccountKey.json
+
+.env
+CLAUDE.md
+.claude/
