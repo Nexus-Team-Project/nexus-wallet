@@ -102,20 +102,14 @@ export default function RouterScreen() {
 
         {r.showJoinRequest && (
           <button
-            onClick={() => {
-              alert(
-                isHe
-                  ? 'בקרוב: חיפוש ארגון להצטרפות (Plan #4)'
-                  : 'Coming soon: search for tenants to join (Plan #4)',
-              );
-            }}
+            onClick={() => { void navigate(`/${lang}/wallet/join-tenant`); }}
             className="w-full p-4 rounded-2xl border border-border bg-white text-start hover:bg-surface transition-colors"
           >
             <div className="font-semibold text-text-primary">
               {isHe ? 'בקש להצטרף לארגון' : 'Request to join a tenant'}
             </div>
             <div className="text-xs text-text-muted mt-1">
-              {isHe ? 'חפש ושלח בקשת הצטרפות (בקרוב)' : 'Search and send a join request (coming soon)'}
+              {isHe ? 'חפש ושלח בקשת הצטרפות' : 'Search and send a join request'}
             </div>
           </button>
         )}
