@@ -165,34 +165,38 @@ export default function TopBar({ collapsed = false, showBack = false }: TopBarPr
           </div>
         )}
 
-        {/* Right: action buttons */}
-        <div className="flex items-center gap-1.5">
-          <button
-            onClick={() => navigate(`/${lang}/chat`)}
-            className={`relative rounded-full bg-surface flex items-center justify-center hover:bg-border transition-all duration-300 ease-in-out ${btnSize}`}
-            aria-label="Chat"
-          >
-            <span className={`material-symbols-outlined text-text-primary transition-transform duration-300 ${iconScale}`}>chat_bubble_outline</span>
-            {chatCount > 0 && (
-              <span className="absolute -top-0.5 -left-0.5 w-[18px] h-[18px] bg-error rounded-full border-2 border-white flex items-center justify-center">
-                <span className="text-[10px] font-bold text-white leading-none">{chatCount > 9 ? '9+' : chatCount}</span>
-              </span>
-            )}
-          </button>
+        {/* Right: action buttons - hidden for anonymous visitors. The
+            chat and notifications surfaces are member-only and would
+            be confusing on the AnonymousSplash. */}
+        {isAuthenticated && (
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => navigate(`/${lang}/chat`)}
+              className={`relative rounded-full bg-surface flex items-center justify-center hover:bg-border transition-all duration-300 ease-in-out ${btnSize}`}
+              aria-label="Chat"
+            >
+              <span className={`material-symbols-outlined text-text-primary transition-transform duration-300 ${iconScale}`}>chat_bubble_outline</span>
+              {chatCount > 0 && (
+                <span className="absolute -top-0.5 -left-0.5 w-[18px] h-[18px] bg-error rounded-full border-2 border-white flex items-center justify-center">
+                  <span className="text-[10px] font-bold text-white leading-none">{chatCount > 9 ? '9+' : chatCount}</span>
+                </span>
+              )}
+            </button>
 
-          <button
-            onClick={handleNotifications}
-            className={`relative rounded-full bg-surface flex items-center justify-center hover:bg-border transition-all duration-300 ease-in-out ${btnSize}`}
-            aria-label="Notifications"
-          >
-            <span className={`material-symbols-outlined text-text-primary transition-transform duration-300 ${iconScale}`}>notifications</span>
-            {notificationCount > 0 && (
-              <span className="absolute -top-0.5 -left-0.5 w-[18px] h-[18px] bg-error rounded-full border-2 border-white flex items-center justify-center">
-                <span className="text-[10px] font-bold text-white leading-none">{notificationCount > 9 ? '9+' : notificationCount}</span>
-              </span>
-            )}
-          </button>
-        </div>
+            <button
+              onClick={handleNotifications}
+              className={`relative rounded-full bg-surface flex items-center justify-center hover:bg-border transition-all duration-300 ease-in-out ${btnSize}`}
+              aria-label="Notifications"
+            >
+              <span className={`material-symbols-outlined text-text-primary transition-transform duration-300 ${iconScale}`}>notifications</span>
+              {notificationCount > 0 && (
+                <span className="absolute -top-0.5 -left-0.5 w-[18px] h-[18px] bg-error rounded-full border-2 border-white flex items-center justify-center">
+                  <span className="text-[10px] font-bold text-white leading-none">{notificationCount > 9 ? '9+' : notificationCount}</span>
+                </span>
+              )}
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Tenant row below — slides out on collapse */}
