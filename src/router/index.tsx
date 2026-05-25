@@ -61,6 +61,8 @@ const FlowTestPage         = lazy(() => import('../pages/auth-flow/FlowTestPage'
 const EmailRequiredPage    = lazy(() => import('../pages/auth/EmailRequiredPage'));
 const EmailOtpPage         = lazy(() => import('../pages/auth/EmailOtpPage'));
 const RouterScreen         = lazy(() => import('../pages/router/RouterScreen'));
+const JoinTenantPage       = lazy(() => import('../pages/wallet/JoinTenantPage'));
+const JoinSubmittedPage    = lazy(() => import('../pages/wallet/JoinSubmittedPage'));
 const NewUserFlow = lazy(() =>
   import('../pages/auth-flow/AuthFlowStories').then((m) => ({ default: m.NewUserFlow }))
 );
@@ -162,6 +164,15 @@ export const router = createBrowserRouter([
         ],
       },
       { path: 'router', element: <S><RouterScreen /></S> },
+
+      // Plan #4: wallet tenant-join flow
+      {
+        path: 'wallet',
+        children: [
+          { path: 'join-tenant',    element: <S><JoinTenantPage /></S> },
+          { path: 'join-submitted', element: <S><JoinSubmittedPage /></S> },
+        ],
+      },
 
       { path: '*', element: <Navigate to=".." replace /> },
     ],
