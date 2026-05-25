@@ -13,6 +13,7 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { api, setAccessToken, getAccessToken } from '../lib/api';
+import { useAuthStore } from '../stores/authStore';
 
 /**
  * Subset of /api/me the wallet reads. Mirrors the backend MeResponse
@@ -85,10 +86,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const data = await api<WalletMeResponse>('/api/me');
       setMe(data);
+      bridgeToAuthStore(data);
       return data;
     } catch {
       setMe(null);
       return null;
+    }
+  }
+
+  /**
+   * Bridges /api/me into the legacy Zustand authStore so existing
+   * wallet UI (TopBar greeting, login prompts, member-only routes)
+   * knows the user is signed in. Without this, a session bootstrapped
+   * via the refresh cookie alone (e.g. user logged in at nexus-website)
+   * leaves the wallet feeling logged out even though every API call
+   * succeeds.
+   */
+  function bridgeToAuthStore(data: WalletMeResponse): void {
+    const token = getAccessToken() ?? '';
+    const memberships = data.memberships ?? [];
+    const firstMember = memberships.find((m) => !m.isPrivilegedRole) ?? memberships[0];
+    const firstName =
+      data.profile?.firstName ??
+      data.user.name?.split(' ')[0] ??
+      data.user.email.split('@')[0];
+    useAuthStore.getState().login({
+      token,
+      userId: data.user.id,
+      method: 'google',
+      isOrgMember: memberships.length > 0,
+      firstName,
+      organizationName: firstMember?.tenantName,
+    });
+    if (data.profile?.completedAt) {
+      useAuthStore.getState().setProfileCompleted(true);
     }
   }
 
@@ -134,6 +165,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     setAccessToken(null);
     setMe(null);
+    // Also clear the legacy authStore so the wallet UI (TopBar, login
+    // prompts) drops back to unauthenticated state immediately.
+    useAuthStore.getState().logout();
   }
 
   return (
