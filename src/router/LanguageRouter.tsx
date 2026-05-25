@@ -110,11 +110,15 @@ export default function LanguageRouter() {
       <div style={tenantStyle}>
         <Outlet />
         <LoginSheet />
-        {/* Real tenant switcher when logged in. Dev-only simulators
-            (TenantSimulator + UserTypeSimulator) were removed - they
-            were vestiges of the mock-auth era and polluted the
-            anonymous splash. Re-add behind an env flag if needed. */}
-        {me && <WalletTenantSwitcher />}
+        {/* Real tenant switcher when logged in. Hidden on the post-login
+            RouterScreen because that page IS the picker - showing the
+            top-left "Pick view" chip there would be redundant and
+            confusing while the user is still choosing their context.
+            Dev-only simulators (TenantSimulator + UserTypeSimulator)
+            were removed - they were vestiges of the mock-auth era. */}
+        {me && !/^\/[a-z]{2}\/router\/?$/.test(location.pathname) && (
+          <WalletTenantSwitcher />
+        )}
       </div>
     </LanguageProvider>
   );
