@@ -9,8 +9,12 @@
  * Spec: docs/superpowers/specs/2026-05-25-nexus-wallet-auth-design.md sections 6 and 8
  */
 import { api } from '../lib/api';
-import { normalizeIsraeliPhone, requestGoogleIdToken } from '../lib/walletAuth';
+import { normalizeIsraeliPhone } from '../lib/walletAuth';
 import type { AuthSession, OtpVerifyResult, OrgMember } from '../types/auth.types';
+
+/** Key under which we persist the post-login destination across the
+ * full-page Google OAuth redirect. */
+const GOOGLE_REDIRECT_KEY = 'nexus_wallet_google_redirect';
 
 // Module-level state ties an in-flight challenge back to the verify call.
 let phoneChallengeId: string | null = null;
@@ -150,11 +154,20 @@ interface WalletGoogleResult {
 }
 
 /**
- * Google sign-in via Google Identity Services on the wallet domain.
- * Posts the id_token to /api/v1/auth/google/wallet for verification;
- * the backend creates or links the paired Prisma/Nexus identity.
+ * Google sign-in via full-page OAuth redirect with prompt=select_account.
+ * Matches the pattern used by nexus-website: browser navigates to
+ * accounts.google.com, user picks an account, Google redirects back
+ * to the wallet origin with ?code=XXX. AuthContext.bootstrap detects
+ * the code on next mount and POSTs it to /api/v1/auth/google/wallet
+ * with the same redirectUri.
  *
- * Returns the same shape the LoginSheet has always consumed.
+ * IMPORTANT: redirect_uri MUST be registered in Google Cloud Console
+ * under the GOOGLE_CLIENT_ID. For local dev: http://localhost:8080.
+ * For prod: https://wallet.nexus-payment.com.
+ *
+ * Returns success: false with redirecting: true so callers know the
+ * page is about to unload. They should NOT continue their post-success
+ * logic - the next mount handles it.
  */
 export async function firebaseGoogleSignIn(): Promise<WalletGoogleResult> {
   const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined;
@@ -162,28 +175,54 @@ export async function firebaseGoogleSignIn(): Promise<WalletGoogleResult> {
     console.error('VITE_GOOGLE_CLIENT_ID not configured');
     return { success: false };
   }
+  // Persist a small marker so AuthContext.bootstrap knows the ?code in
+  // the URL is ours (vs a code that happened to be there from a
+  // different OAuth flow).
+  sessionStorage.setItem(GOOGLE_REDIRECT_KEY, '1');
+  const redirectUri = window.location.origin;
+  const scope = encodeURIComponent('email profile openid');
+  const url =
+    'https://accounts.google.com/o/oauth2/v2/auth' +
+    `?client_id=${encodeURIComponent(clientId)}` +
+    `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+    '&response_type=code' +
+    `&scope=${scope}` +
+    '&prompt=select_account' +
+    '&access_type=online';
+  window.location.href = url;
+  return { success: false, redirecting: true };
+}
+
+/**
+ * Called by AuthContext bootstrap when ?code=XXX is present on the
+ * wallet URL. Exchanges the code with the backend using the same
+ * redirect_uri the browser sent to Google.
+ *
+ * @returns the access token on success, null on failure (the bootstrap
+ *   continues as anonymous in that case).
+ */
+export async function exchangeGoogleCode(code: string): Promise<{
+  accessToken: string;
+  identityCreated: boolean;
+  acceptedTenantIds?: string[];
+} | null> {
+  const claimed = sessionStorage.getItem(GOOGLE_REDIRECT_KEY);
+  sessionStorage.removeItem(GOOGLE_REDIRECT_KEY);
+  if (!claimed) return null;
   try {
-    const idToken = await requestGoogleIdToken(clientId);
     const r = await api<{
       accessToken: string;
       identityCreated: boolean;
       acceptedTenantIds?: string[];
     }>('/api/v1/auth/google/wallet', {
       method: 'POST',
-      body: { idToken },
+      body: { code, redirectUri: window.location.origin },
       skipAuth: true,
     });
-    const session: AuthSession = {
-      token: r.accessToken,
-      userId: 'wallet',
-      method: 'google',
-      isOrgMember: false,
-      marketingConsent: false,
-    };
-    return { success: true, session };
-  } catch (error) {
-    console.error('Google sign-in failed:', error);
-    return { success: false };
+    return r;
+  } catch (e) {
+    console.error('[wallet-auth] google code exchange failed:', e);
+    return null;
   }
 }
 
