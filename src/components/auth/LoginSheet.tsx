@@ -13,6 +13,7 @@ import {
   firebaseSaveConsent,
 } from '../../services/auth.service';
 import { lookupTenantByOrg } from '../../mock/handlers/tenant.handler';
+import { useAuth } from '../../contexts/AuthContext';
 
 export default function LoginSheet() {
   const { lang = 'he' } = useParams();
@@ -23,6 +24,7 @@ export default function LoginSheet() {
     useLoginSheetStore();
   const login = useAuthStore((s) => s.login);
   const setMarketingConsent = useAuthStore((s) => s.setMarketingConsent);
+  const { onLoginSucceeded } = useAuth();
   const tenantConfig = useTenantStore((s) => s.config);
   const setTenant = useTenantStore((s) => s.setTenant);
   const startRegistration = useRegistrationStore((s) => s.startRegistration);
@@ -221,6 +223,16 @@ export default function LoginSheet() {
     setError('');
     try {
       const result = await firebaseVerifyOtp(phone, code);
+
+      // Plan #2: phone verified but unknown -> ask for email next.
+      if (result.needsEmail) {
+        close();
+        navigate(
+          `/${lang}/auth/email-required?ticket=${result.needsEmail.signupTicketId}&phone=${encodeURIComponent(result.needsEmail.phone)}`,
+        );
+        return;
+      }
+
       if (!result.success || !result.session) {
         setError(t.auth.wrongCode);
         setOtp(['', '', '', '']);
@@ -229,6 +241,9 @@ export default function LoginSheet() {
       }
 
       const { session, registrationContext } = result;
+
+      // Plan #2: hydrate AuthContext so /api/me + router screen work.
+      await onLoginSucceeded(session.token);
       const orgMember = registrationContext?.orgMember;
       const profileComplete = registrationContext?.profileComplete ?? false;
       const missingFields = registrationContext?.missingFields ?? [];
@@ -345,6 +360,9 @@ export default function LoginSheet() {
           firstName: result.profile?.firstName,
           organizationName: orgMember?.organizationName,
         });
+
+        // Plan #2: hydrate AuthContext so /api/me + router screen work.
+        await onLoginSucceeded(result.session.token);
         await firebaseSaveConsent(result.session.userId, marketingOptIn);
         setMarketingConsent(marketingOptIn);
 
@@ -430,7 +448,7 @@ export default function LoginSheet() {
     }
   };
 
-  // ── Apple ──
+  // ── Apple - coming soon (firebaseAppleSignIn always returns notAvailable) ──
   const handleApple = async () => {
     setIsLoading(true);
     try {
@@ -609,7 +627,13 @@ export default function LoginSheet() {
               {!phoneExpanded ? (
                 <div className="grid grid-cols-2 gap-2.5">
                   <button
-                    onClick={() => { setPhoneExpanded(true); }}
+                    onClick={() =>
+                      setError(
+                        isHe
+                          ? 'התחברות עם WhatsApp תהיה זמינה בקרוב'
+                          : 'WhatsApp sign-in coming soon',
+                      )
+                    }
                     disabled={isLoading}
                     className="flex items-center justify-center gap-2 py-3 rounded-2xl bg-white border border-border text-sm font-semibold text-text-primary hover:bg-surface active:scale-[0.98] transition-all disabled:opacity-50"
                   >
