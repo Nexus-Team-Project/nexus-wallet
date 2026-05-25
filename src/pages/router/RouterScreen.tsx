@@ -17,7 +17,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { api } from '../../lib/api';
 import { useLanguage } from '../../i18n/LanguageContext';
 
-export default function RouterScreen(): JSX.Element {
+export default function RouterScreen() {
   const { me, loading } = useAuth();
   const navigate = useNavigate();
   const { lang = 'he' } = useParams();
@@ -62,7 +62,7 @@ export default function RouterScreen(): JSX.Element {
         {r.showMemberTenants.map((t) => (
           <button
             key={t.tenantId}
-            onClick={(): void => navigate(`/${lang}/store?tenant=${t.tenantId}`)}
+            onClick={() => { void navigate(`/${lang}/store?tenant=${t.tenantId}`); }}
             className="w-full p-4 rounded-2xl border border-border bg-white text-start hover:bg-surface transition-colors"
           >
             <div className="font-semibold text-text-primary">{t.tenantName}</div>
@@ -74,7 +74,9 @@ export default function RouterScreen(): JSX.Element {
 
         {r.showAdminEntry && (
           <button
-            onClick={openAdminDashboard}
+            onClick={(): void => {
+              void openAdminDashboard();
+            }}
             className="w-full p-4 rounded-2xl border-2 border-primary bg-primary/5 text-start hover:bg-primary/10 transition-colors"
           >
             <div className="font-semibold text-primary">
@@ -86,7 +88,7 @@ export default function RouterScreen(): JSX.Element {
 
         {r.showEveryonesCatalog && (
           <button
-            onClick={(): void => navigate(`/${lang}/store?ecosystem=1`)}
+            onClick={() => { void navigate(`/${lang}/store?ecosystem=1`); }}
             className="w-full p-4 rounded-2xl border border-border bg-white text-start hover:bg-surface transition-colors"
           >
             <div className="font-semibold text-text-primary">
@@ -100,13 +102,13 @@ export default function RouterScreen(): JSX.Element {
 
         {r.showJoinRequest && (
           <button
-            onClick={(): void =>
+            onClick={() => {
               alert(
                 isHe
                   ? 'בקרוב: חיפוש ארגון להצטרפות (Plan #4)'
                   : 'Coming soon: search for tenants to join (Plan #4)',
-              )
-            }
+              );
+            }}
             className="w-full p-4 rounded-2xl border border-border bg-white text-start hover:bg-surface transition-colors"
           >
             <div className="font-semibold text-text-primary">

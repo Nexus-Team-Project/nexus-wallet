@@ -10,7 +10,8 @@
  *
  * Spec: docs/superpowers/specs/2026-05-25-nexus-wallet-auth-design.md sections 3 and 7
  */
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
+import type { ReactNode } from 'react';
 import { api, setAccessToken, getAccessToken } from '../lib/api';
 
 /**
@@ -53,7 +54,7 @@ interface AuthState {
 
 const Ctx = createContext<AuthState | null>(null);
 
-export function AuthProvider({ children }: { children: ReactNode }): JSX.Element {
+export function AuthProvider({ children }: { children: ReactNode }) {
   const [me, setMe] = useState<WalletMeResponse | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
 
