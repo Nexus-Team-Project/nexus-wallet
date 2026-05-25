@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { AuthMethod } from '../types/auth.types';
 import { firebaseSignOut } from '../services/auth.service';
+import { setAccessToken } from '../lib/api';
 
 interface AuthState {
   isAuthenticated: boolean;
@@ -172,6 +173,9 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   logout: () => {
     firebaseSignOut().catch(() => {});
+    // Plan #2: also drop the in-memory access token used by lib/api so
+    // subsequent requests don't carry a stale Bearer.
+    setAccessToken(null);
     clearPersistedAuth();
     set({
       isAuthenticated: false,

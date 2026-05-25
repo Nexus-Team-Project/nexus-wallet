@@ -1,48 +1,142 @@
-import {
-  GoogleAuthProvider,
-  OAuthProvider,
-  RecaptchaVerifier,
-  signInWithPopup,
-  signInWithRedirect,
-  getRedirectResult,
-  signInWithPhoneNumber,
-  type ConfirmationResult,
-  type UserCredential,
-} from 'firebase/auth';
-import { auth } from '../lib/firebase';
-import type { AuthSession, OrgMember, OtpVerifyResult } from '../types/auth.types';
-import { lookupOrgMember } from './orgMember.service';
+/**
+ * Wallet auth service. All Firebase calls have been replaced with
+ * calls to nexus-website/backend (Plan #1 endpoints).
+ *
+ * Function names retain the legacy `firebase` prefix on purpose so the
+ * LoginSheet does not need a coordinated rename - the names are an
+ * interface, not a provider. A name cleanup ships in a later refactor.
+ *
+ * Spec: docs/superpowers/specs/2026-05-25-nexus-wallet-auth-design.md sections 6 and 8
+ */
+import { api } from '../lib/api';
+import { normalizeIsraeliPhone, requestGoogleIdToken } from '../lib/walletAuth';
+import type { AuthSession, OtpVerifyResult, OrgMember } from '../types/auth.types';
 
-// ── Internal state ──
+// Module-level state ties an in-flight challenge back to the verify call.
+let phoneChallengeId: string | null = null;
+let signupTicketId: string | null = null;
+let emailChallengeId: string | null = null;
 
-/** Stored between sendOtp → verifyOtp calls */
-let confirmationResult: ConfirmationResult | null = null;
-/** Lazily created reCAPTCHA verifier */
-let recaptchaVerifier: RecaptchaVerifier | null = null;
-/** Phone number saved for dev bypass (code 9999) */
-let lastPhone = '';
-
-// ── Helpers ──
-
-/** Convert Israeli phone (050-1234567) to E.164 (+972501234567) */
-function toE164(phone: string): string {
-  const digits = phone.replace(/\D/g, '');
-  if (digits.startsWith('972')) return `+${digits}`;
-  if (digits.startsWith('0')) return `+972${digits.slice(1)}`;
-  return `+972${digits}`;
-}
-
-function getOrCreateRecaptcha(): RecaptchaVerifier {
-  if (recaptchaVerifier) return recaptchaVerifier;
-  recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-    size: 'invisible',
+/**
+ * Send a phone-OTP. Returns success=true on accepted SMS; the
+ * challengeId is stored module-local so verifyOtp can reuse it.
+ *
+ * Errors (invalid_phone, rate_limited, sms_unavailable) bubble through
+ * api() so the caller can show a localized message.
+ */
+export async function firebaseSendOtp(
+  phone: string,
+): Promise<{ success: boolean }> {
+  const normalized = normalizeIsraeliPhone(phone) ?? phone;
+  const r = await api<{ challengeId: string }>('/api/v1/auth/phone/start', {
+    method: 'POST',
+    body: { phone: normalized },
+    skipAuth: true,
   });
-  return recaptchaVerifier;
+  phoneChallengeId = r.challengeId;
+  return { success: true };
 }
 
-// ── Google Sign-In ──
+/**
+ * Verify a phone-OTP. Two outcomes:
+ * - logged_in: backend returned an access token. Build an AuthSession
+ *   and let the caller hydrate AuthContext via onLoginSucceeded.
+ * - phone_verified (phone unknown): surface needsEmail so the caller
+ *   navigates to /:lang/auth/email-required and the user can supply
+ *   email or Google to finish signup.
+ */
+export async function firebaseVerifyOtp(
+  _phone: string,
+  code: string,
+): Promise<OtpVerifyResult> {
+  if (!phoneChallengeId) return { success: false };
+  try {
+    const r = await api<
+      | { mode: 'logged_in'; accessToken: string; acceptedTenantIds?: string[] }
+      | { mode: 'phone_verified'; signupTicketId: string; phone: string }
+    >('/api/v1/auth/phone/verify', {
+      method: 'POST',
+      body: { challengeId: phoneChallengeId, code },
+      skipAuth: true,
+    });
 
-type GoogleSignInResult = {
+    if (r.mode === 'phone_verified') {
+      signupTicketId = r.signupTicketId;
+      return {
+        success: false,
+        needsEmail: {
+          signupTicketId: r.signupTicketId,
+          phone: r.phone,
+        },
+      };
+    }
+
+    const session: AuthSession = {
+      token: r.accessToken,
+      userId: 'wallet',
+      method: 'phone',
+      isOrgMember: false,
+      marketingConsent: false,
+    };
+    return {
+      success: true,
+      session,
+      registrationContext: {
+        orgMember: null,
+        profileComplete: true,
+        missingFields: [],
+      },
+    };
+  } catch {
+    // Wrong code, expired, locked - all surface as success=false.
+    return { success: false };
+  }
+}
+
+/**
+ * Start an email-OTP, paired with the phone-signup ticket from the
+ * previous phone-verify if present.
+ */
+export async function walletStartEmailOtp(email: string): Promise<{ challengeId: string }> {
+  const r = await api<{ challengeId: string }>('/api/v1/auth/email-otp/start', {
+    method: 'POST',
+    body: {
+      email,
+      ...(signupTicketId ? { signupTicketId } : {}),
+      lang: 'he',
+    },
+    skipAuth: true,
+  });
+  emailChallengeId = r.challengeId;
+  return r;
+}
+
+export interface WalletEmailVerifyResult {
+  accessToken: string;
+  identityCreated: boolean;
+  phoneLinked: boolean;
+  acceptedTenantIds?: string[];
+}
+
+/**
+ * Verify the email-OTP. On success the backend issued a wallet
+ * session (refresh cookie set, access token returned). The caller
+ * hydrates AuthContext via onLoginSucceeded and routes to /router.
+ */
+export async function walletVerifyEmailOtp(code: string): Promise<WalletEmailVerifyResult> {
+  if (!emailChallengeId) throw new Error('no_email_challenge');
+  const r = await api<WalletEmailVerifyResult>('/api/v1/auth/email-otp/verify', {
+    method: 'POST',
+    body: { challengeId: emailChallengeId, code },
+    skipAuth: true,
+  });
+  // Consumed - clear in case the caller restarts the flow.
+  emailChallengeId = null;
+  signupTicketId = null;
+  return r;
+}
+
+interface WalletGoogleResult {
   success: boolean;
   session?: AuthSession;
   profile?: {
@@ -53,294 +147,83 @@ type GoogleSignInResult = {
   };
   orgMember?: OrgMember | null;
   redirecting?: boolean;
-};
+}
 
-function buildGoogleResult(credential: UserCredential): GoogleSignInResult {
-  const user = credential.user;
-  const nameParts = (user.displayName || '').split(' ');
-  return {
-    success: true,
-    session: {
-      token: '', // will be set by caller via getIdToken()
-      userId: user.uid,
+/**
+ * Google sign-in via Google Identity Services on the wallet domain.
+ * Posts the id_token to /api/v1/auth/google/wallet for verification;
+ * the backend creates or links the paired Prisma/Nexus identity.
+ *
+ * Returns the same shape the LoginSheet has always consumed.
+ */
+export async function firebaseGoogleSignIn(): Promise<WalletGoogleResult> {
+  const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined;
+  if (!clientId) {
+    console.error('VITE_GOOGLE_CLIENT_ID not configured');
+    return { success: false };
+  }
+  try {
+    const idToken = await requestGoogleIdToken(clientId);
+    const r = await api<{
+      accessToken: string;
+      identityCreated: boolean;
+      acceptedTenantIds?: string[];
+    }>('/api/v1/auth/google/wallet', {
+      method: 'POST',
+      body: { idToken },
+      skipAuth: true,
+    });
+    const session: AuthSession = {
+      token: r.accessToken,
+      userId: 'wallet',
       method: 'google',
       isOrgMember: false,
       marketingConsent: false,
-    },
-    profile: {
-      email: user.email || '',
-      firstName: nameParts[0] || '',
-      lastName: nameParts.slice(1).join(' ') || '',
-      picture: user.photoURL || '',
-    },
-  };
-}
-
-export async function firebaseGoogleSignIn(): Promise<GoogleSignInResult> {
-  try {
-    const provider = new GoogleAuthProvider();
-    provider.addScope('profile');
-    provider.addScope('email');
-
-    let result: UserCredential;
-    try {
-      result = await signInWithPopup(auth, provider);
-    } catch (err: unknown) {
-      const firebaseErr = err as { code?: string; message?: string };
-      console.warn('Popup sign-in failed, falling back to redirect:', firebaseErr.code, firebaseErr.message);
-
-      if (firebaseErr.code === 'auth/popup-closed-by-user' ||
-          firebaseErr.code === 'auth/cancelled-popup-request') {
-        // User cancelled — don't redirect
-        return { success: false };
-      }
-
-      // For any other error (popup-blocked, unauthorized-domain, etc.) → redirect
-      await signInWithRedirect(auth, provider);
-      return { success: false, redirecting: true };
-    }
-
-    const idToken = await result.user.getIdToken();
-    const res = buildGoogleResult(result);
-    res.session!.token = idToken;
-
-    // Look up org member by email in Firestore
-    const email = result.user.email || '';
-    if (email) {
-      const orgMember = await lookupOrgMember({ email });
-      if (orgMember) {
-        res.orgMember = orgMember;
-        res.session!.isOrgMember = true;
-      }
-    }
-
-    return res;
+    };
+    return { success: true, session };
   } catch (error) {
     console.error('Google sign-in failed:', error);
     return { success: false };
   }
 }
 
-/** Call on app startup to handle redirect result (if user was redirected for OAuth) */
-export async function handleGoogleRedirectResult(): Promise<GoogleSignInResult> {
-  try {
-    const result = await getRedirectResult(auth);
-    if (!result) return { success: false };
-
-    const idToken = await result.user.getIdToken();
-    const res = buildGoogleResult(result);
-    res.session!.token = idToken;
-
-    // Look up org member by email in Firestore
-    const email = result.user.email || '';
-    if (email) {
-      const orgMember = await lookupOrgMember({ email });
-      if (orgMember) {
-        res.orgMember = orgMember;
-        res.session!.isOrgMember = true;
-      }
-    }
-
-    return res;
-  } catch (error) {
-    console.error('Google redirect result failed:', error);
-    return { success: false };
-  }
-}
-
-// ── Apple Sign-In ──
-
+/** Apple - placeholder until a real provider is wired. */
 export async function firebaseAppleSignIn(): Promise<{
   success: boolean;
-  session?: AuthSession;
-  profile?: {
-    email: string;
-    firstName: string;
-    lastName: string;
-    picture: string;
-  };
   notAvailable?: boolean;
 }> {
-  try {
-    const provider = new OAuthProvider('apple.com');
-    provider.addScope('email');
-    provider.addScope('name');
-
-    let result;
-    try {
-      result = await signInWithPopup(auth, provider);
-    } catch (err: unknown) {
-      const firebaseErr = err as { code?: string };
-      if (firebaseErr.code === 'auth/operation-not-allowed') {
-        // Apple provider not configured yet
-        return { success: false, notAvailable: true };
-      }
-      if (firebaseErr.code === 'auth/popup-blocked') {
-        await signInWithRedirect(auth, provider);
-        return { success: false };
-      }
-      throw err;
-    }
-
-    const user = result.user;
-    const idToken = await user.getIdToken();
-
-    const nameParts = (user.displayName || '').split(' ');
-    const firstName = nameParts[0] || '';
-    const lastName = nameParts.slice(1).join(' ') || '';
-
-    return {
-      success: true,
-      session: {
-        token: idToken,
-        userId: user.uid,
-        method: 'apple',
-        isOrgMember: false,
-        marketingConsent: false,
-      },
-      profile: {
-        email: user.email || '',
-        firstName,
-        lastName,
-        picture: user.photoURL || '',
-      },
-    };
-  } catch (error) {
-    console.error('Apple sign-in failed:', error);
-    return { success: false };
-  }
+  return { success: false, notAvailable: true };
 }
 
-// ── Phone OTP: Send ──
-
-export async function firebaseSendOtp(
-  phone: string
-): Promise<{ success: boolean }> {
-  lastPhone = phone; // Save for dev bypass (code 9999)
-  try {
-    const e164 = toE164(phone);
-    const verifier = getOrCreateRecaptcha();
-    confirmationResult = await signInWithPhoneNumber(auth, e164, verifier);
-    return { success: true };
-  } catch (error) {
-    console.error('OTP send failed:', error);
-    // Reset reCAPTCHA on error so it can be recreated on retry
-    recaptchaVerifier = null;
-    // Still return success so dev bypass (9999) can work even if Firebase fails
-    return { success: true };
-  }
-}
-
-// ── Phone OTP: Verify ──
-
-export async function firebaseVerifyOtp(
-  _phone: string,
-  code: string
-): Promise<OtpVerifyResult> {
-  // ── Dev bypass: code 1111 skips Firebase Auth + Firestore entirely ──
-  if (code === '1111') {
-    const e164 = toE164(_phone || lastPhone);
-    return {
-      success: true,
-      session: {
-        token: 'dev-token-1111',
-        userId: `dev-${e164.replace('+', '')}`,
-        method: 'phone',
-        isOrgMember: false,
-        marketingConsent: false,
-      },
-      registrationContext: {
-        orgMember: null,
-        profileComplete: true,
-        missingFields: [],
-      },
-    };
-  }
-
-  // ── Dev bypass: code 9999 skips Firebase Auth but checks Firestore ──
-  if (code === '9999') {
-    const e164 = toE164(_phone || lastPhone);
-    const orgMember = await lookupOrgMember({ phone: e164 });
-
-    const session: AuthSession = {
-      token: 'dev-token-9999',
-      userId: `dev-${e164.replace('+', '')}`,
-      method: 'phone',
-      isOrgMember: !!orgMember,
-      marketingConsent: false,
-    };
-
-    const missingFields: string[] = [];
-    if (!orgMember?.firstName) missingFields.push('firstName');
-    if (!orgMember?.lastName) missingFields.push('lastName');
-    if (!orgMember?.email) missingFields.push('email');
-
-    return {
-      success: true,
-      session,
-      registrationContext: {
-        orgMember: orgMember ?? null,
-        profileComplete: false,
-        missingFields,
-      },
-    };
-  }
-
-  try {
-    if (!confirmationResult) {
-      return { success: false };
-    }
-
-    const result = await confirmationResult.confirm(code);
-    const user = result.user;
-    const idToken = await user.getIdToken();
-
-    // Look up org member by phone in Firestore
-    const phone = user.phoneNumber || '';
-    const orgMember = await lookupOrgMember({ phone });
-
-    const session: AuthSession = {
-      token: idToken,
-      userId: user.uid,
-      method: 'phone',
-      isOrgMember: !!orgMember,
-      marketingConsent: false,
-    };
-
-    // If org member found, pre-fill known fields and only ask for missing ones
-    const missingFields: string[] = [];
-    if (!orgMember?.firstName) missingFields.push('firstName');
-    if (!orgMember?.lastName) missingFields.push('lastName');
-    if (!orgMember?.email) missingFields.push('email');
-
-    return {
-      success: true,
-      session,
-      registrationContext: {
-        orgMember: orgMember ?? null,
-        profileComplete: false,
-        missingFields,
-      },
-    };
-  } catch (error) {
-    console.error('OTP verification failed:', error);
-    return { success: false };
-  }
-}
-
-// ── Save Consent ──
-
+/**
+ * Marketing consent. The Plan #1 backend already accepts the consent
+ * audit-trail field on NexusIdentity; a dedicated PATCH endpoint
+ * lives in Plan #3 (settings page). For now we keep the in-memory
+ * flag on the Zustand store and let Plan #3 sync it.
+ */
 export async function firebaseSaveConsent(
-  userId: string,
-  consent: boolean
+  _userId: string,
+  _consent: boolean,
 ): Promise<{ success: boolean }> {
-  // TODO: Save to Firestore when ready
-  console.log(`[Firebase] Marketing consent for ${userId}: ${consent}`);
   return { success: true };
 }
 
-// ── Sign Out ──
-
+/** Sign out clears server cookie + access token. AuthContext.logout
+ * is the preferred entry point; this stub stays for callers still
+ * importing the legacy name. */
 export async function firebaseSignOut(): Promise<void> {
-  await auth.signOut();
+  try {
+    await api('/api/auth/logout', { method: 'POST' });
+  } catch {
+    // best-effort
+  }
+}
+
+/**
+ * Legacy redirect-result handler. Google Identity Services on the
+ * wallet domain uses a prompt-and-callback flow, not a redirect, so
+ * this is a no-op left in place to keep the import surface stable.
+ */
+export async function handleGoogleRedirectResult(): Promise<WalletGoogleResult> {
+  return { success: false };
 }
