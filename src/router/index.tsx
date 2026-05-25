@@ -58,6 +58,9 @@ const CardIssuanceStoriesPage = lazy(() => import('../pages/CardIssuanceStoriesP
 
 // Auth flow
 const FlowTestPage         = lazy(() => import('../pages/auth-flow/FlowTestPage'));
+const EmailRequiredPage    = lazy(() => import('../pages/auth/EmailRequiredPage'));
+const EmailOtpPage         = lazy(() => import('../pages/auth/EmailOtpPage'));
+const RouterScreen         = lazy(() => import('../pages/router/RouterScreen'));
 const NewUserFlow = lazy(() =>
   import('../pages/auth-flow/AuthFlowStories').then((m) => ({ default: m.NewUserFlow }))
 );
@@ -149,6 +152,16 @@ export const router = createBrowserRouter([
           { path: 'org-user',   element: <S><OrgUserFlow /></S> },
         ],
       },
+
+      // Plan #2: wallet auth (phone -> email signup branch + post-login router)
+      {
+        path: 'auth',
+        children: [
+          { path: 'email-required', element: <S><EmailRequiredPage /></S> },
+          { path: 'email-otp',      element: <S><EmailOtpPage /></S> },
+        ],
+      },
+      { path: 'router', element: <S><RouterScreen /></S> },
 
       { path: '*', element: <Navigate to=".." replace /> },
     ],
