@@ -17,6 +17,7 @@
  */
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { ChevronDown } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { api } from '../../lib/api';
 import { useLanguage } from '../../i18n/LanguageContext';
@@ -82,12 +83,14 @@ function MemberTenantsDropdown({
           </div>
           <div className="text-xs text-text-muted mt-1">{countLabel}</div>
         </div>
-        <span
-          className={`material-icons text-text-muted transition-transform ${open ? 'rotate-180' : ''}`}
-          style={{ fontSize: 22 }}
-        >
-          expand_more
-        </span>
+        {/* Lucide icon - the wallet does not load the material-icons
+            font (only material-symbols-outlined is loaded), so a
+            font-ligature here renders the literal text 'expand_more'. */}
+        <ChevronDown
+          size={22}
+          className={`text-text-muted transition-transform flex-shrink-0 ${open ? 'rotate-180' : ''}`}
+          aria-hidden="true"
+        />
       </button>
 
       {open && (
@@ -215,24 +218,29 @@ export default function RouterScreen() {
 
         {/* Nexus-Catalog: indigo gradient. A cross-tenant view, visually
             distinct from the tenant cards above to signal a different
-            context (not 'your tenant' but 'the whole ecosystem'). */}
+            context (not 'your tenant' but 'the whole ecosystem'). The
+            avatar uses the actual Nexus brand mark inside a white
+            circle so the card reads as 'the Nexus catalog' even at
+            avatar-only sizes. */}
         {r.showEveryonesCatalog && (
           <button
             onClick={() => { void navigate(`/${lang}/store?ecosystem=1`); }}
             className="group w-full p-4 rounded-2xl text-start transition-all bg-gradient-to-br from-indigo-50 to-blue-50 border border-indigo-200 hover:from-indigo-100 hover:to-blue-100 hover:border-indigo-300"
           >
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center flex-shrink-0 shadow-sm">
-                <span className="material-icons text-white" style={{ fontSize: 20 }}>
-                  storefront
-                </span>
+              <div className="w-10 h-10 rounded-full bg-white border border-indigo-200 flex items-center justify-center flex-shrink-0 shadow-sm overflow-hidden">
+                <img
+                  src="/nexus-logo.png"
+                  alt=""
+                  className="w-7 h-7 object-contain"
+                />
               </div>
               <div className="min-w-0 flex-1">
                 <div className="font-semibold text-indigo-900">
-                  {isHe ? 'קטלוג Nexus' : 'Nexus-Catalog'}
+                  {isHe ? 'קטלוג נקסוס' : 'Nexus-Catalog'}
                 </div>
                 <div className="text-xs text-indigo-700/80 mt-0.5">
-                  {isHe ? 'כל ההצעות המאושרות במערכת Nexus' : 'All approved Nexus ecosystem offers'}
+                  {isHe ? 'כל ההצעות המאושרות במערכת נקסוס' : 'All approved Nexus ecosystem offers'}
                 </div>
               </div>
             </div>
@@ -241,17 +249,21 @@ export default function RouterScreen() {
 
         {/* Join organization: amber gradient. Signals a different kind
             of action (request, not an immediate view) and pairs with
-            the amber pending-requests panel on the dashboard side. */}
+            the amber pending-requests panel on the dashboard side.
+            Mock community illustration lives in /public/join-tenant.svg
+            until product ships a final asset. */}
         {r.showJoinRequest && (
           <button
             onClick={() => { void navigate(`/${lang}/wallet/join-tenant`); }}
             className="group w-full p-4 rounded-2xl text-start transition-all bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 hover:from-amber-100 hover:to-orange-100 hover:border-amber-300"
           >
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center flex-shrink-0 shadow-sm">
-                <span className="material-icons text-white" style={{ fontSize: 20 }}>
-                  group_add
-                </span>
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center flex-shrink-0 shadow-sm overflow-hidden">
+                <img
+                  src="/join-tenant.svg"
+                  alt=""
+                  className="w-7 h-7 object-contain"
+                />
               </div>
               <div className="min-w-0 flex-1">
                 <div className="font-semibold text-amber-900">
