@@ -57,8 +57,16 @@ export default function LanguageRouter() {
 
   useEffect(() => {
     const tenantSlug = searchParams.get('tenant');
+    const ecosystemMode = searchParams.get('ecosystem') === '1';
 
-    if (tenantSlug) {
+    if (ecosystemMode) {
+      // User explicitly picked Nexus-Catalog: drop any persisted tenant
+      // so the TopBar / theme reflect ecosystem context. Without this,
+      // the else-if branch below would silently re-add ?tenant=<id>
+      // from the Zustand store and the UI would keep showing the
+      // tenant name after the user opted into ecosystem view.
+      clearTenant();
+    } else if (tenantSlug) {
       // ?tenant= in URL → set (or refresh) tenant
       const tenantConfig = lookupTenant(tenantSlug);
       if (tenantConfig) {

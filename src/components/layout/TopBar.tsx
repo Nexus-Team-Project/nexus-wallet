@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useAuthGate } from '../../hooks/useAuthGate';
 import { useAuthStore } from '../../stores/authStore';
 import { useTenantStore } from '../../stores/tenantStore';
@@ -26,6 +26,7 @@ export default function TopBar({ collapsed = false, showBack = false }: TopBarPr
 
   const { lang = 'he' } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { t, language } = useLanguage();
   const { isAuthenticated, requireAuth } = useAuthGate();
   const isOrgMember = useAuthStore((s) => s.isOrgMember);
@@ -35,7 +36,15 @@ export default function TopBar({ collapsed = false, showBack = false }: TopBarPr
   const tenantConfig = useTenantStore((s) => s.config);
   const { data: user } = useUser();
 
-  const hasTenant = isAuthenticated && isOrgMember && !!tenantConfig;
+  // Ecosystem (Nexus-Catalog) is picked via the WalletTenantSwitcher
+  // by adding ?ecosystem=1 to the URL. While that flag is set, the
+  // top bar must reflect "you are browsing the Nexus catalog", not
+  // the user's home tenant - otherwise the user thinks they're still
+  // in the tenant context after explicitly switching out of it.
+  const isEcosystem = searchParams.get('ecosystem') === '1';
+  const isHe = language === 'he';
+
+  const hasTenant = isAuthenticated && isOrgMember && !!tenantConfig && !isEcosystem;
   const logoSrc = hasTenant ? (tenantConfig?.logo ?? '/nexus-logo.png') : '/nexus-logo.png';
   const logoAlt = hasTenant ? (organizationName ?? tenantConfig?.name ?? 'Nexus') : 'Nexus';
 
@@ -49,9 +58,20 @@ export default function TopBar({ collapsed = false, showBack = false }: TopBarPr
   const [tenantSheetOpen, setTenantSheetOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
 
-  const tenantDisplayName = hasTenant
-    ? (language === 'he' ? tenantConfig?.nameHe : tenantConfig?.name)
-    : organizationName;
+  // Display name for the top-bar context chip. Order of preference:
+  //  1. Ecosystem mode -> "Nexus-Catalog" (the view label, not a tenant).
+  //  2. Active tenant from the tenant store (theme-aware names).
+  //  3. organizationName fallback from authStore.
+  // When ecosystem mode is on we deliberately ignore organizationName
+  // so the chip never shows the user's home tenant while they are
+  // browsing the cross-tenant catalog.
+  const tenantDisplayName = isEcosystem
+    ? isHe
+      ? 'קטלוג Nexus'
+      : 'Nexus-Catalog'
+    : hasTenant
+      ? (isHe ? tenantConfig?.nameHe : tenantConfig?.name)
+      : organizationName;
 
   const handleProfile = async () => {
     if (isAuthenticated) {
@@ -154,7 +174,11 @@ export default function TopBar({ collapsed = false, showBack = false }: TopBarPr
         {/* Center: tenant name — fades in on collapse */}
         {isAuthenticated && tenantDisplayName && (
           <div className={`absolute left-1/2 -translate-x-1/2 transition-all duration-300 ease-in-out ${collapsed ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
-            <button onClick={() => setTenantSheetOpen(true)} className="flex items-center gap-1 active:scale-95">
+            <button
+              onClick={() => { if (!isEcosystem) setTenantSheetOpen(true); }}
+              className="flex items-center gap-1 active:scale-95"
+              disabled={isEcosystem}
+            >
               <span className="text-[11px] font-semibold text-text-secondary truncate max-w-[160px]">
                 {tenantDisplayName}
               </span>
