@@ -14,6 +14,7 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { api, setAccessToken, getAccessToken } from '../lib/api';
 import { useAuthStore } from '../stores/authStore';
+import { exchangeGoogleCode } from '../services/auth.service';
 
 /**
  * Subset of /api/me the wallet reads. Mirrors the backend MeResponse
@@ -126,17 +127,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function bootstrap(): Promise<void> {
     setLoading(true);
     try {
-      // Try refresh first. If the cookie is valid, this hydrates the
-      // in-memory access token; otherwise the request fails silently
-      // and the user stays logged out.
-      try {
-        const r = await api<{ accessToken: string }>('/api/auth/refresh', {
-          method: 'POST',
-          skipAuth: true,
-        });
-        setAccessToken(r.accessToken);
-      } catch {
-        // No refresh cookie or it expired - stay logged out.
+      // Google OAuth redirect callback: if the browser came back from
+      // Google with ?code=XXX, exchange it with the backend BEFORE
+      // trying refresh. Clean the URL immediately so a page refresh
+      // never re-submits the (now-consumed) code.
+      const params = new URLSearchParams(window.location.search);
+      const googleCode = params.get('code');
+      if (googleCode) {
+        window.history.replaceState({}, document.title, window.location.pathname);
+        const r = await exchangeGoogleCode(googleCode);
+        if (r) setAccessToken(r.accessToken);
+      }
+
+      // Try refresh - if the cookie is valid, hydrates the in-memory
+      // access token. Skipped silently if no cookie or expired.
+      if (!getAccessToken()) {
+        try {
+          const r = await api<{ accessToken: string }>('/api/auth/refresh', {
+            method: 'POST',
+            skipAuth: true,
+          });
+          setAccessToken(r.accessToken);
+        } catch {
+          // Stay logged out.
+        }
       }
       if (getAccessToken()) {
         await reload();
