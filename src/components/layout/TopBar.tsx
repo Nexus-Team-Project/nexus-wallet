@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useAuthGate } from '../../hooks/useAuthGate';
+import { useAuth } from '../../contexts/AuthContext';
 import { useAuthStore } from '../../stores/authStore';
 import { useTenantStore } from '../../stores/tenantStore';
 import { useLanguage } from '../../i18n/LanguageContext';
@@ -35,6 +36,7 @@ export default function TopBar({ collapsed = false, showBack = false }: TopBarPr
   const authFirstName = useAuthStore((s) => s.firstName);
   const tenantConfig = useTenantStore((s) => s.config);
   const { data: user } = useUser();
+  const { me } = useAuth();
 
   // Ecosystem (Nexus-Catalog) is picked via the WalletTenantSwitcher
   // by adding ?ecosystem=1 to the URL. While that flag is set, the
@@ -44,9 +46,24 @@ export default function TopBar({ collapsed = false, showBack = false }: TopBarPr
   const isEcosystem = searchParams.get('ecosystem') === '1';
   const isHe = language === 'he';
 
-  const hasTenant = isAuthenticated && isOrgMember && !!tenantConfig && !isEcosystem;
+  // Resolve the active tenant from ?tenant=<id> against the user's
+  // memberships. The tenant store (`tenantConfig`) only has themed
+  // entries for mock tenants; real Mongo tenantIds never round-trip
+  // through it, so without this lookup the TopBar fell back to
+  // authStore.organizationName which is just the user's FIRST
+  // membership - that's the bug behind "I picked bedika2 but the
+  // header still says bedika".
+  const urlTenantId = !isEcosystem ? searchParams.get('tenant') : null;
+  const activeMembership = urlTenantId
+    ? me?.memberships?.find((m) => m.tenantId === urlTenantId)
+    : undefined;
+
+  const hasTenant = isAuthenticated && isOrgMember && !isEcosystem &&
+    (!!tenantConfig || !!activeMembership);
   const logoSrc = hasTenant ? (tenantConfig?.logo ?? '/nexus-logo.png') : '/nexus-logo.png';
-  const logoAlt = hasTenant ? (organizationName ?? tenantConfig?.name ?? 'Nexus') : 'Nexus';
+  const logoAlt = hasTenant
+    ? (activeMembership?.tenantName ?? organizationName ?? tenantConfig?.name ?? 'Nexus')
+    : 'Nexus';
 
   const displayFirstName = authFirstName ?? user?.firstName;
   const showGreeting = isAuthenticated && !!displayFirstName;
@@ -60,18 +77,22 @@ export default function TopBar({ collapsed = false, showBack = false }: TopBarPr
 
   // Display name for the top-bar context chip. Order of preference:
   //  1. Ecosystem mode -> "Nexus-Catalog" (the view label, not a tenant).
-  //  2. Active tenant from the tenant store (theme-aware names).
-  //  3. organizationName fallback from authStore.
-  // When ecosystem mode is on we deliberately ignore organizationName
-  // so the chip never shows the user's home tenant while they are
-  // browsing the cross-tenant catalog.
+  //  2. Active membership name resolved from ?tenant=<id> against
+  //     me.memberships. This is the source of truth for the picked
+  //     tenant - real backend tenants have no tenantStore entry.
+  //  3. Tenant store config (theme-aware names for mock tenants).
+  //  4. organizationName fallback from authStore (user's first
+  //     membership at login time).
+  // When ecosystem mode is on we deliberately ignore membership +
+  // organizationName so the chip never shows the user's home tenant
+  // while they are browsing the cross-tenant catalog.
   const tenantDisplayName = isEcosystem
     ? isHe
-      ? 'קטלוג Nexus'
+      ? 'קטלוג נקסוס'
       : 'Nexus-Catalog'
-    : hasTenant
-      ? (isHe ? tenantConfig?.nameHe : tenantConfig?.name)
-      : organizationName;
+    : activeMembership?.tenantName
+      ?? (hasTenant ? (isHe ? tenantConfig?.nameHe : tenantConfig?.name) : undefined)
+      ?? organizationName;
 
   const handleProfile = async () => {
     if (isAuthenticated) {
