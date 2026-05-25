@@ -83,24 +83,14 @@ function S({ children }: { children: React.ReactNode }) {
 /**
  * Index route for /:lang. Logged-in users get redirected to the store
  * catalog. Anonymous users render nothing so AppLayout shows the
- * AnonymousSplash.
- *
- * When AuthContext exposes a postLoginRedirect signal (set by the
- * bootstrap after a fresh Google redirect-flow exchange), IndexRoute
- * RENDERS NULL so no premature Navigate-to-store fires. The
- * LanguageRouter effect owns navigation in that case and routes the
- * user to /:lang/router. After it clears the signal, IndexRoute would
- * naturally redirect to store on any later visit to /:lang.
- *
- * Without this deferral, IndexRoute's child-first effect order beat
- * LanguageRouter's redirect, leaving the user on /:lang/store instead
- * of the chooser.
+ * AnonymousSplash. Post-login routing to RouterScreen is handled by
+ * AuthContext.bootstrap via a hard window.location.replace, so this
+ * route doesn't have to know anything about it.
  */
 function IndexRoute() {
-  const { me, loading, postLoginRedirect } = useAuth();
+  const { me, loading } = useAuth();
   if (loading) return null;
   if (!me) return null;
-  if (postLoginRedirect) return null; // LanguageRouter is about to navigate
   return <Navigate to="store" replace />;
 }
 

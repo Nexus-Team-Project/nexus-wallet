@@ -160,11 +160,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (initialGoogleCode) {
         const r = await exchangeGoogleCode(initialGoogleCode);
         if (r) {
-          setAccessToken(r.accessToken);
-          // The full-page Google redirect bypasses LoginSheet's
-          // navigate-to-router branch, so route the user there from
-          // here. RouterScreen is the canonical post-login chooser.
-          setPostLoginRedirect('/router');
+          // Hard-navigate to the chooser. Using window.location.replace
+          // instead of the React Router state signal because the
+          // signal+effect pattern raced with IndexRoute's Navigate-to-
+          // store and ended up on /:lang/store about half the time.
+          // A hard nav is deterministic: page reloads, bootstrap re-runs
+          // without a ?code, refresh cookie hydrates the session, and
+          // /api/me lands the user on /:lang/router cleanly. The brief
+          // double-flash is acceptable for a once-per-login event.
+          const lang = window.location.pathname.split('/')[1] || 'he';
+          window.location.replace(`/${lang}/router`);
+          return; // page is unloading; do not continue bootstrap
         }
       }
 
