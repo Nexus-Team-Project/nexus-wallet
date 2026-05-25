@@ -36,14 +36,23 @@ export default function AppLayout() {
   }, [pathname]);
 
   // Short-circuit the entire layout while auth bootstrap is in flight.
-  // The previous version rendered AppLayout's chrome (TopBar, max-w
-  // column with shadow, etc.) and put a small spinner in the main slot,
-  // which made manual /store URLs flash a half-loaded page before the
-  // redirect to /:lang/router fired. Now we render NOTHING but the
-  // full-viewport WalletLoadingScreen until /api/me resolves, so users
-  // never see page chrome until we know which page actually belongs to
-  // them.
   if (authLoading) return <WalletLoadingScreen />;
+
+  // Full-bleed routes opt out of the phone-style max-w-md column so
+  // they can use the whole desktop viewport. Mobile still gets a
+  // single-column stack via each page's own responsive classes.
+  //   /:lang          when anonymous - AnonymousSplash has its own
+  //                   desktop hero layout
+  //   /:lang/router   - RouterScreen has a 2-col hero on lg+
+  const isAnonymousLanding = /^\/[a-z]{2}\/?$/.test(pathname) && !me;
+  const isRouterPage = /^\/[a-z]{2}\/router\/?$/.test(pathname);
+  if (isAnonymousLanding || isRouterPage) {
+    return (
+      <div className="min-h-screen bg-bg-light">
+        <main>{!me ? <AnonymousSplash /> : <Outlet />}</main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-surface">
