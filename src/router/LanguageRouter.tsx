@@ -72,10 +72,18 @@ export default function LanguageRouter() {
         <Outlet />
         <LoginSheet />
         {/* When the user is logged in, the real WalletTenantSwitcher
-            takes over the top-left toggle position. Otherwise the
-            dev-only TenantSimulator stays for local simulation. */}
-        {me ? <WalletTenantSwitcher /> : <TenantSimulator />}
-        <UserTypeSimulator />
+            takes over the top-left toggle position. The dev-only
+            TenantSimulator + UserTypeSimulator stay visible only for
+            unauthenticated local sessions so the prod-style UI is not
+            cluttered by mock toggles. */}
+        {me ? (
+          <WalletTenantSwitcher />
+        ) : (
+          <>
+            <TenantSimulator />
+            <UserTypeSimulator />
+          </>
+        )}
       </div>
     </LanguageProvider>
   );
