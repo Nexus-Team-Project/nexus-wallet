@@ -20,6 +20,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useLanguage } from '../../i18n/LanguageContext';
+import { useTenantStore } from '../../stores/tenantStore';
 
 export default function WalletTenantSwitcher() {
   const { me } = useAuth();
@@ -27,6 +28,7 @@ export default function WalletTenantSwitcher() {
   const navigate = useNavigate();
   const { language } = useLanguage();
   const isHe = language === 'he';
+  const tenantConfig = useTenantStore((s) => s.config);
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -42,20 +44,34 @@ export default function WalletTenantSwitcher() {
 
   if (!me) return null;
 
-  const tenants = me.router?.showMemberTenants ?? [];
+  // Show every tenant the user belongs to (any role), not just plain
+  // members. The router-screen card list intentionally filters to
+  // plain-member tenants, but the in-page switcher is a "what context
+  // am I browsing as" picker that should include admin tenants too.
+  const tenants = (me.memberships ?? []).map((m) => ({
+    tenantId: m.tenantId,
+    tenantName: m.tenantName,
+  }));
   const ecosystem = searchParams.get('ecosystem') === '1';
   const activeTenantId = !ecosystem ? searchParams.get('tenant') : null;
   const activeTenant = tenants.find((t) => t.tenantId === activeTenantId);
 
+  // Tenant-store config carries the resolved display name when
+  // LanguageRouter recognized ?tenant=X. Falls back to a friendly
+  // "Pick context" label if nothing else is known. Never show the
+  // raw Mongo ObjectId.
+  const tenantStoreName = isHe ? tenantConfig?.nameHe : tenantConfig?.name;
   const currentLabel = ecosystem
     ? isHe
       ? 'הקטלוג של כולם'
       : "Everyone's catalog"
     : activeTenant
       ? activeTenant.tenantName
-      : isHe
-        ? 'בחר הקשר'
-        : 'Pick context';
+      : tenantStoreName
+        ? tenantStoreName
+        : isHe
+          ? 'בחר הקשר'
+          : 'Pick context';
 
   /** Switch to a specific tenant. Clears ?ecosystem. */
   const pickTenant = (tenantId: string): void => {
