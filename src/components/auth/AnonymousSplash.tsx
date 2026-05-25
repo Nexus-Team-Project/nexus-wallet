@@ -15,15 +15,11 @@
  * Spec: docs/superpowers/specs/2026-05-25-nexus-wallet-auth-design.md
  */
 import { motion } from 'framer-motion';
-import { Banknote, ShieldCheck, Sparkles } from 'lucide-react';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { useLoginSheetStore } from '../../stores/loginSheetStore';
 import PhoneShowcase from './PhoneShowcase';
 
 interface Benefit {
-  Icon: typeof Sparkles;
-  iconColor: string;
-  iconBg: string;
   he: { title: string; body: string };
   en: { title: string; body: string };
 }
@@ -32,37 +28,33 @@ interface Benefit {
 // RouterScreen value props. Anonymous visitors need a "why should I
 // sign in" pitch; RouterScreen users have already signed in and need a
 // "what do I do next" picker. Same brand, different jobs.
+//
+// Visuals: no icons. The user explicitly asked for either real
+// photographs or no icons at all - Lucide / material-symbols glyphs
+// read as 'ai emoji' inside the tinted tiles. Removing them keeps the
+// list clean and lets the title carry the meaning.
 const BENEFITS: Benefit[] = [
   {
-    Icon: Banknote,
-    iconColor: '#16a34a',
-    iconBg: '#dcfce7',
     he: {
       title: 'חוסכים בכל קנייה',
-      body: 'מחירים מיוחדים שמשתלמים מהקנייה הראשונה - בלי קופונים, בלי תנאים מסובכים.',
+      body: 'מחירים מיוחדים שמשתלמים מהקנייה הראשונה, בלי תנאים מסובכים.',
     },
     en: {
       title: 'Save on every purchase',
-      body: 'Members-only prices that pay off from the first basket - no coupons, no fine print.',
+      body: 'Members-only prices that pay off from the first basket, no fine print.',
     },
   },
   {
-    Icon: Sparkles,
-    iconColor: '#f97316',
-    iconBg: '#ffedd5',
     he: {
       title: 'הטבות שהארגון שלך בחר',
       body: 'מסעדות, אופנה, סופר, ספורט - כל קטלוג ההטבות של הארגון, מסונכרן ועדכני.',
     },
     en: {
       title: 'Curated by your organization',
-      body: 'Food, fashion, groceries, sport - your org\'s benefits catalog, always in sync.',
+      body: "Food, fashion, groceries, sport - your org's benefits catalog, always in sync.",
     },
   },
   {
-    Icon: ShieldCheck,
-    iconColor: '#0ea5e9',
-    iconBg: '#e0f2fe',
     he: {
       title: 'פרטי ומאובטח',
       body: 'הזהות מנוהלת על ידי נקסוס. הארגון לא רואה מה קנית או היכן הוצאת.',
@@ -165,28 +157,19 @@ export default function AnonymousSplash() {
               show: { transition: { staggerChildren: 0.12, delayChildren: 0.6 } },
             }}
           >
-            {BENEFITS.map(({ Icon, iconColor, iconBg, ...copy }, i) => (
+            {BENEFITS.map((copy, i) => (
               <motion.li
                 key={i}
                 variants={{ hidden: { opacity: 0, y: 14 }, show: { opacity: 1, y: 0 } }}
                 transition={{ type: 'spring', damping: 22, stiffness: 220 }}
-                className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-white/80 px-4 py-3 backdrop-blur-sm shadow-sm sm:gap-4 sm:px-5 sm:py-4"
+                className="rounded-2xl border border-slate-200 bg-white/80 px-5 py-4 backdrop-blur-sm shadow-sm sm:px-6 sm:py-5"
               >
-                <div
-                  className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl sm:h-12 sm:w-12"
-                  style={{ background: iconBg }}
-                  aria-hidden
-                >
-                  <Icon size={22} color={iconColor} strokeWidth={2.2} />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-bold text-slate-900 sm:text-base">
-                    {isHe ? copy.he.title : copy.en.title}
-                  </p>
-                  <p className="text-xs leading-relaxed text-slate-600 sm:text-sm">
-                    {isHe ? copy.he.body : copy.en.body}
-                  </p>
-                </div>
+                <p className="text-sm font-bold text-slate-900 sm:text-base">
+                  {isHe ? copy.he.title : copy.en.title}
+                </p>
+                <p className="mt-1 text-xs leading-relaxed text-slate-600 sm:text-sm">
+                  {isHe ? copy.he.body : copy.en.body}
+                </p>
               </motion.li>
             ))}
           </motion.ul>
