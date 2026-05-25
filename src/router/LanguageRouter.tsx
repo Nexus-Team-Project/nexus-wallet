@@ -2,8 +2,6 @@ import { useEffect } from 'react';
 import { Outlet, useNavigate, useSearchParams } from 'react-router-dom';
 import { LanguageProvider } from '../i18n/LanguageContext';
 import LoginSheet from '../components/auth/LoginSheet';
-import { TenantSimulator } from '../components/dev/TenantSimulator';
-import { UserTypeSimulator } from '../components/dev/UserTypeSimulator';
 import WalletTenantSwitcher from '../components/wallet/WalletTenantSwitcher';
 import { useAuth } from '../contexts/AuthContext';
 import { useTenantStore } from '../stores/tenantStore';
@@ -71,19 +69,11 @@ export default function LanguageRouter() {
       <div style={tenantStyle}>
         <Outlet />
         <LoginSheet />
-        {/* When the user is logged in, the real WalletTenantSwitcher
-            takes over the top-left toggle position. The dev-only
-            TenantSimulator + UserTypeSimulator stay visible only for
-            unauthenticated local sessions so the prod-style UI is not
-            cluttered by mock toggles. */}
-        {me ? (
-          <WalletTenantSwitcher />
-        ) : (
-          <>
-            <TenantSimulator />
-            <UserTypeSimulator />
-          </>
-        )}
+        {/* Real tenant switcher when logged in. Dev-only simulators
+            (TenantSimulator + UserTypeSimulator) were removed - they
+            were vestiges of the mock-auth era and polluted the
+            anonymous splash. Re-add behind an env flag if needed. */}
+        {me && <WalletTenantSwitcher />}
       </div>
     </LanguageProvider>
   );
