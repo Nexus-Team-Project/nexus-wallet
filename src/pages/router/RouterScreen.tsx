@@ -227,7 +227,11 @@ export default function RouterScreen() {
           {/* Animated explainer: floating brands + value-prop pills */}
           <RouterHeroExplainer isHe={isHe} />
 
-          {r.showAdminEntry && (
+          {/* Admins who ALSO hold a plain-member role in some other
+              tenant get the small inline link - the picker on the
+              right is their primary action and the dashboard is a
+              secondary affordance. */}
+          {r.showAdminEntry && r.showMemberTenants.length > 0 && (
             <motion.button
               variants={{ hidden: { opacity: 0, y: 8 }, show: { opacity: 1, y: 0 } }}
               transition={{ duration: 0.5, delay: 1.2 }}
@@ -291,6 +295,35 @@ export default function RouterScreen() {
           >
             {isHe ? 'המשך' : 'Continue'}
           </motion.button>
+
+          {/* Admins with NO member-role tenant (the common case for
+              tenant admins/owners) get a prominent "Return to your
+              dashboard" CTA instead of the small inline link above.
+              For them the dashboard IS the primary surface; the
+              picker collapses to just Nexus-Catalog, so without this
+              promotion the dashboard entry would be a near-invisible
+              underline link easy to miss. */}
+          {r.showAdminEntry && r.showMemberTenants.length === 0 && (
+            <motion.button
+              variants={{ hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0 } }}
+              transition={{ type: 'spring', damping: 22, stiffness: 220 }}
+              whileHover={{ y: -2 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={(e) => { e.stopPropagation(); void openAdminDashboard(); }}
+              className="flex w-full items-center justify-between rounded-2xl border border-slate-200 bg-white/80 px-4 py-3 backdrop-blur transition-all hover:border-slate-300 sm:px-5 sm:py-4 lg:py-5"
+            >
+              <span className="flex items-center gap-2 text-sm font-semibold text-slate-900 sm:text-base lg:text-lg">
+                <span className="material-symbols-outlined" style={{ fontSize: 22 }}>open_in_new</span>
+                {isHe ? 'חזרה ללוח הבקרה שלך' : 'Return to your dashboard'}
+              </span>
+              <span
+                className="material-symbols-outlined text-slate-400"
+                style={{ fontSize: 22 }}
+              >
+                {isHe ? 'chevron_left' : 'chevron_right'}
+              </span>
+            </motion.button>
+          )}
 
           {r.showJoinRequest && (
             <motion.button
