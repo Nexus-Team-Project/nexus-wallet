@@ -75,6 +75,14 @@ interface AuthState {
    * navigate (e.g. RouterScreen for known identities).
    */
   onLoginSucceeded: (accessToken: string) => Promise<WalletMeResponse | null>;
+  /**
+   * Post-login navigation signal. Set to a lang-relative path (e.g.
+   * '/router') when bootstrap completes a fresh Google redirect login
+   * and the user should land on a specific screen. Consumers inside
+   * the router watch this and call clearPostLoginRedirect once handled.
+   */
+  postLoginRedirect: string | null;
+  clearPostLoginRedirect: () => void;
 }
 
 const Ctx = createContext<AuthState | null>(null);
@@ -98,6 +106,7 @@ const initialGoogleCode: string | null = (() => {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [me, setMe] = useState<WalletMeResponse | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
+  const [postLoginRedirect, setPostLoginRedirect] = useState<string | null>(null);
 
   async function reload(): Promise<WalletMeResponse | null> {
     try {
@@ -150,7 +159,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // deduped so dev StrictMode double-fire doesn't POST twice.
       if (initialGoogleCode) {
         const r = await exchangeGoogleCode(initialGoogleCode);
-        if (r) setAccessToken(r.accessToken);
+        if (r) {
+          setAccessToken(r.accessToken);
+          // The full-page Google redirect bypasses LoginSheet's
+          // navigate-to-router branch, so route the user there from
+          // here. RouterScreen is the canonical post-login chooser.
+          setPostLoginRedirect('/router');
+        }
       }
 
       // Try refresh - if the cookie is valid, hydrates the in-memory
@@ -207,6 +222,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         reload,
         logout,
         onLoginSucceeded,
+        postLoginRedirect,
+        clearPostLoginRedirect: () => setPostLoginRedirect(null),
       }}
     >
       {children}

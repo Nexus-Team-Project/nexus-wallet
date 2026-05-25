@@ -63,8 +63,8 @@ export default function WalletTenantSwitcher() {
   const tenantStoreName = isHe ? tenantConfig?.nameHe : tenantConfig?.name;
   const currentLabel = ecosystem
     ? isHe
-      ? 'הקטלוג של כולם'
-      : "Everyone's catalog"
+      ? 'קטלוג Nexus'
+      : 'Nexus-Catalog'
     : activeTenant
       ? activeTenant.tenantName
       : tenantStoreName
@@ -190,7 +190,7 @@ export default function WalletTenantSwitcher() {
               cursor: 'pointer',
             }}
           >
-            {isHe ? 'הקטלוג של כולם' : "Everyone's catalog"}
+            {isHe ? 'קטלוג Nexus' : 'Nexus-Catalog'}
           </button>
         </div>
       )}

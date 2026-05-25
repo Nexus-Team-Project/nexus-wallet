@@ -68,7 +68,7 @@ export default function JoinSubmittedPage() {
             className="w-full p-4 rounded-2xl border border-border bg-white hover:bg-surface text-center"
           >
             <div className="font-semibold text-text-primary">
-              {isHe ? 'בינתיים, צפה בקטלוג של כולם' : "While you wait, see everyone's catalog"}
+              {isHe ? 'בינתיים, צפה בקטלוג Nexus' : 'While you wait, see Nexus-Catalog'}
             </div>
           </button>
         </div>
