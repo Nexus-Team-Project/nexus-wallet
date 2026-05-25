@@ -92,10 +92,10 @@ export default function RouterScreen() {
             className="w-full p-4 rounded-2xl border border-border bg-white text-start hover:bg-surface transition-colors"
           >
             <div className="font-semibold text-text-primary">
-              {isHe ? 'הקטלוג של כולם' : "Everyone's catalog"}
+              {isHe ? 'קטלוג Nexus' : 'Nexus-Catalog'}
             </div>
             <div className="text-xs text-text-muted mt-1">
-              {isHe ? 'הצעות מאושרות במערכת האקוסיסטם' : 'Approved ecosystem offers'}
+              {isHe ? 'כל ההצעות המאושרות במערכת Nexus' : 'All approved Nexus ecosystem offers'}
             </div>
           </button>
         )}

@@ -38,7 +38,7 @@ export default function LanguageRouter() {
   const location = useLocation();
   const { lang = 'he' } = useParams();
   const { tenantId, config, setTenant, clearTenant } = useTenantStore();
-  const { me, loading: authLoading } = useAuth();
+  const { me, loading: authLoading, postLoginRedirect, clearPostLoginRedirect } = useAuth();
 
   /**
    * Global auth middleware. Anonymous visitors land on /:lang only.
@@ -53,6 +53,20 @@ export default function LanguageRouter() {
     if (allowed) return;
     navigate(`/${lang}`, { replace: true });
   }, [authLoading, me, location.pathname, lang, navigate]);
+
+  /**
+   * Post-login redirect. AuthContext sets postLoginRedirect after a
+   * successful Google redirect-flow exchange (the only login path that
+   * bypasses LoginSheet's navigate-to-router branch). Here we consume
+   * the signal and route the user to RouterScreen so they always see
+   * the chooser first.
+   */
+  useEffect(() => {
+    if (!postLoginRedirect) return;
+    if (!me) return;
+    navigate(`/${lang}${postLoginRedirect}`, { replace: true });
+    clearPostLoginRedirect();
+  }, [postLoginRedirect, me, lang, navigate, clearPostLoginRedirect]);
 
   useEffect(() => {
     const tenantSlug = searchParams.get('tenant');
