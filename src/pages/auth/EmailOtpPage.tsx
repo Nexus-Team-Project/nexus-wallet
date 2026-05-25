@@ -11,7 +11,7 @@ import { walletVerifyEmailOtp } from '../../services/auth.service';
 import { useAuth } from '../../contexts/AuthContext';
 import { useLanguage } from '../../i18n/LanguageContext';
 
-export default function EmailOtpPage(): JSX.Element {
+export default function EmailOtpPage() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const { lang = 'he' } = useParams();

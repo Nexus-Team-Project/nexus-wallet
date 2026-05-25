@@ -12,7 +12,7 @@ import { useNavigate, useSearchParams, useParams } from 'react-router-dom';
 import { walletStartEmailOtp } from '../../services/auth.service';
 import { useLanguage } from '../../i18n/LanguageContext';
 
-export default function EmailRequiredPage(): JSX.Element {
+export default function EmailRequiredPage() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const { lang = 'he' } = useParams();

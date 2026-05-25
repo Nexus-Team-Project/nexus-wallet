@@ -22,8 +22,6 @@ export default defineConfig({
       'framer-motion',
       '@tanstack/react-query',
       'zustand',
-      'firebase/app',
-      'firebase/auth',
       'clsx',
       'tailwind-merge',
       'lucide-react',
@@ -39,13 +37,10 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: {
-          // React core — always needed, cache indefinitely
+          // React core - always needed, cache indefinitely
           'vendor-react': ['react', 'react-dom', 'react-router-dom'],
 
-          // Firebase — large but shared across auth flows
-          'vendor-firebase': ['firebase/app', 'firebase/auth'],
-
-          // Animation library — used by many pages but not critical for first load
+          // Animation library - used by many pages but not critical for first load
           'vendor-motion': ['framer-motion'],
 
           // Map — only used on NearYouMapPage

@@ -448,63 +448,11 @@ export default function LoginSheet() {
     }
   };
 
-  // ── Apple - coming soon (firebaseAppleSignIn always returns notAvailable) ──
+  // ── Apple - coming soon. firebaseAppleSignIn always returns
+  // notAvailable until a real provider is wired in a later plan.
   const handleApple = async () => {
-    setIsLoading(true);
-    try {
-      const result = await firebaseAppleSignIn();
-      if (result.notAvailable) {
-        setError(isHe ? 'התחברות עם Apple תהיה זמינה בקרוב' : 'Apple sign-in coming soon');
-        return;
-      }
-      if (result.success && result.session) {
-        login({
-          token: result.session.token,
-          userId: result.session.userId,
-          method: 'apple',
-          isOrgMember: result.session.isOrgMember,
-          avatarUrl: result.profile?.picture,
-          firstName: result.profile?.firstName,
-        });
-        await firebaseSaveConsent(result.session.userId, marketingOptIn);
-        setMarketingConsent(marketingOptIn);
-
-        // Show routing overlay — auth is done, deciding which flow to open
-        setIsRouting(true);
-
-        // Returning user (already completed profile before) → go to requested page
-        if (useAuthStore.getState().profileCompleted) {
-          completeLogin();
-          return;
-        }
-
-        // Apple gives name + email → only phone is missing
-        const profile = result.profile;
-        const regPath = tenantConfig?.requiresMembershipFee
-          ? 'tenant-with-fee'
-          : tenantConfig
-            ? 'tenant-no-fee'
-            : 'new-user';
-
-        startRegistration({
-          path: regPath,
-          phone: '',
-          missingFields: ['phone'],
-        });
-        if (profile) {
-          useRegistrationStore.getState().setProfileData({
-            firstName: profile.firstName,
-            lastName: profile.lastName,
-            email: profile.email,
-          });
-        }
-        close();
-        // Tenant context → org stories; plain new user → nexus hero
-        navigate(`/${lang}/auth-flow/${regPath !== 'new-user' ? 'org-user' : 'new-user'}`);
-      }
-    } finally {
-      setIsLoading(false);
-    }
+    await firebaseAppleSignIn();
+    setError(isHe ? 'התחברות עם Apple תהיה זמינה בקרוב' : 'Apple sign-in coming soon');
   };
 
   // Reset routing overlay every time the sheet opens fresh —
