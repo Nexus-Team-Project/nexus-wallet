@@ -1,31 +1,37 @@
 /**
  * Post-login chooser. Visual design adapted from
- * `features/stories/SlideSelectOrg.tsx` (the original mock-auth-era
- * org picker): hero copy + a single selection row that opens a
- * scrollable bottom sheet with fuzzy search, plus a secondary
- * "can't find my organization" path that surfaces the join-request
- * flow. The original component's transliteration + fuzzy matching is
- * reused verbatim so HE/EN search behaves the same.
+ * `features/stories/SlideSelectOrg.tsx`: hero copy + a single selection
+ * row that opens a scrollable bottom sheet with fuzzy HE/EN
+ * transliteration search, plus a secondary "can't find" path that
+ * surfaces the join-request flow.
+ *
+ * Now also includes a `<RouterHeroExplainer />` block that brings the
+ * ReferralStoriesPage visual language (bobbing floating brand logos +
+ * staggered value-prop pills) so users see WHAT the wallet does before
+ * they pick a context. The whole picker + sheets are split across
+ * sibling files in components/router/ to keep this file under the
+ * 350-line cap.
  *
  * Router functionality is preserved end-to-end:
  *   - Nexus-Catalog (ecosystem) is pinned as the default selection.
  *   - The user's member tenants follow Nexus in the sheet.
- *   - "Continue" navigates to /:lang/store?tenant=<id> for a tenant
- *     or /:lang/store?ecosystem=1 for Nexus.
- *   - Admin-entry is a small dashboard handoff button below the
- *     primary action (only when /api/me.router.showAdminEntry).
- *   - "I can't find my organization" opens a secondary sheet with
- *     a "Request to join an organization" CTA (when showJoinRequest)
- *     and a "Continue with Nexus" shortcut.
+ *   - Continue navigates to /:lang/store?tenant=<id> or ?ecosystem=1.
+ *   - Admin-entry is a discreet inline link below the selection row.
+ *   - "I can't find my organization" opens the not-found sheet.
  *
  * Spec: docs/superpowers/specs/2026-05-25-nexus-wallet-auth-design.md sections 7 and 9
  */
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { useAuth } from '../../contexts/AuthContext';
 import { api } from '../../lib/api';
 import { useLanguage } from '../../i18n/LanguageContext';
+import RouterHeroExplainer from '../../components/router/RouterHeroExplainer';
+import RouterPickerSheet, {
+  type PickerOption,
+} from '../../components/router/RouterPickerSheet';
+import RouterNotFoundSheet from '../../components/router/RouterNotFoundSheet';
 
 // ── Fuzzy search helpers (verbatim from SlideSelectOrg) ─────────────
 const EN_TO_HE: Record<string, string> = {
@@ -66,23 +72,7 @@ const matchOrg = (orgName: string, raw: string): boolean => {
   return false;
 };
 
-// ── Internal option shape ──────────────────────────────────────────
-interface PickerOption {
-  /** 'nexus' for the ecosystem option, tenantId otherwise. */
-  id: string;
-  /** Localized display name. */
-  name: string;
-  /** Two-letter fallback initials when no logo is set. */
-  initials: string;
-  /** Solid background color behind the logo / initials. */
-  color: string;
-  /** Optional logo asset (white-filtered inline by the avatar tile). */
-  logo?: string;
-  /** True for the Nexus-Catalog ecosystem option. */
-  isNexus: boolean;
-}
-
-/** Initials helper used when a tenant has no logo (which is currently every tenant). */
+/** Two-letter initials fallback when a tenant has no logo. */
 function deriveInitials(name: string): string {
   const trimmed = name.trim();
   if (!trimmed) return '?';
@@ -91,7 +81,7 @@ function deriveInitials(name: string): string {
   return [...trimmed].slice(0, 2).join('').toUpperCase();
 }
 
-/** Stable hash → color, so the same tenant gets the same tile color across loads. */
+/** Stable hash → color so the same tenant always renders the same tile. */
 function colorFor(name: string): string {
   const PALETTE = [
     '#1e40af', '#059669', '#F97316', '#DC2626', '#2563EB',
@@ -118,14 +108,10 @@ export default function RouterScreen() {
     isNexus: true,
   }), [isHe]);
 
-  // Selected option lives in state so the picker sheet can update it
-  // without committing a navigation. Default = Nexus-Catalog (matches
-  // SlideSelectOrg's default of NEXUS_ORG).
   const [selectedId, setSelectedId] = useState<string>('nexus');
   const [search, setSearch] = useState('');
   const [sheetOpen, setSheetOpen] = useState(false);
   const [notFoundOpen, setNotFoundOpen] = useState(false);
-  const dragY = useRef(0);
 
   if (loading) {
     return (
@@ -144,10 +130,6 @@ export default function RouterScreen() {
 
   const r = me.router;
 
-  // Build the picker option list. Nexus-Catalog pinned first when the
-  // backend says the ecosystem option is available, then the user's
-  // real tenant memberships. Tenants without a configured logo fall
-  // back to deriveInitials + colorFor so the avatar still renders.
   const tenantOptions: PickerOption[] = r.showMemberTenants.map((t) => ({
     id: t.tenantId,
     name: t.tenantName,
@@ -189,11 +171,6 @@ export default function RouterScreen() {
   }
 
   return (
-    // Soft warm gradient backdrop drawn from the stories page palette
-    // (#ffb74d → #ff91b8 → #9c88ff), heavily faded to a 5% tint so the
-    // page reads as "white with a warm aura" rather than purple-coded.
-    // Two ambient rotating blobs add motion without dominating - same
-    // 12s linear rotation rhythm used in InsightsPage.
     <div
       className="relative min-h-dvh w-full overflow-hidden"
       dir={isHe ? 'rtl' : 'ltr'}
@@ -202,9 +179,7 @@ export default function RouterScreen() {
           'linear-gradient(135deg, rgba(255,183,77,0.08) 0%, rgba(255,145,184,0.08) 50%, rgba(156,136,255,0.08) 100%), #ffffff',
       }}
     >
-      {/* Ambient rotating blobs - taken from the stories page rhythm.
-          They sit behind everything (-z-10 would clip in flex), so we
-          mark them aria-hidden and let pointer events fall through. */}
+      {/* Ambient rotating blobs - same rhythm used in InsightsPage. */}
       <motion.div
         aria-hidden
         className="pointer-events-none absolute -top-32 -right-32 h-[480px] w-[480px] rounded-full opacity-40 blur-3xl"
@@ -222,7 +197,7 @@ export default function RouterScreen() {
 
       <div className="relative mx-auto flex min-h-dvh w-full max-w-7xl flex-col px-6 pb-10 pt-16 sm:px-10 sm:pt-20 lg:flex-row lg:items-center lg:gap-24 lg:px-16 lg:py-24">
 
-        {/* ── Left column on desktop: hero text ── */}
+        {/* ── Left column: explainer + hero ── */}
         <motion.div
           className="lg:flex-1 lg:max-w-xl"
           initial="hidden"
@@ -242,19 +217,22 @@ export default function RouterScreen() {
           <motion.p
             variants={{ hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } }}
             transition={{ duration: 0.6, ease: [0.25, 0.46, 0.45, 0.94] }}
-            className="text-base leading-relaxed text-slate-600 sm:text-lg md:text-xl lg:leading-relaxed"
+            className="mb-8 text-base leading-relaxed text-slate-600 sm:text-lg md:text-xl lg:mb-10 lg:leading-relaxed"
           >
             {isHe
               ? 'בחר ארגון שאליו ברצונך להיכנס או המשך עם קטלוג נקסוס'
               : 'Pick the organization you want to enter, or continue with the Nexus catalog'}
           </motion.p>
 
+          {/* Animated explainer: floating brands + value-prop pills */}
+          <RouterHeroExplainer isHe={isHe} />
+
           {r.showAdminEntry && (
             <motion.button
               variants={{ hidden: { opacity: 0, y: 8 }, show: { opacity: 1, y: 0 } }}
-              transition={{ duration: 0.5 }}
+              transition={{ duration: 0.5, delay: 1.2 }}
               onClick={() => { void openAdminDashboard(); }}
-              className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-slate-900 underline-offset-4 hover:underline lg:mt-8 lg:text-base"
+              className="mt-8 inline-flex items-center gap-2 text-sm font-semibold text-slate-900 underline-offset-4 hover:underline lg:text-base"
             >
               <span className="material-symbols-outlined" style={{ fontSize: 20 }}>open_in_new</span>
               <span>{isHe ? 'פתח לוח בקרה לאדמין' : 'Open admin dashboard'}</span>
@@ -262,7 +240,7 @@ export default function RouterScreen() {
           )}
         </motion.div>
 
-        {/* ── Right column on desktop: action group ── */}
+        {/* ── Right column: action group ── */}
         <motion.div
           className="mt-10 flex flex-col gap-4 lg:mt-0 lg:flex-1 lg:max-w-md"
           initial="hidden"
@@ -334,198 +312,33 @@ export default function RouterScreen() {
             </motion.button>
           )}
         </motion.div>
-
-      {/* ── Sheet: org list ── */}
-      <AnimatePresence>
-        {sheetOpen && (
-          <>
-            <motion.div
-              className="fixed inset-0 z-40"
-              style={{ background: 'rgba(0,0,0,0.35)' }}
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              onPointerDown={(e) => { dragY.current = e.clientY; }}
-              onPointerUp={(e) => { if (e.clientY - dragY.current > 40) setSheetOpen(false); }}
-              onClick={(e) => { e.stopPropagation(); setSheetOpen(false); }}
-            />
-            <motion.div
-              className="fixed bottom-0 left-0 right-0 z-50 mx-auto flex w-full max-w-xl flex-col rounded-t-3xl bg-white shadow-2xl sm:max-w-xl lg:bottom-auto lg:left-1/2 lg:top-1/2 lg:max-w-2xl lg:-translate-x-1/2 lg:-translate-y-1/2 lg:rounded-3xl"
-              style={{ maxHeight: '82vh' }}
-              initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
-              transition={{ type: 'spring', damping: 28, stiffness: 300 }}
-              drag="y"
-              dragConstraints={{ top: 0 }}
-              dragElastic={0.2}
-              onDragEnd={(_e, info) => { if (info.offset.y > 60) setSheetOpen(false); }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex justify-center pt-3 pb-2 flex-shrink-0 cursor-grab">
-                <div className="w-10 h-1 rounded-full bg-border" />
-              </div>
-
-              <div className="flex-shrink-0 px-5 pb-3 sm:px-8">
-                <h2 className="mb-3 text-lg font-semibold text-slate-900 sm:text-xl">
-                  {isHe ? 'בחר ארגון' : 'Choose an organization'}
-                </h2>
-                <div className="relative">
-                  <span
-                    className="material-symbols-outlined absolute top-1/2 -translate-y-1/2 pointer-events-none"
-                    style={{
-                      fontSize: 18,
-                      color: 'var(--color-text-muted)',
-                      [isHe ? 'right' : 'left']: 12,
-                    } as React.CSSProperties}
-                  >
-                    search
-                  </span>
-                  <input
-                    type="text"
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    onClick={(e) => e.stopPropagation()}
-                    placeholder={isHe ? 'חיפוש ארגון...' : 'Search organization...'}
-                    className="w-full rounded-2xl border-2 border-border bg-surface py-3 text-sm outline-none transition-colors focus:border-primary sm:py-4 sm:text-base"
-                    style={{
-                      [isHe ? 'paddingRight' : 'paddingLeft']: 40,
-                      [isHe ? 'paddingLeft' : 'paddingRight']: 16,
-                      color: 'var(--color-text-primary)',
-                    } as React.CSSProperties}
-                  />
-                </div>
-              </div>
-
-              <div className="min-h-0 flex-1 overflow-y-auto px-4 sm:px-8">
-                <div className="space-y-2 pb-4 sm:space-y-3">
-                  {filtered.length === 0 ? (
-                    <p className="text-center text-sm py-8" style={{ color: 'var(--color-text-muted)' }}>
-                      {isHe ? 'לא נמצאו ארגונים' : 'No organizations found'}
-                    </p>
-                  ) : (
-                    filtered.map((opt, i) => {
-                      const isPicked = selectedId === opt.id;
-                      return (
-                        <motion.button
-                          key={opt.id}
-                          initial={{ opacity: 0, y: 6 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ duration: 0.2, delay: i * 0.03 }}
-                          onClick={() => handlePick(opt)}
-                          className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-start transition-all sm:gap-4 sm:px-5 sm:py-4"
-                          style={{
-                            // Slate-coded selected state instead of the
-                            // old purple #635bff so the picker matches
-                            // the page's new neutral palette.
-                            background: isPicked ? 'rgba(15,23,42,0.04)' : '#fff',
-                            border: isPicked ? '2px solid #0f172a' : '2px solid #ebebf0',
-                          }}
-                        >
-                          <div
-                            className="flex h-9 w-9 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg text-xs font-bold text-white sm:h-11 sm:w-11 sm:text-sm"
-                            style={{ background: opt.color }}
-                          >
-                            {opt.logo ? (
-                              <img
-                                src={opt.logo}
-                                alt=""
-                                className="h-6 w-6 object-contain sm:h-8 sm:w-8"
-                                style={{ filter: 'brightness(0) invert(1)' }}
-                              />
-                            ) : (
-                              opt.initials
-                            )}
-                          </div>
-                          <span
-                            className="flex-1 text-sm font-semibold sm:text-base"
-                            style={{ color: 'var(--color-text-primary)' }}
-                          >
-                            {opt.name}
-                          </span>
-                          {isPicked ? (
-                            <span
-                              className="material-symbols-outlined flex-shrink-0 text-slate-900"
-                              style={{ fontSize: 20, fontVariationSettings: "'FILL' 1" }}
-                            >
-                              check_circle
-                            </span>
-                          ) : (
-                            <span
-                              className="material-symbols-outlined flex-shrink-0 text-text-muted"
-                              style={{ fontSize: 18 }}
-                            >
-                              {isHe ? 'chevron_left' : 'chevron_right'}
-                            </span>
-                          )}
-                        </motion.button>
-                      );
-                    })
-                  )}
-                </div>
-              </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
-
-      {/* ── Sheet: org not found ── */}
-      <AnimatePresence>
-        {notFoundOpen && (
-          <>
-            <motion.div
-              className="fixed inset-0 z-40"
-              style={{ background: 'rgba(0,0,0,0.35)' }}
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              onClick={(e) => { e.stopPropagation(); setNotFoundOpen(false); }}
-            />
-            <motion.div
-              className="fixed bottom-0 left-0 right-0 z-50 mx-auto flex min-h-[180px] w-full max-w-xl flex-col rounded-t-3xl bg-white px-5 pb-10 pt-3 shadow-2xl sm:min-h-[220px] sm:max-w-xl sm:px-8 lg:bottom-auto lg:left-1/2 lg:top-1/2 lg:max-w-md lg:-translate-x-1/2 lg:-translate-y-1/2 lg:rounded-3xl lg:px-10 lg:pb-10 lg:pt-6"
-              initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
-              transition={{ type: 'spring', damping: 28, stiffness: 300 }}
-              drag="y"
-              dragConstraints={{ top: 0 }}
-              dragElastic={0.2}
-              onDragEnd={(_e, info) => { if (info.offset.y > 40) setNotFoundOpen(false); }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="mb-3 flex cursor-grab justify-center">
-                <div className="h-1 w-10 rounded-full bg-border" />
-              </div>
-              <div className="flex w-full flex-1 flex-col gap-3">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setNotFoundOpen(false);
-                    void navigate(`/${lang}/wallet/join-tenant`);
-                  }}
-                  className="flex w-full items-center justify-center rounded-xl bg-slate-900 py-3 text-sm font-semibold text-white shadow-md shadow-slate-900/20 transition-all active:scale-[0.98] sm:py-4 sm:text-base"
-                >
-                  {isHe ? 'בקש להצטרף לארגון' : 'Request to join an organization'}
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setNotFoundOpen(false);
-                    setSelectedId('nexus');
-                  }}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl border border-border py-3 transition-all active:scale-[0.98] sm:py-4"
-                >
-                  <span
-                    className="text-sm font-semibold sm:text-base"
-                    style={{ color: 'var(--color-text-primary)' }}
-                  >
-                    {isHe ? 'המשך עם' : 'Continue with'}
-                  </span>
-                  <img
-                    src="/nexus-logo-black.png"
-                    alt="Nexus"
-                    className="object-contain"
-                    style={{ height: 20, maxWidth: 100, objectPosition: 'center' }}
-                  />
-                </button>
-              </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
       </div>
+
+      <RouterPickerSheet
+        open={sheetOpen}
+        onClose={() => setSheetOpen(false)}
+        isHe={isHe}
+        options={allOptions}
+        filtered={filtered}
+        selectedId={selectedId}
+        search={search}
+        setSearch={setSearch}
+        onPick={handlePick}
+      />
+
+      <RouterNotFoundSheet
+        open={notFoundOpen}
+        onClose={() => setNotFoundOpen(false)}
+        isHe={isHe}
+        onRequestJoin={() => {
+          setNotFoundOpen(false);
+          void navigate(`/${lang}/wallet/join-tenant`);
+        }}
+        onContinueWithNexus={() => {
+          setNotFoundOpen(false);
+          setSelectedId('nexus');
+        }}
+      />
     </div>
   );
 }
