@@ -1,8 +1,9 @@
 import { lazy, Suspense } from 'react';
-import { createBrowserRouter, Navigate } from 'react-router-dom';
+import { createBrowserRouter, Navigate, useParams } from 'react-router-dom';
 import LanguageRouter from './LanguageRouter';
 import ProtectedRoute from './ProtectedRoute';
 import ErrorBoundary from '../components/ErrorBoundary';
+import { useAuth } from '../contexts/AuthContext';
 
 // ── Always eager (tiny, needed immediately) ─────────────────────────────────
 import RegistrationGuard from '../components/registration/RegistrationGuard';
@@ -79,6 +80,36 @@ function S({ children }: { children: React.ReactNode }) {
   return <Suspense fallback={<PageFallback />}>{children}</Suspense>;
 }
 
+/**
+ * Index route for /:lang. Logged-in users get redirected to the store
+ * catalog. Anonymous users render nothing so AppLayout shows the
+ * AnonymousSplash. We never want two distinct anonymous URLs that
+ * look identical.
+ */
+function IndexRoute() {
+  const { me, loading } = useAuth();
+  if (loading) return null;
+  if (me) return <Navigate to="store" replace />;
+  return null;
+}
+
+/**
+ * /:lang/store guard. Anonymous users get bounced back to /:lang so
+ * the wallet has exactly one anonymous landing URL. Logged-in users
+ * see StorePage as usual.
+ */
+function StoreRoute() {
+  const { me, loading } = useAuth();
+  const { lang = 'he' } = useParams();
+  if (loading) return null;
+  if (!me) return <Navigate to={`/${lang}`} replace />;
+  return (
+    <S>
+      <StorePage />
+    </S>
+  );
+}
+
 export const router = createBrowserRouter([
   {
     path: '/',
@@ -93,15 +124,14 @@ export const router = createBrowserRouter([
         element: <AppLayout />,
         children: [
           // === PUBLIC routes ===
-          // /:lang index redirects to /:lang/store. The wallet home
-          // and store collapsed into a single catalog entry point:
-          // anonymous users see AnonymousSplash regardless, logged-in
-          // users land on the store catalog directly when they type
-          // /he. HomePage itself stays available as a component but
-          // is no longer route-mounted.
-          { index: true,      element: <Navigate to="store" replace /> },
+          // /:lang and /:lang/store: a single anonymous landing URL.
+          // Anonymous typing /he/store gets redirected to /he, where
+          // AppLayout renders AnonymousSplash. Logged-in typing /he
+          // gets redirected to /he/store, where StorePage renders.
+          // See IndexRoute + StoreRoute above.
+          { index: true,      element: <IndexRoute /> },
           { path: 'home',     element: <S><HomePage /></S> },
-          { path: 'store',    element: <S><StorePage /></S> },
+          { path: 'store',    element: <StoreRoute /> },
           { path: 'search',           element: <S><SearchPage /></S> },
           { path: 'chat',             element: <S><AiChatPage /></S> },
           { path: 'near-you-map',     element: <S><NearYouMapPage /></S> },
