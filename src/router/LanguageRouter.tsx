@@ -4,6 +4,8 @@ import { LanguageProvider } from '../i18n/LanguageContext';
 import LoginSheet from '../components/auth/LoginSheet';
 import { TenantSimulator } from '../components/dev/TenantSimulator';
 import { UserTypeSimulator } from '../components/dev/UserTypeSimulator';
+import WalletTenantSwitcher from '../components/wallet/WalletTenantSwitcher';
+import { useAuth } from '../contexts/AuthContext';
 import { useTenantStore } from '../stores/tenantStore';
 import { lookupTenant } from '../mock/handlers/tenant.handler';
 
@@ -20,6 +22,7 @@ export default function LanguageRouter() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { tenantId, config, setTenant, clearTenant } = useTenantStore();
+  const { me } = useAuth();
 
   useEffect(() => {
     const tenantSlug = searchParams.get('tenant');
@@ -68,14 +71,10 @@ export default function LanguageRouter() {
       <div style={tenantStyle}>
         <Outlet />
         <LoginSheet />
-        {/* Dev overlays MUST come last in DOM order.
-            On iOS Safari, position:fixed elements lose pointer-event priority
-            to later-in-DOM block elements even when z-index is higher.
-            Rendering them last guarantees they win both the CSS stacking AND
-            the iOS hit-test DOM-order tiebreaker.
-            TenantSimulator: top-left pill toggle (top: 12).
-            UserTypeSimulator: below it (top: 44), same left edge. */}
-        <TenantSimulator />
+        {/* When the user is logged in, the real WalletTenantSwitcher
+            takes over the top-left toggle position. Otherwise the
+            dev-only TenantSimulator stays for local simulation. */}
+        {me ? <WalletTenantSwitcher /> : <TenantSimulator />}
         <UserTypeSimulator />
       </div>
     </LanguageProvider>
