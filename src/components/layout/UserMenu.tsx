@@ -57,8 +57,10 @@ export default function UserMenu({ isOpen, onClose }: UserMenuProps) {
   const handleLogout = async (): Promise<void> => {
     onClose();
     await logout();
-    // Drop the user on the public store; LoginSheet can reopen from there.
-    navigate(`/${lang}/store`);
+    // Anonymous users belong on /:lang (the single anonymous landing).
+    // The store route is logged-in only; navigating there would trigger
+    // an immediate middleware bounce back to /:lang anyway.
+    navigate(`/${lang}`, { replace: true });
   };
 
   return (
