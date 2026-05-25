@@ -93,7 +93,14 @@ export const router = createBrowserRouter([
         element: <AppLayout />,
         children: [
           // === PUBLIC routes ===
-          { index: true,      element: <S><HomePage /></S> },
+          // /:lang index redirects to /:lang/store. The wallet home
+          // and store collapsed into a single catalog entry point:
+          // anonymous users see AnonymousSplash regardless, logged-in
+          // users land on the store catalog directly when they type
+          // /he. HomePage itself stays available as a component but
+          // is no longer route-mounted.
+          { index: true,      element: <Navigate to="store" replace /> },
+          { path: 'home',     element: <S><HomePage /></S> },
           { path: 'store',    element: <S><StorePage /></S> },
           { path: 'search',           element: <S><SearchPage /></S> },
           { path: 'chat',             element: <S><AiChatPage /></S> },
