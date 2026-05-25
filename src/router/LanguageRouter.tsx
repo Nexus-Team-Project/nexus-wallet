@@ -1,11 +1,27 @@
 import { useEffect } from 'react';
-import { Outlet, useNavigate, useSearchParams } from 'react-router-dom';
+import { Outlet, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { LanguageProvider } from '../i18n/LanguageContext';
 import LoginSheet from '../components/auth/LoginSheet';
 import WalletTenantSwitcher from '../components/wallet/WalletTenantSwitcher';
 import { useAuth } from '../contexts/AuthContext';
 import { useTenantStore } from '../stores/tenantStore';
 import { lookupTenant } from '../mock/handlers/tenant.handler';
+
+/**
+ * Paths under /:lang that anonymous visitors are allowed to load
+ * directly. Everything else gets bounced to /:lang where the
+ * AnonymousSplash + LoginSheet take over.
+ *
+ * Why this allowlist exists: the SMS-OTP flow temporarily routes an
+ * un-authenticated user through /auth/email-required and
+ * /auth/email-otp before the session is minted. Those two pages MUST
+ * be reachable anonymous; everything else is post-login.
+ */
+const ANONYMOUS_ALLOW_PATTERNS: RegExp[] = [
+  /^\/[a-z]{2}\/?$/,                     // /:lang itself (the landing)
+  /^\/[a-z]{2}\/auth\/email-required\/?/, // mid-signup
+  /^\/[a-z]{2}\/auth\/email-otp\/?/,      // mid-signup
+];
 
 /** Darken a hex color by a given percentage */
 function darkenColor(hex: string, percent: number): string {
@@ -19,8 +35,24 @@ function darkenColor(hex: string, percent: number): string {
 export default function LanguageRouter() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const { lang = 'he' } = useParams();
   const { tenantId, config, setTenant, clearTenant } = useTenantStore();
-  const { me } = useAuth();
+  const { me, loading: authLoading } = useAuth();
+
+  /**
+   * Global auth middleware. Anonymous visitors land on /:lang only.
+   * Every other route under /:lang gets redirected back to /:lang.
+   * Runs after the auth bootstrap completes so a valid refresh-cookie
+   * session is not redirected away mid-load.
+   */
+  useEffect(() => {
+    if (authLoading) return;
+    if (me) return;
+    const allowed = ANONYMOUS_ALLOW_PATTERNS.some((re) => re.test(location.pathname));
+    if (allowed) return;
+    navigate(`/${lang}`, { replace: true });
+  }, [authLoading, me, location.pathname, lang, navigate]);
 
   useEffect(() => {
     const tenantSlug = searchParams.get('tenant');
