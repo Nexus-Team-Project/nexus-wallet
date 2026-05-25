@@ -6,6 +6,7 @@ import { useTenantStore } from '../../stores/tenantStore';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { useUser } from '../../hooks/useUser';
 import TenantSheet from './TenantSheet';
+import UserMenu from './UserMenu';
 
 function getGreeting(t: { home: { goodMorning: string; goodAfternoon: string; goodEvening: string; goodNight: string } }) {
   const hour = new Date().getHours();
@@ -46,6 +47,7 @@ export default function TopBar({ collapsed = false, showBack = false }: TopBarPr
   const chatCount = 1;
 
   const [tenantSheetOpen, setTenantSheetOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
 
   const tenantDisplayName = hasTenant
     ? (language === 'he' ? tenantConfig?.nameHe : tenantConfig?.name)
@@ -53,11 +55,12 @@ export default function TopBar({ collapsed = false, showBack = false }: TopBarPr
 
   const handleProfile = async () => {
     if (isAuthenticated) {
-      navigate(`/${lang}/profile`);
-    } else {
-      const authed = await requireAuth({ promptMessage: t.auth.genericPrompt });
-      if (authed) navigate(`/${lang}/profile`);
+      // Authenticated -> open the inline UserMenu dropdown (not /profile).
+      setUserMenuOpen((v) => !v);
+      return;
     }
+    const authed = await requireAuth({ promptMessage: t.auth.genericPrompt });
+    if (authed) setUserMenuOpen(true);
   };
 
   const handleNotifications = async () => {
@@ -82,7 +85,7 @@ export default function TopBar({ collapsed = false, showBack = false }: TopBarPr
       <div className="relative flex items-center justify-between">
 
         {/* Left: back button (non-home) + avatars + greeting */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 relative">
           {/* Back button — non-home pages only */}
           {showBack && (
             <button
@@ -143,6 +146,9 @@ export default function TopBar({ collapsed = false, showBack = false }: TopBarPr
               <h2 className="text-sm font-bold text-text-primary leading-tight whitespace-nowrap">{displayFirstName}</h2>
             </div>
           )}
+
+          {/* UserMenu dropdown — anchored under the avatar (start edge). */}
+          <UserMenu isOpen={userMenuOpen} onClose={() => setUserMenuOpen(false)} />
         </div>
 
         {/* Center: tenant name — fades in on collapse */}
