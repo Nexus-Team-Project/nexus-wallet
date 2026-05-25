@@ -201,14 +201,22 @@ export const router = createBrowserRouter([
           { path: 'email-otp',      element: <S><EmailOtpPage /></S> },
         ],
       },
-      { path: 'router', element: <S><RouterScreen /></S> },
-
-      // Plan #4: wallet tenant-join flow
+      // Authenticated-only post-login screens. ProtectedRoute reads
+      // AuthContext (not the legacy authStore) so the gate respects
+      // the refresh-cookie bootstrap window. Anonymous visitors get
+      // redirected to /:lang instead of seeing the router/join pages
+      // flash for a frame before the global middleware reacts.
       {
-        path: 'wallet',
+        element: <ProtectedRoute />,
         children: [
-          { path: 'join-tenant',    element: <S><JoinTenantPage /></S> },
-          { path: 'join-submitted', element: <S><JoinSubmittedPage /></S> },
+          { path: 'router', element: <S><RouterScreen /></S> },
+          {
+            path: 'wallet',
+            children: [
+              { path: 'join-tenant',    element: <S><JoinTenantPage /></S> },
+              { path: 'join-submitted', element: <S><JoinSubmittedPage /></S> },
+            ],
+          },
         ],
       },
 
