@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react';
-import { createBrowserRouter, Navigate, useParams } from 'react-router-dom';
+import { createBrowserRouter, Navigate, useParams, useSearchParams } from 'react-router-dom';
 import LanguageRouter from './LanguageRouter';
 import ProtectedRoute from './ProtectedRoute';
 import ErrorBoundary from '../components/ErrorBoundary';
@@ -102,8 +102,22 @@ function IndexRoute() {
 function StoreRoute() {
   const { me, loading } = useAuth();
   const { lang = 'he' } = useParams();
+  const [searchParams] = useSearchParams();
   if (loading) return null;
   if (!me) return <Navigate to={`/${lang}`} replace />;
+
+  // /store is only meaningful with a context selection: either
+  // ?tenant=<id> (a specific tenant's catalog) or ?ecosystem=1 (the
+  // cross-tenant Nexus catalog). Direct hits to /store with neither
+  // parameter mean the user typed the URL manually instead of
+  // picking from RouterScreen - bounce them to the chooser so they
+  // never land in an undefined state.
+  const hasContext =
+    !!searchParams.get('tenant') || searchParams.get('ecosystem') === '1';
+  if (!hasContext) {
+    return <Navigate to={`/${lang}/router`} replace />;
+  }
+
   return (
     <S>
       <StorePage />

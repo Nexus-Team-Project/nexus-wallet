@@ -110,15 +110,20 @@ export default function LanguageRouter() {
       <div style={tenantStyle}>
         <Outlet />
         <LoginSheet />
-        {/* Real tenant switcher when logged in. Hidden on the post-login
-            RouterScreen because that page IS the picker - showing the
-            top-left "Pick view" chip there would be redundant and
-            confusing while the user is still choosing their context.
+        {/* Real tenant switcher when logged in. Hidden on the screens
+            that already ARE pickers - showing the top-left "Pick view"
+            chip there is redundant and confusing while the user is
+            still choosing their context:
+              - /:lang/router        - the post-login chooser
+              - /:lang/wallet/join-tenant       - the tenant join flow
+              - /:lang/wallet/join-submitted    - the join confirmation
             Dev-only simulators (TenantSimulator + UserTypeSimulator)
             were removed - they were vestiges of the mock-auth era. */}
-        {me && !/^\/[a-z]{2}\/router\/?$/.test(location.pathname) && (
-          <WalletTenantSwitcher />
-        )}
+        {me &&
+          !/^\/[a-z]{2}\/router\/?$/.test(location.pathname) &&
+          !/^\/[a-z]{2}\/wallet\/join-(tenant|submitted)\/?$/.test(location.pathname) && (
+            <WalletTenantSwitcher />
+          )}
       </div>
     </LanguageProvider>
   );
