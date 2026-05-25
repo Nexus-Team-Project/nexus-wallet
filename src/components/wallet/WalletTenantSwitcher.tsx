@@ -70,8 +70,8 @@ export default function WalletTenantSwitcher() {
       : tenantStoreName
         ? tenantStoreName
         : isHe
-          ? 'בחר הקשר'
-          : 'Pick context';
+          ? 'בחר תצוגה'
+          : 'Pick view';
 
   /** Switch to a specific tenant. Clears ?ecosystem. */
   const pickTenant = (tenantId: string): void => {
