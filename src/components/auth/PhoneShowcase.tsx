@@ -14,21 +14,29 @@ import { useEffect, useState } from 'react';
 interface BrandCard {
   src: string;
   name: string;
-  /** Tile background color, drawn from the brand's primary hue. */
+  /** Soft tinted background for the whole card body. */
   bg: string;
   /** Solid header bar color above the logo. */
   accent: string;
+  /**
+   * Background for the inner logo tile. Several brand PNGs in /public
+   * /brands ship as white-on-transparent (Rami Levy, American Eagle,
+   * Foot Locker), so a white tile makes them invisible. Each entry
+   * provides the brand's primary backing color so the logo always
+   * reads against the right contrast.
+   */
+  logoBg: string;
   /** Localized savings line shown under the logo. */
   he: string;
   en: string;
 }
 
 const BRANDS: BrandCard[] = [
-  { src: '/brands/golf.png',           name: 'Golf & Co',      bg: '#FFF7D1', accent: '#facc15', he: 'עד 25% הנחה בקופה', en: 'Up to 25% off at checkout' },
-  { src: '/brands/american-eagle.png', name: 'American Eagle', bg: '#dbeafe', accent: '#3b82f6', he: 'הנחת חבר 18%',        en: '18% member discount'      },
-  { src: '/brands/rami-levy.png',      name: 'Rami Levy',      bg: '#fee2e2', accent: '#ef4444', he: '₪200 הנחה בקנייה',   en: '₪200 off your basket'     },
-  { src: '/brands/mango.png',          name: 'Mango',          bg: '#fce7f3', accent: '#ec4899', he: '15% הנחה על קולקציה', en: '15% off new arrivals'    },
-  { src: '/brands/foot-locker.png',    name: 'Foot Locker',    bg: '#fef3c7', accent: '#f97316', he: 'משלוח חינם + הפתעה',  en: 'Free shipping + perk'     },
+  { src: '/brands/golf.png',           name: 'Golf & Co',      bg: '#FFF7D1', accent: '#facc15', logoBg: '#FFF59D', he: 'עד 25% הנחה בקופה', en: 'Up to 25% off at checkout' },
+  { src: '/brands/american-eagle.png', name: 'American Eagle', bg: '#dbeafe', accent: '#3b82f6', logoBg: '#1a3a7a', he: 'הנחת חבר 18%',        en: '18% member discount'      },
+  { src: '/brands/rami-levy.png',      name: 'Rami Levy',      bg: '#fee2e2', accent: '#ef4444', logoBg: '#B3171D', he: '₪200 הנחה בקנייה',   en: '₪200 off your basket'     },
+  { src: '/brands/mango.png',          name: 'Mango',          bg: '#fce7f3', accent: '#ec4899', logoBg: '#ffffff', he: '15% הנחה על קולקציה', en: '15% off new arrivals'    },
+  { src: '/brands/foot-locker.png',    name: 'Foot Locker',    bg: '#fef3c7', accent: '#f97316', logoBg: '#1f2937', he: 'משלוח חינם + הפתעה',  en: 'Free shipping + perk'     },
 ];
 
 const CARD_INTERVAL_MS = 2800;
@@ -105,7 +113,10 @@ export default function PhoneShowcase({ isHe }: PhoneShowcaseProps) {
                   aria-hidden
                 />
                 <div className="flex flex-1 flex-col items-center justify-center px-4 text-center">
-                  <div className="mb-3 flex h-20 w-20 items-center justify-center rounded-2xl bg-white shadow-md">
+                  <div
+                    className="mb-3 flex h-20 w-20 items-center justify-center rounded-2xl shadow-md ring-1 ring-black/5"
+                    style={{ background: card.logoBg }}
+                  >
                     <img
                       src={card.src}
                       alt={card.name}
