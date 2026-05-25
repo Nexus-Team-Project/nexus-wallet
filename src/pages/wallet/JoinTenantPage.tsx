@@ -13,6 +13,7 @@ import {
   createJoinRequests,
   type DiscoverableTenant,
 } from '../../services/walletTenants.service';
+import TenantAvatar from '../../components/wallet/TenantAvatar';
 
 export default function JoinTenantPage() {
   const { lang = 'he' } = useParams();
@@ -124,11 +125,7 @@ export default function JoinTenantPage() {
                 }`}
               >
                 <div className="flex items-center gap-3">
-                  {t.logoUrl ? (
-                    <img src={t.logoUrl} alt="" className="w-10 h-10 rounded-full object-cover flex-shrink-0" />
-                  ) : (
-                    <div className="w-10 h-10 rounded-full bg-surface flex-shrink-0" />
-                  )}
+                  <TenantAvatar name={t.tenantName} logoUrl={t.logoUrl} size={40} />
                   <div className="flex-1 min-w-0">
                     <div className="font-semibold text-text-primary truncate">{t.tenantName}</div>
                   </div>
