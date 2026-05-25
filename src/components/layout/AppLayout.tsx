@@ -4,6 +4,8 @@ import TopBar from './TopBar';
 import FloatingActions from './FloatingActions';
 import CategoryRow from '../home/CategoryRow';
 import ProfileNudgeBanner from '../profile/ProfileNudgeBanner';
+import AnonymousSplash from '../auth/AnonymousSplash';
+import { useAuth } from '../../contexts/AuthContext';
 
 const COLLAPSE_THRESHOLD = 40;
 
@@ -12,6 +14,7 @@ export default function AppLayout() {
   const isHome = /^\/[a-z]{2}\/?$/.test(pathname);
   const isSearch = /^\/[a-z]{2}\/search\/?$/.test(pathname);
   const [collapsed, setCollapsed] = useState(false);
+  const { me, loading: authLoading } = useAuth();
 
   useEffect(() => {
     if (!isHome) {
@@ -64,10 +67,21 @@ export default function AppLayout() {
         )}
 
         <main className="relative z-10">
-          <Outlet />
+          {/* Anonymous wallet visitors must log in before browsing.
+              Render the splash + login CTA in place of any page
+              content until /api/me confirms a session. */}
+          {authLoading ? (
+            <div className="min-h-[80dvh] flex items-center justify-center text-text-muted text-sm">
+              ...
+            </div>
+          ) : !me ? (
+            <AnonymousSplash />
+          ) : (
+            <Outlet />
+          )}
         </main>
-        <ProfileNudgeBanner />
-        <FloatingActions />
+        {me && <ProfileNudgeBanner />}
+        {me && <FloatingActions />}
       </div>
     </div>
   );
