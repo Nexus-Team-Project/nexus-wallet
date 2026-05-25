@@ -12,6 +12,7 @@ import {
   firebaseAppleSignIn,
   firebaseSaveConsent,
 } from '../../services/auth.service';
+import { saveMarketingConsent } from '../../services/walletProfile.service';
 import { lookupTenantByOrg } from '../../mock/handlers/tenant.handler';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -243,7 +244,14 @@ export default function LoginSheet() {
       const { session, registrationContext } = result;
 
       // Plan #2: hydrate AuthContext so /api/me + router screen work.
-      await onLoginSucceeded(session.token);
+      const me = await onLoginSucceeded(session.token);
+      // Plan #3: returning user (profile already completed once) -> go
+      // straight to RouterScreen and skip the slide chain.
+      if (me?.profile?.completedAt) {
+        close();
+        navigate(`/${lang}/router`);
+        return;
+      }
       const orgMember = registrationContext?.orgMember;
       const profileComplete = registrationContext?.profileComplete ?? false;
       const missingFields = registrationContext?.missingFields ?? [];
@@ -259,7 +267,12 @@ export default function LoginSheet() {
       if (profileComplete) {
         useAuthStore.getState().setProfileCompleted(true);
       }
-      await firebaseSaveConsent(session.userId, marketingOptIn);
+      void firebaseSaveConsent(session.userId, marketingOptIn);
+      // Plan #3: real consent save against backend (audit-trail object).
+      // Best-effort: don't fail the login if this call hiccups.
+      saveMarketingConsent(marketingOptIn, 'wallet_signup').catch((e) =>
+        console.error('[wallet-auth] marketing-consent save failed (non-fatal):', e),
+      );
       setMarketingConsent(marketingOptIn);
 
       // Load tenant config for org members (so TopBar can show the logo).
@@ -362,9 +375,20 @@ export default function LoginSheet() {
         });
 
         // Plan #2: hydrate AuthContext so /api/me + router screen work.
-        await onLoginSucceeded(result.session.token);
-        await firebaseSaveConsent(result.session.userId, marketingOptIn);
+        const me = await onLoginSucceeded(result.session.token);
+        void firebaseSaveConsent(result.session.userId, marketingOptIn);
+        // Plan #3: real consent save against backend (audit-trail object).
+        saveMarketingConsent(marketingOptIn, 'wallet_signup').catch((e) =>
+          console.error('[wallet-auth] marketing-consent save failed (non-fatal):', e),
+        );
         setMarketingConsent(marketingOptIn);
+        // Plan #3: returning user (profile already completed once) ->
+        // skip slide chain, go to RouterScreen.
+        if (me?.profile?.completedAt) {
+          close();
+          navigate(`/${lang}/router`);
+          return;
+        }
 
         // Load tenant config for org members — only when no URL-tenant is active
         if (!tenantConfig && orgMember?.organizationId) {

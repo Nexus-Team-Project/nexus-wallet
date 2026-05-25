@@ -17,6 +17,8 @@ import { useAuthStore } from '../../stores/authStore';
 import { useTenantStore } from '../../stores/tenantStore';
 import { getOnboardingTotalWithComplete } from '../../utils/onboardingNavigation';
 import { PremiumRevealContent } from '../PremiumRevealPage';
+import { saveWalletProfile, saveMarketingConsent, type WalletProfilePatch } from '../../services/walletProfile.service';
+import { useAuth } from '../../contexts/AuthContext';
 
 export default function RegistrationCompletePage() {
   const { lang = 'he' } = useParams();
@@ -24,6 +26,7 @@ export default function RegistrationCompletePage() {
   const returnTo             = useRegistrationStore((s) => s.returnTo);
   const completeRegistration = useRegistrationStore((s) => s.completeRegistration);
   const setProfileCompleted  = useAuthStore((s) => s.setProfileCompleted);
+  const { reload }           = useAuth();
 
   // Snapshot the path at mount — completeRegistration() clears it, so we
   // need the value before it's wiped.
@@ -75,10 +78,43 @@ export default function RegistrationCompletePage() {
     };
   }, []);
 
-  const finish = () => {
+  /**
+   * Flush every slide answer from registrationStore to the backend in
+   * one PATCH, then navigate to the RouterScreen. Best-effort: if the
+   * save fails we still let the user proceed - the next login will
+   * retry (profile.completedAt won't be set, so the slides run again).
+   *
+   * Plan #3: replaces the legacy navigate-to-home behavior.
+   */
+  const finish = async () => {
     setProfileCompleted(true);
+
+    try {
+      const rs = useRegistrationStore.getState();
+      const patch: WalletProfilePatch = { complete: true };
+      if (rs.profileData.firstName) patch.firstName = rs.profileData.firstName;
+      if (rs.profileData.lastName) patch.lastName = rs.profileData.lastName;
+      if (rs.profileData.birthday) patch.birthday = rs.profileData.birthday;
+      const od = rs.onboardingData;
+      if (od) {
+        if (od.birthday) patch.birthday = od.birthday;
+        if (od.gender) patch.gender = od.gender as WalletProfilePatch['gender'];
+        if (od.lifeStage) patch.lifeStage = od.lifeStage;
+        if (od.purpose?.length) patch.purpose = od.purpose;
+        if (od.benefitCategories?.length) patch.benefitCategories = od.benefitCategories;
+      }
+      await saveWalletProfile(patch);
+      if (rs.consents) {
+        await saveMarketingConsent(rs.consents.marketing, 'wallet_signup');
+      }
+      await reload();
+    } catch (err) {
+      // Best-effort: don't block the user. Next login retries.
+      console.error('[registration-complete] profile save failed:', err);
+    }
+
     completeRegistration();
-    navigate(`/${returnTo ?? lang}`, { replace: true });
+    navigate(`/${lang}/router`, { replace: true });
   };
 
   return (

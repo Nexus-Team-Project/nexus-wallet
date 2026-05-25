@@ -41,15 +41,38 @@ export interface WalletMeResponse {
     showEveryonesCatalog: boolean;
     showJoinRequest: boolean;
   };
+  /**
+   * Wallet profile sub-doc (Plan #3). completedAt is the gate the
+   * LoginSheet checks - if set, returning user skips the slide chain.
+   */
+  profile?: {
+    firstName?: string;
+    lastName?: string;
+    birthday?: string;
+    gender?: string;
+    lifeStage?: string;
+    motivation?: string;
+    purpose?: string[];
+    benefitCategories?: string[];
+    inviteFriendsSent?: number;
+    completedAt?: string;
+    updatedAt?: string;
+  } | null;
 }
 
 interface AuthState {
   me: WalletMeResponse | null;
   loading: boolean;
   loggedIn: boolean;
-  reload: () => Promise<void>;
+  reload: () => Promise<WalletMeResponse | null>;
   logout: () => Promise<void>;
-  onLoginSucceeded: (accessToken: string) => Promise<void>;
+  /**
+   * Called by every successful login path (phone verify, email-otp
+   * verify, google). Seeds the access token, fetches /api/me, and
+   * returns the loaded MeResponse so the caller can decide where to
+   * navigate (e.g. RouterScreen for known identities).
+   */
+  onLoginSucceeded: (accessToken: string) => Promise<WalletMeResponse | null>;
 }
 
 const Ctx = createContext<AuthState | null>(null);
@@ -58,12 +81,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [me, setMe] = useState<WalletMeResponse | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
 
-  async function reload(): Promise<void> {
+  async function reload(): Promise<WalletMeResponse | null> {
     try {
       const data = await api<WalletMeResponse>('/api/me');
       setMe(data);
+      return data;
     } catch {
       setMe(null);
+      return null;
     }
   }
 
@@ -96,9 +121,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function onLoginSucceeded(accessToken: string): Promise<void> {
+  async function onLoginSucceeded(accessToken: string): Promise<WalletMeResponse | null> {
     setAccessToken(accessToken);
-    await reload();
+    return reload();
   }
 
   async function logout(): Promise<void> {
