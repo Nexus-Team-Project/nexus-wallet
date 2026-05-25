@@ -79,6 +79,22 @@ interface AuthState {
 
 const Ctx = createContext<AuthState | null>(null);
 
+/**
+ * Read ?code=XXX from the URL exactly once at module evaluation.
+ * Runs BEFORE React Router has a chance to fire any <Navigate /> that
+ * would strip the query string. Without this, the index route's
+ * `<Navigate to="/he" />` swallows the OAuth callback code and the
+ * wallet never sees it.
+ */
+const initialGoogleCode: string | null = (() => {
+  if (typeof window === 'undefined') return null;
+  try {
+    return new URLSearchParams(window.location.search).get('code');
+  } catch {
+    return null;
+  }
+})();
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [me, setMe] = useState<WalletMeResponse | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -128,14 +144,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLoading(true);
     try {
       // Google OAuth redirect callback: if the browser came back from
-      // Google with ?code=XXX, exchange it with the backend BEFORE
-      // trying refresh. Clean the URL immediately so a page refresh
-      // never re-submits the (now-consumed) code.
-      const params = new URLSearchParams(window.location.search);
-      const googleCode = params.get('code');
-      if (googleCode) {
-        window.history.replaceState({}, document.title, window.location.pathname);
-        const r = await exchangeGoogleCode(googleCode);
+      // Google with ?code=XXX (captured BEFORE the router stripped it
+      // - see initialGoogleCode at module top), exchange it with the
+      // backend BEFORE trying refresh. The exchange is module-level
+      // deduped so dev StrictMode double-fire doesn't POST twice.
+      if (initialGoogleCode) {
+        const r = await exchangeGoogleCode(initialGoogleCode);
         if (r) setAccessToken(r.accessToken);
       }
 

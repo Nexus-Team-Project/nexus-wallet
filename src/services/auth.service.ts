@@ -193,37 +193,46 @@ export async function firebaseGoogleSignIn(): Promise<WalletGoogleResult> {
   return { success: false, redirecting: true };
 }
 
-/**
- * Called by AuthContext bootstrap when ?code=XXX is present on the
- * wallet URL. Exchanges the code with the backend using the same
- * redirect_uri the browser sent to Google.
- *
- * @returns the access token on success, null on failure (the bootstrap
- *   continues as anonymous in that case).
- */
-export async function exchangeGoogleCode(code: string): Promise<{
+interface GoogleExchangeResult {
   accessToken: string;
   identityCreated: boolean;
   acceptedTenantIds?: string[];
-} | null> {
+}
+
+/**
+ * Module-level dedupe: React 19 StrictMode in dev fires effects twice,
+ * which would otherwise POST the (single-use) authorization code to
+ * the backend twice. Both calls await the same in-flight promise.
+ */
+let inFlightExchange: Promise<GoogleExchangeResult | null> | null = null;
+
+/**
+ * Called by AuthContext bootstrap when a ?code=XXX from a wallet-
+ * initiated Google OAuth redirect is present in the URL. Exchanges the
+ * code with the backend using the same redirect_uri the browser sent
+ * to Google. The session marker (GOOGLE_REDIRECT_KEY) gates this so we
+ * never POST a ?code that was put there by a different OAuth flow.
+ *
+ * @returns the session payload on success, null on failure
+ */
+export function exchangeGoogleCode(code: string): Promise<GoogleExchangeResult | null> {
+  // Marker is consumed on the first call. Second call (StrictMode)
+  // returns the SAME in-flight promise so the backend only sees one
+  // POST.
+  if (inFlightExchange) return inFlightExchange;
   const claimed = sessionStorage.getItem(GOOGLE_REDIRECT_KEY);
+  if (!claimed) return Promise.resolve(null);
   sessionStorage.removeItem(GOOGLE_REDIRECT_KEY);
-  if (!claimed) return null;
-  try {
-    const r = await api<{
-      accessToken: string;
-      identityCreated: boolean;
-      acceptedTenantIds?: string[];
-    }>('/api/v1/auth/google/wallet', {
-      method: 'POST',
-      body: { code, redirectUri: window.location.origin },
-      skipAuth: true,
-    });
-    return r;
-  } catch (e) {
+
+  inFlightExchange = api<GoogleExchangeResult>('/api/v1/auth/google/wallet', {
+    method: 'POST',
+    body: { code, redirectUri: window.location.origin },
+    skipAuth: true,
+  }).catch((e: unknown) => {
     console.error('[wallet-auth] google code exchange failed:', e);
     return null;
-  }
+  });
+  return inFlightExchange;
 }
 
 /** Apple - placeholder until a real provider is wired. */
