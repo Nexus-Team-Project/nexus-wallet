@@ -186,7 +186,7 @@ export default function CategoryFilterSheet({
       {/* Sheet */}
       <div
         ref={sheetRef}
-        className="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-3xl max-h-[90vh] flex flex-col animate-slide-up"
+        className="fixed bottom-0 left-0 right-0 max-w-md mx-auto z-50 bg-white rounded-t-3xl max-h-[90vh] flex flex-col animate-slide-up"
       >
         {/* Drag header */}
         <div id="category-filter-header" className="flex-shrink-0 select-none" style={{ touchAction: 'none' }}>

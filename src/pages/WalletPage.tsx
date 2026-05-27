@@ -4,6 +4,7 @@ import { useLanguage } from '../i18n/LanguageContext';
 import { useWallet } from '../hooks/useWallet';
 import { formatCurrency } from '../utils/formatCurrency';
 import WalletTabs from '../components/wallet/WalletTabs';
+import WalletPageSkeleton from '../components/wallet/WalletPageSkeleton';
 import PayInStoreSheet from '../components/wallet/PayInStoreSheet';
 import MoreActionsSheet from '../components/wallet/MoreActionsSheet';
 import type { UserVoucher } from '../types/voucher.types';
@@ -17,7 +18,7 @@ export default function WalletPage() {
   const { lang = 'he' } = useParams();
   const navigate = useNavigate();
   const locale = language === 'he' ? 'he-IL' : 'en-IL';
-  const { data: wallet } = useWallet();
+  const { data: wallet, isLoading: walletLoading } = useWallet();
   const [activeTab, setActiveTab] = useState<UserVoucher['status']>('active');
 
   // Collapsible section states
@@ -32,6 +33,10 @@ export default function WalletPage() {
   const [showNotification, setShowNotification] = useState(false);
   const [notificationType, _setNotificationType] = useState<'success' | 'declined'>('success');
   const [merchantName, _setMerchantName] = useState('');
+
+  if (walletLoading) {
+    return <WalletPageSkeleton />;
+  }
 
   return (
     <div className="animate-fade-in pt-16">

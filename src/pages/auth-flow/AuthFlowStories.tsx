@@ -205,7 +205,7 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
 
   // ─────────────────────────────────────────────────────────────────────────
   return (
-    <div className="fixed inset-0 z-[100] bg-black flex flex-col">
+    <div className="fixed inset-0 max-w-md mx-auto z-[100] bg-black flex flex-col">
 
       {/* ── Progress bar ── */}
       <div className="px-3 pt-3 pb-2 z-50">

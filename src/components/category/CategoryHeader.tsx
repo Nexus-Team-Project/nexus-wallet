@@ -1,4 +1,4 @@
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useLanguage } from '../../i18n/LanguageContext';
 import type { VoucherCategory } from '../../types/voucher.types';
 
@@ -10,6 +10,7 @@ export default function CategoryHeader({ categoryId }: CategoryHeaderProps) {
   const { t, isRTL } = useLanguage();
   const { lang = 'he' } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const categoryName = t.store[categoryId as keyof typeof t.store] || categoryId;
 
@@ -35,7 +36,7 @@ export default function CategoryHeader({ categoryId }: CategoryHeaderProps) {
         {/* Left side (RTL): back + search */}
         <div className="flex items-center gap-1 z-10">
           <button
-            onClick={() => navigate(`/${lang}/search`)}
+            onClick={() => navigate(`/${lang}/chat${location.search}`)}
             className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-surface transition-colors"
           >
             <span className="material-symbols-outlined text-text-primary" style={{ fontSize: '22px' }}>

@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react';
-import { createBrowserRouter, Navigate } from 'react-router-dom';
+import { createBrowserRouter, Navigate, useLocation, useParams } from 'react-router-dom';
 import LanguageRouter from './LanguageRouter';
 import ProtectedRoute from './ProtectedRoute';
 import ErrorBoundary from '../components/ErrorBoundary';
@@ -8,6 +8,11 @@ import ErrorBoundary from '../components/ErrorBoundary';
 import RegistrationGuard from '../components/registration/RegistrationGuard';
 import AppLayout from '../components/layout/AppLayout';
 import NotFoundPage from '../pages/NotFoundPage';
+// HomePageSkeleton / WalletPageSkeleton are eager so they can be shown
+// immediately as the Suspense fallback for their respective routes —
+// avoids the blank white flash on first load.
+import HomePageSkeleton from '../components/home/HomePageSkeleton';
+import WalletPageSkeleton from '../components/wallet/WalletPageSkeleton';
 
 // ── Lazy chunks ──────────────────────────────────────────────────────────────
 // Main app tabs — loaded right after initial render
@@ -18,9 +23,10 @@ const ActivityPage       = lazy(() => import('../pages/ActivityPage'));
 const ProfilePage        = lazy(() => import('../pages/ProfilePage'));
 
 // Utility pages
-const SearchPage         = lazy(() => import('../pages/SearchPage'));
 const AiChatPage         = lazy(() => import('../pages/AiChatPage'));
 const NearYouMapPage     = lazy(() => import('../pages/NearYouMapPage'));
+// MapLibre demo — lazy so MapLibre's ~250KB only loads on this route
+const OffersMapDemo      = lazy(() => import('../components/map/OffersMap.demo'));
 const InsightsPage       = lazy(() => import('../pages/InsightsPage'));
 const StoriesPage        = lazy(() => import('../pages/StoriesPage'));
 const ReferralStoriesPage = lazy(() => import('../pages/ReferralStoriesPage'));
@@ -70,6 +76,14 @@ function PageFallback() {
   return <div className="min-h-dvh bg-white" />;
 }
 
+// /:lang/search → /:lang/chat — the search page was retired in favor of the
+// chat. Preserves the query string (e.g. ?tenant=acme-corp).
+function SearchToChatRedirect() {
+  const { lang = 'he' } = useParams();
+  const location = useLocation();
+  return <Navigate to={`/${lang}/chat${location.search}`} replace />;
+}
+
 function S({ children }: { children: React.ReactNode }) {
   return <Suspense fallback={<PageFallback />}>{children}</Suspense>;
 }
@@ -88,11 +102,19 @@ export const router = createBrowserRouter([
         element: <AppLayout />,
         children: [
           // === PUBLIC routes ===
-          { index: true,      element: <S><HomePage /></S> },
+          {
+            index: true,
+            element: (
+              <Suspense fallback={<HomePageSkeleton />}>
+                <HomePage />
+              </Suspense>
+            ),
+          },
           { path: 'store',    element: <S><StorePage /></S> },
-          { path: 'search',           element: <S><SearchPage /></S> },
+          { path: 'search',           element: <SearchToChatRedirect /> },
           { path: 'chat',             element: <S><AiChatPage /></S> },
           { path: 'near-you-map',     element: <S><NearYouMapPage /></S> },
+          { path: 'map-demo',         element: <S><OffersMapDemo /></S> },
           { path: 'insights',         element: <S><InsightsPage /></S> },
           { path: 'stories',          element: <S><StoriesPage /></S> },
           { path: 'referral-stories', element: <S><ReferralStoriesPage /></S> },
@@ -110,7 +132,14 @@ export const router = createBrowserRouter([
           {
             element: <ProtectedRoute />,
             children: [
-              { path: 'wallet',   element: <S><WalletPage /></S> },
+              {
+                path: 'wallet',
+                element: (
+                  <Suspense fallback={<WalletPageSkeleton />}>
+                    <WalletPage />
+                  </Suspense>
+                ),
+              },
               { path: 'activity', element: <S><ActivityPage /></S> },
               { path: 'profile',  element: <S><ProfilePage /></S> },
             ],

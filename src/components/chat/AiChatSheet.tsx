@@ -162,7 +162,7 @@ export default function AiChatSheet({ onClose, initialMessage }: AiChatSheetProp
       {/* Sheet */}
       <div
         ref={sheetRef}
-        className="fixed bottom-0 left-0 right-0 z-[60] bg-white rounded-t-3xl flex flex-col animate-slide-up"
+        className="fixed bottom-0 left-0 right-0 max-w-md mx-auto z-[60] bg-white rounded-t-3xl flex flex-col animate-slide-up"
         style={{ maxHeight: '90vh' }}
       >
         {/* Drag Header */}
@@ -181,9 +181,9 @@ export default function AiChatSheet({ onClose, initialMessage }: AiChatSheetProp
             <div className="flex items-center gap-2">
               <GaliAvatar size={32} />
               <div>
-                <h2 className="text-sm font-bold text-text-primary">גלי</h2>
+                <h2 className="text-sm font-bold text-text-primary">Nexus</h2>
                 <p className="text-[10px] text-text-muted">
-                  {isHe ? 'העוזרת החכמה שלך' : 'Your smart assistant'}
+                  {isHe ? 'העוזר החכם שלך' : 'Your smart assistant'}
                 </p>
               </div>
             </div>
@@ -207,7 +207,6 @@ export default function AiChatSheet({ onClose, initialMessage }: AiChatSheetProp
             <ChatMessage
               key={msg.id}
               message={msg}
-              onSelectProduct={setSelectedVoucher}
               onSuggestionClick={handleSuggestionClick}
             />
           ))}

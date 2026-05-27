@@ -4,14 +4,17 @@ import TopBar from './TopBar';
 import FloatingActions from './FloatingActions';
 import CategoryRow from '../home/CategoryRow';
 import ProfileNudgeBanner from '../profile/ProfileNudgeBanner';
+import { useVouchers } from '../../hooks/useVouchers';
 
 const COLLAPSE_THRESHOLD = 40;
 
 export default function AppLayout() {
   const { pathname } = useLocation();
   const isHome = /^\/[a-z]{2}\/?$/.test(pathname);
-  const isSearch = /^\/[a-z]{2}\/search\/?$/.test(pathname);
   const [collapsed, setCollapsed] = useState(false);
+  // Mirrors the loading flag the home page uses for its skeleton — same query,
+  // shared React Query cache, so the sticky CategoryRow stays in sync.
+  const { isLoading: vouchersLoading } = useVouchers();
 
   useEffect(() => {
     if (!isHome) {
@@ -53,10 +56,10 @@ export default function AppLayout() {
           <div className="sticky top-0 z-50">
             <TopBar collapsed={collapsed} />
             <div className="overflow-hidden">
-              <CategoryRow collapsed={collapsed} />
+              <CategoryRow collapsed={collapsed} loading={vouchersLoading} />
             </div>
           </div>
-        ) : isSearch ? null : (
+        ) : (
           /* Other pages: transparent overlay, does not scroll */
           <div className="relative z-50 h-0 overflow-visible">
             <TopBar collapsed={false} showBack />

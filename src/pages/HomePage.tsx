@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useLanguage } from '../i18n/LanguageContext';
 import HeroBanner from '../components/home/HeroBanner';
+import HomePageSkeleton from '../components/home/HomePageSkeleton';
+import NexusPicksRow from '../components/home/NexusPicksRow';
 import CardIssuanceBanner from '../components/home/CardIssuanceBanner';
 import BrandSlider from '../components/home/BrandSlider';
 import ActiveOffers from '../components/home/ActiveOffers';
@@ -19,6 +21,7 @@ import {
 } from '../components/store/StoreSliders';
 import { useAuthStore } from '../stores/authStore';
 import { useTenantStore } from '../stores/tenantStore';
+import { useVouchers } from '../hooks/useVouchers';
 import type { StoreFilter } from '../types/voucher.types';
 
 const A2HS_DISMISSED_KEY = 'nexus_a2hs_dismissed';
@@ -52,6 +55,13 @@ export default function HomePage() {
   const handleSelectFilter = (filter: StoreFilter) => {
     navigate(`/${lang}/store`, { state: { filter } });
   };
+
+  // All home-page sliders read from the same `useVouchers` query (shared React
+  // Query cache), so this loading flag mirrors what every slider sees.
+  const { isLoading: vouchersLoading } = useVouchers();
+  if (vouchersLoading) {
+    return <HomePageSkeleton />;
+  }
 
   return (
     <div className="animate-fade-in">
@@ -121,6 +131,9 @@ export default function HomePage() {
           </div>
         </div>
       )}
+
+      {/* ההמלצות של Nexus עבורך — synced with last chat-sheet picks */}
+      <NexusPicksRow />
 
       <HeroBanner />
       <BrandSlider />

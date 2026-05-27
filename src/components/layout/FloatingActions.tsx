@@ -19,6 +19,10 @@ export default function FloatingActions() {
   const isWallet = location.pathname.includes('/wallet');
   const isBusiness = /\/business\/[^/]+/.test(location.pathname);
   const isVoucherPurchase = /\/business\/[^/]+\/voucher\//.test(location.pathname);
+  // On the chat page, the recommendations sheet (with full-bleed map) sits
+  // at the bottom — the white gradient backdrop would obscure the map's
+  // bottom edge. Hide it there; the buttons still float on top.
+  const isChat = /\/chat/.test(location.pathname);
 
   if (isBusiness || isVoucherPurchase) return null;
 
@@ -33,6 +37,21 @@ export default function FloatingActions() {
 
   return (
     <>
+      {/* White fade backdrop behind floating actions. Skipped on the chat
+          page so the recommendations sheet's full-bleed map stays visible
+          all the way down. */}
+      {!isChat && (
+        <div className="fixed bottom-0 inset-x-0 h-14 z-40 pointer-events-none flex justify-center">
+          <div
+            className="w-full max-w-md h-full"
+            style={{
+              background:
+                'linear-gradient(to top, white 65%, rgba(255,255,255,0.75) 85%, transparent)',
+            }}
+          />
+        </div>
+      )}
+
       {/* Search pill stays centered; wallet + home absolutely positioned beside it */}
       <div className="fixed bottom-6 inset-x-0 z-50 flex items-center justify-center">
         {/* Search pill wrapper — relative so wallet + home can anchor to it */}
@@ -84,7 +103,7 @@ export default function FloatingActions() {
           <div className="flex items-center bg-bg-dark rounded-full shadow-lg shadow-bg-dark/30 overflow-hidden">
             {/* Search zone → opens search page */}
             <button
-              onClick={() => navigate(`/${lang}/search`)}
+              onClick={() => navigate(`/${lang}/chat${location.search}`)}
               className="flex items-center gap-2.5 pl-4 pr-2.5 rtl:pl-2.5 rtl:pr-4 py-3 hover:bg-white/5 active:bg-white/10 transition-colors"
             >
               <span

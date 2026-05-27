@@ -30,7 +30,7 @@ const GRADIENTS = {
 
 // ── Card — matches TopStores / TenantOffers dimensions ────────────────────────
 
-function SliderCard({
+export function SliderCard({
   voucher,
   isHe,
   onSelect,

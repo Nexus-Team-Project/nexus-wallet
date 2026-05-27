@@ -86,7 +86,7 @@ export default function MoreActionsSheet({ onClose }: MoreActionsSheetProps) {
   return createPortal(
     <>
       <div ref={overlayRef} className="fixed inset-0 z-[99] bg-black/40 animate-fade-in" onClick={dismiss} />
-      <div ref={sheetRef} className="fixed bottom-0 left-0 right-0 z-[100] bg-white rounded-t-3xl animate-slide-up">
+      <div ref={sheetRef} className="fixed bottom-0 left-0 right-0 max-w-md mx-auto z-[100] bg-white rounded-t-3xl animate-slide-up">
         {/* Drag header */}
         <div id="more-sheet-header" className="flex-shrink-0 select-none" style={{ touchAction: 'none' }}>
           <div className="flex justify-center pt-3 pb-1">

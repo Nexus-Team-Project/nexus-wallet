@@ -520,7 +520,7 @@ export default function LoginSheet() {
       {/* Sheet */}
       <div
         ref={sheetRef}
-        className="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-3xl max-h-[50vh] flex flex-col animate-slide-up"
+        className="fixed bottom-0 left-0 right-0 max-w-md mx-auto z-50 bg-white rounded-t-3xl max-h-[50vh] flex flex-col animate-slide-up"
       >
         {/* ── Routing overlay — shown after auth succeeds, while flow is being decided ── */}
         {isRouting && step !== 'success' && (

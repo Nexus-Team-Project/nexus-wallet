@@ -103,7 +103,7 @@ export default function TenantSheet({ isOpen, onClose }: TenantSheetProps) {
       {/* Sheet — bottom-anchored, full-width on mobile */}
       <div
         ref={sheetRef}
-        className="fixed bottom-0 left-0 right-0 z-[60] bg-white rounded-t-3xl max-h-[85vh] flex flex-col animate-slide-up"
+        className="fixed bottom-0 left-0 right-0 max-w-md mx-auto z-[60] bg-white rounded-t-3xl max-h-[85vh] flex flex-col animate-slide-up"
       >
         {/* ── DRAG HEADER ── */}
         <div

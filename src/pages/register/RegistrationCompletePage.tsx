@@ -83,7 +83,7 @@ export default function RegistrationCompletePage() {
 
   return (
     <motion.div
-      className="fixed inset-0 z-[100] bg-black flex flex-col"
+      className="fixed inset-0 max-w-md mx-auto z-[100] bg-black flex flex-col"
       style={{ touchAction: 'none' }}
       initial={{ x: '100%', opacity: 0 }}
       animate={{ x: 0, opacity: 1 }}

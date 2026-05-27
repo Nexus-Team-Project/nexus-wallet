@@ -39,14 +39,61 @@ function getUniqueCategories() {
 
 interface CategoryRowProps {
   collapsed?: boolean;
+  loading?: boolean;
 }
 
-export default function CategoryRow({ collapsed = false }: CategoryRowProps) {
+export default function CategoryRow({ collapsed = false, loading = false }: CategoryRowProps) {
   const { language } = useLanguage();
   const { lang = 'he' } = useParams();
   const navigate = useNavigate();
   const isHe = language === 'he';
   const categories = getUniqueCategories();
+
+  if (loading) {
+    return (
+      <div
+        className="relative transition-all duration-300 ease-in-out"
+        style={{ height: collapsed ? '44px' : '130px' }}
+      >
+        {/* Skeleton expanded squares — match real 72×72 footprint */}
+        <div
+          className="flex overflow-x-auto hide-scrollbar gap-4 px-5 py-3 absolute inset-x-0 top-0 transition-all duration-300 ease-in-out"
+          style={{
+            opacity: collapsed ? 0 : 1,
+            transform: collapsed ? 'translateY(-20px)' : 'translateY(0)',
+            pointerEvents: 'none',
+          }}
+        >
+          {Array.from({ length: 7 }).map((_, i) => (
+            <div key={i} className="flex flex-col items-center gap-2 shrink-0 animate-pulse">
+              <div className="w-[72px] h-[72px] rounded-2xl bg-gray-200 shadow-sm" />
+              <div className="h-2 w-12 bg-gray-200 rounded" />
+            </div>
+          ))}
+        </div>
+
+        {/* Skeleton collapsed pills */}
+        <div
+          className="flex overflow-x-auto hide-scrollbar gap-2 px-5 py-2 absolute inset-x-0 top-0 transition-all duration-300 ease-in-out"
+          style={{
+            opacity: collapsed ? 1 : 0,
+            transform: collapsed ? 'translateY(0)' : 'translateY(20px)',
+            pointerEvents: 'none',
+          }}
+        >
+          {Array.from({ length: 7 }).map((_, i) => (
+            <div
+              key={i}
+              className="flex items-center gap-2 shrink-0 px-3 py-1.5 rounded-full bg-gray-100 border border-gray-100 shadow-sm animate-pulse"
+            >
+              <div className="w-3 h-3 rounded-full bg-gray-200" />
+              <div className="h-2 w-12 bg-gray-200 rounded" />
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div

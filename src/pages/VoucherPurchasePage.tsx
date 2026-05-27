@@ -261,7 +261,7 @@ function VariantSheet({ variant, isHe, onClose }: VariantSheetProps) {
     <>
       <div className="bottom-sheet-overlay" onClick={onClose} />
       <div
-        className="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-3xl overflow-hidden"
+        className="fixed bottom-0 left-0 right-0 max-w-md mx-auto z-50 bg-white rounded-t-3xl overflow-hidden"
         style={{ animation: 'sheet-up 0.3s ease-out' }}
       >
         {/* Handle */}
@@ -480,7 +480,7 @@ export default function VoucherPurchasePage() {
   const currentTier = AMOUNT_TIERS[selectedTierIdx];
   const customAmountNum = parseInt(customAmount, 10);
   const isCustom = Number.isFinite(customAmountNum) && customAmountNum > 0;
-  const displayAmount = isCustom ? customAmountNum : currentTier.amount;
+  const displayAmount = isCustom ? customAmountNum : (currentTier?.amount ?? 0);
   const discount = selectedVariant.discountPercent ?? voucher.discountPercent;
   const discountedAmount = Math.round(displayAmount * (1 - discount / 100));
 
@@ -891,34 +891,38 @@ export default function VoucherPurchasePage() {
       {/* ── Sticky CTA ── */}
       <div className="fixed bottom-0 left-0 right-0 z-30" style={{ pointerEvents: 'none' }}>
         <div
-          className="max-w-md mx-auto px-5 pb-5 pt-10"
+          className="max-w-md mx-auto px-5 pb-5 pt-28"
           style={{
             pointerEvents: 'auto',
-            background: 'linear-gradient(to top, white 70%, transparent)',
+            background: 'linear-gradient(to top, white 45%, rgba(255,255,255,0.85) 65%, rgba(255,255,255,0.5) 80%, transparent)',
           }}
         >
           <div className="relative">
             {/* Cashback badge — behind button, text peeking above */}
             {displayAmount - discountedAmount > 0 && (
-              <div className="absolute -top-9 left-1/2 -translate-x-1/2 z-0 w-[85%]">
-                <div className="flex items-center justify-center gap-1 bg-green-50 border border-green-200 px-5 py-3 pb-10 rounded-t-2xl">
-                  <span className="text-xs text-green-700 font-medium leading-none">{isHe ? 'תקבל' : 'Get'}</span>
-                  <span className="text-xs font-black text-green-600 leading-none">₪{displayAmount - discountedAmount}</span>
-                  <span className="text-xs text-green-700 font-medium leading-none">{isHe ? 'כקאשבק' : 'cashback'}</span>
+              <div className="absolute -top-9 left-1/2 -translate-x-1/2 z-0 w-[82%]">
+                <div
+                  key={displayAmount - discountedAmount}
+                  className="flex items-center justify-center gap-1.5 bg-green-50 border border-green-200 px-4 py-2 pb-9 rounded-t-2xl origin-bottom"
+                  style={{ animation: 'cashback-pop 420ms cubic-bezier(0.34, 1.56, 0.64, 1)' }}
+                >
+                  <span className="text-base text-green-700 font-medium leading-none">{isHe ? 'תקבל' : 'Get'}</span>
+                  <span className="text-lg font-black text-green-600 leading-none">₪{displayAmount - discountedAmount}</span>
+                  <span className="text-base text-green-700 font-medium leading-none">{isHe ? 'כקאשבק' : 'cashback'}</span>
                 </div>
               </div>
             )}
 
             <button
-              className="relative z-10 w-full bg-bg-dark text-white py-3.5 rounded-full font-bold text-base active:scale-[0.98] transition-transform shadow-lg shadow-bg-dark/30 flex items-center justify-center gap-0"
+              className="relative z-10 w-full bg-bg-dark text-white py-2.5 rounded-full font-bold text-sm active:scale-[0.98] transition-transform shadow-lg shadow-bg-dark/30 flex items-center justify-center gap-0"
             >
             <span className="inline-flex items-center gap-0 leading-none">
               <span>{isHe ? 'צור כרטיס עם' : 'Create card with'}</span>
-              <span className="inline-flex items-center bg-sky-300 rounded-xl px-3 py-1 overflow-hidden" style={{ transform: 'scale(0.873)' }}>
+              <span className="inline-flex items-center bg-sky-300 rounded-xl px-2.5 py-1 overflow-hidden" style={{ transform: 'scale(0.873)' }}>
                 <img
                   src="/nexus-logo-black.png"
                   alt="Nexus"
-                  className="h-7 w-auto object-contain"
+                  className="h-6 w-auto object-contain"
                   style={{ transform: 'scale(1.373)' }}
                 />
               </span>
@@ -943,6 +947,11 @@ export default function VoucherPurchasePage() {
           0% { transform: translateX(-100%); }
           50% { transform: translateX(100%); }
           100% { transform: translateX(100%); }
+        }
+        @keyframes cashback-pop {
+          0%   { transform: scale(0.82); opacity: 0.6; }
+          60%  { transform: scale(1.08); opacity: 1; }
+          100% { transform: scale(1); opacity: 1; }
         }
         .snap-x::-webkit-scrollbar {
           display: none;

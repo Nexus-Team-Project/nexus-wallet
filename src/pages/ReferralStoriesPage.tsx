@@ -668,7 +668,7 @@ export default function ReferralStoriesPage() {
   };
 
   return (
-    <div className="fixed inset-0 bg-black z-[100] flex flex-col" dir={isHe ? 'rtl' : 'ltr'}>
+    <div className="fixed inset-0 max-w-md mx-auto bg-black z-[100] flex flex-col" dir={isHe ? 'rtl' : 'ltr'}>
       {/* Progress bars — color adapts: white on dark (story 1), slate on light (story 2) */}
       <div className="flex gap-1 px-3 pt-3 pb-2 z-50">
         {Array.from({ length: STORY_COUNT }).map((_, i) => (
