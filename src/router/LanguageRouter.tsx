@@ -111,17 +111,20 @@ export default function LanguageRouter() {
         <Outlet />
         <LoginSheet />
         {/* Real tenant switcher when logged in. Hidden on the screens
-            that already ARE pickers - showing the top-left "Pick view"
-            chip there is redundant and confusing while the user is
-            still choosing their context:
-              - /:lang/router        - the post-login chooser
-              - /:lang/wallet/join-tenant       - the tenant join flow
-              - /:lang/wallet/join-submitted    - the join confirmation
+            that already ARE pickers or own a fullscreen flow - showing
+            the top-left "Pick view" chip there is redundant and
+            confusing while the user is still choosing their context:
+              - /:lang/router                 - post-login chooser
+              - /:lang/wallet/join-tenant     - tenant join flow
+              - /:lang/wallet/join-submitted  - join confirmation
+              - /:lang/auth-flow/*            - story onboarding chain
+                                                (new-user / org-user)
             Dev-only simulators (TenantSimulator + UserTypeSimulator)
             were removed - they were vestiges of the mock-auth era. */}
         {me &&
           !/^\/[a-z]{2}\/router\/?$/.test(location.pathname) &&
-          !/^\/[a-z]{2}\/wallet\/join-(tenant|submitted)\/?$/.test(location.pathname) && (
+          !/^\/[a-z]{2}\/wallet\/join-(tenant|submitted)\/?$/.test(location.pathname) &&
+          !/^\/[a-z]{2}\/auth-flow(\/|$)/.test(location.pathname) && (
             <WalletTenantSwitcher />
           )}
       </div>
