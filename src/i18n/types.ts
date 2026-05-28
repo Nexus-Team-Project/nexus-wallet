@@ -394,24 +394,6 @@ export interface TranslationKeys {
     genderMale: string;
     genderFemale: string;
     genderPreferNot: string;
-    // Benefit categories slide
-    benefitCategoriesTitle: string;
-    benefitCategoriesSubtitle: string;
-    benefitCategoriesMinError: string;
-    benefitFood: string;
-    benefitFashion: string;
-    benefitEntertainment: string;
-    benefitTravel: string;
-    benefitHealth: string;
-    benefitBeauty: string;
-    benefitElectronics: string;
-    benefitSupermarket: string;
-    benefitSports: string;
-    benefitCafe: string;
-    benefitKids: string;
-    benefitHome: string;
-    benefitPets: string;
-    benefitEducation: string;
     // Invite friends slide
     inviteFriendsTitle: string;
     inviteFriendsSubtitle: string;

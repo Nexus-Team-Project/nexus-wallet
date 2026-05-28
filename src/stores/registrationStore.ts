@@ -52,7 +52,6 @@ export interface OnboardingData {
   lifeStage: string | null;    // LifeStageSlide — single-select (null = skipped)
   birthday: string;            // BirthdaySlide — ISO date string ('' = skipped)
   gender: string | null;       // GenderSlide — single-select (null = skipped)
-  benefitCategories: string[]; // BenefitCategoriesSlide — multi-select
 }
 
 export interface ConsentData {
@@ -174,7 +173,6 @@ export const useRegistrationStore = create<RegistrationState>((set) => ({
         lifeStage: null,
         birthday: '',
         gender: null,
-        benefitCategories: [],
         ...(state.onboardingData ?? {}),
         ...data,
       },

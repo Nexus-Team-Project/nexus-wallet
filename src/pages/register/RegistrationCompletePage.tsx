@@ -101,7 +101,6 @@ export default function RegistrationCompletePage() {
         if (od.gender) patch.gender = od.gender as WalletProfilePatch['gender'];
         if (od.lifeStage) patch.lifeStage = od.lifeStage;
         if (od.purpose?.length) patch.purpose = od.purpose;
-        if (od.benefitCategories?.length) patch.benefitCategories = od.benefitCategories;
       }
       await saveWalletProfile(patch);
       if (rs.consents) {

@@ -288,7 +288,7 @@ export default function LoginSheet() {
       setIsRouting(true);
 
       // Helper: preference-type fields that drive the profile nudge banner
-      const PREF_FIELDS = ['purpose', 'lifeStage', 'birthday', 'gender', 'benefitCategories'];
+      const PREF_FIELDS = ['purpose', 'lifeStage', 'birthday', 'gender'];
       const hasMissingPreferences = missingFields.some((f) => PREF_FIELDS.includes(f));
 
       // Phone auth — need full profile (name, email, birthday)
