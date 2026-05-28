@@ -342,6 +342,12 @@ export default function WalletPage() {
               </div>
             </button>
 
+            {/* Best-offers carousel — auto-rotating atmosphere photos
+                with brand + cashback %. Same w-48 h-36 footprint as the
+                map and organization widgets so the three "hero" tiles
+                visually align. */}
+            <BestOffersWidget />
+
             <div className="flex-shrink-0 w-40 bg-white border border-border rounded-2xl p-4 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
               <div className="w-9 h-9 rounded-full bg-success/15 flex items-center justify-center mb-2">
                 <span className="material-symbols-outlined text-success" style={{ fontSize: '20px' }}>trending_up</span>
