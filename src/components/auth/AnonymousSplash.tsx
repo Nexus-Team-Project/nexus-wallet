@@ -23,19 +23,12 @@ import BenefitsCarousel, { type BenefitItem } from './BenefitsCarousel';
 interface Benefit {
   he: { title: string; body: string };
   en: { title: string; body: string };
-  /** Accent stripe color used on the carousel card. */
-  accent: string;
 }
 
 // Marketing-oriented copy that is intentionally DIFFERENT from the
 // RouterScreen value props. Anonymous visitors need a "why should I
 // sign in" pitch; RouterScreen users have already signed in and need a
 // "what do I do next" picker. Same brand, different jobs.
-//
-// Each benefit carries an `accent` color drawn from the warm-pastel
-// brand gradient (#ffb74d -> #ff91b8 -> #9c88ff) so the carousel
-// card's top stripe shifts as the active benefit changes - gives each
-// slide its own identity without resorting to icons.
 const BENEFITS: Benefit[] = [
   {
     he: {
@@ -46,7 +39,6 @@ const BENEFITS: Benefit[] = [
       title: 'Save on every purchase',
       body: 'Members-only prices that pay off from the first basket, no fine print.',
     },
-    accent: 'linear-gradient(90deg, #ffb74d 0%, #ff91b8 100%)',
   },
   {
     he: {
@@ -57,18 +49,16 @@ const BENEFITS: Benefit[] = [
       title: 'Curated by your organization',
       body: "Food, fashion, groceries, sport - your org's benefits catalog, always in sync.",
     },
-    accent: 'linear-gradient(90deg, #ff91b8 0%, #9c88ff 100%)',
   },
   {
     he: {
       title: 'פרטי ומאובטח',
-      body: 'הזהות מנוהלת על ידי נקסוס. הארגון לא רואה מה קנית או היכן הוצאת.',
+      body: 'הזהות מנוהלת על ידי נקסוס.',
     },
     en: {
       title: 'Private and secure',
-      body: 'Nexus owns your identity. Your org never sees what you buy or where you spend.',
+      body: 'Nexus owns your identity.',
     },
-    accent: 'linear-gradient(90deg, #9c88ff 0%, #ffb74d 100%)',
   },
 ];
 
@@ -198,7 +188,6 @@ export default function AnonymousSplash() {
               items={BENEFITS.map<BenefitItem>((b) => ({
                 title: isHe ? b.he.title : b.en.title,
                 body: isHe ? b.he.body : b.en.body,
-                accent: b.accent,
               }))}
               labels={{
                 prev: isHe ? 'ההטבה הקודמת' : 'Previous benefit',

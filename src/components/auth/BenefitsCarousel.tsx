@@ -32,8 +32,6 @@ import { useCallback, useEffect, useId, useState } from 'react';
 export interface BenefitItem {
   title: string;
   body: string;
-  /** CSS background for the accent stripe at the top of the card. */
-  accent: string;
 }
 
 interface BenefitsCarouselProps {
@@ -168,14 +166,6 @@ export default function BenefitsCarousel({
     >
       {/* ── Slide stage ── */}
       <div className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white/85 shadow-sm backdrop-blur-sm">
-        {/* Warm-pastel accent strip - per-slide color drawn from the
-            brand gradient so each benefit has its own identity. */}
-        <div
-          className="h-1.5 w-full"
-          style={{ background: current.accent }}
-          aria-hidden
-        />
-
         <AnimatePresence mode="wait" custom={direction} initial={false}>
           <motion.div
             key={index}
@@ -236,24 +226,20 @@ export default function BenefitsCarousel({
           </svg>
         </button>
 
-        <div className="flex items-center gap-2" role="tablist" aria-label={labels.region}>
-          {items.map((_, i) => {
-            const isActive = i === index;
-            return (
-              <button
-                key={i}
-                type="button"
-                role="tab"
-                aria-selected={isActive}
-                aria-controls={regionId}
-                aria-label={labels.slide(i + 1, items.length)}
-                onClick={() => goTo(i, i > index ? 1 : -1)}
-                className={`cursor-pointer h-2 rounded-full transition-all duration-200 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900/40 ${
-                  isActive ? 'w-7 bg-slate-900' : 'w-2 bg-slate-300 hover:bg-slate-400'
-                }`}
-              />
-            );
-          })}
+        {/* Numeric position indicator. Replaces the dot pager - the
+            current slide reads as "1 / 3" in the brand's slate-900,
+            with a soft slate-400 separator and total. Tabular-nums so
+            the width doesn't jitter as the active digit changes.
+            aria-live=off on this node because the parent region
+            already announces slide changes via aria-live=polite, so
+            re-reading the number would double-fire on screen readers. */}
+        <div
+          className="select-none tabular-nums text-sm font-semibold tracking-tight text-slate-400 sm:text-base"
+          aria-live="off"
+        >
+          <span className="text-slate-900">{index + 1}</span>
+          <span className="mx-1.5">/</span>
+          <span>{items.length}</span>
         </div>
 
         <button
