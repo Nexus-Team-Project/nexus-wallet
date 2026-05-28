@@ -13,6 +13,7 @@ import NotFoundPage from '../pages/NotFoundPage';
 // avoids the blank white flash on first load.
 import HomePageSkeleton from '../components/home/HomePageSkeleton';
 import WalletPageSkeleton from '../components/wallet/WalletPageSkeleton';
+import WalletHistorySkeleton from '../components/wallet/WalletHistorySkeleton';
 
 // ── Lazy chunks ──────────────────────────────────────────────────────────────
 // Main app tabs — loaded right after initial render
@@ -34,11 +35,15 @@ const PremiumRevealPage  = lazy(() => import('../pages/PremiumRevealPage'));
 const CategoryPage       = lazy(() => import('../pages/CategoryPage'));
 const BusinessPage       = lazy(() => import('../pages/BusinessPage'));
 const VoucherPurchasePage = lazy(() => import('../pages/VoucherPurchasePage'));
+const NotificationsPage  = lazy(() => import('../pages/NotificationsPage'));
 
 // Wallet add-money flow
 const AddMoneyPage       = lazy(() => import('../pages/AddMoneyPage'));
 const AddMoneySourcePage = lazy(() => import('../pages/AddMoneySourcePage'));
 const AddMoneyLoadingPage = lazy(() => import('../pages/AddMoneyLoadingPage'));
+const AddPaymentMethodPage = lazy(() => import('../pages/AddPaymentMethodPage'));
+const PaymentMethodsPage = lazy(() => import('../pages/PaymentMethodsPage'));
+const WalletHistoryPage = lazy(() => import('../pages/WalletHistoryPage'));
 const VoucherDetailPage  = lazy(() => import('../pages/VoucherDetailPage'));
 
 // Registration flow — single chunk (user goes through all slides sequentially)
@@ -126,7 +131,18 @@ export const router = createBrowserRouter([
           { path: 'wallet/add-money',          element: <S><AddMoneyPage /></S> },
           { path: 'wallet/add-money/source',   element: <S><AddMoneySourcePage /></S> },
           { path: 'wallet/add-money/loading',  element: <S><AddMoneyLoadingPage /></S> },
+          { path: 'wallet/add-payment-method', element: <S><AddPaymentMethodPage /></S> },
+          { path: 'wallet/payment-methods',    element: <S><PaymentMethodsPage /></S> },
+          {
+            path: 'wallet/history',
+            element: (
+              <Suspense fallback={<WalletHistorySkeleton />}>
+                <WalletHistoryPage />
+              </Suspense>
+            ),
+          },
           { path: 'wallet/voucher/:voucherId', element: <S><VoucherDetailPage /></S> },
+          { path: 'notifications',             element: <S><NotificationsPage /></S> },
 
           // === PROTECTED routes ===
           {
@@ -140,8 +156,8 @@ export const router = createBrowserRouter([
                   </Suspense>
                 ),
               },
-              { path: 'activity', element: <S><ActivityPage /></S> },
-              { path: 'profile',  element: <S><ProfilePage /></S> },
+              { path: 'activity',      element: <S><ActivityPage /></S> },
+              { path: 'profile',       element: <S><ProfilePage /></S> },
             ],
           },
         ],

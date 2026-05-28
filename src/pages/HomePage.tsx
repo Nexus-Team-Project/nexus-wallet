@@ -23,6 +23,7 @@ import { useAuthStore } from '../stores/authStore';
 import { useTenantStore } from '../stores/tenantStore';
 import { useVouchers } from '../hooks/useVouchers';
 import type { StoreFilter } from '../types/voucher.types';
+import DevPlaygroundSheet from '../components/dev/DevPlaygroundSheet';
 
 const A2HS_DISMISSED_KEY = 'nexus_a2hs_dismissed';
 
@@ -41,6 +42,7 @@ export default function HomePage() {
   const [showA2HS, setShowA2HS] = useState(
     () => !localStorage.getItem(A2HS_DISMISSED_KEY)
   );
+  const [showDevSheet, setShowDevSheet] = useState(false);
 
   const dismissA2HS = () => {
     setShowA2HS(false);
@@ -173,15 +175,20 @@ export default function HomePage() {
       {/* בקרוב */}
       <ComingSoonSlider onSelectFilter={handleSelectFilter} />
 
-      {/* DEV ONLY */}
+      {/* DEV PLAYGROUND — single entry point that opens a bottom sheet
+          containing both the auth-flow test and the live-notifications
+          test panel. Keeps the home page clean while giving devs one
+          discoverable button for all the playground tooling. */}
       <div className="px-6 py-4">
         <button
-          onClick={() => navigate(`/${lang}/auth-flow/test`)}
+          onClick={() => setShowDevSheet(true)}
           className="w-full py-3 rounded-2xl bg-warning/10 text-warning text-xs font-semibold border border-warning/20 active:scale-[0.98] transition-all"
         >
-          🧪 Auth Flow Test (Dev)
+          🧪 Dev Playground
         </button>
       </div>
+
+      {showDevSheet && <DevPlaygroundSheet onClose={() => setShowDevSheet(false)} />}
     </div>
   );
 }

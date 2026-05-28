@@ -2,7 +2,7 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useLanguage } from '../i18n/LanguageContext';
 import type { ChatMessage as ChatMessageType } from '../types/chat.types';
-import type { Voucher } from '../types/voucher.types';
+import type { Voucher, VoucherCategory } from '../types/voucher.types';
 import { getWelcomeMessage, mockAiResponse } from '../mock/handlers/chat.handler';
 import ChatMessage from '../components/chat/ChatMessage';
 import ChatIntroCard from '../components/chat/ChatIntroCard';
@@ -13,6 +13,7 @@ import SearchFiltersView from '../components/chat/SearchFiltersView';
 import type { DiscountFinderResult } from '../components/chat/DiscountFinderCard';
 import VoucherDetail from '../components/store/VoucherDetail';
 import { useRecommendationsStore } from '../stores/recommendationsStore';
+import { useChatStore } from '../stores/chatStore';
 import { mockVouchers } from '../mock/data/vouchers.mock';
 
 // icon: 'nexus-badge' → render the sky-blue rectangular Nexus badge
@@ -90,6 +91,8 @@ export default function AiChatPage() {
   const navigate = useNavigate();
   const { lang = 'he' } = useParams();
   const setStorePicks = useRecommendationsStore((s) => s.setPicks);
+  // Mounts the floating human-agent FAB (AppLayout subscribes to this).
+  const setHumanChatActive = useChatStore((s) => s.setHumanChatActive);
   const isHe = language === 'he';
 
   const [messages, setMessages] = useState<ChatMessageType[]>([]);
@@ -113,6 +116,9 @@ export default function AiChatPage() {
   const [recommendations, setRecommendations] = useState<{ products: Voucher[]; intro: string } | null>(null);
   const [loadingRecs, setLoadingRecs] = useState(false);
   const [sheetState, setSheetState] = useState<SheetState>('normal');
+  // Seeds the DiscountFinderCard's category chip when the finder is opened
+  // from a category page (via ?finder=<categoryId>).
+  const [finderInitialCategory, setFinderInitialCategory] = useState<VoucherCategory | undefined>(undefined);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const initialized = useRef(false);
@@ -142,6 +148,17 @@ export default function AiChatPage() {
       setTimeout(() => {
         handleSendMessage(prompt);
       }, 600);
+    }
+
+    // ?finder=<categoryId> — launched from a category page's search pill.
+    // Validate the param against the known VoucherCategory keys, seed the
+    // finder card with the matching category and open it immediately.
+    const finderParam = searchParams.get('finder');
+    if (finderParam && finderParam in CATEGORY_LABELS_HE) {
+      const cat = finderParam as VoucherCategory;
+      setFinderInitialCategory(cat);
+      markActivity();
+      setTimeout(() => openDiscountFinder(''), 200);
     }
   }, [isHe, searchParams]);
 
@@ -405,6 +422,25 @@ export default function AiChatPage() {
     }, 700);
   };
 
+  // Escape hatch from the AI flow → connect to a human agent. Flips the
+  // shared chat-store flag so AppLayout mounts the human-agent FAB, and
+  // appends an assistant bubble so the user has immediate confirmation
+  // that the request landed. Welcome content collapses out of the way.
+  const requestHumanAgent = () => {
+    markActivity();
+    setHumanChatActive(true);
+    const sysMsg: ChatMessageType = {
+      id: `agent_${Date.now()}`,
+      role: 'assistant',
+      content: isHe
+        ? 'מחבר אותך עם נציג אנושי. אנא המתן רגע…'
+        : 'Connecting you to a human agent. One moment…',
+      timestamp: new Date(),
+    };
+    setMessages((prev) => [...prev, sysMsg]);
+    scrollToBottom();
+  };
+
   const handleNewChat = () => {
     initialized.current = false;
     setMessages([]);
@@ -503,12 +539,17 @@ export default function AiChatPage() {
 
   return (
     <div className="flex flex-col relative overflow-hidden min-h-[100dvh]">
-      {/* Gradient background */}
+      {/* Gradient background — curtains down from above on page entry,
+          meeting the bottom sheet rising from below for the "land on the
+          card" feel. The outer page has overflow-hidden so the initial
+          translateY(-100%) state is clipped (no flash of empty space). */}
       <div
         className="absolute inset-0 pointer-events-none"
         style={{
           background:
             'linear-gradient(180deg, #f5e6f0 0%, #efe0f5 30%, #f7f0fb 55%, #ffffff 80%)',
+          animation: 'chat-pink-curtain 700ms cubic-bezier(0.22, 1, 0.36, 1) both',
+          willChange: 'transform',
         }}
       />
 
@@ -558,6 +599,7 @@ export default function AiChatPage() {
                       onInteract={markActivity}
                       popularSearches={popularSearches}
                       onSearchQuery={handleFinderSearch}
+                      initialCategory={finderInitialCategory}
                     />
                   );
                 }
@@ -632,8 +674,15 @@ export default function AiChatPage() {
             absolute overlay at the top so the wrapper's content (e.g. the
             full-bleed map) can fill the sheet edge-to-edge. */}
         <div
-          className="bg-white rounded-t-[28px] shadow-[0_-2px_24px_rgba(0,0,0,0.06)] animate-fade-up relative flex flex-col"
-          style={{ maxHeight: SHEET_EXPANDED_HEIGHT }}
+          className="bg-white rounded-t-[28px] shadow-[0_-2px_24px_rgba(0,0,0,0.06)] relative flex flex-col"
+          style={{
+            maxHeight: SHEET_EXPANDED_HEIGHT,
+            // Rises from below on mount, in sync with the gradient curtain
+            // above — together they "close in" on the card as the focal
+            // landing point.
+            animation: 'chat-sheet-rise 700ms cubic-bezier(0.22, 1, 0.36, 1) both',
+            willChange: 'transform',
+          }}
         >
           {/* Drag handle — absolute overlay on top of the wrapper. Pointer
               events drive drag-up/down; tap toggles the welcome content. */}
@@ -787,6 +836,29 @@ export default function AiChatPage() {
                       )}
                     </button>
                   ))}
+
+                  {/* Human-agent escape hatch — rendered as the last
+                      row of the quick-actions list so it shares the
+                      exact same shape (icon column, muted text, no
+                      border) as the items above it. Different intent
+                      (hand off to a real person), same visual weight. */}
+                  <button
+                    type="button"
+                    onClick={requestHumanAgent}
+                    className="flex items-center gap-3 w-full py-3.5 px-3 text-start hover:bg-gray-50 active:bg-gray-100 rounded-xl transition-colors"
+                  >
+                    <div className="w-24 flex items-center justify-center flex-shrink-0">
+                      <span
+                        className="material-symbols-outlined text-gray-300"
+                        style={{ fontSize: '24px' }}
+                      >
+                        support_agent
+                      </span>
+                    </div>
+                    <span className="text-[15px] text-gray-400 font-medium">
+                      {isHe ? 'סיוע מנציג אנושי' : 'Help from a human'}
+                    </span>
+                  </button>
                 </div>
               )}
 

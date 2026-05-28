@@ -1,21 +1,33 @@
 import { useRef, useCallback, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useLanguage } from '../../i18n/LanguageContext';
+import { usePaymentMethods } from '../../hooks/usePaymentMethods';
 
 interface MoreActionsSheetProps {
   onClose: () => void;
 }
 
-const actions = [
-  { key: 'addPaymentMethod', icon: 'add_card' },
-  { key: 'walletHistory', icon: 'history' },
-  { key: 'moreActions', icon: 'more_horiz' },
-] as const;
-
 export default function MoreActionsSheet({ onClose }: MoreActionsSheetProps) {
   const { t } = useLanguage();
   const { lang = 'he' } = useParams();
+  const navigate = useNavigate();
+  const { hasAny: hasPaymentMethod } = usePaymentMethods();
+
+  // First row toggles between "Payment method" (when a card exists →
+  // jump to the manage screen) and "Add payment method" (when none →
+  // jump straight to the add-card form).
+  const actions = [
+    {
+      key: hasPaymentMethod ? 'paymentMethod' : 'addPaymentMethod',
+      icon: 'add_card',
+      route: hasPaymentMethod
+        ? 'wallet/payment-methods'
+        : 'wallet/add-payment-method',
+    },
+    { key: 'walletHistory', icon: 'history', route: 'wallet/history' },
+    { key: 'moreActions', icon: 'more_horiz', route: null },
+  ] as const;
 
   const sheetRef = useRef<HTMLDivElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
@@ -99,9 +111,15 @@ export default function MoreActionsSheet({ onClose }: MoreActionsSheetProps) {
 
         {/* Actions list */}
         <div className="px-5 pb-10 space-y-1">
-          {actions.map(({ key, icon }) => (
+          {actions.map(({ key, icon, route }) => (
             <button
               key={key}
+              onClick={() => {
+                if (route) {
+                  navigate(`/${lang}/${route}`);
+                }
+                dismiss();
+              }}
               className="w-full flex items-center gap-4 p-4 rounded-2xl hover:bg-surface active:scale-[0.98] transition-all"
             >
               <div className="w-11 h-11 rounded-xl bg-surface flex items-center justify-center">

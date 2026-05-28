@@ -26,7 +26,7 @@ export default function AddMoneyLoadingPage() {
   }, [done, navigate, lang, amount]);
 
   return (
-    <div className="min-h-dvh bg-white flex flex-col items-center justify-center max-w-md mx-auto">
+    <div className="min-h-dvh bg-white flex flex-col items-center justify-center max-w-md mx-auto pt-16">
       {!done ? (
         <div className="text-center animate-fade-in">
           {/* Spinner */}

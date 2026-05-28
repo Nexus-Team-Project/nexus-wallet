@@ -116,7 +116,11 @@ export default function CategoryPage() {
     (filters.priceRange[0] > 20 || filters.priceRange[1] < 2000 ? 1 : 0);
 
   return (
-    <div className="min-h-screen bg-white animate-fade-in">
+    // pt-20 pushes the page content down clear of the global TopBar
+    // overlay (avatar + chat/bell buttons sitting at viewport y=0).
+    // CategoryHeader stays `sticky top-0` so once the user scrolls past
+    // the TopBar area, the header pins to the very top normally.
+    <div className="min-h-screen bg-white animate-fade-in pt-20">
       <CategoryHeader categoryId={categoryId} />
       <SubcategoryGrid categoryId={categoryId} onSubcategorySelect={setSelectedSubcategory} />
       <FilterSortBar
@@ -136,7 +140,7 @@ export default function CategoryPage() {
         )}
 
         {/* Discovery Block 3: Best Deals */}
-        <BestDealsGrid vouchers={filteredVouchers} onSelect={setSelectedVoucher} />
+        <BestDealsGrid vouchers={filteredVouchers} categoryId={categoryId} onSelect={setSelectedVoucher} />
 
         {/* Discovery Block 4: Stores With Products */}
         {categoryStores.length > 0 && (
@@ -148,7 +152,7 @@ export default function CategoryPage() {
         )}
 
         {/* Discovery Block 5: Trending Products */}
-        <TrendingProductsGrid vouchers={filteredVouchers} onSelect={setSelectedVoucher} />
+        <TrendingProductsGrid vouchers={filteredVouchers} categoryId={categoryId} onSelect={setSelectedVoucher} />
       </div>
 
       {/* Voucher Detail bottom sheet */}

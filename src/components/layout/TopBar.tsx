@@ -1,10 +1,12 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuthGate } from '../../hooks/useAuthGate';
 import { useAuthStore } from '../../stores/authStore';
 import { useTenantStore } from '../../stores/tenantStore';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { useUser } from '../../hooks/useUser';
+import { useUnreadNotificationCount } from '../../hooks/useNotifications';
+import { useNotificationToastStore } from '../../stores/notificationToastStore';
 import TenantSheet from './TenantSheet';
 
 function getGreeting(t: { home: { goodMorning: string; goodAfternoon: string; goodEvening: string; goodNight: string } }) {
@@ -42,8 +44,22 @@ export default function TopBar({ collapsed = false, showBack = false }: TopBarPr
   const showGreeting = isAuthenticated && !!displayFirstName;
   const greetingText = getGreeting(t);
 
-  const notificationCount = 3;
+  const { data: notificationCount = 0 } = useUnreadNotificationCount();
   const chatCount = 1;
+
+  // Subscribe to the bell-pulse trigger from the toast store. Every
+  // time a toast finishes its fly-to-bell exit the counter ticks; we
+  // toggle a one-shot CSS class on the bell to play the shake.
+  const bellPulseCount = useNotificationToastStore((s) => s.bellPulseCount);
+  const [bellShaking, setBellShaking] = useState(false);
+  useEffect(() => {
+    // Skip the very first render's value (we don't want to shake on
+    // mount) — only react to increments from there on.
+    if (bellPulseCount === 0) return;
+    setBellShaking(true);
+    const handle = setTimeout(() => setBellShaking(false), 700);
+    return () => clearTimeout(handle);
+  }, [bellPulseCount]);
 
   const [tenantSheetOpen, setTenantSheetOpen] = useState(false);
 
@@ -60,13 +76,8 @@ export default function TopBar({ collapsed = false, showBack = false }: TopBarPr
     }
   };
 
-  const handleNotifications = async () => {
-    if (isAuthenticated) {
-      navigate(`/${lang}/activity`);
-    } else {
-      const authed = await requireAuth({ promptMessage: t.auth.genericPrompt });
-      if (authed) navigate(`/${lang}/activity`);
-    }
+  const handleNotifications = () => {
+    navigate(`/${lang}/notifications`);
   };
 
   // Button size classes
@@ -176,7 +187,9 @@ export default function TopBar({ collapsed = false, showBack = false }: TopBarPr
 
           <button
             onClick={handleNotifications}
-            className={`relative rounded-full bg-surface flex items-center justify-center hover:bg-border transition-all duration-300 ease-in-out ${btnSize}`}
+            data-notif-bell
+            className={`relative rounded-full bg-surface flex items-center justify-center hover:bg-border transition-all duration-300 ease-in-out ${btnSize} ${bellShaking ? 'animate-bell-shake' : ''}`}
+            style={{ transformOrigin: 'top center' }}
             aria-label="Notifications"
           >
             <span className={`material-symbols-outlined text-text-primary transition-transform duration-300 ${iconScale}`}>notifications</span>

@@ -131,9 +131,12 @@ function MoreBubble({ onNavigate }: { onNavigate: () => void }) {
   );
 }
 
+// ── Gradient palette — exported so category sliders can reuse ─────────────────
+export const SLIDER_GRADIENTS = GRADIENTS;
+
 // ── Generic section ────────────────────────────────────────────────────────────
 
-function SliderSection({
+export function SliderSection({
   title,
   gradient,
   vouchers,

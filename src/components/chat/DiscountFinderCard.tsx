@@ -25,6 +25,10 @@ interface DiscountFinderCardProps {
   /** Sent when the user picks a popular-search suggestion — treated as a
    *  regular chat query. */
   onSearchQuery?: (query: string) => void;
+  /** Optional pre-selected category — when the user opens the finder from a
+   *  category page, we seed the category chip so they don't have to pick
+   *  it again. */
+  initialCategory?: VoucherCategory;
 }
 
 // Palette borrowed from the iOS picker mockup
@@ -129,6 +133,7 @@ export default function DiscountFinderCard({
   onInteract,
   popularSearches,
   onSearchQuery,
+  initialCategory,
 }: DiscountFinderCardProps) {
   const { language } = useLanguage();
   const isHe = language === 'he';
@@ -137,9 +142,13 @@ export default function DiscountFinderCard({
   const [query, setQuery] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Category filter — defaults to "all". The category dropdown is closed
-  // initially; opens when the user taps the category chip.
-  const [categoryFilter, setCategoryFilter] = useState<VoucherCategory | 'all'>('all');
+  // Category filter — defaults to "all" or the category passed in by the
+  // parent (e.g. when the finder is launched from a category page).
+  // The category dropdown is closed initially; opens when the user taps
+  // the category chip.
+  const [categoryFilter, setCategoryFilter] = useState<VoucherCategory | 'all'>(
+    initialCategory ?? 'all',
+  );
   const [categoryPickerOpen, setCategoryPickerOpen] = useState(false);
 
   // Item-type filter — what kind of thing is being searched. Defaults to

@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react';
+import { motion } from 'framer-motion';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useLanguage } from '../i18n/LanguageContext';
 import { useWallet } from '../hooks/useWallet';
@@ -7,6 +8,9 @@ import WalletTabs from '../components/wallet/WalletTabs';
 import WalletPageSkeleton from '../components/wallet/WalletPageSkeleton';
 import PayInStoreSheet from '../components/wallet/PayInStoreSheet';
 import MoreActionsSheet from '../components/wallet/MoreActionsSheet';
+import BestOffersWidget from '../components/wallet/BestOffersWidget';
+import TopBar from '../components/layout/TopBar';
+import { useTenantStore } from '../stores/tenantStore';
 import type { UserVoucher } from '../types/voucher.types';
 
 // Logos
@@ -14,16 +18,24 @@ import MastercardLogo from '../assets/logos/mastercard-logo-transperant.png';
 import NexusWideLogo from '../assets/logos/Nexus_Wide_Logo_Animation_Black_Whithout_Slogan.gif';
 
 export default function WalletPage() {
-  const { t, language } = useLanguage();
+  const { t, language, isRTL } = useLanguage();
   const { lang = 'he' } = useParams();
   const navigate = useNavigate();
   const locale = language === 'he' ? 'he-IL' : 'en-IL';
   const { data: wallet, isLoading: walletLoading } = useWallet();
+  // Active tenant — drives the "My organization" widget below.
+  const tenantConfig = useTenantStore((s) => s.config);
   const [activeTab, setActiveTab] = useState<UserVoucher['status']>('active');
 
   // Collapsible section states
   const [cardOpen, setCardOpen] = useState(true);
+  const [widgetsOpen, setWidgetsOpen] = useState(true);
   const [vouchersOpen, setVouchersOpen] = useState(true);
+  const [noCardBannerOpen, setNoCardBannerOpen] = useState(false);
+
+  // Mock: whether the user has a payment card on file. When false, the
+  // top dark banner appears prompting the user to add card details.
+  const hasCard = false;
 
   // Sheet states
   const [showPaySheet, setShowPaySheet] = useState(false);
@@ -39,7 +51,89 @@ export default function WalletPage() {
   }
 
   return (
-    <div className="animate-fade-in pt-16">
+    <div className="animate-fade-in">
+      {/* ══════ YELLOW-STYLE DARK TOP STRIP ══════ */}
+      {!hasCard && (
+        <div className="bg-[#2e2e2e] text-white px-4 pt-5 pb-7">
+          <button
+            onClick={() => setNoCardBannerOpen((open) => !open)}
+            className="w-full flex items-center justify-center gap-2 active:opacity-70 transition-opacity"
+          >
+            <motion.div
+              initial={{ scale: 1, rotate: 0 }}
+              animate={{
+                scale: [1, 1.18, 0.95, 1.06, 1],
+                rotate: [0, -10, 8, -4, 0],
+              }}
+              transition={{ delay: 1.05, duration: 0.7, ease: 'easeOut' }}
+              className="relative w-8 h-6 rounded bg-white/10 flex items-center justify-center flex-shrink-0"
+            >
+              <span className="material-symbols-outlined text-white/80" style={{ fontSize: '16px' }}>
+                credit_card
+              </span>
+              <span className="absolute -top-1 -end-1 w-3.5 h-3.5 bg-red-500 rounded-full flex items-center justify-center text-[9px] text-white font-bold border-[1.5px] border-[#2e2e2e]">
+                ✕
+              </span>
+            </motion.div>
+            <motion.span
+              initial={{ y: -2, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 1.0, duration: 0.4, ease: 'easeOut' }}
+              className="text-xs font-semibold"
+            >
+              {t.wallet.cardNotOnFile}
+            </motion.span>
+            <motion.span
+              initial={{ scale: 0.6, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ delay: 1.15, duration: 0.35, ease: 'easeOut' }}
+              className={`material-symbols-outlined text-white/80 transition-transform duration-300 flex-shrink-0 ${
+                noCardBannerOpen ? 'rotate-180' : ''
+              }`}
+              style={{ fontSize: '16px' }}
+            >
+              expand_more
+            </motion.span>
+          </button>
+
+          {/* Expandable CTA — revealed when chevron is clicked */}
+          <div
+            className={`overflow-hidden transition-all duration-300 ease-in-out ${
+              noCardBannerOpen ? 'max-h-20 opacity-100 mt-3' : 'max-h-0 opacity-0 mt-0'
+            }`}
+          >
+            <button
+              onClick={() =>
+                navigate(`/${lang}/wallet/add-payment-method`, {
+                  // Tags this navigation as the "dark balance card → add
+                  // card details" entry so AddPaymentMethodPage knows to
+                  // play the slide-down curtain animation. Other entries
+                  // (direct URL, more-actions sheet) skip the animation.
+                  state: { entry: 'wallet-cta' },
+                })
+              }
+              className="w-full bg-white text-[#2e2e2e] font-bold text-sm py-2.5 rounded-full active:scale-[0.98] transition-transform"
+            >
+              {t.wallet.addCardCta}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ══════ WHITE CONTENT FRAME — rounded top, overlaps dark strip ══════ */}
+      <motion.div
+        initial={!hasCard ? { y: -76 } : false}
+        animate={{ y: 0 }}
+        transition={{ delay: 0.4, duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+        className={
+          !hasCard
+            ? 'bg-bg-light rounded-t-3xl -mt-4 pt-2 relative z-10'
+            : 'pt-2'
+        }
+      >
+      {/* ══════ INLINE TOPBAR ROW (logo, avatar, greeting, chat, bell) ══════ */}
+      <TopBar collapsed={false} />
+
       {/* ══════ BALANCE CARD (Klarna-style) ══════ */}
       <section className="mt-4 mb-8 px-5">
         <div className="relative bg-white border border-gray-100 rounded-[32px] p-8 shadow-[0_8px_30px_rgb(0,0,0,0.04)] text-center">
@@ -97,6 +191,195 @@ export default function WalletPage() {
           <p className="text-success font-semibold text-sm mt-2">{t.wallet.earnCashback}</p>
         </div>
       </section>
+
+      {/* ══════ WIDGETS SECTION (collapsible) ══════ */}
+      <div className="mb-6">
+        <button
+          onClick={() => setWidgetsOpen(!widgetsOpen)}
+          className="flex items-center justify-between w-full px-5 mb-3 active:opacity-70 transition-opacity"
+        >
+          <h2 className="text-lg font-bold text-text-primary">
+            {t.wallet.widgetsTitle}
+          </h2>
+          <span
+            className={`material-symbols-outlined text-text-muted transition-transform duration-300 ${widgetsOpen ? 'rotate-180' : ''}`}
+            style={{ fontSize: '20px' }}
+          >
+            expand_more
+          </span>
+        </button>
+
+        <div className={`overflow-hidden transition-all duration-300 ease-in-out ${widgetsOpen ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}`}>
+          {/* Horizontal-scroll row of widget tiles. Tiles inherit the
+              page's white surface aesthetic with a faint border + soft
+              shadow. `items-start` so individual tiles can be taller
+              (e.g. the map widget) without forcing the smaller stat
+              tiles to stretch and look hollow. */}
+          <div className="px-5 flex items-start gap-3 overflow-x-auto no-scrollbar pb-1">
+            {/* "Find cashback near you" — full-bleed label-free positron
+                map tile with two brand-pin logos floated on top. Tile
+                is taller than the stat widgets so it reads as the
+                "hero" of the row. A soft white inner vignette feathers
+                the edges into the surrounding white surface. */}
+            <button
+              type="button"
+              onClick={() => navigate(`/${lang}/near-you-map`)}
+              aria-label={t.wallet.widgetNearbyCashback}
+              className="flex-shrink-0 w-48 h-36 bg-surface border border-border rounded-2xl overflow-hidden shadow-[0_8px_30px_rgb(0,0,0,0.04)] active:scale-[0.98] transition-transform relative"
+            >
+              <img
+                src="/wallet-nearby-map.png"
+                alt=""
+                aria-hidden
+                className="absolute inset-0 w-full h-full object-cover"
+              />
+              {/* Soft white inner glow — fades the map edges into the
+                  surrounding white surface so the widget feels embedded
+                  rather than cropped. Pointer-events-none so taps still
+                  reach the brand pins below it. */}
+              <div
+                aria-hidden
+                className="absolute inset-0 pointer-events-none"
+                style={{
+                  background:
+                    'radial-gradient(ellipse at center, rgba(255,255,255,0) 45%, rgba(255,255,255,0.7) 100%)',
+                }}
+              />
+              {/* Title overlay — top-leading corner (right edge in RTL,
+                  left edge in LTR). Sits over the white vignette so it
+                  stays readable against the map. */}
+              <div className="absolute top-3 start-3 max-w-[7.5rem] text-start pointer-events-none">
+                <p className="text-sm font-bold text-text-primary leading-tight">
+                  {t.wallet.widgetNearbyCashback}
+                </p>
+              </div>
+              {/* Two brand "pins" — round-chip styling matching the
+                  BrandSlider on the home page. White ring + soft shadow
+                  so they pop off the map tiles. */}
+              <div className="absolute bottom-4 left-4 w-10 h-10 rounded-full bg-black shadow-md ring-2 ring-white overflow-hidden flex items-center justify-center">
+                {/* Castro's bundled PNG is black-on-transparent; we
+                    invert it so it reads as white on the black chip. */}
+                <img
+                  src="/brands/castro-home.png"
+                  alt="Castro"
+                  className="w-full h-full object-contain"
+                  style={{ filter: 'invert(1)' }}
+                />
+              </div>
+              <div className="absolute bottom-4 left-12 w-10 h-10 rounded-full bg-white shadow-md ring-2 ring-white overflow-hidden flex items-center justify-center">
+                <img
+                  src="/brands/carrefour.png"
+                  alt="Carrefour"
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            </button>
+
+            {/* "My organization" — same dimensions + treatment as the
+                nearby-cashback map widget. Logo chip sits top-right
+                (start-side in RTL) at the same 36px size as the icons
+                on the stat tiles. Text sits below in white. */}
+            <button
+              type="button"
+              onClick={() => navigate(`/${lang}/profile`)}
+              aria-label={t.wallet.widgetMyOrganization}
+              className="flex-shrink-0 w-48 h-36 rounded-2xl overflow-hidden shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-border active:scale-[0.98] transition-transform relative text-start p-4"
+              style={{
+                backgroundColor: tenantConfig?.primaryColor ?? 'var(--color-surface)',
+              }}
+            >
+              {/* Subtle white inner glow — softer than on the map widget
+                  so the white text below stays readable against the
+                  coloured center. */}
+              <div
+                aria-hidden
+                className="absolute inset-0 pointer-events-none"
+                style={{
+                  background:
+                    'radial-gradient(ellipse at center, rgba(255,255,255,0) 60%, rgba(255,255,255,0.4) 100%)',
+                }}
+              />
+
+              {/* Logo chip — top-start corner (right edge in RTL, left
+                  edge in LTR). 36px round-chip treatment matching the
+                  stat tiles. */}
+              <div className="relative flex justify-start mb-2">
+                <div className="w-9 h-9 rounded-full bg-white shadow-sm overflow-hidden flex items-center justify-center">
+                  {tenantConfig?.logo ? (
+                    <img
+                      src={tenantConfig.logo}
+                      alt={isRTL ? tenantConfig.nameHe : tenantConfig.name}
+                      className="w-full h-full object-contain p-1"
+                    />
+                  ) : (
+                    <span
+                      className="material-symbols-outlined text-text-secondary"
+                      style={{ fontSize: '20px' }}
+                    >
+                      domain
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Title + org name — white text. Subtle drop shadow keeps
+                  them readable even where the vignette lightens the
+                  background. */}
+              <div
+                className="relative pointer-events-none"
+                style={{ textShadow: '0 1px 2px rgba(0,0,0,0.15)' }}
+              >
+                <div className="text-xs text-white/85 font-medium leading-tight mb-1">
+                  {t.wallet.widgetMyOrganization}
+                </div>
+                <div className="text-base font-bold text-white leading-tight line-clamp-2">
+                  {tenantConfig
+                    ? isRTL
+                      ? tenantConfig.nameHe
+                      : tenantConfig.name
+                    : t.wallet.widgetNoOrganization}
+                </div>
+              </div>
+            </button>
+
+            <div className="flex-shrink-0 w-40 bg-white border border-border rounded-2xl p-4 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
+              <div className="w-9 h-9 rounded-full bg-success/15 flex items-center justify-center mb-2">
+                <span className="material-symbols-outlined text-success" style={{ fontSize: '20px' }}>trending_up</span>
+              </div>
+              <div className="text-xs text-text-secondary font-medium leading-tight mb-1">
+                {t.wallet.widgetCashback}
+              </div>
+              <div className="text-xl font-bold text-text-primary" dir="ltr">
+                ₪127
+              </div>
+            </div>
+
+            <div className="flex-shrink-0 w-40 bg-white border border-border rounded-2xl p-4 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
+              <div className="w-9 h-9 rounded-full bg-primary/15 flex items-center justify-center mb-2">
+                <span className="material-symbols-outlined text-primary" style={{ fontSize: '20px' }}>card_giftcard</span>
+              </div>
+              <div className="text-xs text-text-secondary font-medium leading-tight mb-1">
+                {t.wallet.widgetActiveVouchers}
+              </div>
+              <div className="text-xl font-bold text-text-primary">
+                5
+              </div>
+            </div>
+
+            <div className="flex-shrink-0 w-40 bg-white border border-border rounded-2xl p-4 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
+              <div className="w-9 h-9 rounded-full bg-warning/15 flex items-center justify-center mb-2">
+                <span className="material-symbols-outlined text-warning" style={{ fontSize: '20px' }}>savings</span>
+              </div>
+              <div className="text-xs text-text-secondary font-medium leading-tight mb-1">
+                {t.wallet.widgetSavings}
+              </div>
+              <div className="text-xl font-bold text-text-primary" dir="ltr">
+                ₪450
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
 
       {/* ══════ DIGITAL CARD SECTION (collapsible) ══════ */}
       <div className="mb-6">
@@ -193,6 +476,7 @@ export default function WalletPage() {
           <WalletTabs activeTab={activeTab} onTabChange={setActiveTab} />
         </div>
       </div>
+      </motion.div>
 
       {/* ══════ BOTTOM SHEETS ══════ */}
       {showPaySheet && <PayInStoreSheet onClose={() => setShowPaySheet(false)} />}

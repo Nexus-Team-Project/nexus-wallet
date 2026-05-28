@@ -17,6 +17,31 @@ export const profileTranslations = {
     about: 'About',
     logout: 'Log Out',
     version: 'Version',
+    // Tabs
+    tabActivity: 'Activity',
+    tabSaved: 'Saved',
+    tabHelp: 'Help',
+    tabSettings: 'Settings',
+    // Extra menu items (new flat list)
+    rewards: 'Rewards',
+    community: 'Community',
+    interests: 'Interests',
+    history: 'History',
+    bookmarks: 'Bookmarks and saves',
+    // Records section
+    records: 'Records',
+    longestStreak: 'longest streak',
+    days: 'days',
+    bestDay: 'in a day',
+    points: 'points',
+    // Badges section
+    badges: 'Badges',
+    badgeFirstHundred: 'First ₪100',
+    badgeThousandSaved: '₪1,000 saved',
+    badgeFiveVouchers: '5 vouchers',
+    badgeStreak30: '30-day streak',
+    badgeFiftyBuys: '50 purchases',
+    badgeReferralPro: 'Referral pro',
   },
   he: {
     title: 'פרופיל',
@@ -36,5 +61,30 @@ export const profileTranslations = {
     about: 'אודות',
     logout: 'התנתקות',
     version: 'גרסה',
+    // Tabs
+    tabActivity: 'פעילות',
+    tabSaved: 'שמורים',
+    tabHelp: 'עזרה',
+    tabSettings: 'הגדרות',
+    // Extra menu items (new flat list)
+    rewards: 'תגמולים',
+    community: 'קהילה',
+    interests: 'תחומי עניין',
+    history: 'היסטוריה',
+    bookmarks: 'מועדפים ושמורים',
+    // Records section
+    records: 'שיאים',
+    longestStreak: 'רצף ארוך ביותר',
+    days: 'ימים',
+    bestDay: 'ביום אחד',
+    points: 'נקודות',
+    // Badges section
+    badges: 'תגים',
+    badgeFirstHundred: '100 ₪ ראשונים',
+    badgeThousandSaved: '1,000 ₪ נחסכו',
+    badgeFiveVouchers: '5 שוברים',
+    badgeStreak30: 'רצף 30 ימים',
+    badgeFiftyBuys: '50 רכישות',
+    badgeReferralPro: 'מומחה הפניות',
   },
 };

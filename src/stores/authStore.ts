@@ -28,6 +28,7 @@ interface AuthState {
   }) => void;
   setToken: (token: string) => void;
   setAvatarUrl: (url: string | null) => void;
+  setOrganization: (organizationName: string | null) => void;
   setMarketingConsent: (consent: boolean) => void;
   setProfileCompleted: (completed: boolean) => void;
   setPreferencesIncomplete: (incomplete: boolean) => void;
@@ -146,6 +147,14 @@ export const useAuthStore = create<AuthState>((set) => ({
       const next = { ...state, avatarUrl: url };
       persistAuth(next);
       return { avatarUrl: url };
+    });
+  },
+
+  setOrganization: (organizationName) => {
+    set((state) => {
+      const next = { ...state, organizationName };
+      persistAuth(next);
+      return { organizationName };
     });
   },
 

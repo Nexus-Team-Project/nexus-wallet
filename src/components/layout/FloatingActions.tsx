@@ -23,6 +23,24 @@ export default function FloatingActions() {
   // at the bottom — the white gradient backdrop would obscure the map's
   // bottom edge. Hide it there; the buttons still float on top.
   const isChat = /\/chat/.test(location.pathname);
+  // On a category page, the search button should land the user in the
+  // chat page with the discount-finder already open and pre-selected to
+  // the current category — not the empty general chat.
+  const categoryMatch = location.pathname.match(/\/category\/([^/?]+)/);
+  const categoryId = categoryMatch?.[1];
+
+  // Search-pill click → either jump into the chat with the discount-finder
+  // pre-filtered to the current category, or open the global chat search.
+  const handleSearchClick = () => {
+    if (categoryId) {
+      // Preserve existing query params (e.g. tenant) and add finder=<categoryId>.
+      const params = new URLSearchParams(location.search);
+      params.set('finder', categoryId);
+      navigate(`/${lang}/chat?${params.toString()}`);
+    } else {
+      navigate(`/${lang}/chat${location.search}`);
+    }
+  };
 
   if (isBusiness || isVoucherPurchase) return null;
 
@@ -101,9 +119,10 @@ export default function FloatingActions() {
 
           {/* Search + Filter pill bar — centered */}
           <div className="flex items-center bg-bg-dark rounded-full shadow-lg shadow-bg-dark/30 overflow-hidden">
-            {/* Search zone → opens search page */}
+            {/* Search zone → opens the in-page filter sheet on a category page,
+                otherwise the global chat search */}
             <button
-              onClick={() => navigate(`/${lang}/chat${location.search}`)}
+              onClick={handleSearchClick}
               className="flex items-center gap-2.5 pl-4 pr-2.5 rtl:pl-2.5 rtl:pr-4 py-3 hover:bg-white/5 active:bg-white/10 transition-colors"
             >
               <span

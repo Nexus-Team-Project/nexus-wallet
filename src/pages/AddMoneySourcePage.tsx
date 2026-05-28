@@ -17,7 +17,7 @@ export default function AddMoneySourcePage() {
   };
 
   return (
-    <div className="min-h-dvh bg-white flex flex-col max-w-md mx-auto">
+    <div className="min-h-dvh bg-white flex flex-col max-w-md mx-auto pt-16">
       {/* Header */}
       <header className="flex items-center justify-between px-4 py-3">
         <button

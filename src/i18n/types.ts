@@ -175,6 +175,8 @@ export interface TranslationKeys {
     addedSuccessfully: string;
     addCard: string;
     addCardDescription: string;
+    cardNotOnFile: string;
+    addCardCta: string;
     // More actions sheet
     moreActionsTitle: string;
     addPaymentMethod: string;
@@ -544,6 +546,38 @@ export interface TranslationKeys {
     highlightSubtitleTech: string;
     availableInStores: string;
     stores: string;
+  };
+  notifications: {
+    title: string;
+    tabAll: string;
+    sectionToday: string;
+    sectionYesterday: string;
+    sectionPreviously: string;
+    customizeTooltip: string;
+    emptyTitle: string;
+    emptyBody: string;
+    historicalPrompt: string;
+    historicalCta: string;
+    markAllRead: string;
+    // Per-category filter labels
+    catTransaction: string;
+    catOrder: string;
+    catRefund: string;
+    catTransfer: string;
+    catGiftCard: string;
+    catVoucherExpiry: string;
+    catSecurity: string;
+    catLoyalty: string;
+    catNewOffer: string;
+    catMarketing: string;
+    catSocial: string;
+    catSystem: string;
+    // Push permission prompt card
+    pushPromptTitle: string;
+    pushPromptBody: string;
+    pushPromptEnable: string;
+    pushPromptDismiss: string;
+    archive: string;
   };
   business: {
     description: string;

@@ -9,6 +9,7 @@ import { registrationTranslations } from './registration';
 import { authFlowTranslations } from './authFlow';
 import { categoryTranslations } from './category';
 import { businessTranslations } from './business';
+import { notificationsTranslations } from './notifications';
 import type { Translations } from '../types';
 
 const navTranslations = {
@@ -42,6 +43,7 @@ export const translations: Translations = {
     authFlow: authFlowTranslations.en,
     category: categoryTranslations.en,
     business: businessTranslations.en,
+    notifications: notificationsTranslations.en,
   },
   he: {
     common: commonTranslations.he,
@@ -56,5 +58,6 @@ export const translations: Translations = {
     authFlow: authFlowTranslations.he,
     category: categoryTranslations.he,
     business: businessTranslations.he,
+    notifications: notificationsTranslations.he,
   },
 };
