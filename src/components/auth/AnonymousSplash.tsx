@@ -18,6 +18,7 @@ import { motion, useAnimationControls } from 'framer-motion';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { useLoginSheetStore } from '../../stores/loginSheetStore';
 import PhoneShowcase from './PhoneShowcase';
+import BenefitsCarousel, { type BenefitItem } from './BenefitsCarousel';
 
 interface Benefit {
   he: { title: string; body: string };
@@ -28,11 +29,6 @@ interface Benefit {
 // RouterScreen value props. Anonymous visitors need a "why should I
 // sign in" pitch; RouterScreen users have already signed in and need a
 // "what do I do next" picker. Same brand, different jobs.
-//
-// Visuals: no icons. The user explicitly asked for either real
-// photographs or no icons at all - Lucide / material-symbols glyphs
-// read as 'ai emoji' inside the tinted tiles. Removing them keeps the
-// list clean and lets the title carry the meaning.
 const BENEFITS: Benefit[] = [
   {
     he: {
@@ -57,11 +53,11 @@ const BENEFITS: Benefit[] = [
   {
     he: {
       title: 'פרטי ומאובטח',
-      body: 'הזהות מנוהלת על ידי נקסוס. הארגון לא רואה מה קנית או היכן הוצאת.',
+      body: 'הזהות מנוהלת על ידי נקסוס.',
     },
     en: {
       title: 'Private and secure',
-      body: 'Nexus owns your identity. Your org never sees what you buy or where you spend.',
+      body: 'Nexus manages your identity.',
     },
   },
 ];
@@ -181,35 +177,34 @@ export default function AnonymousSplash() {
             {isHe ? 'התחבר' : 'Log in'}
           </motion.button>
 
-          {/* Benefit list. Lives BELOW the CTA on every breakpoint, so
-              the "Powered by Nexus" footer no longer collides with the
-              login button (the previous layout had the footer as an
-              inline-flex anchor sitting next to the button on lg+). */}
-          <motion.ul
-            className="mt-10 flex flex-col gap-3 sm:gap-4"
-            initial="hidden"
-            animate="show"
-            variants={{
-              hidden: {},
-              show: { transition: { staggerChildren: 0.12, delayChildren: 0.6 } },
-            }}
+          {/* Benefits carousel. Lives BELOW the CTA on every breakpoint
+              so the "Powered by Nexus" footer sits cleanly under it.
+              The carousel auto-rotates every 5s, pauses on hover/focus,
+              respects prefers-reduced-motion, and is fully keyboard +
+              swipe navigable. See BenefitsCarousel for the a11y notes. */}
+          <motion.div
+            className="mt-10"
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ type: 'spring', damping: 22, stiffness: 220, delay: 0.6 }}
           >
-            {BENEFITS.map((copy, i) => (
-              <motion.li
-                key={i}
-                variants={{ hidden: { opacity: 0, y: 14 }, show: { opacity: 1, y: 0 } }}
-                transition={{ type: 'spring', damping: 22, stiffness: 220 }}
-                className="rounded-2xl border border-slate-200 bg-white/80 px-5 py-4 backdrop-blur-sm shadow-sm sm:px-6 sm:py-5"
-              >
-                <p className="text-sm font-bold text-slate-900 sm:text-base">
-                  {isHe ? copy.he.title : copy.en.title}
-                </p>
-                <p className="mt-1 text-xs leading-relaxed text-slate-600 sm:text-sm">
-                  {isHe ? copy.he.body : copy.en.body}
-                </p>
-              </motion.li>
-            ))}
-          </motion.ul>
+            <BenefitsCarousel
+              isRtl={isHe}
+              items={BENEFITS.map<BenefitItem>((b) => ({
+                title: isHe ? b.he.title : b.en.title,
+                body: isHe ? b.he.body : b.en.body,
+              }))}
+              labels={{
+                prev: isHe ? 'ההטבה הקודמת' : 'Previous benefit',
+                next: isHe ? 'ההטבה הבאה' : 'Next benefit',
+                region: isHe ? 'הטבות הארנק' : 'Wallet benefits',
+                slide: (n, total) =>
+                  isHe
+                    ? `הטבה ${n} מתוך ${total}`
+                    : `Benefit ${n} of ${total}`,
+              }}
+            />
+          </motion.div>
 
           {/* Footer - now a block element with mt-8 so it stacks under
               the benefit list instead of overlapping the CTA. */}
