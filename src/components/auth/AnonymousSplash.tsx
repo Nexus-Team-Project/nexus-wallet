@@ -14,7 +14,7 @@
  *
  * Spec: docs/superpowers/specs/2026-05-25-nexus-wallet-auth-design.md
  */
-import { motion } from 'framer-motion';
+import { motion, useAnimationControls } from 'framer-motion';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { useLoginSheetStore } from '../../stores/loginSheetStore';
 import PhoneShowcase from './PhoneShowcase';
@@ -71,6 +71,19 @@ export default function AnonymousSplash() {
   const isHe = language === 'he';
   const openLogin = useLoginSheetStore((s) => s.open);
 
+  // Imperative controls for the top Nexus logo. Hover (desktop) plays
+  // a quick wiggle via the declarative whileHover; click/tap (also
+  // touchscreen) fires this full spin + pulse so the icon feels
+  // interactive instead of decorative.
+  const logoControls = useAnimationControls();
+  const playLogoBurst = (): void => {
+    void logoControls.start({
+      rotate: [0, 360],
+      scale: [1, 1.18, 0.96, 1],
+      transition: { duration: 0.8, ease: [0.22, 1, 0.36, 1] },
+    });
+  };
+
   return (
     <div
       className="relative min-h-dvh w-full overflow-hidden"
@@ -96,11 +109,14 @@ export default function AnonymousSplash() {
         transition={{ repeat: Infinity, duration: 36, ease: 'linear' }}
       />
 
-      <div className="relative mx-auto flex min-h-dvh w-full max-w-7xl flex-col px-6 pb-12 pt-16 sm:px-10 sm:pt-20 lg:flex-row lg:items-center lg:gap-20 lg:px-16 lg:py-24">
+      <div className="relative mx-auto flex min-h-dvh w-full max-w-7xl flex-col px-6 pb-12 pt-10 sm:px-10 sm:pt-16 lg:flex-row lg:items-center lg:gap-20 lg:px-16 lg:py-24">
 
-        {/* ── Welcome + CTA + benefits column ── */}
+        {/* ── Welcome + CTA + benefits column ──
+            order-2 on mobile so the PhoneShowcase appears above the
+            fold first; lg:order-1 restores the desktop layout where
+            welcome sits on the left and showcase on the right. */}
         <motion.div
-          className="lg:flex-1 lg:max-w-xl"
+          className="order-2 lg:order-1 lg:flex-1 lg:max-w-xl"
           initial="hidden"
           animate="show"
           variants={{
@@ -108,12 +124,28 @@ export default function AnonymousSplash() {
             show: { transition: { staggerChildren: 0.1, delayChildren: 0.05 } },
           }}
         >
+          {/* Interactive Nexus logo. Hover plays a small wiggle (desktop),
+              tap plays a full spin+pulse burst (mobile + desktop), so the
+              icon feels alive instead of decorative. role=button + tabIndex
+              keep it keyboard-accessible. */}
           <motion.img
             variants={{ hidden: { opacity: 0, scale: 0.85 }, show: { opacity: 1, scale: 1 } }}
             transition={{ duration: 0.5 }}
+            animate={logoControls}
+            whileHover={{
+              rotate: [0, -10, 10, -6, 6, 0],
+              transition: { duration: 0.6, ease: 'easeInOut' },
+            }}
+            whileTap={{ scale: 0.92 }}
+            onClick={playLogoBurst}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); playLogoBurst(); } }}
+            role="button"
+            tabIndex={0}
+            aria-label={isHe ? 'הפעל אנימציה' : 'Play animation'}
             src="/nexus-logo.png"
             alt="Nexus"
-            className="mb-6 h-16 w-16 object-contain opacity-95 sm:h-20 sm:w-20"
+            className="mb-6 h-16 w-16 object-contain opacity-95 cursor-pointer select-none sm:h-20 sm:w-20"
+            draggable={false}
           />
           <motion.h1
             variants={{ hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } }}
@@ -189,8 +221,12 @@ export default function AnonymousSplash() {
           </a>
         </motion.div>
 
-        {/* ── Phone showcase column (right on lg+) ── */}
-        <div className="mt-12 flex justify-center lg:mt-0 lg:flex-1">
+        {/* ── Phone showcase column ──
+            order-1 on mobile so it sits at the top of the page and
+            users see the rotating brand cards without scrolling.
+            lg:order-2 + lg:mt-0 restores the right-column position
+            on desktop. */}
+        <div className="order-1 mb-8 flex justify-center lg:order-2 lg:mb-0 lg:mt-0 lg:flex-1">
           <PhoneShowcase isHe={isHe} />
         </div>
       </div>
