@@ -86,7 +86,12 @@ export default function AnonymousSplash() {
 
   return (
     <div
-      className="relative min-h-dvh w-full overflow-hidden"
+      // min-h-dvh on mobile so content stack can scroll if it overruns
+      // (it usually does). On lg+ pin to exact viewport height + clip
+      // overflow so the desktop hero never produces a page scrollbar -
+      // everything is already visible in the two-column layout and a
+      // scrollbar would just be visual noise.
+      className="relative min-h-dvh w-full overflow-hidden lg:h-dvh"
       dir={isHe ? 'rtl' : 'ltr'}
       style={{
         background:
@@ -109,7 +114,7 @@ export default function AnonymousSplash() {
         transition={{ repeat: Infinity, duration: 36, ease: 'linear' }}
       />
 
-      <div className="relative mx-auto flex min-h-dvh w-full max-w-7xl flex-col px-6 pb-12 pt-10 sm:px-10 sm:pt-16 lg:flex-row lg:items-center lg:gap-20 lg:px-16 lg:py-24">
+      <div className="relative mx-auto flex min-h-dvh w-full max-w-7xl flex-col px-6 pb-12 pt-10 sm:px-10 sm:pt-16 lg:h-dvh lg:min-h-0 lg:flex-row lg:items-center lg:gap-20 lg:overflow-hidden lg:px-16 lg:py-16">
 
         {/* ── Welcome + CTA + benefits column ──
             order-2 on mobile so the PhoneShowcase appears above the
