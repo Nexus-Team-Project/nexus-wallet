@@ -57,7 +57,7 @@ const BENEFITS: Benefit[] = [
     },
     en: {
       title: 'Private and secure',
-      body: 'Nexus owns your identity.',
+      body: 'Nexus manages your identity.',
     },
   },
 ];
