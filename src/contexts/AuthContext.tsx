@@ -56,7 +56,6 @@ export interface WalletMeResponse {
     lifeStage?: string;
     motivation?: string;
     purpose?: string[];
-    benefitCategories?: string[];
     inviteFriendsSent?: number;
     completedAt?: string;
     updatedAt?: string;

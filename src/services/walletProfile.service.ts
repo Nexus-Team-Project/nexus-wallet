@@ -16,7 +16,6 @@ export interface WalletProfileView {
   lifeStage?: string;
   motivation?: string;
   purpose?: string[];
-  benefitCategories?: string[];
   inviteFriendsSent?: number;
   completedAt?: string;
   updatedAt?: string;
@@ -31,7 +30,6 @@ export interface WalletProfilePatch {
   lifeStage?: string;
   motivation?: string;
   purpose?: string[];
-  benefitCategories?: string[];
   inviteFriendsSent?: number;
   /** Set true on the last slide to stamp completedAt. */
   complete?: boolean;
