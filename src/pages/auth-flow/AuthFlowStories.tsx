@@ -119,10 +119,6 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
   }, [current, steps, flowLabel]);
 
   // ── Slide callbacks ───────────────────────────────────────────────────────
-  const handleOrgChangeOrg = () => {
-    const idx = steps.findIndex(s => s.id === 'select-org');
-    if (idx !== -1) goTo(idx);
-  };
 
   const handleNewUserContinue = () => {
     const firstSlide = getFirstOnboardingSlide(useRegistrationStore.getState());
@@ -272,7 +268,6 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
             setCurrent={setCurrent}
             goTo={goTo}
             orgColor={orgColor}
-            onChangeOrg={handleOrgChangeOrg}
             onNewUserContinue={handleNewUserContinue}
           />
         )}
