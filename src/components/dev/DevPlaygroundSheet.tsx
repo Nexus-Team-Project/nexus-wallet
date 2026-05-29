@@ -35,11 +35,14 @@ export default function DevPlaygroundSheet({ onClose }: DevPlaygroundSheetProps)
 
   // Lock body scroll while the sheet is open so the gradient/page
   // underneath doesn't drift around as the user drags the sheet.
+  // On close we always restore the *unlocked* state ('') rather than
+  // whatever was there on open — capturing-and-restoring the previous
+  // value re-applies a stale 'hidden' if another lock had leaked,
+  // permanently freezing page scroll.
   useEffect(() => {
-    const original = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     return () => {
-      document.body.style.overflow = original;
+      document.body.style.overflow = '';
     };
   }, []);
 

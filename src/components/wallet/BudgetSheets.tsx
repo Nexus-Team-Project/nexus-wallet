@@ -18,13 +18,14 @@ function BottomSheet({
   onClose: () => void;
   children: ReactNode;
 }) {
-  // Lock body scroll while open.
+  // Lock body scroll while open. Always restore to the unlocked state
+  // ('') on close — capturing-and-restoring the previous value re-applies
+  // a stale 'hidden' if another lock had leaked, freezing page scroll.
   useEffect(() => {
     if (!open) return;
-    const prev = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     return () => {
-      document.body.style.overflow = prev;
+      document.body.style.overflow = '';
     };
   }, [open]);
 

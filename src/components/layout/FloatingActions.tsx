@@ -19,26 +19,26 @@ export default function FloatingActions() {
   const isWallet = location.pathname.includes('/wallet');
   const isBusiness = /\/business\/[^/]+/.test(location.pathname);
   const isVoucherPurchase = /\/business\/[^/]+\/voucher\//.test(location.pathname);
-  // On the chat page, the recommendations sheet (with full-bleed map) sits
-  // at the bottom — the white gradient backdrop would obscure the map's
-  // bottom edge. Hide it there; the buttons still float on top.
-  const isChat = /\/chat/.test(location.pathname);
-  // On a category page, the search button should land the user in the
-  // chat page with the discount-finder already open and pre-selected to
-  // the current category — not the empty general chat.
+  // On the chat / search pages, the recommendations sheet (with full-bleed
+  // map) sits at the bottom — the white gradient backdrop would obscure the
+  // map's bottom edge. Hide it there; the buttons still float on top.
+  const isChatOrSearch = /\/(chat|search)/.test(location.pathname);
+  // The search button always lands the user on the dedicated discount-finder
+  // path. On a category page it also pre-selects that category in the finder.
   const categoryMatch = location.pathname.match(/\/category\/([^/?]+)/);
   const categoryId = categoryMatch?.[1];
 
-  // Search-pill click → either jump into the chat with the discount-finder
-  // pre-filtered to the current category, or open the global chat search.
+  // Search-pill click → open the discount finder at /search. On a category
+  // page, carry the category as ?finder=<categoryId> so the finder opens
+  // pre-selected; elsewhere it opens empty.
   const handleSearchClick = () => {
     if (categoryId) {
       // Preserve existing query params (e.g. tenant) and add finder=<categoryId>.
       const params = new URLSearchParams(location.search);
       params.set('finder', categoryId);
-      navigate(`/${lang}/chat?${params.toString()}`);
+      navigate(`/${lang}/search?${params.toString()}`);
     } else {
-      navigate(`/${lang}/chat${location.search}`);
+      navigate(`/${lang}/search${location.search}`);
     }
   };
 
@@ -58,7 +58,7 @@ export default function FloatingActions() {
       {/* White fade backdrop behind floating actions. Skipped on the chat
           page so the recommendations sheet's full-bleed map stays visible
           all the way down. */}
-      {!isChat && (
+      {!isChatOrSearch && (
         <div className="fixed bottom-0 inset-x-0 h-14 z-40 pointer-events-none flex justify-center">
           <div
             className="w-full max-w-md h-full"

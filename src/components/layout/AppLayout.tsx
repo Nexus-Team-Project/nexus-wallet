@@ -30,7 +30,7 @@ export default function AppLayout() {
   // Pages that opt into the "full-bleed form" treatment — global TopBar,
   // bottom-nav padding, and chat FABs are all suppressed so the page can
   // own its own header / fixed CTA / chrome.
-  const isFullScreenForm = /^\/[a-z]{2}\/wallet\/add-payment-method\/?$/.test(pathname);
+  const isFullScreenForm = /^\/[a-z]{2}\/wallet\/(add-payment-method|pay-intro)\/?$/.test(pathname);
   const [collapsed, setCollapsed] = useState(false);
 
   // Live-chat state. The AI FAB is always-on; the human FAB mounts
@@ -65,6 +65,21 @@ export default function AppLayout() {
   useEffect(() => {
     setCollapsed(false);
     window.scrollTo(0, 0);
+    // Self-heal leaked body scroll-locks. Several full-screen experiences
+    // and bottom sheets lock the body via inline styles
+    // (overflow:hidden / position:fixed); if one fails to clean up — e.g.
+    // an unmount that races a navigation — scrolling dies app-wide on both
+    // touch and wheel. Releasing any stale lock on every navigation makes
+    // that unrecoverable state impossible. The one page that intentionally
+    // holds the lock across its own mount (the premium-reveal full-screen
+    // view) is excluded so we don't fight its own effect.
+    const keepsBodyLock = /^\/[a-z]{2}\/premium-reveal\/?$/.test(pathname);
+    if (!keepsBodyLock) {
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.inset = '';
+      document.documentElement.style.overflow = '';
+    }
   }, [pathname]);
 
   return (
@@ -105,7 +120,11 @@ export default function AppLayout() {
 
         {isHome ? (
           /* Home: sticky header, collapses on scroll */
-          <div className="sticky top-0 z-50">
+          <div
+            className={`sticky top-0 z-50 transition-colors duration-300 ${
+              collapsed ? 'bg-bg-light/85 backdrop-blur-md shadow-sm' : ''
+            }`}
+          >
             <TopBar collapsed={collapsed} />
             <div className="overflow-hidden">
               <CategoryRow collapsed={collapsed} loading={vouchersLoading} />

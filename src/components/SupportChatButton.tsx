@@ -73,15 +73,27 @@ export default function SupportChatButton({ variant, onClick, isTyping = true }:
     origY: 0,
   });
 
+  // Snap an x position to whichever side edge its center is closest to.
+  // Keeps the FAB pinned to the left/right gutter so it never rests over
+  // the central content column — where it would otherwise swallow the
+  // page's vertical scroll gesture (touch-action: none + pointer capture).
+  const snapX = useCallback((x: number) => {
+    const center = x + BTN_SIZE / 2;
+    return center < window.innerWidth / 2
+      ? EDGE_MARGIN
+      : window.innerWidth - BTN_SIZE - EDGE_MARGIN;
+  }, []);
+
   // Pick the initial position once we know the viewport size.
   useEffect(() => {
     try {
       const raw = localStorage.getItem(config.posKey);
       if (raw) {
         const parsed = JSON.parse(raw) as { x: number; y: number };
-        const x = Math.max(EDGE_MARGIN, Math.min(window.innerWidth - BTN_SIZE - EDGE_MARGIN, parsed.x));
         const y = Math.max(EDGE_MARGIN, Math.min(window.innerHeight - BTN_SIZE - EDGE_MARGIN, parsed.y));
-        setPos({ x, y });
+        // Snap to the nearest edge — migrates any previously centered
+        // position back to the gutter so scrolling works immediately.
+        setPos({ x: snapX(parsed.x), y });
         return;
       }
     } catch {
@@ -91,7 +103,7 @@ export default function SupportChatButton({ variant, onClick, isTyping = true }:
       x: window.innerWidth - BTN_SIZE - config.defaultOffsetX,
       y: window.innerHeight - BTN_SIZE - config.defaultOffsetY,
     });
-  }, [config.posKey, config.defaultOffsetX, config.defaultOffsetY]);
+  }, [config.posKey, config.defaultOffsetX, config.defaultOffsetY, snapX]);
 
   // Persist position whenever it changes.
   useEffect(() => {
@@ -163,8 +175,14 @@ export default function SupportChatButton({ variant, onClick, isTyping = true }:
       }
       return;
     }
-    if (!wasMoved) onClick?.();
-  }, [overTrash, onClick, config.dismissKey]);
+    if (wasMoved) {
+      // Snap back to the nearest side edge so the FAB never rests over
+      // the central content column (where it would block vertical scroll).
+      setPos((p) => (p ? { x: snapX(p.x), y: p.y } : p));
+      return;
+    }
+    onClick?.();
+  }, [overTrash, onClick, config.dismissKey, snapX]);
 
   if (dismissed) return null;
   if (!pos) return null;
@@ -256,7 +274,9 @@ export default function SupportChatButton({ variant, onClick, isTyping = true }:
           touchAction: 'none',
           cursor: dragging ? 'grabbing' : 'grab',
           animation: 'supportFabSlideUp 0.4s ease-out',
-          transition: dragging ? 'none' : 'box-shadow 0.3s, transform 0.2s',
+          transition: dragging
+            ? 'none'
+            : 'left 0.25s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.3s, transform 0.2s',
           transform: hovered && !dragging ? 'translate3d(0, -2px, 0)' : 'translate3d(0, 0, 0)',
           willChange: 'transform',
         }}

@@ -7,7 +7,8 @@ import { useWallet } from '../hooks/useWallet';
 import { formatCurrency } from '../utils/formatCurrency';
 import WalletTabs from '../components/wallet/WalletTabs';
 import WalletPageSkeleton from '../components/wallet/WalletPageSkeleton';
-import PayInStoreSheet from '../components/wallet/PayInStoreSheet';
+import PayCodesPanel from '../components/wallet/PayCodesPanel';
+import PayExtrasPanel from '../components/wallet/PayExtrasPanel';
 import MoreActionsSheet from '../components/wallet/MoreActionsSheet';
 import BestOffersWidget from '../components/wallet/BestOffersWidget';
 import TopBar from '../components/layout/TopBar';
@@ -112,6 +113,63 @@ export default function WalletPage() {
   // Sheet states
   const [showPaySheet, setShowPaySheet] = useState(false);
   const [showMoreSheet, setShowMoreSheet] = useState(false);
+
+  // ── Pay panel session timer ──
+  // Tapping "Payment" reveals the inline pay panel (sliding up from
+  // behind the balance square) and starts a 30s countdown shown ON the
+  // button. At 0 the panel auto-closes. Holding the button freezes the
+  // countdown so the panel stays open as long as the finger is down.
+  const PAY_SESSION_SECONDS = 30;
+  const [paySecondsLeft, setPaySecondsLeft] = useState(PAY_SESSION_SECONDS);
+  const [payPaused, setPayPaused] = useState(false);
+  const payHoldStart = useRef(0);
+
+  const openPay = useCallback(() => {
+    setPaySecondsLeft(PAY_SESSION_SECONDS);
+    setPayPaused(false);
+    setShowPaySheet(true);
+  }, []);
+
+  const closePay = useCallback(() => {
+    setShowPaySheet(false);
+    setPayPaused(false);
+  }, []);
+
+  // Countdown — one tick per second while open and not held.
+  useEffect(() => {
+    if (!showPaySheet || payPaused) return;
+    if (paySecondsLeft <= 0) {
+      closePay();
+      return;
+    }
+    const id = setTimeout(() => setPaySecondsLeft((s) => s - 1), 1000);
+    return () => clearTimeout(id);
+  }, [showPaySheet, payPaused, paySecondsLeft, closePay]);
+
+  // Press = freeze while held; release distinguishes a quick tap
+  // (toggle open/close) from a hold (resume countdown).
+  const PAY_HOLD_MS = 250;
+  const handlePayPointerDown = useCallback(() => {
+    payHoldStart.current = Date.now();
+    if (showPaySheet) setPayPaused(true);
+  }, [showPaySheet]);
+
+  const handlePayPointerUp = useCallback(() => {
+    const held = Date.now() - payHoldStart.current;
+    if (!showPaySheet) {
+      openPay();
+      return;
+    }
+    if (held >= PAY_HOLD_MS) {
+      setPayPaused(false);
+    } else {
+      closePay();
+    }
+  }, [showPaySheet, openPay, closePay]);
+
+  const handlePayPointerLeave = useCallback(() => {
+    if (showPaySheet && payPaused) setPayPaused(false);
+  }, [showPaySheet, payPaused]);
 
   // Notification state
   const [showNotification, setShowNotification] = useState(false);
@@ -240,8 +298,30 @@ export default function WalletPage() {
       <TopBar collapsed={false} />
 
       {/* ══════ BALANCE CARD (Klarna-style) ══════ */}
-      <section className="mt-4 mb-8 px-5">
-        <div className="relative bg-white/75 backdrop-blur-md border border-gray-100 rounded-[32px] p-8 shadow-[0_8px_30px_rgb(0,0,0,0.04)] text-center">
+      <section className="relative mt-4 mb-8 px-5">
+        {/* ── CODES — above the square, rises up from behind it ── */}
+        <div
+          className="relative z-10 overflow-hidden transition-all duration-500"
+          style={{
+            transitionTimingFunction: 'cubic-bezier(0.16, 1, 0.3, 1)',
+            maxHeight: showPaySheet ? 900 : 0,
+            marginBottom: showPaySheet ? 12 : 0,
+          }}
+        >
+          <div
+            className="transition-transform duration-500"
+            style={{
+              transitionTimingFunction: 'cubic-bezier(0.16, 1, 0.3, 1)',
+              transform: showPaySheet ? 'translateY(0)' : 'translateY(90px)',
+            }}
+          >
+            <PayCodesPanel />
+          </div>
+        </div>
+
+        <div
+          className="relative z-20 bg-white/75 backdrop-blur-md border border-gray-100 rounded-[32px] p-8 shadow-[0_8px_30px_rgb(0,0,0,0.04)] text-center"
+        >
           {/* New badge — top-start corner */}
           <span className="absolute top-4 start-4 bg-success/20 text-success text-xs font-bold px-2.5 py-0.5 rounded-full">
             {t.wallet.newBadge}
@@ -279,10 +359,35 @@ export default function WalletPage() {
               {t.wallet.addMoney}
             </button>
             <button
-              onClick={() => setShowPaySheet(true)}
-              className="bg-surface text-text-primary px-6 py-3.5 rounded-full font-bold text-base active:scale-95 transition-transform border border-border"
+              onPointerDown={handlePayPointerDown}
+              onPointerUp={handlePayPointerUp}
+              onPointerLeave={handlePayPointerLeave}
+              className="relative overflow-hidden bg-surface text-text-primary px-6 py-3.5 rounded-full font-bold text-base active:scale-95 transition-transform border border-border select-none"
+              style={{ touchAction: 'none' }}
             >
-              {t.wallet.payment}
+              {/* Depleting countdown pie behind the label */}
+              {showPaySheet && (
+                <span
+                  aria-hidden
+                  className="absolute inset-0 pointer-events-none transition-opacity"
+                  style={{
+                    background: `conic-gradient(var(--color-primary) ${(paySecondsLeft / PAY_SESSION_SECONDS) * 360}deg, transparent 0deg)`,
+                    opacity: 0.18,
+                  }}
+                />
+              )}
+              <span className="relative flex items-center justify-center gap-1.5">
+                {showPaySheet ? (
+                  <>
+                    <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>
+                      {payPaused ? 'lock' : 'timer'}
+                    </span>
+                    <span className="tabular-nums" dir="ltr">{paySecondsLeft}</span>
+                  </>
+                ) : (
+                  t.wallet.payment
+                )}
+              </span>
             </button>
             <button
               onClick={() => setShowMoreSheet(true)}
@@ -294,6 +399,26 @@ export default function WalletPage() {
 
           {/* Cashback Text — attached to buttons */}
           <p className="text-success font-semibold text-sm mt-2">{t.wallet.earnCashback}</p>
+        </div>
+
+        {/* ── EXTRAS — below the square, slides down into place ── */}
+        <div
+          className="relative z-10 overflow-hidden transition-all duration-500"
+          style={{
+            transitionTimingFunction: 'cubic-bezier(0.16, 1, 0.3, 1)',
+            maxHeight: showPaySheet ? 700 : 0,
+            marginTop: showPaySheet ? 12 : 0,
+          }}
+        >
+          <div
+            className="transition-transform duration-500"
+            style={{
+              transitionTimingFunction: 'cubic-bezier(0.16, 1, 0.3, 1)',
+              transform: showPaySheet ? 'translateY(0)' : 'translateY(-60px)',
+            }}
+          >
+            <PayExtrasPanel onClose={closePay} />
+          </div>
         </div>
       </section>
 
@@ -562,7 +687,6 @@ export default function WalletPage() {
       </motion.div>
 
       {/* ══════ BOTTOM SHEETS ══════ */}
-      {showPaySheet && <PayInStoreSheet onClose={() => setShowPaySheet(false)} />}
       {showMoreSheet && <MoreActionsSheet onClose={() => setShowMoreSheet(false)} />}
 
       {/* ══════ NOTIFICATION OVERLAY ══════ */}

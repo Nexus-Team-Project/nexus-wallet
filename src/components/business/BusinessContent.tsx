@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { motion, useMotionValue, useTransform, animate, type PanInfo } from 'framer-motion';
 import { useLanguage } from '../../i18n/LanguageContext';
 import type { Business, Product, Service } from '../../types/search.types';
 import type { Branch } from '../../types/branch.types';
@@ -654,22 +655,68 @@ export function SimilarBusinesses({ business, allBusinesses, onSelect }: Similar
 
 /* ─── Sticky CTA Button ──────────────────────────────────────────── */
 
+// Horizontal drag distance (px) past which a pay-button swipe is treated
+// as "open the custom-deal builder" rather than a tap-to-pay.
+const SWIPE_THRESHOLD = 90;
+
 interface StickyCTAProps {
   business: Business;
+  onBuildDeal?: () => void;
 }
 
-export function StickyCTA({ business }: StickyCTAProps) {
+export function StickyCTA({ business, onBuildDeal }: StickyCTAProps) {
   const { language } = useLanguage();
   const isHe = language === 'he';
+  // The pay button doubles as a slider: a tap pays fast, a horizontal drag
+  // past the threshold opens the custom-deal builder. We track whether the
+  // press turned into a drag so the click handler can ignore drag releases.
+  // The button never physically moves — a horizontal pan only drives the
+  // progress 0→1, which fills it sky-blue and crossfades the label.
+  const offsetX = useMotionValue(0);
+  const draggedRef = useRef(false);
+  const progress = useTransform(
+    offsetX,
+    isHe ? [-SWIPE_THRESHOLD, 0] : [0, SWIPE_THRESHOLD],
+    isHe ? [1, 0] : [0, 1],
+    { clamp: true },
+  );
+  const payOpacity = useTransform(progress, [0, 1], [1, 0]);
+
+  const handlePanEnd = (_: unknown, info: PanInfo) => {
+    const dist = isHe ? -info.offset.x : info.offset.x;
+    if (dist > SWIPE_THRESHOLD) onBuildDeal?.();
+    // Recede the fill back to the dark pay state.
+    animate(offsetX, 0, { type: 'spring', stiffness: 500, damping: 40 });
+    // Keep the flag up one tick so the synthetic click after a touch-pan
+    // doesn't fire the fast-pay action.
+    setTimeout(() => { draggedRef.current = false; }, 80);
+  };
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-[999]" style={{ pointerEvents: 'none' }}>
-      <div className="max-w-md mx-auto px-5 pb-5 pt-3" style={{ pointerEvents: 'auto', background: 'linear-gradient(to top, white 60%, transparent)' }}>
-        <button
-          onClick={() => window.open(business.website, '_blank')}
-          className="w-full bg-bg-dark text-white py-3.5 rounded-full font-bold text-base active:scale-[0.98] transition-transform shadow-lg shadow-bg-dark/30 flex items-center justify-center gap-0"
+      <div className="max-w-md mx-auto px-5 pb-5 pt-3 flex flex-col items-center gap-2" style={{ pointerEvents: 'auto', background: 'linear-gradient(to top, white 60%, transparent)' }}>
+        <motion.button
+          onPanStart={() => { draggedRef.current = true; }}
+          onPan={(_, info) => { offsetX.set(info.offset.x); }}
+          onPanEnd={handlePanEnd}
+          onClick={() => {
+            if (draggedRef.current) return;
+            window.open(business.website, '_blank');
+          }}
+          className="relative w-full overflow-hidden bg-bg-dark text-white py-3.5 rounded-full font-bold text-base shadow-lg shadow-bg-dark/30 flex items-center justify-center gap-0 touch-pan-y"
         >
-          <span className="inline-flex items-center gap-0 leading-none">
+          {/* Sky-blue fill — opacity grows with the drag. */}
+          <motion.span
+            aria-hidden="true"
+            className="absolute inset-0 bg-sky-300 pointer-events-none"
+            style={{ opacity: progress }}
+          />
+
+          {/* Pay label — fades out as the button is slid. */}
+          <motion.span
+            className="relative z-10 inline-flex items-center gap-0 leading-none pointer-events-none"
+            style={{ opacity: payOpacity }}
+          >
             <span>{isHe ? `שלם ב${business.name} עם` : `Pay at ${business.name} with`}</span>
             <span className="inline-flex items-center bg-sky-300 rounded-xl px-3 py-1 overflow-hidden" style={{ transform: 'scale(0.873)' }}>
               <img
@@ -679,8 +726,24 @@ export function StickyCTA({ business }: StickyCTAProps) {
                 style={{ transform: 'scale(1.373)' }}
               />
             </span>
+          </motion.span>
+
+          {/* Build label — crossfades in over the same space, navy on sky. */}
+          <motion.span
+            className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none"
+            style={{ opacity: progress, color: '#0a153f' }}
+          >
+            {isHe ? 'צור עסקה בתנאים שלך' : 'Create a deal on your terms'}
+          </motion.span>
+        </motion.button>
+
+        {/* Hint — the drag affordance. Pulses to invite the gesture. */}
+        <p className="flex items-center gap-1 text-xs font-medium text-text-secondary animate-pulse">
+          <span className="material-symbols-outlined" style={{ fontSize: '15px' }} aria-hidden="true">
+            {isHe ? 'keyboard_double_arrow_left' : 'keyboard_double_arrow_right'}
           </span>
-        </button>
+          <span>{isHe ? 'או החלק ליצירת עסקה בתנאים שלך' : 'Or swipe to create a deal on your terms'}</span>
+        </p>
       </div>
     </div>
   );

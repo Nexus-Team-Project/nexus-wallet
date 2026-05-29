@@ -246,7 +246,11 @@ body {
   color: var(--color-text-primary);
   overscroll-behavior: none;
   min-height: max(884px, 100dvh);
-  overflow-x: hidden; /* clip would create a containing block and break position:fixed */
+  /* `clip` (not `hidden`) prevents horizontal overflow WITHOUT making body a
+     scroll container. `hidden` forces overflow-y to compute to `auto`, turning
+     body into a dead-end scroller that traps wheel/touch gestures and blocks
+     chaining to the html scroller (combined with overscroll-behavior: none). */
+  overflow-x: clip;
   -webkit-text-size-adjust: 100%;
 }
 

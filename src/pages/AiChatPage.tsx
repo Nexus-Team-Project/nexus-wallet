@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useLanguage } from '../i18n/LanguageContext';
 import type { ChatMessage as ChatMessageType } from '../types/chat.types';
 import type { Voucher, VoucherCategory } from '../types/voucher.types';
@@ -89,7 +89,12 @@ export default function AiChatPage() {
   const { language } = useLanguage();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { lang = 'he' } = useParams();
+  // Dedicated path for the discount finder / search. Lands here when the user
+  // taps the "מצא הנחות שוות" quick-action or the search pill, so the finder
+  // state is reflected in the URL.
+  const isSearchPath = /\/search\/?$/.test(location.pathname);
   const setStorePicks = useRecommendationsStore((s) => s.setPicks);
   // Mounts the floating human-agent FAB (AppLayout subscribes to this).
   const setHumanChatActive = useChatStore((s) => s.setHumanChatActive);
@@ -121,6 +126,9 @@ export default function AiChatPage() {
   const [finderInitialCategory, setFinderInitialCategory] = useState<VoucherCategory | undefined>(undefined);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  // The scrollable thread region — used to pin the view to the top when the
+  // finder opens via the dedicated /search path.
+  const threadScrollRef = useRef<HTMLDivElement>(null);
   const initialized = useRef(false);
   const collapseTimeout = useRef<number | null>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -133,6 +141,12 @@ export default function AiChatPage() {
   const scrollToBottom = useCallback(() => {
     setTimeout(() => {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, 100);
+  }, []);
+
+  const scrollToTop = useCallback(() => {
+    setTimeout(() => {
+      threadScrollRef.current?.scrollTo({ top: 0 });
     }, 100);
   }, []);
 
@@ -151,16 +165,24 @@ export default function AiChatPage() {
     }
 
     // ?finder=<categoryId> — launched from a category page's search pill.
-    // Validate the param against the known VoucherCategory keys, seed the
-    // finder card with the matching category and open it immediately.
+    // Validate the param against the known VoucherCategory keys; when valid,
+    // seed the finder card with the matching category.
     const finderParam = searchParams.get('finder');
-    if (finderParam && finderParam in CATEGORY_LABELS_HE) {
-      const cat = finderParam as VoucherCategory;
-      setFinderInitialCategory(cat);
-      markActivity();
-      setTimeout(() => openDiscountFinder(''), 200);
+    const finderCat =
+      finderParam && finderParam in CATEGORY_LABELS_HE
+        ? (finderParam as VoucherCategory)
+        : undefined;
+    if (finderCat) setFinderInitialCategory(finderCat);
+
+    if (finderCat || isSearchPath) {
+      // On the dedicated /search path, keep the bottom sheet (welcome +
+      // quick actions) open and pin the view to the top. The legacy
+      // /chat?finder= entry keeps the old behavior: collapse the welcome
+      // content and scroll down to the finder card.
+      if (!isSearchPath) markActivity();
+      setTimeout(() => openDiscountFinder('', { alignTop: isSearchPath }), 200);
     }
-  }, [isHe, searchParams]);
+  }, [isHe, searchParams, isSearchPath]);
 
   // Cleanup pending collapse timer on unmount
   useEffect(() => {
@@ -349,7 +371,7 @@ export default function AiChatPage() {
   // the quick-action label — that would just duplicate the intent.
   // Idempotent: if a finder is already open, re-clicking the quick action
   // just scrolls to the existing card instead of stacking duplicates.
-  const openDiscountFinder = (_userText: string) => {
+  const openDiscountFinder = (_userText: string, opts?: { alignTop?: boolean }) => {
     setMessages((prev) => {
       if (prev.some((m) => m.type === 'finder')) return prev;
       const finderMessage: ChatMessageType = {
@@ -363,7 +385,8 @@ export default function AiChatPage() {
       };
       return [...prev, finderMessage];
     });
-    scrollToBottom();
+    if (opts?.alignTop) scrollToTop();
+    else scrollToBottom();
   };
 
   // Popular-search picks inside the finder card behave like a filter, not a
@@ -442,6 +465,11 @@ export default function AiChatPage() {
   };
 
   const handleNewChat = () => {
+    // If we're on the dedicated finder path, return to the base chat URL so the
+    // init effect doesn't immediately re-open the finder.
+    if (isSearchPath) {
+      navigate(`/${lang}/chat`);
+    }
     initialized.current = false;
     setMessages([]);
     setShowPromo(true);
@@ -563,7 +591,7 @@ export default function AiChatPage() {
             Once we have search results AND the sheet has been pulled back
             down (sheetState === 'normal'), swap the thread for the filter
             summary view so the user can adjust their filters. */}
-        <div className="flex-1 overflow-y-auto">
+        <div ref={threadScrollRef} className="flex-1 overflow-y-auto">
           {showSearchFilters && recommendations ? (
             // Filter-summary mode: SearchFiltersView at the top, new chat
             // messages render below it, then the active input pinned to the
@@ -792,7 +820,10 @@ export default function AiChatPage() {
                       key={action.text}
                       onClick={() => {
                         if ('kind' in action && action.kind === 'finder') {
-                          openDiscountFinder(action.query);
+                          // Reflect the finder state in the URL via a dedicated
+                          // path; the effect on /search opens it.
+                          navigate(`/${lang}/search`);
+                          openDiscountFinder(action.query, { alignTop: true });
                         } else {
                           handleSendMessage(action.query);
                         }

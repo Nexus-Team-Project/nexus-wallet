@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useLanguage } from '../../i18n/LanguageContext';
 import type { VoucherCategory } from '../../types/voucher.types';
+import { mockBusinesses } from '../../mock/data/businesses.mock';
 
 // "Find me deals" autocomplete. Starts as a white search-bubble button with
 // a magnifying glass icon. Tapping it morphs the bubble into a chat-input
@@ -55,15 +57,16 @@ const ITEM_TYPE_ORDER: ItemType[] = ['deals', 'products', 'businesses', 'places'
 // Extra filters the user can add via the "+ סינון" button. The chip in
 // the header carries the filter's label; later we can expand each entry
 // into its own popover for setting a value.
-type ExtraFilterId = 'discount' | 'price' | 'brand' | 'location' | 'rating';
+type ExtraFilterId = 'discount' | 'price' | 'brand' | 'location' | 'distance' | 'rating';
 const EXTRA_FILTER_META: Record<ExtraFilterId, { he: string; en: string }> = {
   discount: { he: 'הנחה',  en: 'Discount' },
   price:    { he: 'מחיר',  en: 'Price' },
   brand:    { he: 'מותג',  en: 'Brand' },
   location: { he: 'מיקום', en: 'Location' },
+  distance: { he: 'מרחק ממני', en: 'Distance from me' },
   rating:   { he: 'דירוג', en: 'Rating' },
 };
-const EXTRA_FILTER_ORDER: ExtraFilterId[] = ['discount', 'price', 'brand', 'location', 'rating'];
+const EXTRA_FILTER_ORDER: ExtraFilterId[] = ['discount', 'price', 'brand', 'location', 'distance', 'rating'];
 
 const CATEGORY_META: Record<
   VoucherCategory,
@@ -137,9 +140,13 @@ export default function DiscountFinderCard({
 }: DiscountFinderCardProps) {
   const { language } = useLanguage();
   const isHe = language === 'he';
+  const navigate = useNavigate();
+  const { lang = 'he' } = useParams();
 
   const [searchActive, setSearchActive] = useState(false);
   const [query, setQuery] = useState('');
+  // The submitted term, kept on display as a "locked" gray chip (as if in quotes).
+  const [committedQuery, setCommittedQuery] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Category filter — defaults to "all" or the category passed in by the
@@ -210,8 +217,29 @@ export default function DiscountFinderCard({
     if (!q) return [];
     return allOptions
       .filter((o) => o.label.toLowerCase().includes(q))
-      .slice(0, 8);
+      .slice(0, 3);
   }, [query, allOptions]);
+
+  // Matching stores for the "חנויות" section in the search dropdown. When the
+  // input is empty we surface a few stores as a discovery shortcut; while
+  // typing we filter by name (EN + HE). Capped at three either way.
+  const storeMatches = useMemo(() => {
+    const q = query.trim();
+    if (!q) return mockBusinesses.slice(0, 3);
+    const ql = q.toLowerCase();
+    return mockBusinesses
+      .filter((b) => b.name.toLowerCase().includes(ql) || b.nameHe.includes(q))
+      .slice(0, 3);
+  }, [query]);
+
+  // Popular searches for the dropdown — filtered by the typed text so the
+  // section narrows as the user writes, like the others. Capped at three.
+  const popularMatches = useMemo(() => {
+    const all = popularSearches ?? [];
+    const q = query.trim().toLowerCase();
+    const list = q === '' ? all : all.filter((t) => t.toLowerCase().includes(q));
+    return list.slice(0, 3);
+  }, [popularSearches, query]);
 
   const handlePick = (s: Suggestion) => {
     onInteract?.();
@@ -239,17 +267,7 @@ export default function DiscountFinderCard({
         >
           <span>{isHe ? 'מצא לי' : 'Find me'}</span>
 
-          {!searchActive ? (
-            <SearchBubble
-              label={isHe ? 'חיפוש' : 'Search'}
-              onClick={() => {
-                onInteract?.();
-                setSearchActive(true);
-                setCategoryPickerOpen(false);
-                setTypePickerOpen(false);
-              }}
-            />
-          ) : (
+          {searchActive ? (
             <SearchPillInput
               ref={inputRef}
               value={query}
@@ -261,7 +279,46 @@ export default function DiscountFinderCard({
                 setQuery('');
                 setSearchActive(false);
               }}
+              onSubmit={() => {
+                const q = query.trim();
+                if (!q) return;
+                onInteract?.();
+                setCommittedQuery(q);
+                setQuery('');
+                setSearchActive(false);
+                onSearchQuery?.(q);
+              }}
               placeholder={isHe ? 'חפש…' : 'Search…'}
+            />
+          ) : committedQuery ? (
+            <LockedSearchChip
+              label={committedQuery}
+              onEdit={() => {
+                onInteract?.();
+                setQuery(committedQuery);
+                setCommittedQuery('');
+                setSearchActive(true);
+                setCategoryPickerOpen(false);
+                setTypePickerOpen(false);
+              }}
+              onClear={() => {
+                onInteract?.();
+                setCommittedQuery('');
+                setQuery('');
+                setSearchActive(true);
+                setCategoryPickerOpen(false);
+                setTypePickerOpen(false);
+              }}
+            />
+          ) : (
+            <SearchBubble
+              label={isHe ? 'חיפוש' : 'Search'}
+              onClick={() => {
+                onInteract?.();
+                setSearchActive(true);
+                setCategoryPickerOpen(false);
+                setTypePickerOpen(false);
+              }}
             />
           )}
 
@@ -392,7 +449,7 @@ export default function DiscountFinderCard({
             sit on top; a short list of popular searches stays below as a
             secondary section. When the input is empty, only the popular
             searches show (with the same header). */}
-        {searchActive && ((query.trim() !== '' && suggestions.length > 0) || (popularSearches?.length ?? 0) > 0) && (
+        {searchActive && (suggestions.length > 0 || storeMatches.length > 0 || popularMatches.length > 0) && (
           <ListPanel isHe={isHe}>
             {/* Autocomplete matches — only when there's typed text */}
             {query.trim() !== '' &&
@@ -405,9 +462,36 @@ export default function DiscountFinderCard({
                 />
               ))}
 
-            {/* Popular searches section — always rendered, full list when
-                empty, smaller subset when typing. */}
-            {popularSearches && popularSearches.length > 0 && (
+            {/* Stores section — small brand logos, tap to open the business
+                page. Full handful when empty, narrowed by name while typing. */}
+            {storeMatches.length > 0 && (
+              <>
+                <div className="px-4 py-2.5 bg-gray-50/60">
+                  <h4
+                    className="text-[11px] font-semibold uppercase tracking-wide"
+                    style={{ color: ITEM_SUBTITLE }}
+                  >
+                    {isHe ? 'חנויות' : 'Stores'}
+                  </h4>
+                </div>
+                {storeMatches.map((b) => (
+                  <StoreRow
+                    key={b.id}
+                    logoUrl={b.logoUrl}
+                    emoji={b.logo}
+                    name={isHe ? b.nameHe : b.name}
+                    onClick={() => {
+                      onInteract?.();
+                      navigate(`/${lang}/business/${b.id}`);
+                    }}
+                  />
+                ))}
+              </>
+            )}
+
+            {/* Popular searches section — filtered by the typed text, capped
+                at three. */}
+            {popularMatches.length > 0 && (
               <>
                 <div className="px-4 py-2.5 bg-gray-50/60">
                   <h4
@@ -417,21 +501,19 @@ export default function DiscountFinderCard({
                     {isHe ? 'חיפושים פופולריים' : 'Popular searches'}
                   </h4>
                 </div>
-                {(query.trim() === '' ? popularSearches : popularSearches.slice(0, 4)).map(
-                  (text) => (
-                    <ListItem
-                      key={text}
-                      icon="search"
-                      label={text}
-                      onClick={() => {
-                        onInteract?.();
-                        setQuery('');
-                        setSearchActive(false);
-                        onSearchQuery?.(text);
-                      }}
-                    />
-                  ),
-                )}
+                {popularMatches.map((text) => (
+                  <ListItem
+                    key={text}
+                    icon="search"
+                    label={text}
+                    onClick={() => {
+                      onInteract?.();
+                      setQuery('');
+                      setSearchActive(false);
+                      onSearchQuery?.(text);
+                    }}
+                  />
+                ))}
               </>
             )}
           </ListPanel>
@@ -570,6 +652,45 @@ function SearchBubble({ label, onClick }: { label: string; onClick: () => void }
   );
 }
 
+// ── Locked search chip — the submitted term, displayed in quotes as a
+//    standard gray chip. Tapping the label re-opens editing; X clears it.
+function LockedSearchChip({
+  label,
+  onEdit,
+  onClear,
+}: {
+  label: string;
+  onEdit: () => void;
+  onClear: () => void;
+}) {
+  return (
+    <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-white border border-gray-200 shadow-sm">
+      <button
+        type="button"
+        onClick={onEdit}
+        className="text-[14px] font-medium active:scale-95 transition-transform"
+        style={{ color: HEADER_MAIN }}
+      >
+        {`"${label}"`}
+      </button>
+      <button
+        type="button"
+        onClick={onClear}
+        aria-label="Clear search"
+        className="flex items-center justify-center -me-1 active:scale-90 transition-transform"
+      >
+        <span
+          className="material-symbols-outlined"
+          style={{ fontSize: '16px', color: HEADER_MAIN }}
+          aria-hidden="true"
+        >
+          close
+        </span>
+      </button>
+    </span>
+  );
+}
+
 // ── Active search input — compact rounded pill that replaces the bubble.
 //    Same blue as the mockup chip, ~same horizontal footprint as the button
 //    so it stays on the same line. ─────────────────────────────────────────
@@ -577,12 +698,14 @@ const SearchPillInput = ({
   value,
   onChange,
   onClear,
+  onSubmit,
   placeholder,
   ref,
 }: {
   value: string;
   onChange: (v: string) => void;
   onClear: () => void;
+  onSubmit: () => void;
   placeholder: string;
   ref: React.Ref<HTMLInputElement>;
 }) => (
@@ -602,6 +725,12 @@ const SearchPillInput = ({
       type="text"
       value={value}
       onChange={(e) => onChange(e.target.value)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          onSubmit();
+        }
+      }}
       placeholder={placeholder}
       // Fixed compact width so the pill stays on a single line, no matter
       // what the user types (text scrolls inside the input).
@@ -642,19 +771,26 @@ function ListPanel({
   }, [loading]);
 
   return (
-    <div
-      className="self-center mx-auto w-[min(85vw,320px)]"
-      style={{
-        animation: 'panel-pop-in 0.28s cubic-bezier(0.34, 1.56, 0.64, 1) forwards',
-        transformOrigin: 'top center',
-      }}
-    >
-      <div className="bg-white rounded-2xl shadow-md border border-gray-100 overflow-hidden divide-y divide-gray-100 max-h-[40dvh] overflow-y-auto subtle-scrollbar">
-        {loading
-          ? Array.from({ length: skeletonCount }).map((_, i) => (
-              <SkeletonRow key={i} />
-            ))
-          : children}
+    // The finder card is indented by an avatar gutter (a w-8 spacer + gap-3 =
+    // 44px on the inline-end side). Centering inside that indented column
+    // leaves the panel hugging one edge. Reclaim the gutter with a negative
+    // inline-end margin so this wrapper spans the full card width, then
+    // justify-center to center the panel on the page rather than the column.
+    <div className="flex justify-center -me-11">
+      <div
+        className="w-[min(92vw,380px)]"
+        style={{
+          animation: 'panel-pop-in 0.28s cubic-bezier(0.34, 1.56, 0.64, 1) forwards',
+          transformOrigin: 'top center',
+        }}
+      >
+        <div className="bg-white rounded-2xl shadow-md border border-gray-100 overflow-hidden divide-y divide-gray-100 max-h-[40dvh] overflow-y-auto subtle-scrollbar">
+          {loading
+            ? Array.from({ length: skeletonCount }).map((_, i) => (
+                <SkeletonRow key={i} />
+              ))
+            : children}
+        </div>
       </div>
     </div>
   );
@@ -667,6 +803,49 @@ function SkeletonRow() {
     <div className="px-4 py-3.5 animate-pulse">
       <div className="h-3 w-1/2 bg-gray-200 rounded" />
     </div>
+  );
+}
+
+// Compact store row — small brand logo (falls back to the emoji glyph if the
+// image is missing) plus the store name. Used in the search dropdown's
+// "חנויות" section.
+function StoreRow({
+  logoUrl,
+  emoji,
+  name,
+  onClick,
+}: {
+  logoUrl?: string;
+  emoji: string;
+  name: string;
+  onClick: () => void;
+}) {
+  const [imgError, setImgError] = useState(false);
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="w-full text-start px-4 py-2.5 hover:bg-gray-50 active:bg-gray-100 transition-colors flex items-center gap-3"
+    >
+      <span className="w-7 h-7 rounded-lg bg-white border border-gray-100 shadow-sm flex items-center justify-center overflow-hidden flex-shrink-0">
+        {logoUrl && !imgError ? (
+          <img
+            src={logoUrl}
+            alt=""
+            className="w-full h-full object-contain p-0.5"
+            onError={() => setImgError(true)}
+          />
+        ) : (
+          <span className="text-base leading-none">{emoji}</span>
+        )}
+      </span>
+      <span
+        className="text-[15px] font-normal leading-tight truncate"
+        style={{ color: ITEM_TEXT }}
+      >
+        {name}
+      </span>
+    </button>
   );
 }
 

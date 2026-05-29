@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react';
-import { createBrowserRouter, Navigate, useLocation, useParams } from 'react-router-dom';
+import { createBrowserRouter, Navigate } from 'react-router-dom';
 import LanguageRouter from './LanguageRouter';
 import ProtectedRoute from './ProtectedRoute';
 import ErrorBoundary from '../components/ErrorBoundary';
@@ -47,6 +47,7 @@ const WalletHistoryPage = lazy(() => import('../pages/WalletHistoryPage'));
 const WallpaperPage = lazy(() => import('../pages/WallpaperPage'));
 const WalletCustomizePage = lazy(() => import('../pages/WalletCustomizePage'));
 const VoucherDetailPage  = lazy(() => import('../pages/VoucherDetailPage'));
+const PaymentIntroPage   = lazy(() => import('../pages/PaymentIntroPage'));
 
 // Registration flow — single chunk (user goes through all slides sequentially)
 const RegisterMembershipPage   = lazy(() => import('../pages/RegisterMembershipPage'));
@@ -83,14 +84,6 @@ function PageFallback() {
   return <div className="min-h-dvh bg-white" />;
 }
 
-// /:lang/search → /:lang/chat — the search page was retired in favor of the
-// chat. Preserves the query string (e.g. ?tenant=acme-corp).
-function SearchToChatRedirect() {
-  const { lang = 'he' } = useParams();
-  const location = useLocation();
-  return <Navigate to={`/${lang}/chat${location.search}`} replace />;
-}
-
 function S({ children }: { children: React.ReactNode }) {
   return <Suspense fallback={<PageFallback />}>{children}</Suspense>;
 }
@@ -118,8 +111,8 @@ export const router = createBrowserRouter([
             ),
           },
           { path: 'store',    element: <S><StorePage /></S> },
-          { path: 'search',           element: <SearchToChatRedirect /> },
           { path: 'chat',             element: <S><AiChatPage /></S> },
+          { path: 'search',           element: <S><AiChatPage /></S> },
           { path: 'near-you-map',     element: <S><NearYouMapPage /></S> },
           { path: 'map-demo',         element: <S><OffersMapDemo /></S> },
           { path: 'insights',         element: <S><InsightsPage /></S> },
@@ -135,6 +128,7 @@ export const router = createBrowserRouter([
           { path: 'wallet/add-money/loading',  element: <S><AddMoneyLoadingPage /></S> },
           { path: 'wallet/add-payment-method', element: <S><AddPaymentMethodPage /></S> },
           { path: 'wallet/payment-methods',    element: <S><PaymentMethodsPage /></S> },
+          { path: 'wallet/pay-intro',          element: <S><PaymentIntroPage /></S> },
           { path: 'wallpaper',                 element: <S><WallpaperPage /></S> },
           { path: 'wallet/customize',          element: <S><WalletCustomizePage /></S> },
           {
