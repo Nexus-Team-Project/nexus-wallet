@@ -8,6 +8,7 @@ import NotificationToastHost from '../notifications/NotificationToastHost';
 import SupportChatButton from '../SupportChatButton';
 import { useChatStore } from '../../stores/chatStore';
 import { useVouchers } from '../../hooks/useVouchers';
+import { useWallpaperStore } from '../../stores/wallpaperStore';
 
 const COLLAPSE_THRESHOLD = 40;
 
@@ -17,13 +18,18 @@ export default function AppLayout() {
   // Pages that opt into the home-page decorative gradient backdrop.
   const isNotifications = /^\/[a-z]{2}\/notifications\/?$/.test(pathname);
   const isProfile = /^\/[a-z]{2}\/profile\/?$/.test(pathname);
-  const showHomeGradient = isHome || isNotifications || isProfile;
+  // Wallet opted into the same decorative gradient backdrop the home /
+  // notifications / profile pages use, so the wallet feels like part of
+  // the "core surfaces" family rather than a flat sub-page.
+  const isWalletGradient = /^\/[a-z]{2}\/wallet\/?$/.test(pathname);
+  const isWallpaper = /^\/[a-z]{2}\/wallpaper\/?$/.test(pathname);
+  const showHomeGradient = isHome || isNotifications || isProfile || isWalletGradient || isWallpaper;
   // Wallet page renders its own TopBar inline (below the dark strip),
   // so the global overlay TopBar + chat FABs are suppressed here.
   const isWallet = /^\/[a-z]{2}\/wallet\/?$/.test(pathname);
-  // Add-payment-method page: standalone — its own back button and fixed
-  // footer CTA. Suppress the global TopBar overlay, the bottom-nav padding,
-  // and the chat FABs so the page reads as a single full-bleed form.
+  // Pages that opt into the "full-bleed form" treatment — global TopBar,
+  // bottom-nav padding, and chat FABs are all suppressed so the page can
+  // own its own header / fixed CTA / chrome.
   const isFullScreenForm = /^\/[a-z]{2}\/wallet\/add-payment-method\/?$/.test(pathname);
   const [collapsed, setCollapsed] = useState(false);
 
@@ -35,6 +41,13 @@ export default function AppLayout() {
   // Mirrors the loading flag the home page uses for its skeleton — same query,
   // shared React Query cache, so the sticky CategoryRow stays in sync.
   const { isLoading: vouchersLoading } = useVouchers();
+  // User-picked wallpaper override for the home-gradient backdrop.
+  const wallpaperBg = useWallpaperStore((s) => s.selectedBackground);
+  // User-picked wallpaper shows on every non-full-screen-form route so
+  // it reads as the user's chosen "personal theme" across the entire
+  // app. The default rainbow stays opt-in (showHomeGradient pages only).
+  const showWallpaperBackdrop = !isFullScreenForm && !!wallpaperBg;
+  const showBackdrop = showWallpaperBackdrop || showHomeGradient;
 
   useEffect(() => {
     if (!isHome) {
@@ -58,16 +71,35 @@ export default function AppLayout() {
     <div className="min-h-screen bg-surface">
       <div className={`max-w-md mx-auto bg-bg-light min-h-screen relative shadow-sm ${isFullScreenForm ? '' : 'pb-20'}`}>
         {/* Decorative gradient glow — home + opted-in pages */}
-        {showHomeGradient && (
-          <div className="absolute top-0 inset-x-0 h-[280px] pointer-events-none z-0">
+        {showBackdrop && (
+          <div
+            className={`absolute top-0 inset-x-0 pointer-events-none z-0 ${
+              wallpaperBg ? 'h-[480px]' : 'h-[280px]'
+            }`}
+          >
             <div
-              className="w-full h-full opacity-[0.12]"
+              className={`w-full h-full ${
+                wallpaperBg ? 'opacity-[0.55]' : 'opacity-[0.18]'
+              }`}
               style={{
                 background:
+                  wallpaperBg ??
                   'linear-gradient(135deg, #ffb74d 0%, #ff91b8 35%, #9c88ff 65%, #80deea 100%)',
+                backgroundSize: wallpaperBg ? '220% 220%' : undefined,
+                animation: wallpaperBg ? 'lava-flow 14s ease-in-out infinite' : undefined,
               }}
             />
-            <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-bg-light" />
+            {/* Bottom fade — bleeds the backdrop into the page surface
+                so content below stays readable. Stronger stop when a
+                wallpaper is active so the hero area dominates. */}
+            <div
+              className="absolute inset-0"
+              style={{
+                background: wallpaperBg
+                  ? 'linear-gradient(to bottom, rgba(255,255,255,0) 30%, rgba(255,255,255,0.5) 70%, var(--color-bg-light) 100%)'
+                  : 'linear-gradient(to bottom, rgba(255,255,255,0) 0%, rgba(255,255,255,0) 60%, var(--color-bg-light) 100%)',
+              }}
+            />
           </div>
         )}
 
@@ -93,7 +125,9 @@ export default function AppLayout() {
           <Outlet />
         </main>
         {!isFullScreenForm && <ProfileNudgeBanner />}
-        {!isFullScreenForm && <FloatingActions />}
+        {/* Bottom search/home/wallet strip — hidden on the wallpaper
+            picker so the picker grid + CTA own the screen. */}
+        {!isFullScreenForm && !isWallpaper && <FloatingActions />}
         {/* AI assistant FAB — always available (suppressed on wallet
             page, which renders its own chat affordance inline). */}
         {!isWallet && !isFullScreenForm && (

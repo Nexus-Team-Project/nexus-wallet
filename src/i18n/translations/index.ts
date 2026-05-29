@@ -10,7 +10,6 @@ import { authFlowTranslations } from './authFlow';
 import { categoryTranslations } from './category';
 import { businessTranslations } from './business';
 import { notificationsTranslations } from './notifications';
-import type { Translations } from '../types';
 
 const navTranslations = {
   en: {
@@ -29,7 +28,7 @@ const navTranslations = {
   },
 };
 
-export const translations: Translations = {
+export const translations = {
   en: {
     common: commonTranslations.en,
     home: homeTranslations.en,

@@ -1,5 +1,6 @@
-import { useState, useRef } from 'react';
-import { motion } from 'framer-motion';
+import { useState, useRef, useCallback, useEffect } from 'react';
+import { motion, Reorder, useDragControls } from 'framer-motion';
+import { GripVertical, Eye, EyeOff, X } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useLanguage } from '../i18n/LanguageContext';
 import { useWallet } from '../hooks/useWallet';
@@ -11,6 +12,8 @@ import MoreActionsSheet from '../components/wallet/MoreActionsSheet';
 import BestOffersWidget from '../components/wallet/BestOffersWidget';
 import TopBar from '../components/layout/TopBar';
 import { useTenantStore } from '../stores/tenantStore';
+import { useWallpaperStore } from '../stores/wallpaperStore';
+import { useWalletLayoutStore, type WalletWidgetId } from '../stores/walletLayoutStore';
 import type { UserVoucher } from '../types/voucher.types';
 
 // Logos
@@ -25,6 +28,75 @@ export default function WalletPage() {
   const { data: wallet, isLoading: walletLoading } = useWallet();
   // Active tenant — drives the "My organization" widget below.
   const tenantConfig = useTenantStore((s) => s.config);
+  // User-picked wallpaper — flows into the inner gradient backdrop so
+  // the lava theme follows the user onto the wallet page too. Falls
+  // back to the signature rainbow when nothing is set.
+  const wallpaperBg = useWallpaperStore((s) => s.selectedBackground);
+  // User-customised section order — drives the loop below so the user
+  // sees their wallet in their preferred arrangement.
+  const sectionOrder = useWalletLayoutStore((s) => s.sectionOrder);
+  const setOrder = useWalletLayoutStore((s) => s.setOrder);
+  // When this is OFF, grip handles are hidden and Reorder drag is
+  // disabled — the wallet reads like a static list.
+  const editEnabled = useWalletLayoutStore((s) => s.editEnabled);
+  const hiddenSections = useWalletLayoutStore((s) => s.hiddenSections);
+  const toggleHidden = useWalletLayoutStore((s) => s.toggleHidden);
+  // Widget-level state: per-widget order and per-widget hidden flag.
+  // Drives the horizontally-scrollable widgets gallery below.
+  const widgetOrder = useWalletLayoutStore((s) => s.widgetOrder);
+  const setWidgetOrder = useWalletLayoutStore((s) => s.setWidgetOrder);
+  const hiddenWidgets = useWalletLayoutStore((s) => s.hiddenWidgets);
+  const toggleHiddenWidget = useWalletLayoutStore((s) => s.toggleHiddenWidget);
+
+  // Refs for auto-scrolling the widgets gallery while the user drags a
+  // widget near the screen edge.
+  const widgetsScrollRef = useRef<HTMLDivElement>(null);
+  const widgetsScrollRafRef = useRef<number | null>(null);
+  const widgetsPointerXRef = useRef(0);
+
+  const handleWidgetsPointerMove = useCallback((e: PointerEvent) => {
+    widgetsPointerXRef.current = e.clientX;
+  }, []);
+
+  const stopWidgetsAutoScroll = useCallback(() => {
+    if (widgetsScrollRafRef.current !== null) {
+      cancelAnimationFrame(widgetsScrollRafRef.current);
+      widgetsScrollRafRef.current = null;
+    }
+    window.removeEventListener('pointermove', handleWidgetsPointerMove);
+  }, [handleWidgetsPointerMove]);
+
+  const startWidgetsAutoScroll = useCallback(() => {
+    window.addEventListener('pointermove', handleWidgetsPointerMove);
+    const EDGE_ZONE = 70;
+    const MAX_SPEED = 18;
+    const loop = () => {
+      const el = widgetsScrollRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      const x = widgetsPointerXRef.current;
+      if (x < rect.left + EDGE_ZONE) {
+        const ratio = Math.min(1, (rect.left + EDGE_ZONE - x) / EDGE_ZONE);
+        el.scrollLeft -= ratio * MAX_SPEED;
+      } else if (x > rect.right - EDGE_ZONE) {
+        const ratio = Math.min(1, (x - (rect.right - EDGE_ZONE)) / EDGE_ZONE);
+        el.scrollLeft += ratio * MAX_SPEED;
+      }
+      widgetsScrollRafRef.current = requestAnimationFrame(loop);
+    };
+    widgetsScrollRafRef.current = requestAnimationFrame(loop);
+  }, [handleWidgetsPointerMove]);
+
+  // Make sure we don't leak the animation frame / global listener.
+  useEffect(() => {
+    return () => stopWidgetsAutoScroll();
+  }, [stopWidgetsAutoScroll]);
+  // One drag-controls instance per section — only the grip handle in
+  // each section header triggers vertical drag, so taps elsewhere on
+  // the section (collapse chevron, buttons inside) stay independent.
+  const widgetsDragControls = useDragControls();
+  const cardsDragControls = useDragControls();
+  const vouchersDragControls = useDragControls();
   const [activeTab, setActiveTab] = useState<UserVoucher['status']>('active');
 
   // Collapsible section states
@@ -127,16 +199,49 @@ export default function WalletPage() {
         transition={{ delay: 0.4, duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
         className={
           !hasCard
-            ? 'bg-bg-light rounded-t-3xl -mt-4 pt-2 relative z-10'
-            : 'pt-2'
+            ? 'bg-bg-light rounded-t-3xl -mt-4 pt-2 relative z-10 overflow-hidden'
+            : 'pt-2 relative overflow-hidden'
         }
       >
+        {/* Decorative backdrop — always anchored at the top hero area
+            of the page. When a wallpaper is set it gets a taller band,
+            stronger opacity, and the lava animation. */}
+        <div
+          aria-hidden
+          className={`absolute top-0 inset-x-0 pointer-events-none z-0 ${
+            wallpaperBg ? 'h-[480px]' : 'h-[280px]'
+          }`}
+        >
+          <div
+            className={`w-full h-full ${
+              wallpaperBg ? 'opacity-[0.55]' : 'opacity-[0.12]'
+            }`}
+            style={{
+              background:
+                wallpaperBg ??
+                'linear-gradient(135deg, #ffb74d 0%, #ff91b8 35%, #9c88ff 65%, #80deea 100%)',
+              backgroundSize: wallpaperBg ? '220% 220%' : undefined,
+              animation: wallpaperBg ? 'lava-flow 14s ease-in-out infinite' : undefined,
+            }}
+          />
+          <div
+            className="absolute inset-0"
+            style={{
+              background: wallpaperBg
+                ? 'linear-gradient(to bottom, rgba(255,255,255,0) 30%, rgba(255,255,255,0.5) 70%, var(--color-bg-light) 100%)'
+                : 'linear-gradient(to bottom, rgba(255,255,255,0) 0%, rgba(255,255,255,0) 60%, var(--color-bg-light) 100%)',
+            }}
+          />
+        </div>
+        {/* Wrap everything below in a relative div so the gradient stays
+            behind. */}
+        <div className="relative">
       {/* ══════ INLINE TOPBAR ROW (logo, avatar, greeting, chat, bell) ══════ */}
       <TopBar collapsed={false} />
 
       {/* ══════ BALANCE CARD (Klarna-style) ══════ */}
       <section className="mt-4 mb-8 px-5">
-        <div className="relative bg-white border border-gray-100 rounded-[32px] p-8 shadow-[0_8px_30px_rgb(0,0,0,0.04)] text-center">
+        <div className="relative bg-white/75 backdrop-blur-md border border-gray-100 rounded-[32px] p-8 shadow-[0_8px_30px_rgb(0,0,0,0.04)] text-center">
           {/* New badge — top-start corner */}
           <span className="absolute top-4 start-4 bg-success/20 text-success text-xs font-bold px-2.5 py-0.5 rounded-full">
             {t.wallet.newBadge}
@@ -192,217 +297,157 @@ export default function WalletPage() {
         </div>
       </section>
 
-      {/* ══════ WIDGETS SECTION (collapsible) ══════ */}
-      <div className="mb-6">
-        <button
-          onClick={() => setWidgetsOpen(!widgetsOpen)}
-          className="flex items-center justify-between w-full px-5 mb-3 active:opacity-70 transition-opacity"
-        >
-          <h2 className="text-lg font-bold text-text-primary">
-            {t.wallet.widgetsTitle}
-          </h2>
-          <span
-            className={`material-symbols-outlined text-text-muted transition-transform duration-300 ${widgetsOpen ? 'rotate-180' : ''}`}
-            style={{ fontSize: '20px' }}
+      {/* ══════ REORDERABLE SECTIONS — Framer-motion Reorder.Group on
+          the wallet page itself. Each section's title row hosts a grip
+          handle; pointer-down on the grip starts a vertical reorder
+          drag. Releasing fires onReorder which persists the new order
+          to the wallet-layout store. ══════ */}
+      <Reorder.Group
+        axis="y"
+        values={sectionOrder}
+        onReorder={(next) => setOrder(next)}
+        className="flex flex-col"
+      >
+      {sectionOrder.map((sectionId) => {
+        const isHidden = hiddenSections.includes(sectionId);
+        // Outside edit mode hidden sections disappear entirely; inside
+        // edit mode they show dimmed so the user can bring them back.
+        if (isHidden && !editEnabled) return null;
+        if (sectionId === 'widgets') {
+          return (
+      <Reorder.Item
+        key="widgets"
+        value="widgets"
+        dragListener={false}
+        dragControls={widgetsDragControls}
+        className={`mb-6 transition-opacity ${isHidden ? 'opacity-40' : ''}`}
+      >
+        <div className="flex items-center justify-between w-full px-5 mb-3">
+          <button
+            onClick={() => setWidgetsOpen(!widgetsOpen)}
+            className="flex items-center gap-1 active:opacity-70 transition-opacity"
           >
-            expand_more
-          </span>
-        </button>
-
-        <div className={`overflow-hidden transition-all duration-300 ease-in-out ${widgetsOpen ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}`}>
-          {/* Horizontal-scroll row of widget tiles. Tiles inherit the
-              page's white surface aesthetic with a faint border + soft
-              shadow. `items-start` so individual tiles can be taller
-              (e.g. the map widget) without forcing the smaller stat
-              tiles to stretch and look hollow. */}
-          <div className="px-5 flex items-start gap-3 overflow-x-auto no-scrollbar pb-1">
-            {/* "Find cashback near you" — full-bleed label-free positron
-                map tile with two brand-pin logos floated on top. Tile
-                is taller than the stat widgets so it reads as the
-                "hero" of the row. A soft white inner vignette feathers
-                the edges into the surrounding white surface. */}
-            <button
-              type="button"
-              onClick={() => navigate(`/${lang}/near-you-map`)}
-              aria-label={t.wallet.widgetNearbyCashback}
-              className="flex-shrink-0 w-48 h-36 bg-surface border border-border rounded-2xl overflow-hidden shadow-[0_8px_30px_rgb(0,0,0,0.04)] active:scale-[0.98] transition-transform relative"
+            <h2 className="text-lg font-bold text-text-primary">
+              {t.wallet.widgetsTitle}
+            </h2>
+            <span
+              className={`material-symbols-outlined text-text-muted transition-transform duration-300 ${widgetsOpen ? 'rotate-180' : ''}`}
+              style={{ fontSize: '20px' }}
             >
-              <img
-                src="/wallet-nearby-map.png"
-                alt=""
-                aria-hidden
-                className="absolute inset-0 w-full h-full object-cover"
-              />
-              {/* Soft white inner glow — fades the map edges into the
-                  surrounding white surface so the widget feels embedded
-                  rather than cropped. Pointer-events-none so taps still
-                  reach the brand pins below it. */}
-              <div
-                aria-hidden
-                className="absolute inset-0 pointer-events-none"
-                style={{
-                  background:
-                    'radial-gradient(ellipse at center, rgba(255,255,255,0) 45%, rgba(255,255,255,0.7) 100%)',
-                }}
-              />
-              {/* Title overlay — top-leading corner (right edge in RTL,
-                  left edge in LTR). Sits over the white vignette so it
-                  stays readable against the map. */}
-              <div className="absolute top-3 start-3 max-w-[7.5rem] text-start pointer-events-none">
-                <p className="text-sm font-bold text-text-primary leading-tight">
-                  {t.wallet.widgetNearbyCashback}
-                </p>
-              </div>
-              {/* Two brand "pins" — round-chip styling matching the
-                  BrandSlider on the home page. White ring + soft shadow
-                  so they pop off the map tiles. */}
-              <div className="absolute bottom-4 left-4 w-10 h-10 rounded-full bg-black shadow-md ring-2 ring-white overflow-hidden flex items-center justify-center">
-                {/* Castro's bundled PNG is black-on-transparent; we
-                    invert it so it reads as white on the black chip. */}
-                <img
-                  src="/brands/castro-home.png"
-                  alt="Castro"
-                  className="w-full h-full object-contain"
-                  style={{ filter: 'invert(1)' }}
-                />
-              </div>
-              <div className="absolute bottom-4 left-12 w-10 h-10 rounded-full bg-white shadow-md ring-2 ring-white overflow-hidden flex items-center justify-center">
-                <img
-                  src="/brands/carrefour.png"
-                  alt="Carrefour"
-                  className="w-full h-full object-cover"
-                />
-              </div>
-            </button>
-
-            {/* "My organization" — same dimensions + treatment as the
-                nearby-cashback map widget. Logo chip sits top-right
-                (start-side in RTL) at the same 36px size as the icons
-                on the stat tiles. Text sits below in white. */}
-            <button
-              type="button"
-              onClick={() => navigate(`/${lang}/profile`)}
-              aria-label={t.wallet.widgetMyOrganization}
-              className="flex-shrink-0 w-48 h-36 rounded-2xl overflow-hidden shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-border active:scale-[0.98] transition-transform relative text-start p-4"
-              style={{
-                backgroundColor: tenantConfig?.primaryColor ?? 'var(--color-surface)',
-              }}
-            >
-              {/* Subtle white inner glow — softer than on the map widget
-                  so the white text below stays readable against the
-                  coloured center. */}
-              <div
-                aria-hidden
-                className="absolute inset-0 pointer-events-none"
-                style={{
-                  background:
-                    'radial-gradient(ellipse at center, rgba(255,255,255,0) 60%, rgba(255,255,255,0.4) 100%)',
-                }}
-              />
-
-              {/* Logo chip — top-start corner (right edge in RTL, left
-                  edge in LTR). 36px round-chip treatment matching the
-                  stat tiles. */}
-              <div className="relative flex justify-start mb-2">
-                <div className="w-9 h-9 rounded-full bg-white shadow-sm overflow-hidden flex items-center justify-center">
-                  {tenantConfig?.logo ? (
-                    <img
-                      src={tenantConfig.logo}
-                      alt={isRTL ? tenantConfig.nameHe : tenantConfig.name}
-                      className="w-full h-full object-contain p-1"
-                    />
-                  ) : (
-                    <span
-                      className="material-symbols-outlined text-text-secondary"
-                      style={{ fontSize: '20px' }}
-                    >
-                      domain
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              {/* Title + org name — white text. Subtle drop shadow keeps
-                  them readable even where the vignette lightens the
-                  background. */}
-              <div
-                className="relative pointer-events-none"
-                style={{ textShadow: '0 1px 2px rgba(0,0,0,0.15)' }}
+              expand_more
+            </span>
+          </button>
+          {editEnabled && (
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => toggleHidden('widgets')}
+                className="text-text-muted p-1 -m-1 active:opacity-60"
+                aria-label={isHidden ? 'Show section' : 'Hide section'}
               >
-                <div className="text-xs text-white/85 font-medium leading-tight mb-1">
-                  {t.wallet.widgetMyOrganization}
-                </div>
-                <div className="text-base font-bold text-white leading-tight line-clamp-2">
-                  {tenantConfig
-                    ? isRTL
-                      ? tenantConfig.nameHe
-                      : tenantConfig.name
-                    : t.wallet.widgetNoOrganization}
-                </div>
-              </div>
-            </button>
-
-            {/* Best-offers carousel — auto-rotating atmosphere photos
-                with brand + cashback %. Same w-48 h-36 footprint as the
-                map and organization widgets so the three "hero" tiles
-                visually align. */}
-            <BestOffersWidget />
-
-            <div className="flex-shrink-0 w-40 bg-white border border-border rounded-2xl p-4 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
-              <div className="w-9 h-9 rounded-full bg-success/15 flex items-center justify-center mb-2">
-                <span className="material-symbols-outlined text-success" style={{ fontSize: '20px' }}>trending_up</span>
-              </div>
-              <div className="text-xs text-text-secondary font-medium leading-tight mb-1">
-                {t.wallet.widgetCashback}
-              </div>
-              <div className="text-xl font-bold text-text-primary" dir="ltr">
-                ₪127
-              </div>
+                {isHidden ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+              <span
+                onPointerDown={(e) => widgetsDragControls.start(e)}
+                className="touch-none cursor-grab active:cursor-grabbing text-text-muted p-1 -m-1"
+                aria-label="Reorder section"
+              >
+                <GripVertical size={18} />
+              </span>
             </div>
-
-            <div className="flex-shrink-0 w-40 bg-white border border-border rounded-2xl p-4 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
-              <div className="w-9 h-9 rounded-full bg-primary/15 flex items-center justify-center mb-2">
-                <span className="material-symbols-outlined text-primary" style={{ fontSize: '20px' }}>card_giftcard</span>
-              </div>
-              <div className="text-xs text-text-secondary font-medium leading-tight mb-1">
-                {t.wallet.widgetActiveVouchers}
-              </div>
-              <div className="text-xl font-bold text-text-primary">
-                5
-              </div>
-            </div>
-
-            <div className="flex-shrink-0 w-40 bg-white border border-border rounded-2xl p-4 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
-              <div className="w-9 h-9 rounded-full bg-warning/15 flex items-center justify-center mb-2">
-                <span className="material-symbols-outlined text-warning" style={{ fontSize: '20px' }}>savings</span>
-              </div>
-              <div className="text-xs text-text-secondary font-medium leading-tight mb-1">
-                {t.wallet.widgetSavings}
-              </div>
-              <div className="text-xl font-bold text-text-primary" dir="ltr">
-                ₪450
-              </div>
-            </div>
-          </div>
+          )}
         </div>
-      </div>
 
-      {/* ══════ DIGITAL CARD SECTION (collapsible) ══════ */}
-      <div className="mb-6">
-        <button
-          onClick={() => setCardOpen(!cardOpen)}
-          className="flex items-center justify-between w-full px-5 mb-3 active:opacity-70 transition-opacity"
-        >
-          <h2 className="text-lg font-bold text-text-primary">
-            {t.wallet.digitalCards}
-          </h2>
-          <span
-            className={`material-symbols-outlined text-text-muted transition-transform duration-300 ${cardOpen ? 'rotate-180' : ''}`}
-            style={{ fontSize: '20px' }}
+        <div className={`overflow-hidden transition-all duration-300 ease-in-out ${widgetsOpen ? 'max-h-[700px] opacity-100' : 'max-h-0 opacity-0'}`}>
+          {/* Two-row widgets grid restored — each slot has a fixed
+              gridColumn/gridRow placement so "Best offers" can sit on
+              row 2 spanning under nearby-cashback + my-organization.
+              The widgetOrder array drives which widget lands in which
+              slot (slot ← widgetOrder index). In edit mode each widget
+              is free-draggable; when the drag pointer nears the
+              gallery edge, auto-scroll kicks in. */}
+          <Reorder.Group
+            axis="x"
+            values={widgetOrder}
+            onReorder={setWidgetOrder}
+            as="div"
+            ref={widgetsScrollRef}
+            className="px-5 grid grid-rows-2 gap-3 overflow-x-auto no-scrollbar pb-1"
+            style={{ gridAutoColumns: 'max-content', gridAutoFlow: 'column' }}
           >
-            expand_more
-          </span>
-        </button>
+            {widgetOrder.map((widgetId, index) => {
+              const isHidden = hiddenWidgets.includes(widgetId);
+              if (isHidden && !editEnabled) return null;
+              return (
+                <WidgetReorderItem
+                  key={widgetId}
+                  widgetId={widgetId}
+                  slotIndex={index}
+                  editEnabled={editEnabled}
+                  isHidden={isHidden}
+                  onHide={() => toggleHiddenWidget(widgetId)}
+                  onDragStart={startWidgetsAutoScroll}
+                  onDragEnd={stopWidgetsAutoScroll}
+                >
+                  {renderWidgetBody(widgetId, {
+                    t,
+                    isRTL,
+                    tenantConfig,
+                    navigate,
+                    lang,
+                  })}
+                </WidgetReorderItem>
+              );
+            })}
+          </Reorder.Group>
+        </div>
+      </Reorder.Item>
+          );
+        }
+        if (sectionId === 'digitalCards') {
+          return (
+      <Reorder.Item
+        key="digitalCards"
+        value="digitalCards"
+        dragListener={false}
+        dragControls={cardsDragControls}
+        className={`mb-6 transition-opacity ${isHidden ? 'opacity-40' : ''}`}
+      >
+        <div className="flex items-center justify-between w-full px-5 mb-3">
+          <button
+            onClick={() => setCardOpen(!cardOpen)}
+            className="flex items-center gap-1 active:opacity-70 transition-opacity"
+          >
+            <h2 className="text-lg font-bold text-text-primary">
+              {t.wallet.digitalCards}
+            </h2>
+            <span
+              className={`material-symbols-outlined text-text-muted transition-transform duration-300 ${cardOpen ? 'rotate-180' : ''}`}
+              style={{ fontSize: '20px' }}
+            >
+              expand_more
+            </span>
+          </button>
+          {editEnabled && (
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => toggleHidden('digitalCards')}
+                className="text-text-muted p-1 -m-1 active:opacity-60"
+                aria-label={isHidden ? 'Show section' : 'Hide section'}
+              >
+                {isHidden ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+              <span
+                onPointerDown={(e) => cardsDragControls.start(e)}
+                className="touch-none cursor-grab active:cursor-grabbing text-text-muted p-1 -m-1"
+                aria-label="Reorder section"
+              >
+                <GripVertical size={18} />
+              </span>
+            </div>
+          )}
+        </div>
 
         <div className={`overflow-hidden transition-all duration-300 ease-in-out ${cardOpen ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}`}>
           {/* Single Centered Card */}
@@ -453,13 +498,18 @@ export default function WalletPage() {
             </button>
           </div>
         </div>
-      </div>
-
-      {/* ══════ DIVIDER ══════ */}
-      <div className="h-px bg-border mx-5 mb-5" />
-
-      {/* ══════ VOUCHERS SECTION (collapsible) ══════ */}
-      <div className="px-5 space-y-4">
+      </Reorder.Item>
+          );
+        }
+        if (sectionId === 'vouchers') {
+          return (
+      <Reorder.Item
+        key="vouchers"
+        value="vouchers"
+        dragListener={false}
+        dragControls={vouchersDragControls}
+        className={`px-5 space-y-4 mb-6 transition-opacity ${isHidden ? 'opacity-40' : ''}`}
+      >
         <div className="flex items-center justify-between">
           <button
             onClick={() => setVouchersOpen(!vouchersOpen)}
@@ -473,15 +523,42 @@ export default function WalletPage() {
               expand_more
             </span>
           </button>
-          <button className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-surface text-text-secondary text-xs font-medium active:scale-95 transition-transform">
-            <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>tune</span>
-            {t.wallet.filterVouchers}
-          </button>
+          <div className="flex items-center gap-2">
+            <button className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-surface text-text-secondary text-xs font-medium active:scale-95 transition-transform">
+              <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>tune</span>
+              {t.wallet.filterVouchers}
+            </button>
+            {editEnabled && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => toggleHidden('vouchers')}
+                  className="text-text-muted p-1 -m-1 active:opacity-60"
+                  aria-label={isHidden ? 'Show section' : 'Hide section'}
+                >
+                  {isHidden ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+                <span
+                  onPointerDown={(e) => vouchersDragControls.start(e)}
+                  className="touch-none cursor-grab active:cursor-grabbing text-text-muted p-1 -m-1"
+                  aria-label="Reorder section"
+                >
+                  <GripVertical size={18} />
+                </span>
+              </>
+            )}
+          </div>
         </div>
         <div className={`overflow-hidden transition-all duration-300 ease-in-out ${vouchersOpen ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'}`}>
           <WalletTabs activeTab={activeTab} onTabChange={setActiveTab} />
         </div>
-      </div>
+      </Reorder.Item>
+          );
+        }
+        return null;
+      })}
+      </Reorder.Group>
+      </div>{/* /relative gradient wrapper */}
       </motion.div>
 
       {/* ══════ BOTTOM SHEETS ══════ */}
@@ -557,4 +634,249 @@ function NotificationAutoDismiss({ onDismiss }: { onDismiss: () => void }) {
     timerRef.current = setTimeout(onDismiss, 5000);
   }
   return null;
+}
+
+/**
+ * Slot positions for the 2-row widgets grid. Slot N gets whatever
+ * widget id sits at widgetOrder[N] — so reordering the array reshuffles
+ * which widget lands in which slot. The wide row-2 slot (index 2) is
+ * where the carousel naturally lives.
+ */
+const WIDGET_SLOTS: {
+  gridColumn: string;
+  gridRow: string;
+  /** Size class applied to the Reorder.Item wrapper. */
+  size: string;
+}[] = [
+  { gridColumn: '1', gridRow: '1', size: 'w-48 h-36' },
+  { gridColumn: '2', gridRow: '1', size: 'w-48 h-36' },
+  { gridColumn: '1 / 3', gridRow: '2', size: 'w-full h-36' },
+  { gridColumn: '3', gridRow: '1', size: 'w-40 h-36' },
+  { gridColumn: '3', gridRow: '2', size: 'w-40 h-36' },
+  { gridColumn: '4', gridRow: '1', size: 'w-40 h-36' },
+];
+
+/**
+ * One Reorder.Item per widget in the widgets gallery. Drag is only
+ * enabled when the user has flipped "Customize wallet" on. The × hide
+ * button mimics the AccessibilityWidget's dismiss circle — small dark
+ * navy disk with purple ring, anchored at the top-right corner.
+ *
+ * onDragStart/End fire the auto-scroll loop so the gallery can scroll
+ * sideways while a widget is being dragged past the screen edge.
+ */
+function WidgetReorderItem({
+  widgetId,
+  slotIndex,
+  editEnabled,
+  isHidden,
+  onHide,
+  onDragStart,
+  onDragEnd,
+  children,
+}: {
+  widgetId: WalletWidgetId;
+  slotIndex: number;
+  editEnabled: boolean;
+  isHidden: boolean;
+  onHide: () => void;
+  onDragStart: () => void;
+  onDragEnd: () => void;
+  children: React.ReactNode;
+}) {
+  const slot = WIDGET_SLOTS[slotIndex] ?? WIDGET_SLOTS[0];
+  return (
+    <Reorder.Item
+      value={widgetId}
+      drag={editEnabled ? true : false}
+      onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
+      whileDrag={{
+        scale: 1.04,
+        zIndex: 30,
+        boxShadow: '0 12px 28px rgba(0,0,0,0.18)',
+      }}
+      style={{ gridColumn: slot.gridColumn, gridRow: slot.gridRow }}
+      className={`relative ${slot.size} transition-opacity ${
+        editEnabled ? 'cursor-grab active:cursor-grabbing touch-none' : ''
+      } ${isHidden ? 'opacity-40' : ''}`}
+    >
+      <div className="w-full h-full">{children}</div>
+      {editEnabled && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onHide();
+          }}
+          onPointerDown={(e) => e.stopPropagation()}
+          aria-label={isHidden ? 'Show widget' : 'Hide widget'}
+          title={isHidden ? 'Show widget' : 'Hide widget'}
+          className="absolute -top-2 -right-2 w-6 h-6 rounded-full border-2 border-[#6366f1]/50 bg-[#0a2540] text-white/70 flex items-center justify-center z-30 hover:bg-red-500 hover:text-white transition-colors"
+        >
+          <X size={12} strokeWidth={2} />
+        </button>
+      )}
+    </Reorder.Item>
+  );
+}
+
+/**
+ * Renders the inner UI for a given widget. Kept outside the component
+ * so the body doesn't recompose when WalletPage's other state changes
+ * but `widgetOrder` doesn't.
+ */
+function renderWidgetBody(
+  widgetId: WalletWidgetId,
+  deps: {
+    t: ReturnType<typeof useLanguage>['t'];
+    isRTL: boolean;
+    tenantConfig: ReturnType<typeof useTenantStore.getState>['config'];
+    navigate: ReturnType<typeof useNavigate>;
+    lang: string;
+  },
+): React.ReactNode {
+  const { t, isRTL, tenantConfig, navigate, lang } = deps;
+  switch (widgetId) {
+    case 'nearby-cashback':
+      return (
+        <button
+          type="button"
+          onClick={() => navigate(`/${lang}/near-you-map`)}
+          aria-label={t.wallet.widgetNearbyCashback}
+          className="w-full h-full bg-surface border border-border rounded-2xl overflow-hidden shadow-[0_8px_30px_rgb(0,0,0,0.04)] active:scale-[0.98] transition-transform relative"
+        >
+          <img
+            src="/wallet-nearby-map.png"
+            alt=""
+            aria-hidden
+            className="absolute inset-0 w-full h-full object-cover"
+          />
+          <div
+            aria-hidden
+            className="absolute inset-0 pointer-events-none"
+            style={{
+              background:
+                'radial-gradient(ellipse at center, rgba(255,255,255,0) 45%, rgba(255,255,255,0.7) 100%)',
+            }}
+          />
+          <div className="absolute top-3 start-3 max-w-[7.5rem] text-start pointer-events-none">
+            <p className="text-sm font-bold text-text-primary leading-tight">
+              {t.wallet.widgetNearbyCashback}
+            </p>
+          </div>
+          <div className="absolute bottom-4 left-4 w-10 h-10 rounded-full bg-black shadow-md ring-2 ring-white overflow-hidden flex items-center justify-center">
+            <img
+              src="/brands/castro-home.png"
+              alt="Castro"
+              className="w-full h-full object-contain"
+              style={{ filter: 'invert(1)' }}
+            />
+          </div>
+          <div className="absolute bottom-4 left-12 w-10 h-10 rounded-full bg-white shadow-md ring-2 ring-white overflow-hidden flex items-center justify-center">
+            <img
+              src="/brands/carrefour.png"
+              alt="Carrefour"
+              className="w-full h-full object-cover"
+            />
+          </div>
+        </button>
+      );
+    case 'my-organization':
+      return (
+        <button
+          type="button"
+          onClick={() => navigate(`/${lang}/profile`)}
+          aria-label={t.wallet.widgetMyOrganization}
+          className="w-full h-full rounded-2xl overflow-hidden shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-border active:scale-[0.98] transition-transform relative text-start p-4"
+          style={{
+            backgroundColor: tenantConfig?.primaryColor ?? 'var(--color-surface)',
+          }}
+        >
+          <div
+            aria-hidden
+            className="absolute inset-0 pointer-events-none"
+            style={{
+              background:
+                'radial-gradient(ellipse at center, rgba(255,255,255,0) 60%, rgba(255,255,255,0.4) 100%)',
+            }}
+          />
+          <div className="relative flex justify-start mb-2">
+            <div className="w-9 h-9 rounded-full bg-white shadow-sm overflow-hidden flex items-center justify-center">
+              {tenantConfig?.logo ? (
+                <img
+                  src={tenantConfig.logo}
+                  alt={isRTL ? tenantConfig.nameHe : tenantConfig.name}
+                  className="w-full h-full object-contain p-1"
+                />
+              ) : (
+                <span
+                  className="material-symbols-outlined text-text-secondary"
+                  style={{ fontSize: '20px' }}
+                >
+                  domain
+                </span>
+              )}
+            </div>
+          </div>
+          <div
+            className="relative pointer-events-none"
+            style={{ textShadow: '0 1px 2px rgba(0,0,0,0.15)' }}
+          >
+            <div className="text-xs text-white/85 font-medium leading-tight mb-1">
+              {t.wallet.widgetMyOrganization}
+            </div>
+            <div className="text-base font-bold text-white leading-tight line-clamp-2">
+              {tenantConfig
+                ? isRTL
+                  ? tenantConfig.nameHe
+                  : tenantConfig.name
+                : t.wallet.widgetNoOrganization}
+            </div>
+          </div>
+        </button>
+      );
+    case 'best-offers':
+      return <BestOffersWidget className="w-full h-full" />;
+    case 'cashback-stat':
+      return (
+        <div className="w-full h-full bg-white border border-border rounded-2xl p-4 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
+          <div className="w-9 h-9 rounded-full bg-success/15 flex items-center justify-center mb-2">
+            <span className="material-symbols-outlined text-success" style={{ fontSize: '20px' }}>trending_up</span>
+          </div>
+          <div className="text-xs text-text-secondary font-medium leading-tight mb-1">
+            {t.wallet.widgetCashback}
+          </div>
+          <div className="text-xl font-bold text-text-primary" dir="ltr">
+            ₪127
+          </div>
+        </div>
+      );
+    case 'vouchers-stat':
+      return (
+        <div className="w-full h-full bg-white border border-border rounded-2xl p-4 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
+          <div className="w-9 h-9 rounded-full bg-primary/15 flex items-center justify-center mb-2">
+            <span className="material-symbols-outlined text-primary" style={{ fontSize: '20px' }}>card_giftcard</span>
+          </div>
+          <div className="text-xs text-text-secondary font-medium leading-tight mb-1">
+            {t.wallet.widgetActiveVouchers}
+          </div>
+          <div className="text-xl font-bold text-text-primary">5</div>
+        </div>
+      );
+    case 'savings-stat':
+      return (
+        <div className="w-full h-full bg-white border border-border rounded-2xl p-4 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
+          <div className="w-9 h-9 rounded-full bg-warning/15 flex items-center justify-center mb-2">
+            <span className="material-symbols-outlined text-warning" style={{ fontSize: '20px' }}>savings</span>
+          </div>
+          <div className="text-xs text-text-secondary font-medium leading-tight mb-1">
+            {t.wallet.widgetSavings}
+          </div>
+          <div className="text-xl font-bold text-text-primary" dir="ltr">
+            ₪450
+          </div>
+        </div>
+      );
+  }
 }

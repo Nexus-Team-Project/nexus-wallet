@@ -3,16 +3,18 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { mockBusinesses } from '../../mock/data/businesses.mock';
 
+// Slightly translucent backgrounds so the page wallpaper bleeds
+// through the category chips for a glassy, layered feel.
 const categoryBg: Record<string, string> = {
-  'Fast Food': 'bg-orange-50',
-  'Fashion': 'bg-pink-50',
-  'Entertainment': 'bg-purple-50',
-  'Cafe': 'bg-amber-50',
-  'Hotels': 'bg-sky-50',
-  'Health & Beauty': 'bg-emerald-50',
-  'Electronics': 'bg-blue-50',
-  'Fitness': 'bg-lime-50',
-  'Supermarket': 'bg-green-50',
+  'Fast Food': 'bg-orange-50/70',
+  'Fashion': 'bg-pink-50/70',
+  'Entertainment': 'bg-purple-50/70',
+  'Cafe': 'bg-amber-50/70',
+  'Hotels': 'bg-sky-50/70',
+  'Health & Beauty': 'bg-emerald-50/70',
+  'Electronics': 'bg-blue-50/70',
+  'Fitness': 'bg-lime-50/70',
+  'Supermarket': 'bg-green-50/70',
 };
 
 // Map business category → VoucherCategory for navigation
@@ -116,7 +118,7 @@ export default function CategoryRow({ collapsed = false, loading = false }: Cate
             className="flex flex-col items-center gap-2 shrink-0 active:scale-95 transition-transform duration-100"
           >
             <div
-              className={`w-[72px] h-[72px] rounded-2xl flex items-center justify-center shadow-sm border-2 border-transparent hover:border-primary/40 transition-colors duration-100 ${categoryBg[biz.category] || 'bg-surface'}`}
+              className={`w-[72px] h-[72px] rounded-2xl flex items-center justify-center shadow-sm border-2 border-transparent hover:border-primary/40 transition-colors duration-100 backdrop-blur-sm ${categoryBg[biz.category] || 'bg-surface/70'}`}
             >
               <span className="text-4xl drop-shadow-sm">{biz.logo}</span>
             </div>
@@ -140,7 +142,7 @@ export default function CategoryRow({ collapsed = false, loading = false }: Cate
           <button
             key={biz.category}
             onClick={() => navigate(`/${lang}/category/${bizToCategory[biz.category] || 'food'}`)}
-            className={`flex items-center gap-2 shrink-0 px-3 py-1.5 rounded-full border border-border/60 shadow-sm active:scale-95 transition-transform duration-100 ${categoryBg[biz.category] || 'bg-surface'}`}
+            className={`flex items-center gap-2 shrink-0 px-3 py-1.5 rounded-full border border-border/60 shadow-sm active:scale-95 transition-transform duration-100 backdrop-blur-sm ${categoryBg[biz.category] || 'bg-surface/70'}`}
           >
             <span className="text-base leading-none">{biz.logo}</span>
             <span className="text-[11px] font-semibold text-text-primary whitespace-nowrap">

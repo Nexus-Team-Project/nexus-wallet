@@ -44,6 +44,8 @@ const AddMoneyLoadingPage = lazy(() => import('../pages/AddMoneyLoadingPage'));
 const AddPaymentMethodPage = lazy(() => import('../pages/AddPaymentMethodPage'));
 const PaymentMethodsPage = lazy(() => import('../pages/PaymentMethodsPage'));
 const WalletHistoryPage = lazy(() => import('../pages/WalletHistoryPage'));
+const WallpaperPage = lazy(() => import('../pages/WallpaperPage'));
+const WalletCustomizePage = lazy(() => import('../pages/WalletCustomizePage'));
 const VoucherDetailPage  = lazy(() => import('../pages/VoucherDetailPage'));
 
 // Registration flow — single chunk (user goes through all slides sequentially)
@@ -133,6 +135,8 @@ export const router = createBrowserRouter([
           { path: 'wallet/add-money/loading',  element: <S><AddMoneyLoadingPage /></S> },
           { path: 'wallet/add-payment-method', element: <S><AddPaymentMethodPage /></S> },
           { path: 'wallet/payment-methods',    element: <S><PaymentMethodsPage /></S> },
+          { path: 'wallpaper',                 element: <S><WallpaperPage /></S> },
+          { path: 'wallet/customize',          element: <S><WalletCustomizePage /></S> },
           {
             path: 'wallet/history',
             element: (

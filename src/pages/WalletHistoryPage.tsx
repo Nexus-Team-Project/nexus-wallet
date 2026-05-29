@@ -261,11 +261,6 @@ function groupByDay(txs: Transaction[], t: ReturnType<typeof useLanguage>['t']):
     .map(([key, b]) => ({ key, label: b.label, total: b.total, items: b.items }));
 }
 
-/** Locale-aware merchant title (Hebrew if available, else English). */
-function txTitle(tx: Transaction, isRTL: boolean): string {
-  return isRTL ? (tx.titleHe || tx.title) : (tx.title || tx.titleHe);
-}
-
 /**
  * Donut/pie chart of the current category breakdown — slices are clickable
  * to filter the rows below. Uses straight SVG arcs, no chart library.
@@ -511,10 +506,6 @@ export default function WalletHistoryPage() {
   // Which budget-related sheet is open. Only one at a time — going from
   // settings → cycle/budget hides settings, going back shows it again.
   const [openSheet, setOpenSheet] = useState<'none' | 'settings' | 'cycle' | 'budget'>('none');
-
-  // Date "now" is recomputed each render — used by buildBuckets below as
-  // the right edge of the active range.
-  const now = new Date();
 
   // === Pie mode helper: ring is shown wrapping the headline number. ===
   const isPieMode = chartMode === 'pie';
@@ -952,7 +943,7 @@ export default function WalletHistoryPage() {
               key={range}
               viewBox={`0 0 ${W} ${H}`}
               className="w-full h-72"
-              dir="ltr"
+              style={{ direction: 'ltr' }}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: 0.25, ease: 'easeOut' }}
@@ -1036,12 +1027,12 @@ export default function WalletHistoryPage() {
               />
 
               {/* Area fills — same path, clipped into past/future halves. */}
-              {areaPath && (
+              {areaPath ? (
                 <>
                   <path d={areaPath} fill="url(#line-area-fill-muted)" clipPath="url(#line-clip-past)" />
                   <path d={areaPath} fill="url(#line-area-fill)" clipPath="url(#line-clip-future)" />
                 </>
-              )}
+              ) : null}
 
               {/* Line — thin and refined. Past half is dashed grey, future
                   half is a solid coloured line so the eye reads "this

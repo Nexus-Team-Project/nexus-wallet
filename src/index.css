@@ -38,6 +38,17 @@
   --animate-bell-shake: bell-shake 0.7s cubic-bezier(0.36, 0.07, 0.19, 0.97);
   --animate-card-shine: card-shine 1.4s ease-out;
   --animate-card-pulse: card-pulse 1.4s ease-out;
+  --animate-lava-flow: lava-flow 8s ease-in-out infinite;
+}
+
+/* Lava-like flowing background — shifts the background-position across
+   an oversized gradient so the colours appear to morph and swim. */
+@keyframes lava-flow {
+  0%   { background-position: 0% 0%; }
+  25%  { background-position: 100% 0%; }
+  50%  { background-position: 100% 100%; }
+  75%  { background-position: 0% 100%; }
+  100% { background-position: 0% 0%; }
 }
 
 @keyframes fade-in {
