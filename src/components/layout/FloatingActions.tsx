@@ -19,6 +19,9 @@ export default function FloatingActions() {
   const isWallet = location.pathname.includes('/wallet');
   const isBusiness = /\/business\/[^/]+/.test(location.pathname);
   const isVoucherPurchase = /\/business\/[^/]+\/voucher\//.test(location.pathname);
+  // The add-money flow owns its own fixed continue button at the bottom;
+  // the floating search + home pills would collide with it.
+  const isAddMoney = location.pathname.includes('/wallet/add-money');
   // On the chat / search pages, the recommendations sheet (with full-bleed
   // map) sits at the bottom — the white gradient backdrop would obscure the
   // map's bottom edge. Hide it there; the buttons still float on top.
@@ -42,7 +45,7 @@ export default function FloatingActions() {
     }
   };
 
-  if (isBusiness || isVoucherPurchase) return null;
+  if (isBusiness || isVoucherPurchase || isAddMoney) return null;
 
   const handleWallet = async () => {
     if (isAuthenticated) {
@@ -59,12 +62,12 @@ export default function FloatingActions() {
           page so the recommendations sheet's full-bleed map stays visible
           all the way down. */}
       {!isChatOrSearch && (
-        <div className="fixed bottom-0 inset-x-0 h-14 z-40 pointer-events-none flex justify-center">
+        <div className="fixed bottom-0 inset-x-0 h-8 z-40 pointer-events-none flex justify-center">
           <div
             className="w-full max-w-md h-full"
             style={{
               background:
-                'linear-gradient(to top, white 65%, rgba(255,255,255,0.75) 85%, transparent)',
+                'linear-gradient(to top, rgba(255,255,255,0.8) 20%, rgba(255,255,255,0.4) 60%, transparent)',
             }}
           />
         </div>

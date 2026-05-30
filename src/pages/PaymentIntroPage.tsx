@@ -1,6 +1,6 @@
 import { useNavigate, useParams } from 'react-router-dom';
-import { X } from 'lucide-react';
 import { useLanguage } from '../i18n/LanguageContext';
+import TopBar from '../components/layout/TopBar';
 
 /** Navy brand tone used for the headline + primary CTA. */
 const NAVY = '#0a153f';
@@ -27,14 +27,14 @@ export default function PaymentIntroPage() {
       className="relative flex min-h-dvh flex-col bg-white"
       dir={isRTL ? 'rtl' : 'ltr'}
     >
-      {/* Close button */}
-      <button
-        aria-label="Close"
-        onClick={() => navigate(`/${lang}/wallet`)}
-        className="absolute top-4 end-4 z-20 p-2 active:scale-90 transition-transform"
-      >
-        <X className="h-6 w-6 text-text-primary" />
-      </button>
+      {/* Brand strip — logo / avatar, chat, bell + back button. Rendered
+          inline because AppLayout suppresses the global chrome for this
+          full-screen route. Floated as a zero-height overlay so the hero
+          hand image still reaches all the way up from the top of the
+          screen instead of being pushed down. */}
+      <div className="relative z-20 h-0 overflow-visible">
+        <TopBar collapsed={false} showBack hideGreeting />
+      </div>
 
       {/* Scrollable content */}
       <main className="flex-grow overflow-y-auto px-6">

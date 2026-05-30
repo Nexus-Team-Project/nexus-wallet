@@ -20,9 +20,11 @@ function getGreeting(t: { home: { goodMorning: string; goodAfternoon: string; go
 interface TopBarProps {
   collapsed?: boolean;
   showBack?: boolean;
+  /** Hide the "good morning / name" greeting (e.g. full-screen flows). */
+  hideGreeting?: boolean;
 }
 
-export default function TopBar({ collapsed = false, showBack = false }: TopBarProps) {
+export default function TopBar({ collapsed = false, showBack = false, hideGreeting = false }: TopBarProps) {
   const internalRef = useRef<HTMLElement>(null);
 
   const { lang = 'he' } = useParams();
@@ -41,7 +43,7 @@ export default function TopBar({ collapsed = false, showBack = false }: TopBarPr
   const logoAlt = hasTenant ? (organizationName ?? tenantConfig?.name ?? 'Nexus') : 'Nexus';
 
   const displayFirstName = authFirstName ?? user?.firstName;
-  const showGreeting = isAuthenticated && !!displayFirstName;
+  const showGreeting = isAuthenticated && !!displayFirstName && !hideGreeting;
   const greetingText = getGreeting(t);
 
   const { data: notificationCount = 0 } = useUnreadNotificationCount();

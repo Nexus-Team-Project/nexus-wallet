@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion, useMotionValue, useTransform, animate, type PanInfo } from 'framer-motion';
 import { useLanguage } from '../../i18n/LanguageContext';
 import type { Business, Product, Service } from '../../types/search.types';
@@ -655,36 +656,56 @@ export function SimilarBusinesses({ business, allBusinesses, onSelect }: Similar
 
 /* ─── Sticky CTA Button ──────────────────────────────────────────── */
 
-// Horizontal drag distance (px) past which a pay-button swipe is treated
-// as "open the custom-deal builder" rather than a tap-to-pay.
-const SWIPE_THRESHOLD = 90;
+// Fraction of the button's width the finger must travel for the swipe to
+// commit (navigate). Below this the fill recedes back to the pay state.
+const COMMIT_FRACTION = 0.7;
 
 interface StickyCTAProps {
   business: Business;
-  onBuildDeal?: () => void;
+  /** First/featured voucher of this business — swipe target. */
+  firstVoucherId?: string;
 }
 
-export function StickyCTA({ business, onBuildDeal }: StickyCTAProps) {
+export function StickyCTA({ business, firstVoucherId }: StickyCTAProps) {
   const { language } = useLanguage();
+  const navigate = useNavigate();
   const isHe = language === 'he';
-  // The pay button doubles as a slider: a tap pays fast, a horizontal drag
-  // past the threshold opens the custom-deal builder. We track whether the
-  // press turned into a drag so the click handler can ignore drag releases.
-  // The button never physically moves — a horizontal pan only drives the
-  // progress 0→1, which fills it sky-blue and crossfades the label.
+  // The pay button doubles as a slide-to-confirm control: a tap jumps to
+  // the wallet, a horizontal drag opens the business's first voucher. The
+  // sky-blue fill tracks the finger along the FULL width of the button —
+  // the drag distance is measured against the live button width so the
+  // fill literally follows the finger across the track and commits once it
+  // passes COMMIT_FRACTION of the way.
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const [trackW, setTrackW] = useState(280);
+  useEffect(() => {
+    const el = btnRef.current;
+    if (!el) return;
+    const update = () => setTrackW(el.offsetWidth || 280);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
   const offsetX = useMotionValue(0);
   const draggedRef = useRef(false);
+  // Map the pan distance (over the full button width) → 0…1 fill progress.
+  // In RTL the gesture goes leftwards (negative offset), so the input
+  // range is flipped.
   const progress = useTransform(
     offsetX,
-    isHe ? [-SWIPE_THRESHOLD, 0] : [0, SWIPE_THRESHOLD],
+    isHe ? [-trackW, 0] : [0, trackW],
     isHe ? [1, 0] : [0, 1],
     { clamp: true },
   );
-  const payOpacity = useTransform(progress, [0, 1], [1, 0]);
+  const payOpacity = useTransform(progress, [0, 0.9], [1, 0]);
 
   const handlePanEnd = (_: unknown, info: PanInfo) => {
     const dist = isHe ? -info.offset.x : info.offset.x;
-    if (dist > SWIPE_THRESHOLD) onBuildDeal?.();
+    if (dist > trackW * COMMIT_FRACTION && firstVoucherId) {
+      navigate(`/${language}/business/${business.id}/voucher/${firstVoucherId}`);
+    }
     // Recede the fill back to the dark pay state.
     animate(offsetX, 0, { type: 'spring', stiffness: 500, damping: 40 });
     // Keep the flag up one tick so the synthetic click after a touch-pan
@@ -696,20 +717,23 @@ export function StickyCTA({ business, onBuildDeal }: StickyCTAProps) {
     <div className="fixed bottom-0 left-0 right-0 z-[999]" style={{ pointerEvents: 'none' }}>
       <div className="max-w-md mx-auto px-5 pb-5 pt-3 flex flex-col items-center gap-2" style={{ pointerEvents: 'auto', background: 'linear-gradient(to top, white 60%, transparent)' }}>
         <motion.button
+          ref={btnRef}
           onPanStart={() => { draggedRef.current = true; }}
           onPan={(_, info) => { offsetX.set(info.offset.x); }}
           onPanEnd={handlePanEnd}
           onClick={() => {
             if (draggedRef.current) return;
-            window.open(business.website, '_blank');
+            navigate(`/${language}/wallet`);
           }}
           className="relative w-full overflow-hidden bg-bg-dark text-white py-3.5 rounded-full font-bold text-base shadow-lg shadow-bg-dark/30 flex items-center justify-center gap-0 touch-pan-y"
         >
-          {/* Sky-blue fill — opacity grows with the drag. */}
+          {/* Sky-blue fill — grows horizontally, tracking the finger along
+              the button. Anchored to the swipe-start edge (right in RTL,
+              left in LTR) so it sweeps across the full track. */}
           <motion.span
             aria-hidden="true"
             className="absolute inset-0 bg-sky-300 pointer-events-none"
-            style={{ opacity: progress }}
+            style={{ scaleX: progress, transformOrigin: isHe ? 'right' : 'left' }}
           />
 
           {/* Pay label — fades out as the button is slid. */}

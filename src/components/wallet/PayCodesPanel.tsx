@@ -14,9 +14,9 @@ export default function PayCodesPanel() {
   const { t } = useLanguage();
   const { lang = 'he' } = useParams();
   const [copied, setCopied] = useState(false);
-  // Which code the user is currently viewing — QR (default) or the 1-D
-  // barcode. Toggled via the segmented switcher below the title.
-  const [codeView, setCodeView] = useState<'qr' | 'barcode'>('qr');
+  // Which code the user is currently viewing — barcode (default) or the
+  // QR. Toggled via the segmented switcher below the title.
+  const [codeView, setCodeView] = useState<'qr' | 'barcode'>('barcode');
   // Help tooltip — explains how to use the code at the till.
   const [showHelp, setShowHelp] = useState(false);
 

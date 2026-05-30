@@ -110,7 +110,7 @@ export default function BusinessPage() {
         </div>
 
         {/* Sticky CTA */}
-        <StickyCTA business={business} />
+        <StickyCTA business={business} firstVoucherId={vouchers[0]?.id} />
       </div>
   );
 }

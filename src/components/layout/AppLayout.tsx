@@ -3,7 +3,6 @@ import { Outlet, useLocation } from 'react-router-dom';
 import TopBar from './TopBar';
 import FloatingActions from './FloatingActions';
 import CategoryRow from '../home/CategoryRow';
-import ProfileNudgeBanner from '../profile/ProfileNudgeBanner';
 import NotificationToastHost from '../notifications/NotificationToastHost';
 import SupportChatButton from '../SupportChatButton';
 import { useChatStore } from '../../stores/chatStore';
@@ -143,7 +142,6 @@ export default function AppLayout() {
         <main className="relative z-10">
           <Outlet />
         </main>
-        {!isFullScreenForm && <ProfileNudgeBanner />}
         {/* Bottom search/home/wallet strip — hidden on the wallpaper
             picker so the picker grid + CTA own the screen. */}
         {!isFullScreenForm && !isWallpaper && <FloatingActions />}

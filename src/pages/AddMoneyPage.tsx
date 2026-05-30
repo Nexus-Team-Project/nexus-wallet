@@ -51,19 +51,18 @@ export default function AddMoneyPage() {
 
       {/* Content */}
       <main className="flex-grow p-4 overflow-y-auto pb-28">
-        {/* Amount Card */}
+        {/* Amount Card — white panel matching the Nexus balance card. */}
         <section
-          className="rounded-3xl p-6 mb-6 cursor-text"
-          style={{ background: 'linear-gradient(135deg, #635bff 0%, #7c6cff 50%, #5649d8 100%)' }}
+          className="rounded-3xl p-6 mb-6 cursor-text bg-white border border-border shadow-[0_8px_30px_rgb(0,0,0,0.06)]"
           onClick={() => inputRef.current?.focus()}
         >
-          <div className="flex justify-end">
-            <span className="text-3xl font-bold text-white">{t.wallet.howMuch}</span>
+          <div className="flex justify-start">
+            <span className="text-3xl font-bold text-text-primary">{t.wallet.howMuch}</span>
           </div>
-          <div className="mt-8 flex items-baseline justify-end border-b-2 border-white/40 pb-2 relative">
-            <div className="text-7xl font-medium text-white" dir="ltr">{displayAmount}</div>
-            <div className="text-2xl font-bold text-white/80 mr-2">₪</div>
-            <div className="absolute right-0 bottom-3 w-0.5 h-16 bg-white animate-pulse" />
+          <div className="mt-8 flex items-baseline justify-end border-b-2 border-border pb-2 relative" dir="ltr">
+            <div className="text-2xl font-bold text-text-muted mr-2">₪</div>
+            <div className="text-7xl font-medium text-text-primary">{displayAmount}</div>
+            <div className="w-0.5 h-16 bg-text-primary animate-pulse ml-1 self-center" />
           </div>
           {/* Hidden native input for device keyboard */}
           <input
