@@ -30,6 +30,11 @@ export default function AppLayout() {
   // bottom-nav padding, and chat FABs are all suppressed so the page can
   // own its own header / fixed CTA / chrome.
   const isFullScreenForm = /^\/[a-z]{2}\/wallet\/(add-payment-method|pay-intro)\/?$/.test(pathname);
+  // Business store page owns its own collapsing header (big hero → compact
+  // sticky bar) with its own back button, so the global overlay TopBar is
+  // suppressed here. The bottom nav + chat FABs stay so it still reads as a
+  // core in-app surface.
+  const isBusinessStore = /^\/[a-z]{2}\/business\/[^/]+\/store\/?$/.test(pathname);
   const [collapsed, setCollapsed] = useState(false);
 
   // Live-chat state. The AI FAB is always-on; the human FAB mounts
@@ -129,8 +134,9 @@ export default function AppLayout() {
               <CategoryRow collapsed={collapsed} loading={vouchersLoading} />
             </div>
           </div>
-        ) : isWallet || isFullScreenForm ? (
-          /* Wallet + full-screen forms: page renders its own header inline. */
+        ) : isWallet || isFullScreenForm || isBusinessStore ? (
+          /* Wallet + full-screen forms + business store: page renders its
+             own header inline. */
           null
         ) : (
           /* Other pages: transparent overlay, does not scroll */

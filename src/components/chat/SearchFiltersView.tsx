@@ -67,7 +67,16 @@ export default function SearchFiltersView({
   });
 
   return (
-    <div dir={isHe ? 'rtl' : 'ltr'} className="flex flex-col flex-1 px-4 pt-2 pb-4 space-y-4">
+    <div
+      dir={isHe ? 'rtl' : 'ltr'}
+      className="flex flex-col flex-1 px-4 pt-2 pb-4 space-y-4"
+      style={{
+        // Drop the whole filter & sort panel down from the top of the
+        // screen on entry, instead of rising with the sheet from below.
+        animation: 'filters-drop-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both',
+        willChange: 'transform',
+      }}
+    >
       {/* ── Header sentence ── */}
       <section className="px-2 flex items-start gap-3" style={popStyle(0)}>
         <h1

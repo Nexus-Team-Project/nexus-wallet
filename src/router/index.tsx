@@ -34,6 +34,7 @@ const ReferralStoriesPage = lazy(() => import('../pages/ReferralStoriesPage'));
 const PremiumRevealPage  = lazy(() => import('../pages/PremiumRevealPage'));
 const CategoryPage       = lazy(() => import('../pages/CategoryPage'));
 const BusinessPage       = lazy(() => import('../pages/BusinessPage'));
+const BusinessStorePage  = lazy(() => import('../pages/BusinessStorePage'));
 const VoucherPurchasePage = lazy(() => import('../pages/VoucherPurchasePage'));
 const NotificationsPage  = lazy(() => import('../pages/NotificationsPage'));
 
@@ -80,8 +81,11 @@ const OrgUserFlow = lazy(() =>
 );
 
 // ── Minimal fallback (no spinner — just blank, transitions feel instant) ─────
+// Fixed + above the overlay TopBar (z-50) so the persistent tenant logo in the
+// TopBar doesn't float over the white flash during a lazy-route transition.
+// Constrained to the app frame (max-w-md) to match the centred layout.
 function PageFallback() {
-  return <div className="min-h-dvh bg-white" />;
+  return <div className="fixed inset-y-0 left-0 right-0 mx-auto max-w-md bg-white z-[55]" />;
 }
 
 function S({ children }: { children: React.ReactNode }) {
@@ -122,6 +126,7 @@ export const router = createBrowserRouter([
           { path: 'card-issuance',    element: <S><CardIssuanceStoriesPage /></S> },
           { path: 'category/:categoryId', element: <S><CategoryPage /></S> },
           { path: 'business/:businessId', element: <S><BusinessPage /></S> },
+          { path: 'business/:businessId/store', element: <S><BusinessStorePage /></S> },
           { path: 'business/:businessId/voucher/:voucherId', element: <S><VoucherPurchasePage /></S> },
           { path: 'wallet/add-money',          element: <S><AddMoneyPage /></S> },
           { path: 'wallet/add-money/source',   element: <S><AddMoneySourcePage /></S> },

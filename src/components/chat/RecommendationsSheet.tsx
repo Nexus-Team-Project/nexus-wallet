@@ -41,6 +41,10 @@ interface RecommendationsContentProps {
    *  The parent uses it to route an over-drag past the sheet's ceiling
    *  to the full map page when the sheet is showing the map. */
   onViewModeChange?: (mode: 'list' | 'map') => void;
+  /** Suppresses the list/map toggle (and the map view entirely). Used for
+   *  store-scoped search — an online store has no spatial dimension, so the
+   *  location switcher is meaningless there. */
+  hideMap?: boolean;
 }
 
 // Category style matches the collapsed pill row on the home page (CategoryRow):
@@ -177,6 +181,7 @@ export default function RecommendationsContent({
   loading,
   onSelect,
   onViewModeChange,
+  hideMap = false,
 }: RecommendationsContentProps) {
   const { language, t } = useLanguage();
   const isHe = language === 'he';
@@ -373,7 +378,7 @@ export default function RecommendationsContent({
   // while loading, so the chip row visually matches what's coming.
   const showRealCategorySlider = !loading && availableCategories.length > 1;
   const showSkeletonCategorySlider = !!loading;
-  const canShowMap = !loading && filteredVouchers.length > 0;
+  const canShowMap = !hideMap && !loading && filteredVouchers.length > 0;
 
   // Shared two-segment toggle — single white pill housing both icons.
   // Map (location pin) on one side, List (menu lines) on the other; the

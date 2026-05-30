@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ArrowRight, ArrowLeft, X, ChevronRight, ChevronLeft, BarChart3, Calendar } from 'lucide-react';
@@ -44,9 +44,9 @@ function BottomSheet({
           />
           <motion.div
             key="sheet"
-            initial={{ y: '100%' }}
+            initial={{ y: '120%' }}
             animate={{ y: 0 }}
-            exit={{ y: '100%' }}
+            exit={{ y: '120%' }}
             transition={{ type: 'spring', stiffness: 500, damping: 42 }}
             drag="y"
             dragConstraints={{ top: 0, bottom: 0 }}
@@ -54,7 +54,7 @@ function BottomSheet({
             onDragEnd={(_, info) => {
               if (info.offset.y > 100 || info.velocity.y > 500) onClose();
             }}
-            className="fixed bottom-0 left-0 right-0 max-w-md mx-auto z-[100] bg-white rounded-t-[32px] pb-8 shadow-[0_-10px_30px_rgba(0,0,0,0.12)]"
+            className="fixed bottom-6 inset-x-0 mx-auto z-[100] w-[calc(100%-2rem)] max-w-[calc(28rem-2rem)] bg-white rounded-[28px] pb-8 shadow-2xl overflow-hidden"
           >
             <div className="flex justify-center pt-3">
               <div className="w-10 h-1.5 bg-border rounded-full" />
@@ -398,9 +398,20 @@ interface BudgetAmountSheetProps {
 export function MonthlyBudgetSheet({ open, onClose, onBack, initial, onSave }: BudgetAmountSheetProps) {
   const { t, isRTL } = useLanguage();
   const [amount, setAmount] = useState<string>(initial?.toString() ?? '');
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (open) setAmount(initial?.toString() ?? '');
+    if (!open) return;
+    setAmount(initial?.toString() ?? '');
+    // Focus the field once the sheet has settled. `preventScroll` is
+    // essential: the sheet is a `position: fixed`, `overflow-hidden`
+    // floating card — a normal focus() (or the `autoFocus` attribute)
+    // makes the browser "scroll the input into view", which shifts and
+    // clips the card's own content. preventScroll keeps it put.
+    const id = window.setTimeout(() => {
+      inputRef.current?.focus({ preventScroll: true });
+    }, 350);
+    return () => window.clearTimeout(id);
   }, [open, initial]);
 
   const handleSave = () => {
@@ -431,9 +442,9 @@ export function MonthlyBudgetSheet({ open, onClose, onBack, initial, onSave }: B
               ₪
             </span>
             <input
+              ref={inputRef}
               type="text"
               inputMode="numeric"
-              autoFocus
               value={amount}
               onChange={(e) => setAmount(e.target.value.replace(/\D/g, '').slice(0, 7))}
               placeholder={t.wallet.budgetAmountPlaceholder}

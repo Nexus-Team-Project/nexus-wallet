@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useLanguage } from '../../i18n/LanguageContext';
 import type { Business } from '../../types/search.types';
+import BusinessMenuSheet from './BusinessMenuSheet';
+import BusinessContactSheet from './BusinessContactSheet';
 
 interface BusinessHeroProps {
   business: Business;
@@ -19,8 +21,11 @@ const categoryGradients: Record<string, string> = {
 };
 
 export default function BusinessHero({ business }: BusinessHeroProps) {
-  const { t, language } = useLanguage();
+  const { language } = useLanguage();
   const isHe = language === 'he';
+  const [following, setFollowing] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [contactOpen, setContactOpen] = useState(false);
   const gradient = categoryGradients[business.category] || 'from-gray-700 via-gray-600 to-gray-800';
   const description = (isHe ? business.descriptionHe : business.description) || '';
 
@@ -69,65 +74,69 @@ export default function BusinessHero({ business }: BusinessHeroProps) {
         }}
       />
 
-      {/* Top spacer — back/share handled by TopBar + ActionBar */}
-      <div className="h-16" />
+      {/* Action buttons overlaid on the LOWER part of the hero image —
+          Rhode/Pura style. The global top strip (TopBar) is kept; these
+          sit on the bottom of the image. */}
+      <header className="absolute bottom-10 inset-x-0 z-30 flex items-center justify-start px-4">
+        {/* End-side actions */}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setFollowing((f) => !f)}
+            className={`h-10 px-5 inline-flex items-center rounded-lg text-sm font-semibold active:scale-95 transition-all ${
+              following ? 'bg-white text-black' : 'bg-white/20 backdrop-blur-md text-white'
+            }`}
+          >
+            {following ? (isHe ? 'עוקב' : 'Following') : (isHe ? 'עקוב' : 'Follow')}
+          </button>
+          <button
+            className="h-10 w-10 inline-flex items-center justify-center bg-white/20 backdrop-blur-md rounded-lg active:scale-95 transition-transform"
+            aria-label="Search"
+          >
+            <span className="material-symbols-outlined text-white leading-none" style={{ fontSize: 22 }}>search</span>
+          </button>
+          <button
+            onClick={() => setMenuOpen(true)}
+            className="h-10 w-10 inline-flex items-center justify-center bg-white/20 backdrop-blur-md rounded-lg active:scale-95 transition-transform"
+            aria-label="Menu"
+          >
+            <span className="material-symbols-outlined text-white leading-none" style={{ fontSize: 22 }}>more_vert</span>
+          </button>
+        </div>
+      </header>
 
       {/* Brand info */}
-      <div className="absolute bottom-16 left-0 right-0 z-10 px-6 text-center text-white">
-        {/* Logo */}
+      <div className="absolute bottom-28 left-0 right-0 z-10 px-6 text-center text-white">
+        {/* Logo — full-width brand mark (includes the brand name), no
+            background plate. The name is intentionally NOT re-printed
+            below since the logo already carries it. */}
         <div className="flex justify-center mb-4">
-          <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center shadow-lg border-2 border-white/80 overflow-hidden">
-            {business.logoUrl ? (
-              <img
-                src={business.logoUrl}
-                alt={business.name}
-                className={business.id === 'biz_007' ? 'w-full h-full object-cover' : 'w-14 h-14 object-contain'}
-              />
-            ) : (
-              <span className="text-4xl">{business.logo}</span>
-            )}
-          </div>
+          {business.logoUrl ? (
+            <img
+              src={business.logoUrl}
+              alt={business.name}
+              className="h-24 w-auto max-w-[70%] object-contain"
+            />
+          ) : (
+            <h1 className="text-4xl font-bold text-white">
+              {isHe ? business.nameHe : business.name}
+            </h1>
+          )}
         </div>
 
-        {/* Name */}
-        <h1 className="text-4xl font-bold mb-0.5">
-          {isHe ? business.nameHe : business.name}
-        </h1>
-
-        {/* Category */}
-        <p className="text-sm font-medium opacity-90 mb-1.5">
-          {isHe ? business.categoryHe : business.category}
-        </p>
-
-        {/* Description — below name+category, 2 lines max */}
+        {/* Description — below name, 2 lines max */}
         {description && (
           <p className="text-[13px] leading-relaxed opacity-75 max-w-[280px] mx-auto mb-4 line-clamp-2">
             {description}
           </p>
         )}
 
-        {/* Badges — uniform height with min-height and consistent padding */}
-        <div className="flex items-center justify-center gap-2.5">
-          {/* Store type */}
-          <div className="inline-flex items-center justify-center bg-white/20 backdrop-blur-md px-3 rounded-full" style={{ height: 32, minHeight: 32 }}>
-            <span className="material-symbols-outlined text-green-300 me-1.5" style={{ fontSize: 14 }}>
-              storefront
-            </span>
-            <span className="text-[11px] font-semibold whitespace-nowrap">{t.business.onlineAndInStore}</span>
-          </div>
-
-          {/* Rating */}
-          <div className="inline-flex items-center justify-center bg-white/20 backdrop-blur-md px-3 rounded-full" style={{ height: 32, minHeight: 32 }}>
-            <span className="text-amber-300 me-1" style={{ fontSize: 14 }}>★</span>
-            <span className="text-[11px] font-semibold whitespace-nowrap">
-              {business.rating}
-              <span className="opacity-60 font-normal ms-1">
-                ({business.reviewCount >= 1000
-                  ? `${(business.reviewCount / 1000).toFixed(1)}k`
-                  : business.reviewCount})
-              </span>
-            </span>
-          </div>
+        {/* Rating — plain inline text, no badge plate */}
+        <div className="flex items-center justify-center gap-1.5 text-white">
+          <span className="text-white text-[15px]">★</span>
+          <span className="text-[15px] font-bold">{business.rating}</span>
+          <span className="text-[15px] font-medium opacity-90">
+            ({business.reviewCount.toLocaleString()})
+          </span>
         </div>
 
         {/* Carousel dots */}
@@ -147,6 +156,21 @@ export default function BusinessHero({ business }: BusinessHeroProps) {
           </div>
         )}
       </div>
+
+      {/* Three-dots action menu — slides up from the bottom */}
+      <BusinessMenuSheet
+        business={business}
+        isOpen={menuOpen}
+        onClose={() => setMenuOpen(false)}
+        onContact={() => setContactOpen(true)}
+      />
+
+      {/* Contact-options sheet — raised after "Contact" is tapped */}
+      <BusinessContactSheet
+        business={business}
+        isOpen={contactOpen}
+        onClose={() => setContactOpen(false)}
+      />
     </section>
   );
 }

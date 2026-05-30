@@ -1,8 +1,9 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useLanguage } from '../i18n/LanguageContext';
 import type { ChatMessage as ChatMessageType } from '../types/chat.types';
 import type { Voucher, VoucherCategory } from '../types/voucher.types';
+import type { Business } from '../types/search.types';
 import { getWelcomeMessage, mockAiResponse } from '../mock/handlers/chat.handler';
 import ChatMessage from '../components/chat/ChatMessage';
 import ChatIntroCard from '../components/chat/ChatIntroCard';
@@ -10,11 +11,13 @@ import TypingIndicator from '../components/chat/TypingIndicator';
 import RecommendationsContent from '../components/chat/RecommendationsSheet';
 import DiscountFinderCard from '../components/chat/DiscountFinderCard';
 import SearchFiltersView from '../components/chat/SearchFiltersView';
+import StoreSearchResults from '../components/chat/StoreSearchResults';
 import type { DiscountFinderResult } from '../components/chat/DiscountFinderCard';
 import VoucherDetail from '../components/store/VoucherDetail';
 import { useRecommendationsStore } from '../stores/recommendationsStore';
 import { useChatStore } from '../stores/chatStore';
 import { mockVouchers } from '../mock/data/vouchers.mock';
+import { mockBusinesses } from '../mock/data/businesses.mock';
 
 // icon: 'nexus-badge' → render the sky-blue rectangular Nexus badge
 // (same one used on the Wallet "balance" label). Otherwise it's a
@@ -120,7 +123,22 @@ export default function AiChatPage() {
   const markActivity = useCallback(() => setWelcomeCollapsed(true), []);
   const [recommendations, setRecommendations] = useState<{ products: Voucher[]; intro: string } | null>(null);
   const [loadingRecs, setLoadingRecs] = useState(false);
-  const [sheetState, setSheetState] = useState<SheetState>('normal');
+  // Store scope is derived STRAIGHT from the URL (?store=<id>), never from
+  // effect-set state — so it can't fall out of sync with navigation or HMR.
+  // When present, the sheet renders the store's own grid (StoreSearchResults)
+  // and the top filter panel is scoped to that store, instead of the generic
+  // "ההמלצות של Nexus" recommendations list.
+  const storeParam = searchParams.get('store');
+  const scopedStore = useMemo<Business | null>(
+    () => (storeParam ? mockBusinesses.find((b) => b.id === storeParam) ?? null : null),
+    [storeParam],
+  );
+  const storeScoped = !!scopedStore;
+  // Store-scoped search starts already expanded so the sheet is full-height on
+  // the very first frame — the entrance is then a single smooth slide-down
+  // (chat-card-drop) with no competing height transition that would cause a
+  // mid-animation jump.
+  const [sheetState, setSheetState] = useState<SheetState>(scopedStore ? 'expanded' : 'normal');
   // Seeds the DiscountFinderCard's category chip when the finder is opened
   // from a category page (via ?finder=<categoryId>).
   const [finderInitialCategory, setFinderInitialCategory] = useState<VoucherCategory | undefined>(undefined);
@@ -156,6 +174,18 @@ export default function AiChatPage() {
 
     const welcome = getWelcomeMessage(isHe);
     setMessages([welcome]);
+
+    // ?store=<businessId> — launched from a business store page's search icon.
+    // Store scope is derived from the URL above. The top shows the same compact
+    // finder bar ("מצא לי [חיפוש] בקטגוריות [הכל]") the regular search uses, and
+    // the sheet opens straight onto the store's own grid (StoreSearchResults).
+    if (scopedStore) {
+      markActivity();
+      // Sheet is already 'expanded' from the initial state above (no height
+      // transition to fight the slide-down). Just drop in the finder bar.
+      setTimeout(() => openDiscountFinder('', { alignTop: true }), 200);
+      return;
+    }
 
     const prompt = searchParams.get('q');
     if (prompt) {
@@ -231,7 +261,7 @@ export default function AiChatPage() {
   // content (recommendations OR a loading skeleton). Drag up always rises
   // (clamped to expanded height); drag down shrinks and collapses past
   // threshold, else snaps back. A tap toggles open/closed.
-  const hasSheetContent = !!recommendations || loadingRecs;
+  const hasSheetContent = !!recommendations || loadingRecs || storeScoped;
   useEffect(() => {
     if (!hasSheetContent) return; // nothing to peek at — drag is inert
     const handle = dragHandleRef.current;
@@ -292,9 +322,14 @@ export default function AiChatPage() {
         wrapper.style.height = '0px';
         if (sheetExpanded) collapseSheet();
         const tenantParam = searchParams.get('tenant');
-        const target = sheetViewModeRef.current === 'map'
-          ? `/${lang}/near-you-map`
-          : `/${lang}`;
+        // Store-scoped search came from a specific store's page — over-dragging
+        // up should return there (back to that store's grid), not to home.
+        const storeId = searchParams.get('store');
+        const target = storeId
+          ? `/${lang}/business/${storeId}/store`
+          : sheetViewModeRef.current === 'map'
+            ? `/${lang}/near-you-map`
+            : `/${lang}`;
         navigate(`${target}${tenantParam ? `?tenant=${tenantParam}` : ''}`);
         delta = 0;
         return;
@@ -512,9 +547,12 @@ export default function AiChatPage() {
   const hasConversation = messages.length > 1;
   const quickActions = isHe ? quickActionsHe : quickActionsEn;
   const popularSearches = isHe ? popularSearchesHe : popularSearchesEn;
-  // Filter summary view is visible whenever there are search results and the
-  // recommendations sheet isn't expanded over them.
-  const showSearchFilters = !!recommendations && sheetState !== 'expanded';
+  // Filter summary view — generic deals search only. A store-scoped search
+  // shows NOTHING at the top (no filter panel); it's purely the store's own
+  // grid in the sheet. The panel appears only once the generic search has
+  // results and the sheet is pulled back down.
+  const showSearchFilters =
+    !storeScoped && !!recommendations && sheetState !== 'expanded';
   const lastAiIndex = (() => {
     for (let i = messages.length - 1; i >= 0; i--) {
       if (messages[i].role !== 'user') return i;
@@ -591,14 +629,19 @@ export default function AiChatPage() {
             Once we have search results AND the sheet has been pulled back
             down (sheetState === 'normal'), swap the thread for the filter
             summary view so the user can adjust their filters. */}
-        <div ref={threadScrollRef} className="flex-1 overflow-y-auto">
-          {showSearchFilters && recommendations ? (
+        <div
+          ref={threadScrollRef}
+          className="flex-1 overflow-y-auto overscroll-contain"
+          style={{ overscrollBehavior: 'contain' }}
+        >
+          {showSearchFilters ? (
             // Filter-summary mode: SearchFiltersView at the top, new chat
             // messages render below it, then the active input pinned to the
             // bottom. Each new send appends to the thread between filters
-            // and input so messages stack downward.
+            // and input so messages stack downward. In store-scoped search the
+            // panel is fed by the scoped store's products directly.
             <div className="pt-20 pb-4">
-              <SearchFiltersView vouchers={recommendations.products} />
+              <SearchFiltersView vouchers={recommendations?.products ?? []} />
 
               {messages.map((msg, i) => {
                 if (msg.id === 'welcome') return null;
@@ -643,6 +686,10 @@ export default function AiChatPage() {
               {inputActive && activeInputNode}
               <div ref={messagesEndRef} />
             </div>
+          ) : storeScoped ? (
+            // Store-scoped search shows nothing in the thread — the store's own
+            // grid in the expanded sheet is the whole experience.
+            null
           ) : (
             <div className="pt-20 pb-4">
               <ChatIntroCard />
@@ -705,10 +752,12 @@ export default function AiChatPage() {
           className="bg-white rounded-t-[28px] shadow-[0_-2px_24px_rgba(0,0,0,0.06)] relative flex flex-col"
           style={{
             maxHeight: SHEET_EXPANDED_HEIGHT,
-            // Rises from below on mount, in sync with the gradient curtain
-            // above — together they "close in" on the card as the focal
-            // landing point.
-            animation: 'chat-sheet-rise 700ms cubic-bezier(0.22, 1, 0.36, 1) both',
+            // Search flow: the card slides DOWN from the top and settles into
+            // its docked spot. Elsewhere (chat) it rises from below, meeting
+            // the gradient curtain above as the focal landing point.
+            animation: `${
+              isSearchPath ? 'chat-card-drop' : 'chat-sheet-rise'
+            } 700ms cubic-bezier(0.22, 1, 0.36, 1) both`,
             willChange: 'transform',
           }}
         >
@@ -746,16 +795,28 @@ export default function AiChatPage() {
             }}
           >
             {hasSheetContent && (
-              <RecommendationsContent
-                vouchers={recommendations?.products}
-                intro={recommendations?.intro}
-                loading={loadingRecs}
-                onSelect={(v) => {
-                  setSelectedVoucher(v);
-                  collapseSheet();
-                }}
-                onViewModeChange={(mode) => { sheetViewModeRef.current = mode; }}
-              />
+              storeScoped && scopedStore ? (
+                // Store-scoped search keeps the store's own structure — the
+                // centred logo + two-per-row product grid — so it reads as
+                // staying inside that store rather than the generic list.
+                <StoreSearchResults
+                  business={scopedStore}
+                  isHe={isHe}
+                  loading={loadingRecs}
+                />
+              ) : (
+                <RecommendationsContent
+                  vouchers={recommendations?.products}
+                  intro={recommendations?.intro}
+                  loading={loadingRecs}
+                  onSelect={(v) => {
+                    setSelectedVoucher(v);
+                    collapseSheet();
+                  }}
+                  onViewModeChange={(mode) => { sheetViewModeRef.current = mode; }}
+                  hideMap={storeScoped}
+                />
+              )
             )}
           </div>
 

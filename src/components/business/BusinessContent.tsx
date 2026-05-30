@@ -195,14 +195,66 @@ export function OffersSlider({ vouchers, business, onSelect }: OffersSectionProp
 
 /* ─── Products Section ───────────────────────────────────────────── */
 
+/**
+ * Product thumbnail that adapts to the image content:
+ *  - Transparent product cut-out (PNG/SVG with alpha) → sits centred on the
+ *    grey plate (object-contain), light backgrounds multiplied away.
+ *  - Full photo (e.g. a model / dish, no transparency) → fills the whole
+ *    square (object-cover), no grey showing.
+ * Detection samples the image's corner pixels on a tiny canvas; if any corner
+ * is (semi-)transparent it's treated as a cut-out. Cross-origin-tainted or
+ * failed loads fall back to "cover".
+ */
+export function ProductImage({ src }: { src: string }) {
+  const [fit, setFit] = useState<'cover' | 'contain'>('contain');
+
+  useEffect(() => {
+    let cancelled = false;
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      if (cancelled) return;
+      try {
+        const size = 24;
+        const canvas = document.createElement('canvas');
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        if (!ctx) { setFit('cover'); return; }
+        ctx.drawImage(img, 0, 0, size, size);
+        const pts: Array<[number, number]> = [
+          [0, 0], [size - 1, 0], [0, size - 1], [size - 1, size - 1],
+          [size >> 1, 0], [0, size >> 1], [size - 1, size >> 1], [size >> 1, size - 1],
+        ];
+        const transparent = pts.some(([x, y]) => ctx.getImageData(x, y, 1, 1).data[3] < 250);
+        setFit(transparent ? 'contain' : 'cover');
+      } catch {
+        // Tainted canvas (CORS) — assume it's a full photo.
+        setFit('cover');
+      }
+    };
+    img.onerror = () => { if (!cancelled) setFit('cover'); };
+    img.src = src;
+    return () => { cancelled = true; };
+  }, [src]);
+
+  if (fit === 'cover') {
+    return <img src={src} alt="" className="absolute inset-0 w-full h-full object-cover" />;
+  }
+  return (
+    <img src={src} alt="" className="object-contain h-24" style={{ mixBlendMode: 'multiply' }} />
+  );
+}
+
 interface ProductsSectionProps {
   products: Product[];
   business: Business;
 }
 
-export function ProductsSection({ products, business: _business }: ProductsSectionProps) {
+export function ProductsSection({ products, business }: ProductsSectionProps) {
   const { t, language } = useLanguage();
   const isHe = language === 'he';
+  const navigate = useNavigate();
 
   if (!products || products.length === 0) return null;
 
@@ -210,7 +262,10 @@ export function ProductsSection({ products, business: _business }: ProductsSecti
     <div className="pb-6">
       <div className="flex items-center justify-between px-6 mb-4">
         <h2 className="text-2xl font-bold text-text-primary">{t.business.products}</h2>
-        <button className="text-sm font-semibold text-primary active:opacity-70 transition-opacity">
+        <button
+          onClick={() => navigate(`/${language}/business/${business.id}/store`)}
+          className="text-sm font-semibold text-primary active:opacity-70 transition-opacity"
+        >
           {t.business.allProducts}
         </button>
       </div>
@@ -227,18 +282,13 @@ export function ProductsSection({ products, business: _business }: ProductsSecti
               className="min-w-[160px] w-40 shrink-0"
             >
               {/* Square image area */}
-              <div className="bg-gray-50 rounded-2xl p-4 relative aspect-square flex items-center justify-center">
+              <div className="bg-gray-50 rounded-2xl p-4 relative aspect-square flex items-center justify-center overflow-hidden">
                 {discountPercent > 0 && (
-                  <span className="absolute top-2 start-2 bg-pink-100 text-pink-600 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                  <span className="absolute top-2 start-2 z-10 bg-pink-100 text-pink-600 text-[10px] font-bold px-2 py-0.5 rounded-full">
                     -{discountPercent}%
                   </span>
                 )}
-                <img
-                  src={product.image}
-                  alt=""
-                  className="object-contain h-24"
-                  style={{ mixBlendMode: 'multiply' }}
-                />
+                <ProductImage src={product.image} />
               </div>
               {/* Product info */}
               <div className="mt-3">

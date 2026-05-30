@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useLanguage } from '../../i18n/LanguageContext';
 import type { VoucherCategory } from '../../types/voucher.types';
 
@@ -52,7 +53,7 @@ export default function FilterSheet({ onClose }: FilterSheetProps) {
     setIsClosing(true);
     if (sheetRef.current) {
       sheetRef.current.style.transition = 'transform 0.3s ease-out';
-      sheetRef.current.style.transform = 'translateY(100%)';
+      sheetRef.current.style.transform = 'translateY(120%)';
     }
     if (overlayRef.current) {
       overlayRef.current.style.transition = 'opacity 0.3s ease-out';
@@ -147,42 +148,43 @@ export default function FilterSheet({ onClose }: FilterSheetProps) {
     setOnlyInStock(false);
   };
 
-  return (
+  return createPortal(
     <>
       {/* Overlay */}
       <div
         ref={overlayRef}
-        className="fixed inset-0 z-50 bg-black/40 animate-fade-in"
+        className="fixed inset-0 z-[60] bg-black/40 animate-fade-in"
         onClick={dismiss}
       />
 
-      {/* Sheet — NO overflow on the outer container */}
-      <div
-        ref={sheetRef}
-        className="fixed bottom-0 left-0 right-0 max-w-md mx-auto z-50 bg-white rounded-t-3xl max-h-[85vh] flex flex-col animate-slide-up"
-      >
-        {/* ===== DRAG HEADER — large touch target, touch-action: none ===== */}
+      {/* Floating bottom sheet */}
+      <div className="fixed inset-x-0 bottom-0 z-[60] max-w-md mx-auto px-4 pb-6 pointer-events-none">
         <div
-          id="filter-sheet-header"
-          className="flex-shrink-0 select-none"
-          style={{ touchAction: 'none' }}
+          ref={sheetRef}
+          className="pointer-events-auto bg-white rounded-[28px] shadow-2xl max-h-[82vh] flex flex-col overflow-hidden animate-slide-up"
         >
-          {/* Handle bar */}
-          <div className="flex justify-center pt-3 pb-2">
-            <div className="w-10 h-1.5 bg-border rounded-full" />
+          {/* ===== DRAG HEADER — large touch target, touch-action: none ===== */}
+          <div
+            id="filter-sheet-header"
+            className="flex-shrink-0 select-none"
+            style={{ touchAction: 'none' }}
+          >
+            {/* Handle bar */}
+            <div className="flex justify-center pt-3 pb-2">
+              <div className="w-10 h-1.5 bg-border rounded-full" />
+            </div>
+
+            {/* Title row */}
+            <div className="px-5 pb-3">
+              <h2 className="text-lg font-bold text-text-primary">
+                {language === 'he' ? 'סינון' : 'Filters'}
+              </h2>
+            </div>
           </div>
 
-          {/* Title row */}
-          <div className="px-5 pb-3">
-            <h2 className="text-lg font-bold text-text-primary">
-              {language === 'he' ? 'סינון' : 'Filters'}
-            </h2>
-          </div>
-        </div>
-
-        {/* ===== SCROLLABLE CONTENT ===== */}
-        <div ref={contentRef} className="flex-1 overflow-y-auto overscroll-contain px-5 pb-6">
-          {/* Categories */}
+          {/* ===== SCROLLABLE CONTENT ===== */}
+          <div ref={contentRef} className="flex-1 overflow-y-auto overscroll-contain px-5 pb-4">
+            {/* Categories */}
           <div className="mb-6">
             <h3 className="text-sm font-semibold text-text-primary mb-3">
               {language === 'he' ? 'קטגוריות' : 'Categories'}
@@ -274,18 +276,19 @@ export default function FilterSheet({ onClose }: FilterSheetProps) {
               </div>
             </button>
           </div>
+          </div>
 
-          {/* Action buttons */}
-          <div className="flex gap-3">
+          {/* ===== PINNED FOOTER ===== */}
+          <div className="flex-shrink-0 px-5 pt-3 pb-4 flex gap-3">
             <button
               onClick={clearAll}
-              className="flex-1 py-3.5 rounded-xl border border-border text-sm font-semibold text-text-primary hover:bg-surface transition-colors"
+              className="flex-1 py-3.5 rounded-full border border-border text-sm font-semibold text-text-primary hover:bg-surface transition-colors"
             >
               {language === 'he' ? 'נקה פילטרים' : 'Clear filters'}
             </button>
             <button
               onClick={dismiss}
-              className="flex-1 py-3.5 rounded-xl bg-bg-dark text-white text-sm font-semibold hover:bg-bg-dark/90 transition-colors relative"
+              className="flex-1 py-3.5 rounded-full bg-bg-dark text-white text-sm font-semibold active:scale-[0.98] transition-transform relative"
             >
               {language === 'he' ? 'הצג תוצאות' : 'Show results'}
               {activeFilterCount > 0 && (
@@ -297,6 +300,7 @@ export default function FilterSheet({ onClose }: FilterSheetProps) {
           </div>
         </div>
       </div>
-    </>
+    </>,
+    document.body,
   );
 }

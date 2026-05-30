@@ -125,6 +125,20 @@
   }
 }
 
+/* Search filters drop-in — the whole "filter & sort" panel descends from
+   the top of the screen (translateY(-100%) → 0) with a soft ease so it
+   reads as dropping down from above, rather than rising from the sheet. */
+@keyframes filters-drop-in {
+  0% {
+    opacity: 0;
+    transform: translateY(-100%);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 /* Input placeholder swipe-left — the "Tap to type" text sweeps off the
    LEFT edge with a slight skew + fade when the user taps to activate the
    input. GPU-friendly (transform + opacity only, no filter blur). */
@@ -222,6 +236,14 @@
 }
 @keyframes chat-sheet-rise {
   from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+/* Search entrance — the card slides DOWN from the top of the screen and
+   settles into its docked position (used for the store/search flow instead
+   of the bottom-up rise). dvh keeps the off-screen start viewport-relative
+   so it clears the screen regardless of the card's own height. */
+@keyframes chat-card-drop {
+  from { transform: translateY(-100dvh); }
   to   { transform: translateY(0); }
 }
 

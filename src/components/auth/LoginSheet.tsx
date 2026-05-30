@@ -95,7 +95,7 @@ export default function LoginSheet() {
     setIsClosing(true);
     if (sheetRef.current) {
       sheetRef.current.style.transition = 'transform 0.3s ease-out';
-      sheetRef.current.style.transform = 'translateY(100%)';
+      sheetRef.current.style.transform = 'translateY(120%)';
     }
     if (overlayRef.current) {
       overlayRef.current.style.transition = 'opacity 0.3s ease-out';
@@ -104,24 +104,24 @@ export default function LoginSheet() {
     setTimeout(close, 300);
   }, [close]);
 
-  // ── Drag-to-dismiss (native events, passive:false) ──
+  // ── Drag-to-dismiss (pointer events — works with mouse + touch) ──
   useEffect(() => {
     if (!isOpen) return;
     const headerEl = document.getElementById('login-sheet-header');
     if (!headerEl) return;
 
-    const onTouchStart = (e: TouchEvent) => {
-      dragStartY.current = e.touches[0].clientY;
+    const onDown = (e: PointerEvent) => {
+      dragStartY.current = e.clientY;
       isDragging.current = true;
       currentTranslateY.current = 0;
       if (sheetRef.current) sheetRef.current.style.transition = 'none';
+      try { headerEl.setPointerCapture(e.pointerId); } catch { /* noop */ }
     };
 
-    const onTouchMove = (e: TouchEvent) => {
+    const onMove = (e: PointerEvent) => {
       if (!isDragging.current) return;
-      const deltaY = e.touches[0].clientY - dragStartY.current;
+      const deltaY = e.clientY - dragStartY.current;
       if (deltaY > 0) {
-        e.preventDefault();
         currentTranslateY.current = deltaY;
         if (sheetRef.current)
           sheetRef.current.style.transform = `translateY(${deltaY}px)`;
@@ -132,7 +132,7 @@ export default function LoginSheet() {
       }
     };
 
-    const onTouchEnd = () => {
+    const onUp = () => {
       if (!isDragging.current) return;
       isDragging.current = false;
       if (currentTranslateY.current > 80) {
@@ -150,14 +150,16 @@ export default function LoginSheet() {
       currentTranslateY.current = 0;
     };
 
-    headerEl.addEventListener('touchstart', onTouchStart, { passive: true });
-    headerEl.addEventListener('touchmove', onTouchMove, { passive: false });
-    headerEl.addEventListener('touchend', onTouchEnd, { passive: true });
+    headerEl.addEventListener('pointerdown', onDown);
+    headerEl.addEventListener('pointermove', onMove);
+    headerEl.addEventListener('pointerup', onUp);
+    headerEl.addEventListener('pointercancel', onUp);
 
     return () => {
-      headerEl.removeEventListener('touchstart', onTouchStart);
-      headerEl.removeEventListener('touchmove', onTouchMove);
-      headerEl.removeEventListener('touchend', onTouchEnd);
+      headerEl.removeEventListener('pointerdown', onDown);
+      headerEl.removeEventListener('pointermove', onMove);
+      headerEl.removeEventListener('pointerup', onUp);
+      headerEl.removeEventListener('pointercancel', onUp);
     };
   }, [isOpen, dismiss]);
 
@@ -517,14 +519,15 @@ export default function LoginSheet() {
         onClick={step === 'success' ? undefined : dismiss}
       />
 
-      {/* Sheet */}
+      {/* Floating bottom sheet — margin from screen edges, all corners rounded */}
+      <div className="fixed inset-x-0 bottom-0 z-50 max-w-md mx-auto px-4 pb-6 pointer-events-none">
       <div
         ref={sheetRef}
-        className="fixed bottom-0 left-0 right-0 max-w-md mx-auto z-50 bg-white rounded-t-3xl max-h-[50vh] flex flex-col animate-slide-up"
+        className="pointer-events-auto bg-white rounded-[28px] shadow-2xl max-h-[50vh] flex flex-col overflow-hidden animate-slide-up"
       >
         {/* ── Routing overlay — shown after auth succeeds, while flow is being decided ── */}
         {isRouting && step !== 'success' && (
-          <div className="absolute inset-0 z-20 bg-white/90 rounded-t-3xl flex items-center justify-center">
+          <div className="absolute inset-0 z-20 bg-white/90 rounded-[28px] flex items-center justify-center">
             <span
               className="material-symbols-outlined text-primary animate-spin"
               style={{ fontSize: '36px', fontVariationSettings: "'wght' 300" }}
@@ -814,6 +817,7 @@ export default function LoginSheet() {
             </div>
           )}
         </div>
+      </div>
       </div>
 
       {/* Invisible reCAPTCHA for phone auth */}
