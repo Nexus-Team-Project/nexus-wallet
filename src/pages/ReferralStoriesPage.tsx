@@ -1,729 +1,198 @@
 /**
- * ReferralStoriesPage — Fullscreen Instagram-style stories for the referral program.
+ * ReferralStoriesPage — the Wise referral flow, reproduced from the provided
+ * design. Three screens combined into one horizontally-swipeable page:
+ *   1. Promo card  (SHARE WISE AND EARN SGD 100)
+ *   2. Invite 3 friends illustration
+ *   3. Important information + action links
  *
- * Story 1: Hero invite — tenant name, floating brand logos, tenant colors
- * Story 2: Google Contacts import (incremental auth) + share link + "how it works" accordion
+ * Markup/colours/copy are transcribed verbatim from the supplied HTML. The
+ * only structural change: the original `position: fixed` footers are pinned
+ * via flex layout instead, so the three slides don't overlap in the pager.
  *
- * Triggered from the compact ReferralBanner on the homepage.
+ * Reached from the home ReferralBanner (route: /:lang/referral-stories).
  */
 
-import { useState, useCallback, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useLanguage } from '../i18n/LanguageContext';
-import { useAuthStore } from '../stores/authStore';
-import { useTenantStore } from '../stores/tenantStore';
-import { useContactsStore } from '../stores/contactsStore';
-import {
-  fetchGoogleContacts,
-  buildReferralUrl,
-  shareNative,
-  copyToClipboard,
-} from '../services/contacts.service';
 
-// ── Floating brand logos ─────────────────────────────────────────────────────
-const FLOATING_BRANDS = [
-  { src: '/brands/golf.png',           name: 'Golf',           size: 48, top: '12%',    left: '14%',  delay: 0   },
-  { src: '/brands/american-eagle.png', name: 'American Eagle', size: 56, top: '24%',    right: '10%', delay: 0.3 },
-  { src: '/brands/rami-levy.png',       name: 'Rami Levy',      size: 40, bottom: '28%', left: '10%',  delay: 0.6 },
-  { src: '/brands/mango.png',          name: 'Mango',          size: 48, bottom: '14%', right: '18%', delay: 0.9 },
-  { src: '/brands/foot-locker.png',    name: 'Foot Locker',    size: 44, top: '45%',    left: '6%',   delay: 0.4 },
+const AVATARS_1 = [
+  'https://lh3.googleusercontent.com/aida-public/AB6AXuCDvFmubPHDgocQiJ5W34jSKMx-cFuIC-WzjexF7oon1Dfsz_-rGfVm0e5bbiEhov7JCHfH2ggES5ev4Iclh89l7vf3cvVVdxsc_rKW2tTXiCv8MOupMrt79vmVZ8Qru3DmKFwAhdcZ_TZNcByrCzEHWz6vkCruHHlsWEJsT8vHaL43-LitydLPM7NyNNqBIxAdKxRXYxqJnozZYG4vtsODTC4uQNv5ODEsHUme7J2Rujty1udMsAZwFCZlyvdC1WtyhMvSSto8Tys',
+  'https://lh3.googleusercontent.com/aida-public/AB6AXuC2h3HE_-w6iYpYzfpbqTooQY8y5qjBiNS0BnXQwFuM2a4q5tBu1rmwRZCGdlAmU2U81_Msa6_a0Y0uTsXsWzqS2AmB8jpVrMDsYFCM2QNiaVGyxBb4o80jZLFY3G040TJ362T-digHy2oQDcyLs1LvuNVaPeK0g8_Usbb3if6VwUWM-JsriebbelX3CsXJ5R9ET6J9YUlDi8wCpg7n099Xz9EUxFrhSE84PXkICqNhG03wInpm0tCjBX_MPLYpM7dq-gOHJFGdVrc',
+  'https://lh3.googleusercontent.com/aida-public/AB6AXuAg6tGo18F4n9hnlNBLLjKGU8e-grtep1ksR04B1sNzU_p-OZnEa-IlvapjGinsYmMTm6GeR4Yko4bLK0oAFPnvZJK-u373FWu3Bfp_YZU0ipbZes9iAcTqxX7OmPUGleEru8TdmF2VtE6oBdni2Ff4nlafcNZR52N1In_NwIbks8ETPj0L9YkVLAlprRjbdq-9XG2v1Oay_m73he1lKmzcrhYH4NYPGXQKT9-u1yLp6cHNZ629a_nvMNTv-XkZ2qBSB3evXTkeyug',
 ];
 
-const STORY_COUNT = 2;
-const STORY_DURATION = 8000; // ms — auto-advance on story 1 only
-
-// ── Unique slug for every story slide — used in ?step= URL param ─────────────
-const STORY_IDS = ['hero-invite', 'actions'] as const;
-
-// ── Helper: derive a darker shade from a hex color ───────────────────────────
-function darkenColor(hex: string, amount = 0.35): string {
-  const h = hex.replace('#', '');
-  const r = Math.max(0, parseInt(h.slice(0, 2), 16) - Math.round(255 * amount));
-  const g = Math.max(0, parseInt(h.slice(2, 4), 16) - Math.round(255 * amount));
-  const b = Math.max(0, parseInt(h.slice(4, 6), 16) - Math.round(255 * amount));
-  return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
-}
-
-// ── Google Contacts logo — official Google asset ──────────────────────────────
-function GoogleContactsIcon({ size = 26 }: { size?: number }) {
-  return (
-    <img
-      src="/brands/google-contacts.png"
-      alt="Google Contacts"
-      width={size}
-      height={size}
-      style={{ objectFit: 'contain', display: 'block' }}
-    />
-  );
-}
-
-// ─── "How it works" accordion ────────────────────────────────────────────────
-const HOW_IT_WORKS_STEPS_HE = [
-  {
-    icon: 'contacts',
-    title: 'בחר חברים מהאנשי קשר',
-    body: 'אנחנו נגשים לאנשי הקשר שלך בגוגל רק כדי לזהות מי כבר בנקסוס ומי לא. המידע לא נשמר אצלנו.',
-  },
-  {
-    icon: 'mark_email_read',
-    title: 'הזמנה נשלחת לחברים',
-    body: 'החברים שבחרת יקבלו הזמנה אישית ממך להצטרף לנקסוס וליהנות מהטבות.',
-  },
-  {
-    icon: 'redeem',
-    title: 'שניכם מקבלים ₪25',
-    body: 'ברגע שהחבר נרשם ומשלים הצטרפות — ₪25 נוספים נזקפים לחשבון שלך, ו-₪25 לחשבון שלו.',
-  },
+const AVATARS_2 = [
+  'https://lh3.googleusercontent.com/aida-public/AB6AXuBJgVqkxWxWyZmJnrWyv4M528lYwllW2WLj5DIaNVcjUco7roJ2rC6SPYnEJeXWv0WoHFXp3q8YaeSd0_TsO9AEgeJEogiu-EniNcCKi_xJfVcMKvNkw7eRumP19mXQog-ktITAdyJrvamgztJv5O4PEbsoNZ0x3Tx8-LfuzWUsT-R4KPzoFhgvZBNiphLD_6cjYIURuoJ9XGRe7DRWbiyh-_pX6dKXUArOjFjtRLgi-RHPf4Nu9cWvhxyuYRK0VHTN5H-8oJCKxrE',
+  'https://lh3.googleusercontent.com/aida-public/AB6AXuDTe6St7sSEfBvBfHA7rS-VkPqAdw9yfmhhXIueQEUQ29lojDkSEG4zVq8D8QZaLG6Du17hZM14KrqThH-hCWnCOVYFjZiyW1vvMCek_5cAJ45JLUR83d2yzeRD3IDl35ArXVIP2bymfFfVIVQzAY8jLIkvjjd1fHL3LOQ4tuJqtjfe9ZynZnfion7utVdmDTQouN9Q8Q9SuKQpQsR0e7Lc1kKR5l7jpe-EzUSBLbY0aJviic3hDufffC3ocuG9etp7mj6yGFHZIKQ',
+  'https://lh3.googleusercontent.com/aida-public/AB6AXuA5zdfPWHx5NYGEyPJnEgKVKgwjdHsBrcq6J5kJWrvnz4ajrywKCayCViBO7b_PH7oIO7co6AVP0macCqTlXbq0cpaVJ1zk6QbV93OjKVDAfVsF03U29de9dcXClXpKpVo_gkaK4_ArFguCJr5VDZzahm5WMha9ZJQAOpWEKPaG9dFvWwol8lCm04LXmdvT2DnDgMK3Z-I-Xb7ivq9wHKmKxZGFQaeQ8k_cpghG_epoabq8GURr4g47bGQcpH-6hKc4vYn7ARCsHeE',
 ];
 
-const HOW_IT_WORKS_STEPS_EN = [
-  {
-    icon: 'contacts',
-    title: 'Pick friends from contacts',
-    body: 'We access your Google contacts only to identify who is already on Nexus. We never store this data.',
-  },
-  {
-    icon: 'mark_email_read',
-    title: 'Your friends get invited',
-    body: 'Selected friends receive a personal invite from you to join Nexus and enjoy exclusive benefits.',
-  },
-  {
-    icon: 'redeem',
-    title: 'You both get ₪25',
-    body: 'Once your friend signs up and completes onboarding — ₪25 is credited to your account and ₪25 to theirs.',
-  },
-];
+const PARTNERSHIP_IMG =
+  'https://lh3.googleusercontent.com/aida-public/AB6AXuCtLVoYU4uIPyfE0cvRMndHu6J32CJ2e6VIGjEHZ6fn2b03_IhSLgS6ZRFabahbBC_hyiLl-mj_bEDoqEzW87EP5ffSbIoqrCbH6qQzePJJ59WzeVOfvqMeEYn4Fi7RB-FrfH5FRMIJLrKK0NPLDKZlT1VQrTE801x4M18ojL10F8wB34gVuAvoWavMCwvIfasZ8YX8ux1BV_HsY6UihT3gTnfAXjEJPiI0gJh5YKU20Fnxnu_4W2sWy_pipmzRH7K_5dysOZnsZBI';
 
-function HowItWorksAccordion({
-  primaryColor,
-  isHe,
-}: {
-  primaryColor: string;
-  isHe: boolean;
-}) {
-  const [open, setOpen] = useState(false);
-  const steps = isHe ? HOW_IT_WORKS_STEPS_HE : HOW_IT_WORKS_STEPS_EN;
-  const label = isHe ? 'איך זה עובד?' : 'How does it work?';
-
+// ═══════════ Screen 1 — Promo card ═══════════
+function Screen1({ onBack }: { onBack: () => void }) {
   return (
-    <div className="bg-white rounded-2xl overflow-hidden shadow-sm" style={{ border: '1px solid #f0eeee' }}>
-      {/* Toggle row */}
-      <button
-        onClick={() => setOpen((v) => !v)}
-        className="w-full flex items-center justify-between px-4 py-3.5 active:opacity-75 transition-opacity bg-white"
-      >
-        <div className="flex items-center gap-2">
-          <span
-            className="material-symbols-outlined"
-            style={{ fontSize: '18px', color: primaryColor, fontVariationSettings: "'FILL' 1" }}
-          >
-            help
-          </span>
-          <span className="text-slate-900 text-sm font-semibold">{label}</span>
-        </div>
-        <motion.span
-          animate={{ rotate: open ? 180 : 0 }}
-          transition={{ duration: 0.25 }}
-          className="material-symbols-outlined text-slate-300"
-          style={{ fontSize: '20px' }}
-        >
-          expand_more
-        </motion.span>
-      </button>
+    <section className="w-full flex flex-col bg-white">
+      {/* Navigation Controls */}
+      <nav className="flex justify-between items-center px-4 py-2 shrink-0">
+        <button onClick={onBack} className="w-10 h-10 rounded-full bg-[#f2f2f2] flex items-center justify-center">
+          <svg className="w-6 h-6 rtl:-scale-x-100" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" strokeLinecap="round" strokeLinejoin="round" /></svg>
+        </button>
+        <button className="bg-[#f2f2f2] text-[#0a2540] px-4 py-2 rounded-full font-semibold text-sm">מעקב הזמנות</button>
+      </nav>
 
-      {/* Steps */}
-      <AnimatePresence initial={false}>
-        {open && (
-          <motion.div
-            key="steps"
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.3, ease: 'easeInOut' }}
-            style={{ overflow: 'hidden' }}
-          >
-            <div
-              className="px-4 pt-1 pb-4 flex flex-col gap-4"
-              style={{ borderTop: '1px solid #f0eeee' }}
-            >
-              {steps.map((step, i) => (
-                <div key={i} className="flex items-start gap-3 pt-3">
-                  {/* Step number circle */}
-                  <div
-                    className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 text-white text-xs font-extrabold"
-                    style={{ background: primaryColor }}
-                  >
-                    {i + 1}
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-1.5 mb-0.5">
-                      <span
-                        className="material-symbols-outlined"
-                        style={{ fontSize: '15px', color: primaryColor, fontVariationSettings: "'FILL' 1" }}
-                      >
-                        {step.icon}
-                      </span>
-                      <p className="text-slate-800 text-sm font-bold">{step.title}</p>
-                    </div>
-                    <p className="text-slate-500 text-xs leading-relaxed">{step.body}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-}
-
-// ─── Story 1: Hero Invite ────────────────────────────────────────────────────
-function StoryHero({
-  primaryColor,
-  tenantName,
-}: {
-  primaryColor: string;
-  tenantName: string;
-}) {
-  const { language } = useLanguage();
-  const isHe = language === 'he';
-  const [imgErrors, setImgErrors] = useState<Set<number>>(new Set());
-  const darkColor = darkenColor(primaryColor, 0.3);
-
-  return (
-    <div
-      className="absolute inset-0 flex flex-col overflow-hidden"
-      style={{ background: `linear-gradient(180deg, ${darkColor} 0%, ${primaryColor} 100%)` }}
-    >
-      {/* Decorative blobs */}
-      <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        <div
-          className="absolute w-80 h-80 rounded-full opacity-20"
-          style={{ background: 'rgba(255,255,255,0.18)', top: '-12%', right: '-8%', filter: 'blur(60px)' }}
-        />
-        <div
-          className="absolute w-56 h-56 rounded-full opacity-15"
-          style={{ background: 'rgba(255,255,255,0.15)', bottom: '10%', left: '-8%', filter: 'blur(50px)' }}
-        />
-      </div>
-
-      {/* Top bar: logo + tenant name */}
-      <div className="flex-shrink-0 flex items-center gap-2 px-6 pt-14 pb-2 relative z-10">
-        <div
-          className="w-7 h-7 flex items-center justify-center rounded-lg overflow-hidden"
-          style={{ background: 'rgba(255,255,255,0.2)', border: '1px solid rgba(255,255,255,0.3)' }}
-        >
-          <img
-            src="/nexus-icon.png"
-            alt="Nexus"
-            className="w-5 h-5 object-contain"
-            style={{ filter: 'brightness(0) invert(1)' }}
-          />
-        </div>
-        <span className="text-white/90 text-sm font-semibold tracking-tight">{tenantName}</span>
-      </div>
-
-      {/* Main headline */}
-      <div className="flex-shrink-0 px-8 pt-6 relative z-10">
-        <motion.h1
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.2 }}
-          className="text-white font-extrabold text-[36px] leading-[1.15] tracking-tight mb-4"
-        >
-          {isHe ? `${tenantName}\nיותר טוב ביחד` : `${tenantName}\nbetter together`}
-        </motion.h1>
-        <motion.p
-          initial={{ opacity: 0, y: 14 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.4 }}
-          className="text-white/75 text-lg font-medium leading-relaxed max-w-[280px]"
-        >
-          {isHe ? 'הזמן חברים ליהנות מהטבות ביחד' : 'Invite friends to enjoy benefits together'}
-        </motion.p>
-      </div>
-
-      {/* Floating brand logos */}
-      <div className="flex-1 relative pointer-events-none">
-        <div
-          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full"
-          style={{ width: 260, height: 260, background: `${primaryColor}40`, filter: 'blur(80px)' }}
-        />
-        {FLOATING_BRANDS.map((brand, i) => (
-          <motion.div
-            key={brand.name}
-            className="absolute"
-            style={{
-              top: brand.top,
-              left: brand.left,
-              right: (brand as Record<string, unknown>).right as string | undefined,
-              bottom: brand.bottom,
-            }}
-            initial={{ opacity: 0, scale: 0.6 }}
-            animate={{ opacity: 1, scale: 1, y: [0, -8, 0] }}
-            transition={{
-              opacity: { duration: 0.5, delay: 0.5 + brand.delay },
-              scale:   { duration: 0.5, delay: 0.5 + brand.delay },
-              y: { repeat: Infinity, duration: 3.5 + i * 0.3, ease: 'easeInOut', delay: brand.delay },
-            }}
-          >
-            <div
-              className="rounded-full flex items-center justify-center overflow-hidden"
-              style={{ width: brand.size, height: brand.size, background: 'white', boxShadow: '0 4px 16px rgba(0,0,0,0.3)' }}
-            >
-              {!imgErrors.has(i) ? (
-                <img
-                  src={brand.src}
-                  alt={brand.name}
-                  className="object-contain"
-                  style={{ width: brand.size * 0.6, height: brand.size * 0.6 }}
-                  onError={() => setImgErrors((prev) => new Set(prev).add(i))}
-                />
-              ) : (
-                <span className="text-[10px] font-bold text-gray-500">{brand.name.charAt(0)}</span>
-              )}
-            </div>
-          </motion.div>
-        ))}
-      </div>
-
-      {/* Bottom CTA — handshake icon */}
-      <div className="flex-shrink-0 px-6 pb-12 relative z-10">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.6 }}
-        >
-          <div
-            className="w-full bg-white font-bold py-4 rounded-full text-lg text-center shadow-xl pointer-events-none flex items-center justify-center gap-2"
-            style={{ color: primaryColor }}
-          >
-            <span
-              className="material-symbols-outlined"
-              style={{ fontSize: '24px', fontVariationSettings: "'FILL' 1", color: primaryColor }}
-            >
-              diversity_1
-            </span>
-            {isHe ? 'הזמן חברים' : 'Invite friends'}
-          </div>
-        </motion.div>
-      </div>
-    </div>
-  );
-}
-
-// ─── Story 2: Actions ─────────────────────────────────────────────────────────
-function StoryActions({ primaryColor }: { primaryColor: string }) {
-  const { t, language } = useLanguage();
-  const isHe = language === 'he';
-
-  const userId   = useAuthStore((s) => s.userId);
-  const tenantId = useTenantStore((s) => s.tenantId);
-
-  const contacts         = useContactsStore((s) => s.contacts);
-  const contactsImported = useContactsStore((s) => s.contactsImported);
-  const friendsOnNexus   = useContactsStore((s) => s.friendsOnNexus);
-  const setContacts      = useContactsStore((s) => s.setContacts);
-
-  const [copied,    setCopied]    = useState(false);
-  const [importing, setImporting] = useState(false);
-
-  const referralUrl   = buildReferralUrl(userId ?? '', tenantId);
-  const shareTitle    = t.registration.inviteShareTitle;
-  const shareText     = t.registration.inviteShareText;
-  const referralCount = Math.min(friendsOnNexus.length, 2);
-  const goalReached   = referralCount >= 2;
-
-  // Share link — native sheet → clipboard fallback
-  const handleShareLink = useCallback(async () => {
-    const ok = await shareNative(shareTitle, shareText, referralUrl);
-    if (!ok) {
-      const didCopy = await copyToClipboard(referralUrl);
-      if (didCopy) { setCopied(true); setTimeout(() => setCopied(false), 2500); }
-    }
-  }, [shareTitle, shareText, referralUrl]);
-
-  // Google incremental auth → People API fetch.
-  // Always calls fetchGoogleContacts (signInWithPopup) — works for ALL auth
-  // methods (phone, apple, google). The popup requests contacts.readonly
-  // scope regardless of how the user originally signed in.
-  const handleImportContacts = useCallback(async () => {
-    setImporting(true);
-    const imported = await fetchGoogleContacts();
-    setImporting(false);
-    if (!imported || imported.length === 0) return;
-    setContacts(imported, 'google');
-    const mockFriends = imported.filter(() => Math.random() < 0.15).map((c) => c.id);
-    useContactsStore.getState().setFriendsOnNexus(mockFriends);
-  }, [setContacts]);
-
-  return (
-    // ── Light background — #f8f6f6, same as reference HTML ──────────────────
-    <div
-      className="absolute inset-0 flex flex-col overflow-y-auto"
-      style={{ background: '#f8f6f6' }}
-    >
-      {/* ── Scrollable content ── */}
-      <div
-        className="relative z-10 flex flex-col flex-1 px-6 pb-10"
-        style={{ paddingTop: '56px' }} /* clear the progress bar + close btn */
-      >
-
-        {/* ── Title ── */}
-        <motion.div
-          initial={{ opacity: 0, y: 14 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: 0.1 }}
-        >
-          <h1
-            className="font-bold leading-tight tracking-tight text-slate-900 mb-2"
-            style={{ fontSize: '28px' }}
-          >
-            {isHe ? 'הזמן חברים, קבל ₪50' : 'Invite friends, get ₪50'}
+      {/* Main Promotion Card */}
+      <main className="flex-grow p-4 flex flex-col">
+        <section className="flex-grow bg-[#0a2540] rounded-[40px] p-8 flex flex-col items-center text-center relative overflow-hidden">
+          <h1 className="text-[#7dd3fc] text-4xl font-black leading-tight mb-6 tracking-tighter" style={{ fontSize: '2.6rem' }}>
+            שתפו את Nexus<br />והרוויחו<br />100 ₪
           </h1>
-          <p className="text-slate-500 text-sm leading-relaxed mb-6">
-            {t.registration.inviteFriendsSubtitle}
+          <p className="text-white text-base font-medium leading-relaxed mb-12">
+            שתפו את Nexus עם 3 חברים והרוויחו 100 ₪ לעצמכם. החברים שלכם מקבלים העברה ללא עמלות עד 900 ₪.
           </p>
 
-          {/* Share-link pill — small, start-aligned */}
-          <button
-            onClick={(e) => { e.stopPropagation(); handleShareLink(); }}
-            className="inline-flex items-center gap-2 h-11 px-5 rounded-full font-bold text-sm transition-all active:scale-[0.96]"
-            style={{
-              background: `${primaryColor}18`,
-              color: primaryColor,
-            }}
-          >
-            <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>
-              {copied ? 'check' : 'link'}
-            </span>
-            <span>
-              {copied
-                ? (isHe ? 'הועתק ✓' : 'Copied ✓')
-                : (isHe ? 'שתף לינק' : 'Share link')}
-            </span>
-          </button>
-        </motion.div>
-
-        {/* ── CONTACTS PERMISSION CARD / CONTACTS LIST ── */}
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: 0.22 }}
-          className="mt-6"
-        >
-          {!contactsImported ? (
-            /* White card — permission to import */
-            <button
-              onClick={(e) => { e.stopPropagation(); handleImportContacts(); }}
-              disabled={importing}
-              className="w-full bg-white rounded-2xl p-4 flex items-center gap-4 text-start shadow-sm transition-all active:scale-[0.98] disabled:opacity-60"
-              style={{ border: '1px solid #f0eeee' }}
-            >
-              {/* Icon + notification dot */}
-              <div className="relative flex-shrink-0">
-                <div
-                  className="w-12 h-12 rounded-full flex items-center justify-center"
-                  style={{ background: `${primaryColor}15` }}
-                >
-                  {importing ? (
-                    <span
-                      className="material-symbols-outlined animate-spin"
-                      style={{ fontSize: '26px', color: primaryColor }}
-                    >
-                      progress_activity
-                    </span>
-                  ) : (
-                    <GoogleContactsIcon size={26} />
-                  )}
-                </div>
-                {/* Accent dot */}
-                {!importing && (
-                  <div
-                    className="absolute top-0 right-0 w-3 h-3 rounded-full border-2 border-white"
-                    style={{ background: primaryColor }}
-                  />
-                )}
-              </div>
-
-              {/* Text */}
-              <div className="flex-1 min-w-0">
-                <p className="text-slate-900 font-bold text-sm leading-tight">
-                  {importing
-                    ? (isHe ? 'מתחבר לגוגל...' : 'Connecting to Google...')
-                    : (isHe ? 'בחר מאנשי קשר של גוגל' : 'Enable contact permission')}
-                </p>
-                <p className="text-slate-500 text-xs mt-0.5 leading-snug">
-                  {isHe
-                    ? 'הזמן חברים ישירות מהרשימה שלך'
-                    : 'Quickly invite friends from your contacts'}
-                </p>
-              </div>
-
-              {/* Chevron */}
-              {!importing && (
-                <span className="material-symbols-outlined text-slate-300 flex-shrink-0" style={{ fontSize: '22px' }}>
-                  {isHe ? 'chevron_left' : 'chevron_right'}
-                </span>
-              )}
-            </button>
-          ) : contactsImported && contacts.length > 0 ? (
-            /* Contacts list after import */
-            <div
-              className="bg-white rounded-2xl overflow-hidden shadow-sm"
-              style={{ border: '1px solid #f0eeee' }}
-            >
-              {friendsOnNexus.length > 0 && (
-                <div
-                  className="flex items-center gap-2 px-4 py-2.5"
-                  style={{ borderBottom: '1px solid #f0eeee' }}
-                >
-                  <span
-                    className="material-symbols-outlined"
-                    style={{ fontSize: '15px', color: primaryColor, fontVariationSettings: "'FILL' 1" }}
-                  >
-                    group
-                  </span>
-                  <span className="text-xs font-semibold" style={{ color: primaryColor }}>
-                    {t.registration.inviteFriendsOnNexus.replace('{count}', String(friendsOnNexus.length))}
-                  </span>
-                </div>
-              )}
-              <div className="max-h-[200px] overflow-y-auto divide-y divide-slate-50">
-                {contacts.slice(0, 20).map((contact) => {
-                  const isOnNexus = friendsOnNexus.includes(contact.id);
-                  return (
-                    <div key={contact.id} className="flex items-center gap-3 px-4 py-2.5">
-                      <div
-                        className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
-                        style={{ background: isOnNexus ? primaryColor : '#e2e8f0' }}
-                      >
-                        {isOnNexus
-                          ? <span className="material-symbols-outlined" style={{ fontSize: '14px', fontVariationSettings: "'FILL' 1" }}>check</span>
-                          : <span className="text-slate-500">{contact.name.charAt(0).toUpperCase()}</span>}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-slate-800 text-xs font-semibold truncate">{contact.name}</p>
-                        <p className="text-slate-400 text-[10px] truncate">
-                          {isOnNexus
-                            ? (isHe ? 'כבר בנקסוס ✓' : 'Already on Nexus ✓')
-                            : (contact.phones[0] || '')}
-                        </p>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          ) : null}
-        </motion.div>
-
-        {/* ── ILLUSTRATION area — 4:3, white card ── */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: 0.34 }}
-          className="mt-6 bg-white rounded-2xl overflow-hidden flex items-center justify-center shadow-sm"
-          style={{ border: '1px solid #f0eeee', aspectRatio: '4/3' }}
-        >
-          <div className="flex flex-col items-center gap-4">
-            {/* Progress circles — matching the reference HTML */}
-            <div className="flex items-center gap-3">
-              {[0, 1].map((i) => (
-                <div
-                  key={i}
-                  className="w-14 h-14 rounded-full flex items-center justify-center"
-                  style={{
-                    background: referralCount > i
-                      ? `${primaryColor}18`
-                      : '#f1f5f9',
-                    border: referralCount > i
-                      ? `2px solid ${primaryColor}40`
-                      : '2px solid #e2e8f0',
-                  }}
-                >
-                  <span
-                    className="material-symbols-outlined"
-                    style={{
-                      fontSize: '28px',
-                      color: referralCount > i ? primaryColor : '#cbd5e1',
-                      fontVariationSettings: "'FILL' 1",
-                    }}
-                  >
-                    {referralCount > i ? 'person' : 'person_add'}
-                  </span>
-                </div>
+          <div className="relative bg-white rounded-[40px] px-8 py-6 mb-12 flex justify-center items-center">
+            <div className="flex -space-x-4 relative">
+              {AVATARS_1.map((src, i) => (
+                <img key={i} alt={`Friend ${i + 1}`} className="w-16 h-16 rounded-full object-cover border-2 border-white" src={src} />
               ))}
+              <div className="absolute -top-1 -right-2 w-8 h-8 bg-[#7dd3fc] rounded-full border-2 border-white flex items-center justify-center text-[#0a2540]">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path d="M21 11.25v8.25a1.5 1.5 0 01-1.5 1.5H4.5a1.5 1.5 0 01-1.5-1.5v-8.25M12 4.5v15m7.5-7.5H4.5M12 4.5a3 3 0 110 6 3 3 0 110-6z" strokeLinecap="round" strokeLinejoin="round" /></svg>
+              </div>
             </div>
-
-            {/* Progress bar */}
-            <div className="w-32 h-2 rounded-full bg-slate-100 overflow-hidden">
-              <motion.div
-                className="h-full rounded-full"
-                style={{ background: primaryColor }}
-                initial={{ width: '4%' }}
-                animate={{ width: `${Math.max((referralCount / 2) * 100, 4)}%` }}
-                transition={{ duration: 0.9, delay: 0.5 }}
-              />
-            </div>
-
-            <p className="text-slate-400 text-xs font-medium">
-              {goalReached
-                ? (isHe ? t.registration.inviteGoalComplete : t.registration.inviteGoalComplete)
-                : (isHe ? `${referralCount}/2 חברים הצטרפו` : `${referralCount}/2 friends joined`)}
-            </p>
           </div>
-        </motion.div>
 
-        {/* ── "How it works" accordion — white card ── */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.4, delay: 0.46 }}
-          className="mt-4"
-        >
-          <HowItWorksAccordion primaryColor={primaryColor} isHe={isHe} />
-        </motion.div>
-
-        {/* Terms */}
-        <p className="text-center text-slate-400 text-[10px] mt-6">
-          {isHe ? 'בכפוף לתנאים והגבלות' : 'Terms and conditions apply'}
-        </p>
-      </div>
-    </div>
+          <div className="w-full mt-auto text-right">
+            <label className="text-white text-sm block mb-2 font-medium">שתפו את הקישור שלכם</label>
+            <div className="border border-white/50 rounded-2xl p-1 pr-4 flex items-center justify-between bg-transparent">
+              <span className="text-[#7dd3fc] text-sm truncate pl-2" dir="ltr">nexus.app/invite/ihpc/********</span>
+              <button className="bg-[#7dd3fc] text-[#0a2540] px-6 py-2 rounded-xl font-bold text-sm">העתקה</button>
+            </div>
+          </div>
+        </section>
+      </main>
+    </section>
   );
 }
 
-// ─── Stories Shell ────────────────────────────────────────────────────────────
+// ═══════════ Screen 2 — Invite 3 friends ═══════════
+function Screen2() {
+  return (
+    <section className="w-full bg-white">
+      <main className="px-4 pb-8">
+        <section className="mt-8 flex flex-col items-center text-center">
+          <div className="relative mb-10">
+            <div className="bg-[#f2f2f7] rounded-full pr-6 pl-2 py-2 inline-flex items-center">
+              <div className="flex -space-x-4">
+                {AVATARS_2.map((src, i) => (
+                  <img key={i} alt={`Friend ${i + 1}`} className="inline-block h-24 w-24 rounded-full ring-4 ring-[#f2f2f7] object-cover" src={src} />
+                ))}
+              </div>
+            </div>
+            <div className="absolute -top-4 -right-2 bg-[#7dd3fc] p-2.5 rounded-full shadow-md">
+              <svg className="h-6 w-6 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V6a2 2 0 10-2 2h2zm0 0h4m-4 0H8m12 13V11a2 2 0 00-2-2H6a2 2 0 00-2 2v10m16 0H4" strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} /></svg>
+            </div>
+          </div>
+          <h2 className="text-[32px] text-[#0a2540]" style={{ fontWeight: 900, letterSpacing: '-0.02em', lineHeight: 1.1 }}>
+            הזמינו 3 חברים
+          </h2>
+          <p className="mt-4 text-gray-600 text-base leading-relaxed px-4">
+            תקבלו תגמול על כל 3 חברים שנרשמים דרך הקישור הייחודי שלכם. תוכלו לעקוב אחר ההתקדמות בכל רגע.
+          </p>
+        </section>
+      </main>
+    </section>
+  );
+}
+
+// ═══════════ Screen 3 — Important information ═══════════
+function Screen3() {
+  return (
+    <section className="w-full bg-white text-[#0a2540]">
+      <main className="px-5 pt-4 pb-8">
+        {/* Partnership Banner */}
+        <div className="relative bg-[#f2f5f7] rounded-2xl p-4 flex items-start space-x-4 mb-10 overflow-hidden">
+          <div className="flex-shrink-0 w-24 h-24 bg-gradient-to-br from-blue-400 to-green-300 rounded-lg relative overflow-hidden flex items-center justify-center">
+            <img alt="Partnership Illustration" className="object-cover w-full h-full opacity-90" src={PARTNERSHIP_IMG} />
+          </div>
+          <div className="flex-1 pl-6 pt-1">
+            <p className="text-sm font-semibold text-[#0a2540] leading-tight mb-2">רוצים לקבל תשלום על קידום Nexus?</p>
+            <a className="text-sm font-bold text-[#0a2540] underline decoration-1 underline-offset-4" href="#">גלו שותפויות</a>
+          </div>
+          <button aria-label="Dismiss banner" className="absolute top-3 left-3 text-gray-500">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12" strokeLinecap="round" strokeLinejoin="round" /></svg>
+          </button>
+        </div>
+
+        {/* Important Information */}
+        <section>
+          <h2 className="text-[#5d7079] text-base font-normal mb-1">מידע חשוב</h2>
+          <hr className="border-[#e2e8f0] mb-6" />
+          <ul className="space-y-6 mb-10">
+            <li className="flex items-start space-x-4">
+              <div className="flex-shrink-0 mt-1">
+                <div className="bg-[#0a2540] rounded-full p-0.5">
+                  <svg className="w-4 h-4" fill="white" viewBox="0 0 20 20"><path clipRule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" fillRule="evenodd" /></svg>
+                </div>
+              </div>
+              <p className="text-[15px] leading-snug text-[#0a2540]">
+                כל אחד מהחברים שלכם יצטרך להעביר ו/או להוציא בכרטיס Nexus לפחות 250 ₪ או שווה ערך. אפשר להגיע לסכום הזה במספר עסקאות.
+              </p>
+            </li>
+            <li className="flex items-start space-x-4">
+              <div className="flex-shrink-0 mt-1">
+                <div className="bg-[#c33737] rounded-full p-0.5">
+                  <svg className="w-4 h-4" fill="white" viewBox="0 0 20 20"><path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" /></svg>
+                </div>
+              </div>
+              <p className="text-[15px] leading-snug text-[#0a2540]">העברות באותו מטבע אינן נספרות.</p>
+            </li>
+            <li className="flex items-start space-x-4">
+              <div className="flex-shrink-0 mt-1">
+                <div className="bg-[#c33737] rounded-full p-0.5">
+                  <svg className="w-4 h-4" fill="white" viewBox="0 0 20 20"><path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" /></svg>
+                </div>
+              </div>
+              <p className="text-[15px] leading-snug text-[#0a2540]">
+                משיכות כספומט, הימורים, קריפטו ו<a className="underline font-semibold underline-offset-2" href="#">תשלומים מסוימים נוספים</a> אינם נספרים.
+              </p>
+            </li>
+          </ul>
+        </section>
+
+        {/* Action Links */}
+        <div className="space-y-6">
+          <a className="block text-[#0a2540] font-bold text-base underline decoration-1 underline-offset-4" href="#">הזנת קישור הזמנה</a>
+          <a className="block text-[#0a2540] font-bold text-base underline decoration-1 underline-offset-4" href="#">איך תוכנית ההזמנות עובדת?</a>
+          <a className="block text-[#0a2540] font-bold text-base underline decoration-1 underline-offset-4" href="#">תנאים והגבלות</a>
+        </div>
+      </main>
+    </section>
+  );
+}
+
 export default function ReferralStoriesPage() {
   const { lang = 'he' } = useParams();
-  const navigate        = useNavigate();
-  const { language }    = useLanguage();
-  const isHe            = language === 'he';
-
-  const tenantConfig  = useTenantStore((s) => s.config);
-  const primaryColor  = tenantConfig?.primaryColor ?? '#635bff';
-  // Derive display name based on language
-  const tenantName    = (isHe ? tenantConfig?.nameHe : tenantConfig?.name) ?? 'נקסוס';
-
-  // Restore from URL slug so every slide is directly shareable (?step=actions etc.)
-  const [currentStory, setCurrentStory] = useState(() => {
-    const stepParam = new URLSearchParams(window.location.search).get('step');
-    if (stepParam) {
-      const idx = STORY_IDS.indexOf(stepParam as typeof STORY_IDS[number]);
-      if (idx !== -1) return idx;
-    }
-    return 0;
-  });
-  const [progress,     setProgress]     = useState(0);
-  const startTimeRef = useRef(0);
-  const rafRef       = useRef<number>(0);
-
-  const goToStory = useCallback(
-    (index: number) => {
-      if (index >= STORY_COUNT) { navigate(`/${lang}`); return; }
-      if (index < 0) return;
-      setCurrentStory(index);
-      setProgress(0);
-      startTimeRef.current = Date.now();
-    },
-    [lang, navigate],
-  );
-
-  const isInteractive   = currentStory === 1;
-  const displayProgress = isInteractive ? 1 : progress;
-
-  // Sync current story → URL ?step=<slug> so every slide has a unique shareable URL
-  useEffect(() => {
-    const stepId = STORY_IDS[currentStory];
-    if (!stepId) return;
-    const url = new URL(window.location.href);
-    url.searchParams.set('step', stepId);
-    window.history.replaceState(null, '', url.toString());
-  }, [currentStory]);
-
-  // Auto-advance timer — story 1 only
-  useEffect(() => {
-    if (isInteractive) return;
-    startTimeRef.current = Date.now();
-    const tick = () => {
-      const elapsed = Date.now() - startTimeRef.current;
-      const p = Math.min(elapsed / STORY_DURATION, 1);
-      setProgress(p);
-      if (p >= 1) goToStory(currentStory + 1);
-      else rafRef.current = requestAnimationFrame(tick);
-    };
-    rafRef.current = requestAnimationFrame(tick);
-    return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
-  }, [currentStory, goToStory, isInteractive]);
-
-  // Tap navigation
-  const handleTap = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (isInteractive) return;
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    if (x < rect.width / 2) goToStory(currentStory + 1);
-    else goToStory(currentStory - 1);
-  };
+  const navigate = useNavigate();
+  const back = () => navigate(`/${lang}`);
 
   return (
-    <div className="fixed inset-0 max-w-md mx-auto bg-black z-[100] flex flex-col" dir={isHe ? 'rtl' : 'ltr'}>
-      {/* Progress bars — color adapts: white on dark (story 1), slate on light (story 2) */}
-      <div className="flex gap-1 px-3 pt-3 pb-2 z-50">
-        {Array.from({ length: STORY_COUNT }).map((_, i) => (
-          <div
-            key={i}
-            className="flex-1 h-[3px] rounded-full overflow-hidden"
-            style={{ backgroundColor: isInteractive ? 'rgba(15,23,42,0.12)' : 'rgba(255,255,255,0.3)' }}
-          >
-            <div
-              className="h-full rounded-full transition-colors"
-              style={{
-                width: i < currentStory ? '100%' : i === currentStory ? `${displayProgress * 100}%` : '0%',
-                background: isInteractive ? primaryColor : 'white',
-              }}
-            />
-          </div>
-        ))}
+    <div className="fixed inset-0 max-w-md mx-auto bg-white z-[100]" dir="rtl">
+      <div className="h-full overflow-y-auto hide-scrollbar pt-2 pb-40" style={{ overscrollBehavior: 'contain' }}>
+        <Screen1 onBack={back} />
+        <Screen2 />
+        <Screen3 />
       </div>
 
-      {/* Close button — icon color adapts to story */}
-      <button
-        onClick={() => navigate(`/${lang}`)}
-        className="absolute top-3 z-50 w-8 h-8 flex items-center justify-center"
-        style={{ [isHe ? 'left' : 'right']: '12px' }}
-      >
-        <span
-          className="material-symbols-outlined"
-          style={{ fontSize: '20px', color: isInteractive ? '#475569' : 'white' }}
-        >
-          close
-        </span>
-      </button>
-
-      {/* Story content */}
+      {/* Single fixed action button — pinned to the bottom of the page */}
       <div
-        className="flex-1 relative overflow-hidden rounded-t-2xl"
-        onClick={isInteractive ? undefined : handleTap}
+        className="absolute bottom-0 inset-x-0 bg-white border-t border-gray-100"
+        style={{ padding: '16px 24px 32px', boxShadow: '0 -4px 10px rgba(0, 0, 0, 0.05)' }}
       >
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={currentStory}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.3 }}
-            className="absolute inset-0"
-          >
-            {currentStory === 0 && (
-              <StoryHero primaryColor={primaryColor} tenantName={tenantName} />
-            )}
-            {currentStory === 1 && (
-              <StoryActions primaryColor={primaryColor} />
-            )}
-          </motion.div>
-        </AnimatePresence>
+        <button className="w-full bg-[#7dd3fc] hover:bg-[#38bdf8] text-[#0a2540] font-bold text-lg py-4 rounded-[28px] shadow-sm transition-colors">
+          שתפו את Nexus
+        </button>
+        <div className="w-32 h-1.5 bg-black mx-auto mt-6 rounded-full" />
       </div>
     </div>
   );
