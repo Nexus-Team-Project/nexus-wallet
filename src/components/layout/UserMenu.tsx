@@ -28,8 +28,9 @@ export default function UserMenu({ isOpen, onClose, onOpenDefaultSheet }: UserMe
   const isHe = language === 'he';
   const ref = useRef<HTMLDivElement>(null);
 
-  // The default-view entry only makes sense for members of at least one tenant.
-  const memberships = me?.memberships ?? [];
+  // The default-view entry only makes sense for 'member'-role tenants
+  // (privileged/admin tenants are dashboard contexts, not wallet catalogs).
+  const memberships = (me?.memberships ?? []).filter((m) => m.isMember);
 
   // Close on outside-click. Re-attaches on every isOpen toggle so we
   // never run a stale handler.

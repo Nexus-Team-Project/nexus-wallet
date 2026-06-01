@@ -73,13 +73,18 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
   // The org now comes from the URL (?tenant=X) / membership, not a picker.
   // ?ecosystem=1 explicitly opts out of any tenant context.
   const urlTenantId = sp.get('ecosystem') === '1' ? null : sp.get('tenant');
-  // Membership matching the URL tenant, if the logged-in user belongs to it.
+  // Wallet membership = the 'member' role only. A tenant the user merely
+  // administers (privileged role) is NOT a wallet member context.
   const membership = urlTenantId
-    ? (me?.memberships ?? []).find((m) => m.tenantId === urlTenantId)
+    ? (me?.memberships ?? []).find((m) => m.tenantId === urlTenantId && m.isMember)
     : undefined;
+  // Does the user hold ANY role (member or privileged) in the URL tenant?
+  const hasAnyRoleInUrlTenant =
+    !!urlTenantId && (me?.memberships ?? []).some((m) => m.tenantId === urlTenantId);
   // Non-member: a ?tenant=X is present, /api/me has loaded, and the user is
-  // NOT a member of that tenant. This injects the SlideJoinPrompt branch.
-  const isNonMember = !!urlTenantId && me != null && !membership;
+  // truly unaffiliated (no role at all) - so we offer to join. We never show
+  // the join prompt to someone who already administers the tenant.
+  const isNonMember = !!urlTenantId && me != null && !hasAnyRoleInUrlTenant;
 
   // ── Resolved public org name for the non-member join prompt ───────────────
   // Only fetched when we have a tenant in the URL the user does not belong to.

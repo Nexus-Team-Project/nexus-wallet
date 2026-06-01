@@ -48,14 +48,15 @@ export default function WalletTenantSwitcher() {
 
   if (!me) return null;
 
-  // Show every tenant the user belongs to (any role), not just plain
-  // members. The router-screen card list intentionally filters to
-  // plain-member tenants, but the in-page switcher is a "what context
-  // am I browsing as" picker that should include admin tenants too.
-  const tenants = (me.memberships ?? []).map((m) => ({
-    tenantId: m.tenantId,
-    tenantName: m.tenantName,
-  }));
+  // Wallet is member-facing: only show tenants where the user is a 'member'.
+  // Tenants they merely administer (privileged roles) are dashboard contexts,
+  // not browsable wallet catalogs, so they are excluded from the switcher.
+  const tenants = (me.memberships ?? [])
+    .filter((m) => m.isMember)
+    .map((m) => ({
+      tenantId: m.tenantId,
+      tenantName: m.tenantName,
+    }));
   const ecosystem = searchParams.get('ecosystem') === '1';
   const activeTenantId = !ecosystem ? searchParams.get('tenant') : null;
   const activeTenant = tenants.find((t) => t.tenantId === activeTenantId);

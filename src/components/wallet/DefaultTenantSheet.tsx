@@ -49,7 +49,9 @@ export default function DefaultTenantSheet({ onClose }: DefaultTenantSheetProps)
   const dragY = useRef(0);
   const [saving, setSaving] = useState<string | null>(null);
 
-  const memberships = me?.memberships ?? [];
+  // Member-facing: only tenants where the user is a 'member' are selectable
+  // landing contexts (privileged/admin tenants belong in the dashboard).
+  const memberships = (me?.memberships ?? []).filter((m) => m.isMember);
   const currentDefault: string | null = me?.defaultTenantId ?? null;
 
   // Options: each tenant the member belongs to, plus the Nexus catalog.

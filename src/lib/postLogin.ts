@@ -52,7 +52,17 @@ export interface PostLoginDecision {
   path: string;
 }
 
+/**
+ * Wallet membership = the 'member' role only. Tenants the user merely
+ * administers (privileged roles) are NOT wallet member contexts - the wallet
+ * is member-facing, those belong in the dashboard.
+ */
 function isMemberOf(me: WalletMeResponse, tenantId: string): boolean {
+  return (me.memberships ?? []).some((m) => m.tenantId === tenantId && m.isMember);
+}
+
+/** True when the user holds ANY role in the tenant (member or privileged). */
+function hasAnyRoleIn(me: WalletMeResponse, tenantId: string): boolean {
   return (me.memberships ?? []).some((m) => m.tenantId === tenantId);
 }
 
@@ -72,10 +82,15 @@ export function resolvePostLogin(ctx: PostLoginContext): PostLoginDecision {
   if (urlTenantId && isMemberOf(me, urlTenantId)) {
     return { kind: 'catalog', path: `/${lang}/store?tenant=${encodeURIComponent(urlTenantId)}` };
   }
-  if (urlTenantId && !isMemberOf(me, urlTenantId)) {
+  if (urlTenantId && !hasAnyRoleIn(me, urlTenantId)) {
+    // Truly unaffiliated with this tenant → offer to join it.
     return { kind: 'stories-nonmember', path: `/${lang}/auth-flow/join${tenantQuery}` };
   }
-  // Returning user, no tenant in the URL → their default landing context.
+  // Either no tenant in the URL, OR the user administers this tenant but is
+  // not a wallet member of it (privileged role) - we never show an admin the
+  // join prompt or a tenant catalog they only administer. Fall through to
+  // their default landing context.
+  // A member with a default (explicit choice or last-joined) lands on that
   // A member with a default (explicit choice or last-joined) lands on that
   // tenant; everyone else lands on the Nexus ecosystem catalog. A stashed
   // gated-action return still overrides this in nextPathAfterLogin().

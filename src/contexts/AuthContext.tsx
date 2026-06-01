@@ -37,6 +37,12 @@ export interface WalletMeResponse {
     logoUrl?: string;
     role: string;
     isPrivilegedRole: boolean;
+    /**
+     * Whether the user holds the 'member' role in this tenant (even if they
+     * also hold a privileged role). The wallet uses this to decide whether the
+     * tenant's catalog is browsable - admin-only tenants are excluded.
+     */
+    isMember?: boolean;
   }>;
   isPlatformAdmin?: boolean;
   canOpenDashboard?: boolean;
