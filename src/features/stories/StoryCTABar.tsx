@@ -11,6 +11,9 @@ interface StoryCTABarProps {
   orgColor: string;
   /** Called when the primary "קליק להמשך" button is tapped in new-user flow */
   onNewUserContinue: () => void;
+  /** When provided, shows a "continue with another organization" text link
+      under the primary CTA that opens the tenant-join discovery sheet. */
+  onJoinOtherOrg?: () => void;
 }
 
 export function StoryCTABar({
@@ -19,6 +22,7 @@ export function StoryCTABar({
   goTo,
   orgColor,
   onNewUserContinue,
+  onJoinOtherOrg,
 }: StoryCTABarProps) {
   return (
     <div className="absolute bottom-0 inset-x-0 z-30 pointer-events-none">
@@ -53,6 +57,19 @@ export function StoryCTABar({
             קליק להמשך
           </button>
         </div>
+
+        {/* Secondary: continue with another organization → opens the
+            tenant-join discovery sheet. Plain white text, bottom-right (RTL). */}
+        {onJoinOtherOrg && (
+          <div className="flex justify-end mt-2">
+            <button
+              onClick={(e) => { e.stopPropagation(); onJoinOtherOrg(); }}
+              className="text-white/90 text-xs font-medium active:scale-95"
+            >
+              רוצה להמשיך עם ארגון אחר? <span className="underline underline-offset-2">לחץ כאן</span>
+            </button>
+          </div>
+        )}
 
         {/* Powered by Nexus — org flow only */}
         {isOrgFlow && (

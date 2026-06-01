@@ -97,7 +97,7 @@ export default function TenantDiscoverySheet({ onSubmit, onClose }: TenantDiscov
   return (
     <AnimatePresence>
       <motion.div
-        className="fixed inset-0 z-40"
+        className="fixed inset-0 z-[200]"
         style={{ background: 'rgba(0,0,0,0.35)' }}
         initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
         onPointerDown={(e) => { dragY.current = e.clientY; }}
@@ -105,7 +105,7 @@ export default function TenantDiscoverySheet({ onSubmit, onClose }: TenantDiscov
         onClick={(e) => { e.stopPropagation(); onClose(); }}
       />
       <motion.div
-        className="fixed bottom-0 left-0 right-0 z-50 mx-auto flex w-full max-w-xl flex-col rounded-t-3xl bg-white shadow-2xl sm:max-w-xl lg:bottom-auto lg:left-1/2 lg:top-1/2 lg:max-w-2xl lg:-translate-x-1/2 lg:-translate-y-1/2 lg:rounded-3xl"
+        className="fixed bottom-0 left-0 right-0 z-[210] mx-auto flex w-full max-w-xl flex-col rounded-t-3xl bg-white shadow-2xl sm:max-w-xl lg:bottom-auto lg:left-1/2 lg:top-1/2 lg:max-w-2xl lg:-translate-x-1/2 lg:-translate-y-1/2 lg:rounded-3xl"
         style={{ maxHeight: '82vh' }}
         initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
         transition={{ type: 'spring', damping: 28, stiffness: 300 }}

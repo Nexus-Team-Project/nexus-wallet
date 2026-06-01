@@ -20,6 +20,9 @@ import GiftCardsPage from '../GiftCardsPage';
 import WalletCardsPage from '../WalletCardsPage';
 import NearbyMapPage from '../NearbyMapPage';
 import SlideJoinPrompt from '../../components/auth-flow/SlideJoinPrompt';
+import TenantDiscoverySheet from '../../components/wallet/TenantDiscoverySheet';
+import { createJoinRequests } from '../../services/walletTenants.service';
+import { toast } from 'sonner';
 
 import {
   type FlowType,
@@ -93,6 +96,21 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
   // ── Org name resolution order: membership → public tenant → store → orgMember.
   const resolvedOrgName =
     membership?.tenantName ?? publicOrgName ?? tenantConfig?.name ?? orgMember?.organizationName ?? null;
+
+  // ── "Continue with another organization" — opens the tenant-join discovery
+  //    sheet from inside the stories (the bottom-right white text link).
+  const [showJoin, setShowJoin] = useState(false);
+  const submitJoin = async (ids: string[]): Promise<void> => {
+    setShowJoin(false);
+    if (ids.length === 0) return;
+    try {
+      await createJoinRequests(ids);
+      toast.success('הבקשה נשלחה — ממתינה לאישור מנהל');
+    } catch (e) {
+      console.error('[wallet-join] stories join failed:', e);
+      toast.error('שליחת הבקשה נכשלה');
+    }
+  };
 
   // ── Whether this session has an org/tenant context ────────────────────────
   // True when the registration store / tenant theme carries an org (the
@@ -288,9 +306,16 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
             goTo={goTo}
             orgColor={orgColor}
             onNewUserContinue={handleNewUserContinue}
+            onJoinOtherOrg={() => setShowJoin(true)}
           />
         )}
       </div>
+
+      {/* Tenant-join discovery sheet, opened from the "continue with another
+          organization" link. z-[200]+ so it layers above the stories overlay. */}
+      {showJoin && (
+        <TenantDiscoverySheet onClose={() => setShowJoin(false)} onSubmit={submitJoin} />
+      )}
     </div>
   );
 }

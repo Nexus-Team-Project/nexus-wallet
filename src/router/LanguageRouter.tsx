@@ -5,6 +5,7 @@ import LoginSheet from '../components/auth/LoginSheet';
 import WalletTenantSwitcher from '../components/wallet/WalletTenantSwitcher';
 import { useAuth } from '../contexts/AuthContext';
 import { useTenantStore } from '../stores/tenantStore';
+import { useRegistrationStore } from '../stores/registrationStore';
 import { lookupTenant } from '../mock/handlers/tenant.handler';
 import { fetchPublicTenant } from '../services/publicTenant.service';
 import type { TenantConfig } from '../types/tenant.types';
@@ -54,6 +55,7 @@ export default function LanguageRouter() {
   const location = useLocation();
   const { tenantId, config, setTenant, clearTenant } = useTenantStore();
   const { me } = useAuth();
+  const isRegistering = useRegistrationStore((s) => s.isRegistering);
 
   // Public-by-default: anonymous visitors may load any route. There is no
   // global redirect here anymore - the route tree (ProtectedRoute on the
@@ -124,12 +126,15 @@ export default function LanguageRouter() {
       <div style={tenantStyle}>
         <Outlet />
         <LoginSheet />
-        {/* Real tenant switcher when logged in. Hidden on the auth-flow
-            story onboarding chain (new-user / org-user) where showing the
-            top-left "Pick view" chip would be redundant and confusing
-            while the user is still choosing their context. */}
+        {/* Real tenant switcher when logged in. Hidden across the entire
+            signup journey - the auth-flow story chain AND the /register
+            onboarding slides, plus any time a registration is in progress
+            (isRegistering) - where the top-left "Pick view" chip would be
+            redundant and confusing while the user is still onboarding. The
+            in-story "continue with another organization" link replaces it. */}
         {me &&
-          !/^\/[a-z]{2}\/auth-flow(\/|$)/.test(location.pathname) && (
+          !isRegistering &&
+          !/^\/[a-z]{2}\/(auth-flow|register)(\/|$)/.test(location.pathname) && (
             <WalletTenantSwitcher />
           )}
       </div>
