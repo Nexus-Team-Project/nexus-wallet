@@ -6,7 +6,6 @@
  */
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { toast } from 'sonner';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTenantStore } from '../../stores/tenantStore';
 import { fetchPublicTenant } from '../../services/publicTenant.service';
@@ -38,17 +37,10 @@ export default function JoinStandalone() {
     return () => { active = false; };
   }, [tenantId, me]);
 
-  /**
-   * Resolve the branch: confirm a sent join request via a toast, then
-   * route to the ecosystem catalog.
-   */
-  const finish = (result: { joinedRequested: boolean }): void => {
-    if (result.joinedRequested) {
-      const isHe = lang === 'he';
-      toast.success(
-        isHe ? 'הבקשה נשלחה - ממתינה לאישור מנהל' : 'Request sent - pending admin approval',
-      );
-    }
+  /** End the branch by routing to the ecosystem catalog (the toast, if any,
+   *  is shown by SlideJoinPrompt based on the join outcome). */
+  const finish = (): void => {
+    // The join outcome toast (joined vs pending) is shown by SlideJoinPrompt.
     void navigate(`/${lang}/store?ecosystem=1`, { replace: true });
   };
 

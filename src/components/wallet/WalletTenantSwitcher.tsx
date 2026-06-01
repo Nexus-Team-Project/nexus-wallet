@@ -23,10 +23,11 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { useTenantStore } from '../../stores/tenantStore';
 import { createJoinRequests } from '../../services/walletTenants.service';
+import { joinResultToast } from '../../lib/joinToast';
 import TenantDiscoverySheet from './TenantDiscoverySheet';
 
 export default function WalletTenantSwitcher() {
-  const { me } = useAuth();
+  const { me, reload } = useAuth();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { language } = useLanguage();
@@ -106,10 +107,11 @@ export default function WalletTenantSwitcher() {
     setShowJoin(false);
     if (ids.length === 0) return;
     try {
-      await createJoinRequests(ids);
-      toast.success(
-        isHe ? 'הבקשה נשלחה — ממתינה לאישור מנהל' : 'Request sent — pending admin approval',
-      );
+      const result = await createJoinRequests(ids);
+      joinResultToast(result, isHe);
+      // Auto-accepted joins make the user a member now; refresh /api/me so the
+      // new tenant appears in the switcher (and becomes a default candidate).
+      if (result.autoAccepted.length > 0) await reload();
     } catch (e) {
       console.error('[wallet-join] switcher join failed:', e);
       toast.error(isHe ? 'שליחת הבקשה נכשלה' : 'Could not send request');

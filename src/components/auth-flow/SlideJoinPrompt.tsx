@@ -13,7 +13,10 @@
  */
 import { useState } from 'react';
 import { motion } from 'framer-motion';
+import { toast } from 'sonner';
 import { createJoinRequests } from '../../services/walletTenants.service';
+import { useLanguage } from '../../i18n/LanguageContext';
+import { joinResultToast } from '../../lib/joinToast';
 import TenantDiscoverySheet from '../wallet/TenantDiscoverySheet';
 
 interface SlideJoinPromptProps {
@@ -63,21 +66,25 @@ export default function SlideJoinPrompt({
     orgColor && orgColor.toLowerCase() !== FALLBACK_COLOR
       ? orgColor
       : colorFromSeed(tenantId ?? orgName ?? 'nexus');
+  const { language } = useLanguage();
+  const isHe = language === 'he';
   const [showDiscovery, setShowDiscovery] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   const displayName = orgName ?? 'הארגון';
   const initials = (orgName ?? 'N').trim().slice(0, 2).toUpperCase();
 
-  /** Send a join request for the given tenants, then resolve the slide. */
+  /** Send a join request, toast the outcome (joined vs pending), then resolve. */
   const requestJoin = async (ids: string[]): Promise<void> => {
     if (ids.length === 0) return;
     setSubmitting(true);
     try {
-      await createJoinRequests(ids);
+      const result = await createJoinRequests(ids);
+      joinResultToast(result, isHe);
       onResolve({ joinedRequested: true });
     } catch (e) {
       console.error('[wallet-join] createJoinRequests failed:', e);
+      toast.error(isHe ? 'שליחת הבקשה נכשלה' : 'Could not send request');
       onResolve({ joinedRequested: false });
     } finally {
       setSubmitting(false);

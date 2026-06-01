@@ -10,6 +10,8 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import { createJoinRequests } from '../../services/walletTenants.service';
+import { useLanguage } from '../../i18n/LanguageContext';
+import { joinResultToast } from '../../lib/joinToast';
 import TenantDiscoverySheet from '../wallet/TenantDiscoverySheet';
 
 interface SlideDiscoverOrgProps {
@@ -20,18 +22,20 @@ interface SlideDiscoverOrgProps {
 const ACCENT = '#7c3aed';
 
 export default function SlideDiscoverOrg({ onResolve }: SlideDiscoverOrgProps) {
+  const { language } = useLanguage();
+  const isHe = language === 'he';
   const [showDiscovery, setShowDiscovery] = useState(false);
 
-  /** Send the chosen join request(s), toast, then continue onboarding. */
+  /** Send the chosen join request(s), toast the outcome, then continue. */
   const submitJoin = async (ids: string[]): Promise<void> => {
     setShowDiscovery(false);
     if (ids.length === 0) return;
     try {
-      await createJoinRequests(ids);
-      toast.success('הבקשה נשלחה, ממתינה לאישור מנהל');
+      const result = await createJoinRequests(ids);
+      joinResultToast(result, isHe);
     } catch (e) {
       console.error('[wallet-join] discover-org join failed:', e);
-      toast.error('שליחת הבקשה נכשלה');
+      toast.error(isHe ? 'שליחת הבקשה נכשלה' : 'Could not send request');
     } finally {
       // Continue regardless: they still need to finish onboarding.
       onResolve();
