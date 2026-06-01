@@ -277,9 +277,10 @@ export function ProductsSection({ products, business }: ProductsSectionProps) {
             : 0;
 
           return (
-            <div
+            <button
               key={product.id}
-              className="min-w-[160px] w-40 shrink-0"
+              onClick={() => navigate(`/${language}/business/${business.id}/product/${product.id}`)}
+              className="min-w-[160px] w-40 shrink-0 text-start active:scale-[0.98] transition-transform"
             >
               {/* Square image area */}
               <div className="bg-gray-50 rounded-2xl p-4 relative aspect-square flex items-center justify-center overflow-hidden">
@@ -304,7 +305,7 @@ export function ProductsSection({ products, business }: ProductsSectionProps) {
                   </p>
                 )}
               </div>
-            </div>
+            </button>
           );
         })}
       </div>

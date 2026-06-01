@@ -35,6 +35,7 @@ const PremiumRevealPage  = lazy(() => import('../pages/PremiumRevealPage'));
 const CategoryPage       = lazy(() => import('../pages/CategoryPage'));
 const BusinessPage       = lazy(() => import('../pages/BusinessPage'));
 const BusinessStorePage  = lazy(() => import('../pages/BusinessStorePage'));
+const BusinessProductPage = lazy(() => import('../pages/BusinessProductPage'));
 const VoucherPurchasePage = lazy(() => import('../pages/VoucherPurchasePage'));
 const NotificationsPage  = lazy(() => import('../pages/NotificationsPage'));
 
@@ -47,6 +48,7 @@ const PaymentMethodsPage = lazy(() => import('../pages/PaymentMethodsPage'));
 const WalletHistoryPage = lazy(() => import('../pages/WalletHistoryPage'));
 const WallpaperPage = lazy(() => import('../pages/WallpaperPage'));
 const WalletCustomizePage = lazy(() => import('../pages/WalletCustomizePage'));
+const WalletActionsPage = lazy(() => import('../pages/WalletActionsPage'));
 const VoucherDetailPage  = lazy(() => import('../pages/VoucherDetailPage'));
 const PaymentIntroPage   = lazy(() => import('../pages/PaymentIntroPage'));
 
@@ -127,6 +129,7 @@ export const router = createBrowserRouter([
           { path: 'category/:categoryId', element: <S><CategoryPage /></S> },
           { path: 'business/:businessId', element: <S><BusinessPage /></S> },
           { path: 'business/:businessId/store', element: <S><BusinessStorePage /></S> },
+          { path: 'business/:businessId/product/:productId', element: <S><BusinessProductPage /></S> },
           { path: 'business/:businessId/voucher/:voucherId', element: <S><VoucherPurchasePage /></S> },
           { path: 'wallet/add-money',          element: <S><AddMoneyPage /></S> },
           { path: 'wallet/add-money/source',   element: <S><AddMoneySourcePage /></S> },
@@ -136,6 +139,7 @@ export const router = createBrowserRouter([
           { path: 'wallet/pay-intro',          element: <S><PaymentIntroPage /></S> },
           { path: 'wallpaper',                 element: <S><WallpaperPage /></S> },
           { path: 'wallet/customize',          element: <S><WalletCustomizePage /></S> },
+          { path: 'wallet/actions',            element: <S><WalletActionsPage /></S> },
           {
             path: 'wallet/history',
             element: (

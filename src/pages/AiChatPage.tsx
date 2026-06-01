@@ -14,6 +14,7 @@ import SearchFiltersView from '../components/chat/SearchFiltersView';
 import StoreSearchResults from '../components/chat/StoreSearchResults';
 import type { DiscountFinderResult } from '../components/chat/DiscountFinderCard';
 import VoucherDetail from '../components/store/VoucherDetail';
+import WalletPage from './WalletPage';
 import { useRecommendationsStore } from '../stores/recommendationsStore';
 import { useChatStore } from '../stores/chatStore';
 import { mockVouchers } from '../mock/data/vouchers.mock';
@@ -26,14 +27,14 @@ import { mockBusinesses } from '../mock/data/businesses.mock';
 // sending the query straight to the AI.
 const quickActionsHe = [
   { text: 'מצא הנחות שוות', icon: 'local_offer', query: 'מצא לי הנחות', kind: 'finder' as const },
-  { text: 'שלם בחנות', icon: 'nexus-badge', query: 'תשלום בחנות' },
+  { text: 'שלם בחנות', icon: 'nexus-badge', query: 'תשלום בחנות', kind: 'pay' as const },
   { text: 'קנה אונליין', icon: 'shopping_cart', query: 'קניות אונליין' },
   { text: 'שלח מתנה', icon: 'card_giftcard', query: 'מתנה', isNew: true },
 ];
 
 const quickActionsEn = [
   { text: 'Best discounts', icon: 'local_offer', query: 'Find me discounts', kind: 'finder' as const },
-  { text: 'Pay in store', icon: 'nexus-badge', query: 'pay in store' },
+  { text: 'Pay in store', icon: 'nexus-badge', query: 'pay in store', kind: 'pay' as const },
   { text: 'Buy online', icon: 'shopping_cart', query: 'shopping online' },
   { text: 'Send a gift', icon: 'card_giftcard', query: 'gift', isNew: true },
 ];
@@ -70,8 +71,8 @@ const popularSearchesEn = [
   'Makeup for an event',
 ];
 
-const SHEET_TRANSITION_MS = 420;
-const SHEET_EASING = 'cubic-bezier(0.32, 0.72, 0, 1)';
+const SHEET_TRANSITION_MS = 560;
+const SHEET_EASING = 'cubic-bezier(0.22, 1, 0.36, 1)';
 const SHEET_EXPANDED_FRAC = 0.75; // 75dvh — leaves the input + a couple messages visible above
 const SHEET_EXPANDED_HEIGHT = `${SHEET_EXPANDED_FRAC * 100}dvh`;
 // Drag past the expanded ceiling by more than this many px → navigate to
@@ -142,6 +143,11 @@ export default function AiChatPage() {
   // Seeds the DiscountFinderCard's category chip when the finder is opened
   // from a category page (via ?finder=<categoryId>).
   const [finderInitialCategory, setFinderInitialCategory] = useState<VoucherCategory | undefined>(undefined);
+
+  // "Pay in store" quick action expands the SAME bottom sheet that hosts
+  // search results, rendering the full wallet page inside it (verbatim)
+  // instead of sending a chat message or opening a separate sheet.
+  const [payMode, setPayMode] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   // The scrollable thread region — used to pin the view to the top when the
@@ -261,7 +267,7 @@ export default function AiChatPage() {
   // content (recommendations OR a loading skeleton). Drag up always rises
   // (clamped to expanded height); drag down shrinks and collapses past
   // threshold, else snaps back. A tap toggles open/closed.
-  const hasSheetContent = !!recommendations || loadingRecs || storeScoped;
+  const hasSheetContent = !!recommendations || loadingRecs || storeScoped || payMode;
   useEffect(() => {
     if (!hasSheetContent) return; // nothing to peek at — drag is inert
     const handle = dragHandleRef.current;
@@ -511,6 +517,7 @@ export default function AiChatPage() {
     setWelcomeInput('');
     setRecommendations(null);
     setLoadingRecs(false);
+    setPayMode(false);
     setSheetState('normal');
     setWelcomeCollapsed(false);
     setTimeout(() => {
@@ -779,7 +786,7 @@ export default function AiChatPage() {
             className="absolute top-0 inset-x-0 z-30 flex justify-center pt-3 pb-3 w-full pointer-events-auto"
             style={{ touchAction: hasSheetContent ? 'none' : 'auto' }}
           >
-            <div className="w-10 h-1 rounded-full bg-gray-300 shadow-sm pointer-events-none" />
+            <div className="w-9 h-[3px] rounded-full bg-gray-300/80 pointer-events-none" />
           </button>
 
           {/* Animated content wrapper — height drives the rise. Now takes the
@@ -795,7 +802,13 @@ export default function AiChatPage() {
             }}
           >
             {hasSheetContent && (
-              storeScoped && scopedStore ? (
+              payMode ? (
+                // "Pay in store" — the full wallet page, verbatim, scrolling
+                // inside the same sheet (no adapted/compact variant).
+                <div className="h-full overflow-y-auto overscroll-contain no-scrollbar pt-6">
+                  <WalletPage embedded />
+                </div>
+              ) : storeScoped && scopedStore ? (
                 // Store-scoped search keeps the store's own structure — the
                 // centred logo + two-per-row product grid — so it reads as
                 // staying inside that store rather than the generic list.
@@ -885,6 +898,11 @@ export default function AiChatPage() {
                           // path; the effect on /search opens it.
                           navigate(`/${lang}/search`);
                           openDiscountFinder(action.query, { alignTop: true });
+                        } else if ('kind' in action && action.kind === 'pay') {
+                          // Expand the existing sheet onto the full wallet page.
+                          markActivity();
+                          setPayMode(true);
+                          requestAnimationFrame(() => expandSheet());
                         } else {
                           handleSendMessage(action.query);
                         }

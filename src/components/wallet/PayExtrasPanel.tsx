@@ -66,20 +66,6 @@ export default function PayExtrasPanel({ onClose }: PayExtrasPanelProps) {
         )}
       </div>
 
-      {/* Maximize cashback — navigate to store */}
-      <button
-        onClick={() => {
-          onClose();
-          navigate(`/${lang}/store`);
-        }}
-        className="w-full flex items-center justify-between bg-surface rounded-2xl p-4 mb-3 active:scale-[0.98] transition-transform border border-border"
-      >
-        <span className="text-sm font-bold text-primary">
-          {t.wallet.maximizeCashback}
-        </span>
-        <ChevronLeft size={20} className="text-primary" style={{ transform: lang === 'he' ? 'rotate(180deg)' : undefined }} />
-      </button>
-
       {/* How does it work? — navigates to the intro page */}
       <button
         onClick={() => {

@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { motion, Reorder, useDragControls } from 'framer-motion';
-import { GripVertical, Eye, EyeOff, X } from 'lucide-react';
+import { GripVertical, Eye, EyeOff } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useLanguage } from '../i18n/LanguageContext';
 import { useWallet } from '../hooks/useWallet';
@@ -10,7 +10,8 @@ import WalletPageSkeleton from '../components/wallet/WalletPageSkeleton';
 import PayCodesPanel from '../components/wallet/PayCodesPanel';
 import PayExtrasPanel from '../components/wallet/PayExtrasPanel';
 import MoreActionsSheet from '../components/wallet/MoreActionsSheet';
-import BestOffersWidget from '../components/wallet/BestOffersWidget';
+import WalletOffersSlider from '../components/wallet/WalletOffersSlider';
+import WidgetsGallery from '../components/wallet/WidgetsGallery';
 import TopBar from '../components/layout/TopBar';
 import { useTenantStore } from '../stores/tenantStore';
 import { useWallpaperStore } from '../stores/wallpaperStore';
@@ -21,7 +22,13 @@ import type { UserVoucher } from '../types/voucher.types';
 import MastercardLogo from '../assets/logos/mastercard-logo-transperant.png';
 import NexusWideLogo from '../assets/logos/Nexus_Wide_Logo_Animation_Black_Whithout_Slogan.gif';
 
-export default function WalletPage() {
+interface WalletPageProps {
+  // When embedded (e.g. inside the chat "pay in store" sheet) the dark
+  // "card not on file" top banner is suppressed.
+  embedded?: boolean;
+}
+
+export default function WalletPage({ embedded = false }: WalletPageProps) {
   const { t, language, isRTL } = useLanguage();
   const { lang = 'he' } = useParams();
   const navigate = useNavigate();
@@ -40,6 +47,7 @@ export default function WalletPage() {
   // When this is OFF, grip handles are hidden and Reorder drag is
   // disabled — the wallet reads like a static list.
   const editEnabled = useWalletLayoutStore((s) => s.editEnabled);
+  const setEditEnabled = useWalletLayoutStore((s) => s.setEditEnabled);
   const hiddenSections = useWalletLayoutStore((s) => s.hiddenSections);
   const toggleHidden = useWalletLayoutStore((s) => s.toggleHidden);
   // Widget-level state: per-widget order and per-widget hidden flag.
@@ -49,66 +57,77 @@ export default function WalletPage() {
   const hiddenWidgets = useWalletLayoutStore((s) => s.hiddenWidgets);
   const toggleHiddenWidget = useWalletLayoutStore((s) => s.toggleHiddenWidget);
 
-  // Refs for auto-scrolling the widgets gallery while the user drags a
-  // widget near the screen edge.
-  const widgetsScrollRef = useRef<HTMLDivElement>(null);
-  const widgetsScrollRafRef = useRef<number | null>(null);
-  const widgetsPointerXRef = useRef(0);
-
-  const handleWidgetsPointerMove = useCallback((e: PointerEvent) => {
-    widgetsPointerXRef.current = e.clientX;
-  }, []);
-
-  const stopWidgetsAutoScroll = useCallback(() => {
-    if (widgetsScrollRafRef.current !== null) {
-      cancelAnimationFrame(widgetsScrollRafRef.current);
-      widgetsScrollRafRef.current = null;
-    }
-    window.removeEventListener('pointermove', handleWidgetsPointerMove);
-  }, [handleWidgetsPointerMove]);
-
-  const startWidgetsAutoScroll = useCallback(() => {
-    window.addEventListener('pointermove', handleWidgetsPointerMove);
-    const EDGE_ZONE = 70;
-    const MAX_SPEED = 18;
-    const loop = () => {
-      const el = widgetsScrollRef.current;
-      if (!el) return;
-      const rect = el.getBoundingClientRect();
-      const x = widgetsPointerXRef.current;
-      if (x < rect.left + EDGE_ZONE) {
-        const ratio = Math.min(1, (rect.left + EDGE_ZONE - x) / EDGE_ZONE);
-        el.scrollLeft -= ratio * MAX_SPEED;
-      } else if (x > rect.right - EDGE_ZONE) {
-        const ratio = Math.min(1, (x - (rect.right - EDGE_ZONE)) / EDGE_ZONE);
-        el.scrollLeft += ratio * MAX_SPEED;
-      }
-      widgetsScrollRafRef.current = requestAnimationFrame(loop);
-    };
-    widgetsScrollRafRef.current = requestAnimationFrame(loop);
-  }, [handleWidgetsPointerMove]);
-
-  // Make sure we don't leak the animation frame / global listener.
-  useEffect(() => {
-    return () => stopWidgetsAutoScroll();
-  }, [stopWidgetsAutoScroll]);
   // One drag-controls instance per section — only the grip handle in
   // each section header triggers vertical drag, so taps elsewhere on
   // the section (collapse chevron, buttons inside) stay independent.
   const widgetsDragControls = useDragControls();
-  const cardsDragControls = useDragControls();
+  const offersDragControls = useDragControls();
   const vouchersDragControls = useDragControls();
   const [activeTab, setActiveTab] = useState<UserVoucher['status']>('active');
 
   // Collapsible section states
-  const [cardOpen, setCardOpen] = useState(true);
   const [widgetsOpen, setWidgetsOpen] = useState(true);
   const [vouchersOpen, setVouchersOpen] = useState(true);
   const [noCardBannerOpen, setNoCardBannerOpen] = useState(false);
+  const [editBannerOpen, setEditBannerOpen] = useState(false);
+
+  // ── Balance / card carousel ──
+  // The balance square and the digital payment card share one horizontal
+  // snap carousel (wallet on the right in RTL, card to its left). We
+  // track the active index from scrollLeft to drive the dots. Using
+  // Math.abs keeps the math correct under RTL's negative scrollLeft.
+  const walletCarouselRef = useRef<HTMLDivElement>(null);
+  const [walletSlide, setWalletSlide] = useState(0);
+  const onWalletScroll = useCallback(() => {
+    const el = walletCarouselRef.current;
+    if (!el) return;
+    setWalletSlide(Math.round(Math.abs(el.scrollLeft) / el.clientWidth));
+  }, []);
+
+  // Mouse drag-to-scroll. Touch devices already pan the snap carousel
+  // natively, but a hidden-scrollbar list can't be moved with a mouse —
+  // so for pointerType 'mouse' we translate horizontal drag into
+  // scrollLeft. Snap is suspended during the drag and restored on
+  // release so the carousel settles onto a slide.
+  const walletDrag = useRef({ active: false, startX: 0, startScroll: 0 });
+  const onWalletPointerDown = useCallback((e: React.PointerEvent) => {
+    if (e.pointerType !== 'mouse') return;
+    // Don't hijack presses on the action buttons (pay / add money) — let
+    // their own pointer handlers and clicks fire normally.
+    if ((e.target as HTMLElement).closest('button')) return;
+    const el = walletCarouselRef.current;
+    if (!el) return;
+    walletDrag.current = { active: true, startX: e.clientX, startScroll: el.scrollLeft };
+    el.style.scrollSnapType = 'none';
+    el.setPointerCapture(e.pointerId);
+  }, []);
+  const onWalletPointerMove = useCallback((e: React.PointerEvent) => {
+    if (!walletDrag.current.active) return;
+    const el = walletCarouselRef.current;
+    if (!el) return;
+    el.scrollLeft = walletDrag.current.startScroll - (e.clientX - walletDrag.current.startX);
+  }, []);
+  const endWalletDrag = useCallback(() => {
+    if (!walletDrag.current.active) return;
+    walletDrag.current.active = false;
+    const el = walletCarouselRef.current;
+    if (el) el.style.scrollSnapType = '';
+  }, []);
 
   // Mock: whether the user has a payment card on file. When false, the
   // top dark banner appears prompting the user to add card details.
   const hasCard = false;
+  // In "customize wallet" (edit) mode the top strip switches to an
+  // edit-mode banner that links to settings — so the card prompt is
+  // suppressed while editing.
+  const showEditBanner = editEnabled && !embedded;
+  // The dark top strip prompting "add card details" shows only on the
+  // standalone wallet page — never in the embedded chat sheet, and never
+  // while the edit-mode banner is showing.
+  const showNoCardBanner = !hasCard && !embedded && !editEnabled;
+  // Either banner occupies the dark top strip, so the white content frame
+  // overlaps it the same way in both cases.
+  const showTopStrip = showNoCardBanner || showEditBanner;
 
   // Sheet states
   const [showPaySheet, setShowPaySheet] = useState(false);
@@ -182,8 +201,51 @@ export default function WalletPage() {
 
   return (
     <div className="animate-fade-in">
+      {/* ══════ EDIT-MODE DARK TOP STRIP ══════
+          While customising the wallet, the card prompt is replaced by an
+          edit-mode banner. Tapping it jumps to settings (profile) where the
+          "Customize wallet" toggle lets the user finish / close edit mode. */}
+      {showEditBanner && (
+        <div className="bg-[#2e2e2e] text-white px-4 pt-5 pb-7">
+          <button
+            onClick={() => setEditBannerOpen((open) => !open)}
+            className="w-full flex items-center justify-center gap-2 active:opacity-70 transition-opacity"
+          >
+            <span className="material-symbols-outlined text-white/80" style={{ fontSize: '18px' }}>
+              tune
+            </span>
+            <span className="text-xs font-semibold">{t.wallet.editModeActive}</span>
+            <span
+              className={`material-symbols-outlined text-white/80 transition-transform duration-300 flex-shrink-0 ${
+                editBannerOpen ? 'rotate-180' : ''
+              }`}
+              style={{ fontSize: '16px' }}
+            >
+              expand_more
+            </span>
+          </button>
+
+          {/* Expandable CTA — revealed when chevron is clicked; closes edit mode */}
+          <div
+            className={`overflow-hidden transition-all duration-300 ease-in-out ${
+              editBannerOpen ? 'max-h-20 opacity-100 mt-3' : 'max-h-0 opacity-0 mt-0'
+            }`}
+          >
+            <button
+              onClick={() => {
+                setEditEnabled(false);
+                setEditBannerOpen(false);
+              }}
+              className="w-full bg-white text-[#2e2e2e] font-bold text-sm py-2.5 rounded-full active:scale-[0.98] transition-transform"
+            >
+              {t.wallet.editModeClose}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* ══════ YELLOW-STYLE DARK TOP STRIP ══════ */}
-      {!hasCard && (
+      {showNoCardBanner && (
         <div className="bg-[#2e2e2e] text-white px-4 pt-5 pb-7">
           <button
             onClick={() => setNoCardBannerOpen((open) => !open)}
@@ -252,11 +314,11 @@ export default function WalletPage() {
 
       {/* ══════ WHITE CONTENT FRAME — rounded top, overlaps dark strip ══════ */}
       <motion.div
-        initial={!hasCard ? { y: -76 } : false}
+        initial={showTopStrip ? { y: -76 } : false}
         animate={{ y: 0 }}
         transition={{ delay: 0.4, duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
         className={
-          !hasCard
+          showTopStrip
             ? 'bg-bg-light rounded-t-3xl -mt-4 pt-2 relative z-10 overflow-hidden'
             : 'pt-2 relative overflow-hidden'
         }
@@ -295,7 +357,7 @@ export default function WalletPage() {
             behind. */}
         <div className="relative">
       {/* ══════ INLINE TOPBAR ROW (logo, avatar, greeting, chat, bell) ══════ */}
-      <TopBar collapsed={false} />
+      {!embedded && <TopBar collapsed={false} />}
 
       {/* ══════ BALANCE CARD (Klarna-style) ══════ */}
       <section className="relative mt-4 mb-8 px-5">
@@ -319,17 +381,39 @@ export default function WalletPage() {
           </div>
         </div>
 
+        {/* Carousel wrapper — positioning context for the issue-card
+            button that hangs below the card slide. */}
+        <div className="relative">
+        {/* Horizontal snap carousel: the balance square and the digital
+            card live side by side. In RTL the first child sits on the
+            right, so the wallet shows first and the card is one swipe to
+            its left. */}
         <div
-          className="relative z-20 bg-white/75 backdrop-blur-md border border-gray-100 rounded-[32px] p-8 shadow-[0_8px_30px_rgb(0,0,0,0.04)] text-center"
+          ref={walletCarouselRef}
+          onScroll={onWalletScroll}
+          onPointerDown={onWalletPointerDown}
+          onPointerMove={onWalletPointerMove}
+          onPointerUp={endWalletDrag}
+          onPointerCancel={endWalletDrag}
+          onDragStart={(e) => e.preventDefault()}
+          className="relative z-20 flex gap-4 overflow-x-auto snap-x snap-mandatory no-scrollbar cursor-grab active:cursor-grabbing select-none"
+        >
+        <div
+          className="snap-center shrink-0 w-full relative rounded-[32px] p-8 text-center overflow-hidden shadow-lg shadow-[#0a2540]/30"
+          style={{
+            background:
+              'radial-gradient(120% 120% at 30% 20%, rgba(125,211,252,0.18), transparent 55%), linear-gradient(135deg, #0a2540 0%, #0a2540 55%, #06182b 100%)',
+            border: '1px solid rgba(125,211,252,0.25)',
+          }}
         >
           {/* New badge — top-start corner */}
-          <span className="absolute top-4 start-4 bg-success/20 text-success text-xs font-bold px-2.5 py-0.5 rounded-full">
+          <span className="absolute top-4 start-4 bg-[#7dd3fc]/20 text-[#7dd3fc] text-xs font-bold px-2.5 py-0.5 rounded-full">
             {t.wallet.newBadge}
           </span>
 
           {/* Label */}
           <div className="flex items-center justify-center gap-2 mb-2">
-            <span className="inline-flex items-center gap-1 text-text-secondary font-medium">
+            <span className="inline-flex items-center gap-1 text-white/80 font-medium">
               <span>יתרת</span>
               <span className="inline-flex items-center bg-sky-300 rounded-xl px-3 py-1 overflow-hidden" style={{ transform: 'scale(0.873)' }}>
                 <img
@@ -340,13 +424,13 @@ export default function WalletPage() {
                 />
               </span>
             </span>
-            <span className="material-symbols-outlined text-text-muted" style={{ fontSize: '16px' }}>
+            <span className="material-symbols-outlined text-white/60" style={{ fontSize: '16px' }}>
               chevron_right
             </span>
           </div>
 
           {/* Balance Amount */}
-          <h1 className="text-6xl font-bold text-text-primary mb-1 tracking-tight">
+          <h1 className="text-6xl font-bold text-white mb-1 tracking-tight">
             {formatCurrency(wallet?.balance || 0, 'ILS', locale)}
           </h1>
 
@@ -354,7 +438,7 @@ export default function WalletPage() {
           <div className="flex items-center justify-center gap-3 mt-6">
             <button
               onClick={() => navigate(`/${lang}/wallet/add-money`)}
-              className="bg-bg-dark text-white px-8 py-3.5 rounded-full font-bold text-base active:scale-95 transition-transform"
+              className="bg-white/10 text-white border border-white/25 px-8 py-3.5 rounded-full font-bold text-base active:scale-95 transition-transform"
             >
               {t.wallet.addMoney}
             </button>
@@ -362,7 +446,7 @@ export default function WalletPage() {
               onPointerDown={handlePayPointerDown}
               onPointerUp={handlePayPointerUp}
               onPointerLeave={handlePayPointerLeave}
-              className="relative overflow-hidden bg-surface text-text-primary px-6 py-3.5 rounded-full font-bold text-base active:scale-95 transition-transform border border-border select-none"
+              className="relative overflow-hidden bg-[#7dd3fc] text-[#0a2540] px-6 py-3.5 rounded-full font-bold text-base active:scale-95 transition-transform select-none"
               style={{ touchAction: 'none' }}
             >
               {/* Depleting countdown pie behind the label */}
@@ -391,14 +475,77 @@ export default function WalletPage() {
             </button>
             <button
               onClick={() => setShowMoreSheet(true)}
-              className="w-12 h-12 flex items-center justify-center rounded-full bg-surface border border-border active:scale-95 transition-transform flex-shrink-0"
+              className="w-12 h-12 flex items-center justify-center rounded-full bg-white/10 border border-white/25 active:scale-95 transition-transform flex-shrink-0"
             >
-              <span className="material-symbols-outlined text-text-secondary rotate-90" style={{ fontSize: '20px' }}>more_horiz</span>
+              <span className="material-symbols-outlined text-white/80 rotate-90" style={{ fontSize: '20px' }}>more_horiz</span>
             </button>
           </div>
 
           {/* Cashback Text — attached to buttons */}
-          <p className="text-success font-semibold text-sm mt-2">{t.wallet.earnCashback}</p>
+          <p className="text-emerald-300 font-semibold text-sm mt-2">{t.wallet.earnCashback}</p>
+        </div>
+
+        {/* ── CARD SLIDE — fills the slide so the card is exactly the same
+            size as the balance square. The "issue card" action hangs
+            below it (rendered outside the scroller, see below). ── */}
+        <div className="snap-center shrink-0 w-full flex">
+          <div className="w-full h-full rounded-[32px] shadow-2xl relative p-5 flex flex-col justify-between bg-black overflow-hidden">
+            <div
+              className="absolute -bottom-10 left-3 text-[200px] font-extrabold leading-none text-white/[0.04] select-none pointer-events-none"
+              aria-hidden="true"
+            >
+              N
+            </div>
+            <div className="flex items-start z-10">
+              <img
+                src={NexusWideLogo}
+                alt="Nexus"
+                className="h-10"
+                style={{ filter: 'invert(1)', mixBlendMode: 'screen' }}
+              />
+            </div>
+            <div className="flex justify-between items-end z-10">
+              <div className="relative ml-8">
+                <img
+                  src={MastercardLogo}
+                  alt="Mastercard"
+                  className="h-20 opacity-90"
+                  style={{ transform: 'translate(16px, 16px)' }}
+                />
+              </div>
+              <span className="material-symbols-outlined text-white/40 text-2xl rotate-90 -mr-1">
+                contactless
+              </span>
+            </div>
+          </div>
+        </div>
+        </div>{/* /carousel */}
+
+        {/* Issue-card action — only on the card slide, hanging below the
+            matched card/wallet rectangle so it visibly protrudes. Lives
+            outside the scroller so the overflow isn't clipped. */}
+        {walletSlide === 1 && (
+          <div className="absolute inset-x-0 -bottom-5 flex justify-center z-30">
+            <button
+              onClick={() => navigate(`/${lang}/card-issuance`)}
+              className="px-6 py-3 rounded-full bg-bg-dark text-white font-bold text-sm active:scale-95 transition-transform shadow-md"
+            >
+              {t.wallet.issueCard}
+            </button>
+          </div>
+        )}
+        </div>{/* /carousel wrapper */}
+
+        {/* Carousel dots */}
+        <div className="flex justify-center gap-1.5 mt-8">
+          {[0, 1].map((i) => (
+            <span
+              key={i}
+              className={`h-1.5 rounded-full transition-all duration-300 ${
+                walletSlide === i ? 'w-5 bg-[#0a2540]' : 'w-1.5 bg-text-muted/40'
+              }`}
+            />
+          ))}
         </div>
 
         {/* ── EXTRAS — below the square, slides down into place ── */}
@@ -462,169 +609,85 @@ export default function WalletPage() {
               expand_more
             </span>
           </button>
-          {editEnabled && (
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                onClick={() => toggleHidden('widgets')}
-                className="text-text-muted p-1 -m-1 active:opacity-60"
-                aria-label={isHidden ? 'Show section' : 'Hide section'}
-              >
-                {isHidden ? <EyeOff size={18} /> : <Eye size={18} />}
-              </button>
-              <span
-                onPointerDown={(e) => widgetsDragControls.start(e)}
-                className="touch-none cursor-grab active:cursor-grabbing text-text-muted p-1 -m-1"
-                aria-label="Reorder section"
-              >
-                <GripVertical size={18} />
-              </span>
-            </div>
-          )}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => navigate(`/${lang}/wallet/actions`)}
+              className="px-3 py-1 rounded-md bg-sky-100 text-sky-600 text-xs font-normal active:scale-95 transition-colors"
+            >
+              {language === 'he' ? 'עוד' : 'More'}
+            </button>
+            {editEnabled && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => toggleHidden('widgets')}
+                  className="text-text-muted p-1 -m-1 active:opacity-60"
+                  aria-label={isHidden ? 'Show section' : 'Hide section'}
+                >
+                  {isHidden ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+                <span
+                  onPointerDown={(e) => widgetsDragControls.start(e)}
+                  className="touch-none cursor-grab active:cursor-grabbing text-text-muted p-1 -m-1"
+                  aria-label="Reorder section"
+                >
+                  <GripVertical size={18} />
+                </span>
+              </>
+            )}
+          </div>
         </div>
 
         <div className={`overflow-hidden transition-all duration-300 ease-in-out ${widgetsOpen ? 'max-h-[700px] opacity-100' : 'max-h-0 opacity-0'}`}>
-          {/* Two-row widgets grid restored — each slot has a fixed
-              gridColumn/gridRow placement so "Best offers" can sit on
-              row 2 spanning under nearby-cashback + my-organization.
-              The widgetOrder array drives which widget lands in which
-              slot (slot ← widgetOrder index). In edit mode each widget
-              is free-draggable; when the drag pointer nears the
-              gallery edge, auto-scroll kicks in. */}
-          <Reorder.Group
-            axis="x"
-            values={widgetOrder}
-            onReorder={setWidgetOrder}
-            as="div"
-            ref={widgetsScrollRef}
-            className="px-5 grid grid-rows-2 gap-3 overflow-x-auto no-scrollbar pb-1"
-            style={{ gridAutoColumns: 'max-content', gridAutoFlow: 'column' }}
-          >
-            {widgetOrder.map((widgetId, index) => {
-              const isHidden = hiddenWidgets.includes(widgetId);
-              if (isHidden && !editEnabled) return null;
-              return (
-                <WidgetReorderItem
-                  key={widgetId}
-                  widgetId={widgetId}
-                  slotIndex={index}
-                  editEnabled={editEnabled}
-                  isHidden={isHidden}
-                  onHide={() => toggleHiddenWidget(widgetId)}
-                  onDragStart={startWidgetsAutoScroll}
-                  onDragEnd={stopWidgetsAutoScroll}
-                >
-                  {renderWidgetBody(widgetId, {
-                    t,
-                    isRTL,
-                    tenantConfig,
-                    navigate,
-                    lang,
-                  })}
-                </WidgetReorderItem>
-              );
-            })}
-          </Reorder.Group>
+          {/* Single-row gallery of circular icon widgets. In edit mode you
+              grab a widget and it lifts under your finger; the others slide
+              apart and a dashed-circle placeholder opens at the drop slot. */}
+          <WidgetsGallery
+            order={widgetOrder}
+            setOrder={setWidgetOrder}
+            hiddenWidgets={hiddenWidgets}
+            toggleHidden={toggleHiddenWidget}
+            editEnabled={editEnabled}
+            isRTL={isRTL}
+            renderBody={(widgetId) =>
+              renderWidgetBody(widgetId, {
+                t,
+                isRTL,
+                tenantConfig,
+                navigate,
+                lang,
+              })
+            }
+          />
         </div>
       </Reorder.Item>
           );
         }
-        if (sectionId === 'digitalCards') {
+        if (sectionId === 'offers') {
+          // "הטבות במיוחד בשבילך" — its own reorderable section so it can
+          // be dragged up/down (and hidden) in customize mode.
           return (
       <Reorder.Item
-        key="digitalCards"
-        value="digitalCards"
+        key="offers"
+        value="offers"
         dragListener={false}
-        dragControls={cardsDragControls}
-        className={`mb-6 transition-opacity ${isHidden ? 'opacity-40' : ''}`}
+        dragControls={offersDragControls}
+        className={`transition-opacity ${isHidden ? 'opacity-40' : ''}`}
       >
-        <div className="flex items-center justify-between w-full px-5 mb-3">
-          <button
-            onClick={() => setCardOpen(!cardOpen)}
-            className="flex items-center gap-1 active:opacity-70 transition-opacity"
-          >
-            <h2 className="text-lg font-bold text-text-primary">
-              {t.wallet.digitalCards}
-            </h2>
-            <span
-              className={`material-symbols-outlined text-text-muted transition-transform duration-300 ${cardOpen ? 'rotate-180' : ''}`}
-              style={{ fontSize: '20px' }}
-            >
-              expand_more
-            </span>
-          </button>
-          {editEnabled && (
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                onClick={() => toggleHidden('digitalCards')}
-                className="text-text-muted p-1 -m-1 active:opacity-60"
-                aria-label={isHidden ? 'Show section' : 'Hide section'}
-              >
-                {isHidden ? <EyeOff size={18} /> : <Eye size={18} />}
-              </button>
-              <span
-                onPointerDown={(e) => cardsDragControls.start(e)}
-                className="touch-none cursor-grab active:cursor-grabbing text-text-muted p-1 -m-1"
-                aria-label="Reorder section"
-              >
-                <GripVertical size={18} />
-              </span>
-            </div>
-          )}
-        </div>
-
-        <div className={`overflow-hidden transition-all duration-300 ease-in-out ${cardOpen ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}`}>
-          {/* Single Centered Card */}
-          <div className="px-5">
-            <div className="w-full aspect-[1.7/1] rounded-2xl shadow-2xl relative p-5 flex flex-col justify-between bg-black overflow-hidden">
-              {/* Decorative background K */}
-              <div
-                className="absolute -bottom-10 left-3 text-[200px] font-extrabold leading-none text-white/[0.04] select-none pointer-events-none"
-                aria-hidden="true"
-              >
-                N
-              </div>
-
-              {/* Top row: Nexus wide logo (white) */}
-              <div className="flex items-start z-10">
-                <img
-                  src={NexusWideLogo}
-                  alt="Nexus"
-                  className="h-10"
-                  style={{ filter: 'invert(1)', mixBlendMode: 'screen' }}
-                />
-              </div>
-
-              {/* Bottom row: Mastercard (scheme) + contactless */}
-              <div className="flex justify-between items-end z-10">
-                <div className="relative ml-8">
-                  <img
-                    src={MastercardLogo}
-                    alt="Mastercard"
-                    className="h-20 opacity-90"
-                    style={{ transform: 'translate(16px, 16px)' }}
-                  />
-                </div>
-                <span className="material-symbols-outlined text-white/40 text-2xl rotate-90 -mr-1">
-                  contactless
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Issue Card Button */}
-          <div className="flex justify-center mt-5">
-            <button
-              onClick={() => navigate(`/${lang}/card-issuance`)}
-              className="px-6 py-3 rounded-full bg-bg-dark text-white font-bold text-sm active:scale-95 transition-transform shadow-md"
-            >
-              {t.wallet.issueCard}
-            </button>
-          </div>
-        </div>
+        <WalletOffersSlider
+          editEnabled={editEnabled}
+          isHidden={isHidden}
+          onToggleHidden={() => toggleHidden('offers')}
+          onReorderPointerDown={(e) => offersDragControls.start(e)}
+        />
       </Reorder.Item>
           );
+        }
+        if (sectionId === 'digitalCards') {
+          // The card and its "issue card" action now live in the balance
+          // carousel above, so this section no longer renders anything.
+          return null;
         }
         if (sectionId === 'vouchers') {
           return (
@@ -761,91 +824,6 @@ function NotificationAutoDismiss({ onDismiss }: { onDismiss: () => void }) {
 }
 
 /**
- * Slot positions for the 2-row widgets grid. Slot N gets whatever
- * widget id sits at widgetOrder[N] — so reordering the array reshuffles
- * which widget lands in which slot. The wide row-2 slot (index 2) is
- * where the carousel naturally lives.
- */
-const WIDGET_SLOTS: {
-  gridColumn: string;
-  gridRow: string;
-  /** Size class applied to the Reorder.Item wrapper. */
-  size: string;
-}[] = [
-  { gridColumn: '1', gridRow: '1', size: 'w-48 h-36' },
-  { gridColumn: '2', gridRow: '1', size: 'w-48 h-36' },
-  { gridColumn: '1 / 3', gridRow: '2', size: 'w-full h-36' },
-  { gridColumn: '3', gridRow: '1', size: 'w-40 h-36' },
-  { gridColumn: '3', gridRow: '2', size: 'w-40 h-36' },
-  { gridColumn: '4', gridRow: '1', size: 'w-40 h-36' },
-];
-
-/**
- * One Reorder.Item per widget in the widgets gallery. Drag is only
- * enabled when the user has flipped "Customize wallet" on. The × hide
- * button mimics the AccessibilityWidget's dismiss circle — small dark
- * navy disk with purple ring, anchored at the top-right corner.
- *
- * onDragStart/End fire the auto-scroll loop so the gallery can scroll
- * sideways while a widget is being dragged past the screen edge.
- */
-function WidgetReorderItem({
-  widgetId,
-  slotIndex,
-  editEnabled,
-  isHidden,
-  onHide,
-  onDragStart,
-  onDragEnd,
-  children,
-}: {
-  widgetId: WalletWidgetId;
-  slotIndex: number;
-  editEnabled: boolean;
-  isHidden: boolean;
-  onHide: () => void;
-  onDragStart: () => void;
-  onDragEnd: () => void;
-  children: React.ReactNode;
-}) {
-  const slot = WIDGET_SLOTS[slotIndex] ?? WIDGET_SLOTS[0];
-  return (
-    <Reorder.Item
-      value={widgetId}
-      drag={editEnabled ? true : false}
-      onDragStart={onDragStart}
-      onDragEnd={onDragEnd}
-      whileDrag={{
-        scale: 1.04,
-        zIndex: 30,
-        boxShadow: '0 12px 28px rgba(0,0,0,0.18)',
-      }}
-      style={{ gridColumn: slot.gridColumn, gridRow: slot.gridRow }}
-      className={`relative ${slot.size} transition-opacity ${
-        editEnabled ? 'cursor-grab active:cursor-grabbing touch-none' : ''
-      } ${isHidden ? 'opacity-40' : ''}`}
-    >
-      <div className="w-full h-full">{children}</div>
-      {editEnabled && (
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onHide();
-          }}
-          onPointerDown={(e) => e.stopPropagation()}
-          aria-label={isHidden ? 'Show widget' : 'Hide widget'}
-          title={isHidden ? 'Show widget' : 'Hide widget'}
-          className="absolute -top-2 -right-2 w-6 h-6 rounded-full border-2 border-[#6366f1]/50 bg-[#0a2540] text-white/70 flex items-center justify-center z-30 hover:bg-red-500 hover:text-white transition-colors"
-        >
-          <X size={12} strokeWidth={2} />
-        </button>
-      )}
-    </Reorder.Item>
-  );
-}
-
-/**
  * Renders the inner UI for a given widget. Kept outside the component
  * so the body doesn't recompose when WalletPage's other state changes
  * but `widgetOrder` doesn't.
@@ -861,146 +839,86 @@ function renderWidgetBody(
   },
 ): React.ReactNode {
   const { t, isRTL, tenantConfig, navigate, lang } = deps;
+
+  /** Shared circle button: a soft disk holding a large colour emoji with
+   *  a short label beneath. The emoji renders in the platform's native
+   *  3D glyph set, giving the row a uniform, lively gallery feel. */
+  const circle = (
+    emoji: string,
+    label: string,
+    opts: { onClick?: () => void; bg?: string },
+  ) => (
+    <button
+      type="button"
+      onClick={opts.onClick}
+      aria-label={label}
+      className="flex flex-col items-center gap-1.5 w-full"
+    >
+      <span
+        className="w-16 h-16 rounded-full flex items-center justify-center shadow-[0_8px_30px_rgb(0,0,0,0.06)] border border-border"
+        style={{ backgroundColor: opts.bg ?? 'var(--color-surface)' }}
+      >
+        <motion.span
+          className="inline-block"
+          style={{ fontSize: '30px', lineHeight: 1 }}
+          whileTap={{ scale: 1.15, y: -3 }}
+          transition={{ type: 'spring', stiffness: 500, damping: 12 }}
+        >
+          {emoji}
+        </motion.span>
+      </span>
+      <span className="text-[11px] font-medium text-text-secondary leading-tight text-center line-clamp-2">
+        {label}
+      </span>
+    </button>
+  );
+
   switch (widgetId) {
     case 'nearby-cashback':
-      return (
-        <button
-          type="button"
-          onClick={() => navigate(`/${lang}/near-you-map`)}
-          aria-label={t.wallet.widgetNearbyCashback}
-          className="w-full h-full bg-surface border border-border rounded-2xl overflow-hidden shadow-[0_8px_30px_rgb(0,0,0,0.04)] active:scale-[0.98] transition-transform relative"
-        >
-          <img
-            src="/wallet-nearby-map.png"
-            alt=""
-            aria-hidden
-            className="absolute inset-0 w-full h-full object-cover"
-          />
-          <div
-            aria-hidden
-            className="absolute inset-0 pointer-events-none"
-            style={{
-              background:
-                'radial-gradient(ellipse at center, rgba(255,255,255,0) 45%, rgba(255,255,255,0.7) 100%)',
-            }}
-          />
-          <div className="absolute top-3 start-3 max-w-[7.5rem] text-start pointer-events-none">
-            <p className="text-sm font-bold text-text-primary leading-tight">
-              {t.wallet.widgetNearbyCashback}
-            </p>
-          </div>
-          <div className="absolute bottom-4 left-4 w-10 h-10 rounded-full bg-black shadow-md ring-2 ring-white overflow-hidden flex items-center justify-center">
-            <img
-              src="/brands/castro-home.png"
-              alt="Castro"
-              className="w-full h-full object-contain"
-              style={{ filter: 'invert(1)' }}
-            />
-          </div>
-          <div className="absolute bottom-4 left-12 w-10 h-10 rounded-full bg-white shadow-md ring-2 ring-white overflow-hidden flex items-center justify-center">
-            <img
-              src="/brands/carrefour.png"
-              alt="Carrefour"
-              className="w-full h-full object-cover"
-            />
-          </div>
-        </button>
-      );
+      return circle('📍', t.wallet.widgetNearbyCashback, {
+        onClick: () => navigate(`/${lang}/near-you-map`),
+      });
     case 'my-organization':
-      return (
-        <button
-          type="button"
-          onClick={() => navigate(`/${lang}/profile`)}
-          aria-label={t.wallet.widgetMyOrganization}
-          className="w-full h-full rounded-2xl overflow-hidden shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-border active:scale-[0.98] transition-transform relative text-start p-4"
-          style={{
-            backgroundColor: tenantConfig?.primaryColor ?? 'var(--color-surface)',
-          }}
-        >
-          <div
-            aria-hidden
-            className="absolute inset-0 pointer-events-none"
-            style={{
-              background:
-                'radial-gradient(ellipse at center, rgba(255,255,255,0) 60%, rgba(255,255,255,0.4) 100%)',
-            }}
-          />
-          <div className="relative flex justify-start mb-2">
-            <div className="w-9 h-9 rounded-full bg-white shadow-sm overflow-hidden flex items-center justify-center">
-              {tenantConfig?.logo ? (
-                <img
-                  src={tenantConfig.logo}
-                  alt={isRTL ? tenantConfig.nameHe : tenantConfig.name}
-                  className="w-full h-full object-contain p-1"
-                />
-              ) : (
-                <span
-                  className="material-symbols-outlined text-text-secondary"
-                  style={{ fontSize: '20px' }}
-                >
-                  domain
-                </span>
-              )}
-            </div>
-          </div>
-          <div
-            className="relative pointer-events-none"
-            style={{ textShadow: '0 1px 2px rgba(0,0,0,0.15)' }}
+      // Real org logo on a brand-coloured disk reads more "real" than any
+      // emoji; fall back to a building emoji only when no logo is set.
+      if (tenantConfig?.logo) {
+        return (
+          <button
+            type="button"
+            onClick={() => navigate(`/${lang}/profile`)}
+            aria-label={t.wallet.widgetMyOrganization}
+            className="flex flex-col items-center gap-1.5 w-full"
           >
-            <div className="text-xs text-white/85 font-medium leading-tight mb-1">
+            <span
+              className="w-16 h-16 rounded-full flex items-center justify-center shadow-[0_8px_30px_rgb(0,0,0,0.06)] border border-border overflow-hidden"
+              style={{ backgroundColor: tenantConfig.primaryColor ?? 'var(--color-surface)' }}
+            >
+              <motion.img
+                src={tenantConfig.logo}
+                alt={isRTL ? tenantConfig.nameHe : tenantConfig.name}
+                className="w-11 h-11 object-contain"
+                whileTap={{ scale: 1.3, y: -6 }}
+                transition={{ type: 'spring', stiffness: 500, damping: 10 }}
+              />
+            </span>
+            <span className="text-[11px] font-medium text-text-secondary leading-tight text-center line-clamp-2">
               {t.wallet.widgetMyOrganization}
-            </div>
-            <div className="text-base font-bold text-white leading-tight line-clamp-2">
-              {tenantConfig
-                ? isRTL
-                  ? tenantConfig.nameHe
-                  : tenantConfig.name
-                : t.wallet.widgetNoOrganization}
-            </div>
-          </div>
-        </button>
-      );
+            </span>
+          </button>
+        );
+      }
+      return circle('🏟️', t.wallet.widgetMyOrganization, {
+        onClick: () => navigate(`/${lang}/profile`),
+      });
     case 'best-offers':
-      return <BestOffersWidget className="w-full h-full" />;
+      return circle('🏷️', t.wallet.widgetBestOffers, {
+        onClick: () => navigate(`/${lang}/store`),
+      });
     case 'cashback-stat':
-      return (
-        <div className="w-full h-full bg-white border border-border rounded-2xl p-4 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
-          <div className="w-9 h-9 rounded-full bg-success/15 flex items-center justify-center mb-2">
-            <span className="material-symbols-outlined text-success" style={{ fontSize: '20px' }}>trending_up</span>
-          </div>
-          <div className="text-xs text-text-secondary font-medium leading-tight mb-1">
-            {t.wallet.widgetCashback}
-          </div>
-          <div className="text-xl font-bold text-text-primary" dir="ltr">
-            ₪127
-          </div>
-        </div>
-      );
+      return circle('📈', t.wallet.widgetCashback, {});
     case 'vouchers-stat':
-      return (
-        <div className="w-full h-full bg-white border border-border rounded-2xl p-4 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
-          <div className="w-9 h-9 rounded-full bg-primary/15 flex items-center justify-center mb-2">
-            <span className="material-symbols-outlined text-primary" style={{ fontSize: '20px' }}>card_giftcard</span>
-          </div>
-          <div className="text-xs text-text-secondary font-medium leading-tight mb-1">
-            {t.wallet.widgetActiveVouchers}
-          </div>
-          <div className="text-xl font-bold text-text-primary">5</div>
-        </div>
-      );
+      return circle('🎁', t.wallet.widgetActiveVouchers, {});
     case 'savings-stat':
-      return (
-        <div className="w-full h-full bg-white border border-border rounded-2xl p-4 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
-          <div className="w-9 h-9 rounded-full bg-warning/15 flex items-center justify-center mb-2">
-            <span className="material-symbols-outlined text-warning" style={{ fontSize: '20px' }}>savings</span>
-          </div>
-          <div className="text-xs text-text-secondary font-medium leading-tight mb-1">
-            {t.wallet.widgetSavings}
-          </div>
-          <div className="text-xl font-bold text-text-primary" dir="ltr">
-            ₪450
-          </div>
-        </div>
-      );
+      return circle('💰', t.wallet.widgetSavings, {});
   }
 }

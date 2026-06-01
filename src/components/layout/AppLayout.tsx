@@ -35,6 +35,17 @@ export default function AppLayout() {
   // suppressed here. The bottom nav + chat FABs stay so it still reads as a
   // core in-app surface.
   const isBusinessStore = /^\/[a-z]{2}\/business\/[^/]+\/store\/?$/.test(pathname);
+  // Product detail page owns its own sticky header (back + brand) and a
+  // fixed bottom action bar (add to cart / buy now), so the global overlay
+  // TopBar and the bottom search strip are both suppressed here.
+  const isBusinessProduct = /^\/[a-z]{2}\/business\/[^/]+\/product\/[^/]+\/?$/.test(pathname);
+  // Referral page is a self-owned full-screen flow that pins its own fixed
+  // "Share" CTA to the bottom. The global search/home/wallet strip would
+  // float over it (it sits in a sibling stacking context above the page's
+  // own z-index), so it's suppressed here. The global TopBar (user-icon
+  // strip) is kept — it lives in the non-scrolling layout shell above the
+  // fixed page, so it stays pinned at the top as the page scrolls.
+  const isReferral = /^\/[a-z]{2}\/referral-stories\/?$/.test(pathname);
   const [collapsed, setCollapsed] = useState(false);
 
   // Live-chat state. The AI FAB is always-on; the human FAB mounts
@@ -134,9 +145,10 @@ export default function AppLayout() {
               <CategoryRow collapsed={collapsed} loading={vouchersLoading} />
             </div>
           </div>
-        ) : isWallet || isFullScreenForm || isBusinessStore ? (
-          /* Wallet + full-screen forms + business store: page renders its
-             own header inline. */
+        ) : isWallet || isFullScreenForm || isBusinessStore || isReferral ? (
+          /* Wallet + full-screen forms + business store + referral: page
+             renders its own header inline (the referral page pins its own
+             fixed user-icon strip outside its scroll area). */
           null
         ) : (
           /* Other pages: transparent overlay, does not scroll */
@@ -150,10 +162,10 @@ export default function AppLayout() {
         </main>
         {/* Bottom search/home/wallet strip — hidden on the wallpaper
             picker so the picker grid + CTA own the screen. */}
-        {!isFullScreenForm && !isWallpaper && <FloatingActions />}
+        {!isFullScreenForm && !isWallpaper && !isReferral && !isBusinessProduct && <FloatingActions />}
         {/* AI assistant FAB — always available (suppressed on wallet
             page, which renders its own chat affordance inline). */}
-        {!isWallet && !isFullScreenForm && (
+        {!isWallet && !isFullScreenForm && !isBusinessProduct && (
           <SupportChatButton
             variant="ai"
             isTyping={aiTyping}

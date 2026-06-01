@@ -257,6 +257,7 @@ export default function BusinessStorePage() {
               return (
                 <button
                   key={product.id}
+                  onClick={() => navigate(`/${language}/business/${business.id}/product/${product.id}`)}
                   className="text-start active:scale-[0.98] transition-transform"
                 >
                   <div className="relative bg-gray-50 rounded-2xl aspect-[3/4] flex items-center justify-center overflow-hidden p-4">

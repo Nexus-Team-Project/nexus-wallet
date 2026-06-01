@@ -12,43 +12,47 @@
  * Reached from the home ReferralBanner (route: /:lang/referral-stories).
  */
 
-import { useNavigate, useParams } from 'react-router-dom';
+import TopBar from '../components/layout/TopBar';
+
+// Stylish, well-lit portrait photos with a deliberate mix of women and men —
+// younger / editorial look. Sourced from Unsplash's CDN (stable, hot-linkable),
+// face-cropped to square so they sit cleanly in the avatar circles.
+const AV = (id: string) =>
+  `https://images.unsplash.com/photo-${id}?w=200&h=200&fit=crop&crop=faces&q=80`;
 
 const AVATARS_1 = [
-  'https://lh3.googleusercontent.com/aida-public/AB6AXuCDvFmubPHDgocQiJ5W34jSKMx-cFuIC-WzjexF7oon1Dfsz_-rGfVm0e5bbiEhov7JCHfH2ggES5ev4Iclh89l7vf3cvVVdxsc_rKW2tTXiCv8MOupMrt79vmVZ8Qru3DmKFwAhdcZ_TZNcByrCzEHWz6vkCruHHlsWEJsT8vHaL43-LitydLPM7NyNNqBIxAdKxRXYxqJnozZYG4vtsODTC4uQNv5ODEsHUme7J2Rujty1udMsAZwFCZlyvdC1WtyhMvSSto8Tys',
-  'https://lh3.googleusercontent.com/aida-public/AB6AXuC2h3HE_-w6iYpYzfpbqTooQY8y5qjBiNS0BnXQwFuM2a4q5tBu1rmwRZCGdlAmU2U81_Msa6_a0Y0uTsXsWzqS2AmB8jpVrMDsYFCM2QNiaVGyxBb4o80jZLFY3G040TJ362T-digHy2oQDcyLs1LvuNVaPeK0g8_Usbb3if6VwUWM-JsriebbelX3CsXJ5R9ET6J9YUlDi8wCpg7n099Xz9EUxFrhSE84PXkICqNhG03wInpm0tCjBX_MPLYpM7dq-gOHJFGdVrc',
-  'https://lh3.googleusercontent.com/aida-public/AB6AXuAg6tGo18F4n9hnlNBLLjKGU8e-grtep1ksR04B1sNzU_p-OZnEa-IlvapjGinsYmMTm6GeR4Yko4bLK0oAFPnvZJK-u373FWu3Bfp_YZU0ipbZes9iAcTqxX7OmPUGleEru8TdmF2VtE6oBdni2Ff4nlafcNZR52N1In_NwIbks8ETPj0L9YkVLAlprRjbdq-9XG2v1Oay_m73he1lKmzcrhYH4NYPGXQKT9-u1yLp6cHNZ629a_nvMNTv-XkZ2qBSB3evXTkeyug',
+  AV('1494790108377-be9c29b29330'), // woman, warm smile
+  AV('1500648767791-00dcc994a43e'), // man, beard
+  AV('1534528741775-53994a69daeb'), // woman, curly hair
 ];
 
 const AVATARS_2 = [
-  'https://lh3.googleusercontent.com/aida-public/AB6AXuBJgVqkxWxWyZmJnrWyv4M528lYwllW2WLj5DIaNVcjUco7roJ2rC6SPYnEJeXWv0WoHFXp3q8YaeSd0_TsO9AEgeJEogiu-EniNcCKi_xJfVcMKvNkw7eRumP19mXQog-ktITAdyJrvamgztJv5O4PEbsoNZ0x3Tx8-LfuzWUsT-R4KPzoFhgvZBNiphLD_6cjYIURuoJ9XGRe7DRWbiyh-_pX6dKXUArOjFjtRLgi-RHPf4Nu9cWvhxyuYRK0VHTN5H-8oJCKxrE',
-  'https://lh3.googleusercontent.com/aida-public/AB6AXuDTe6St7sSEfBvBfHA7rS-VkPqAdw9yfmhhXIueQEUQ29lojDkSEG4zVq8D8QZaLG6Du17hZM14KrqThH-hCWnCOVYFjZiyW1vvMCek_5cAJ45JLUR83d2yzeRD3IDl35ArXVIP2bymfFfVIVQzAY8jLIkvjjd1fHL3LOQ4tuJqtjfe9ZynZnfion7utVdmDTQouN9Q8Q9SuKQpQsR0e7Lc1kKR5l7jpe-EzUSBLbY0aJviic3hDufffC3ocuG9etp7mj6yGFHZIKQ',
-  'https://lh3.googleusercontent.com/aida-public/AB6AXuA5zdfPWHx5NYGEyPJnEgKVKgwjdHsBrcq6J5kJWrvnz4ajrywKCayCViBO7b_PH7oIO7co6AVP0macCqTlXbq0cpaVJ1zk6QbV93OjKVDAfVsF03U29de9dcXClXpKpVo_gkaK4_ArFguCJr5VDZzahm5WMha9ZJQAOpWEKPaG9dFvWwol8lCm04LXmdvT2DnDgMK3Z-I-Xb7ivq9wHKmKxZGFQaeQ8k_cpghG_epoabq8GURr4g47bGQcpH-6hKc4vYn7ARCsHeE',
+  AV('1517841905240-472988babdf9'), // woman
+  AV('1506794778202-cad84cf45f1d'), // man
+  AV('1544005313-94ddf0286df2'), // woman
 ];
 
 const PARTNERSHIP_IMG =
   'https://lh3.googleusercontent.com/aida-public/AB6AXuCtLVoYU4uIPyfE0cvRMndHu6J32CJ2e6VIGjEHZ6fn2b03_IhSLgS6ZRFabahbBC_hyiLl-mj_bEDoqEzW87EP5ffSbIoqrCbH6qQzePJJ59WzeVOfvqMeEYn4Fi7RB-FrfH5FRMIJLrKK0NPLDKZlT1VQrTE801x4M18ojL10F8wB34gVuAvoWavMCwvIfasZ8YX8ux1BV_HsY6UihT3gTnfAXjEJPiI0gJh5YKU20Fnxnu_4W2sWy_pipmzRH7K_5dysOZnsZBI';
 
 // ═══════════ Screen 1 — Promo card ═══════════
-function Screen1({ onBack }: { onBack: () => void }) {
+function Screen1() {
   return (
     <section className="w-full flex flex-col bg-white">
-      {/* Navigation Controls */}
-      <nav className="flex justify-between items-center px-4 py-2 shrink-0">
-        <button onClick={onBack} className="w-10 h-10 rounded-full bg-[#f2f2f2] flex items-center justify-center">
-          <svg className="w-6 h-6 rtl:-scale-x-100" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" strokeLinecap="round" strokeLinejoin="round" /></svg>
-        </button>
-        <button className="bg-[#f2f2f2] text-[#0a2540] px-4 py-2 rounded-full font-semibold text-sm">מעקב הזמנות</button>
-      </nav>
-
       {/* Main Promotion Card */}
       <main className="flex-grow p-4 flex flex-col">
         <section className="flex-grow bg-[#0a2540] rounded-[40px] p-8 flex flex-col items-center text-center relative overflow-hidden">
           <h1 className="text-[#7dd3fc] text-4xl font-black leading-tight mb-6 tracking-tighter" style={{ fontSize: '2.6rem' }}>
-            שתפו את Nexus<br />והרוויחו<br />100 ₪
+            <span className="inline-flex items-center gap-2 align-middle">
+              <span>שתפו את</span>
+              <span className="inline-flex items-center bg-sky-300 rounded-xl px-3 py-1.5 overflow-hidden">
+                <img src="/nexus-logo-black.png" alt="Nexus" className="h-8 w-auto object-contain" style={{ transform: 'scale(1.5)' }} />
+              </span>
+            </span>
+            <br />והרוויחו<br />100 ₪
           </h1>
           <p className="text-white text-base font-medium leading-relaxed mb-12">
-            שתפו את Nexus עם 3 חברים והרוויחו 100 ₪ לעצמכם. החברים שלכם מקבלים העברה ללא עמלות עד 900 ₪.
+            שתפו את Nexus עם 3 חברים והרוויחו 100 ₪ לעצמכם. החברים שלכם מקבלים אקסטרה 5% קאשבק על 500 השקלים הראשונים שלהם.
           </p>
 
           <div className="relative bg-white rounded-[40px] px-8 py-6 mb-12 flex justify-center items-center">
@@ -136,7 +140,7 @@ function Screen3() {
                 </div>
               </div>
               <p className="text-[15px] leading-snug text-[#0a2540]">
-                כל אחד מהחברים שלכם יצטרך להעביר ו/או להוציא בכרטיס Nexus לפחות 250 ₪ או שווה ערך. אפשר להגיע לסכום הזה במספר עסקאות.
+                כל אחד מהחברים שלכם יצטרך להעביר ו/או להוציא בכרטיס Nexus לפחות 500 ₪ . אפשר להגיע לסכום הזה במספר עסקאות.
               </p>
             </li>
             <li className="flex items-start space-x-4">
@@ -171,28 +175,75 @@ function Screen3() {
   );
 }
 
-export default function ReferralStoriesPage() {
-  const { lang = 'he' } = useParams();
-  const navigate = useNavigate();
-  const back = () => navigate(`/${lang}`);
+const INVITE_URL = 'https://nexus.app/invite/ihpc';
+const INVITE_TEXT = 'הצטרפו אליי ל-Nexus וקבלו 5% קאשבק על 500 ₪ הראשונים שלכם:';
 
+async function handleShare() {
+  const nav = navigator as Navigator & {
+    contacts?: { select: (props: string[], opts?: { multiple?: boolean }) => Promise<unknown[]> };
+  };
+
+  // 1) Open the phone's contact picker (asks permission to access contacts).
+  //    Supported on Chrome for Android over HTTPS.
+  if (nav.contacts?.select) {
+    try {
+      await nav.contacts.select(['name', 'tel'], { multiple: true });
+      return;
+    } catch {
+      // user cancelled or picker unavailable — fall through to share sheet
+    }
+  }
+
+  // 2) Native share sheet (includes Google, WhatsApp, etc.).
+  if (nav.share) {
+    try {
+      await nav.share({ title: 'Nexus', text: INVITE_TEXT, url: INVITE_URL });
+      return;
+    } catch {
+      // user cancelled — fall through to clipboard
+    }
+  }
+
+  // 3) Last resort: copy the invite link.
+  try {
+    await navigator.clipboard.writeText(INVITE_URL);
+  } catch {
+    /* nothing more we can do */
+  }
+}
+
+export default function ReferralStoriesPage() {
   return (
-    <div className="fixed inset-0 max-w-md mx-auto bg-white z-[100]" dir="rtl">
-      <div className="h-full overflow-y-auto hide-scrollbar pt-2 pb-40" style={{ overscrollBehavior: 'contain' }}>
-        <Screen1 onBack={back} />
+    <div className="fixed inset-0 max-w-md mx-auto bg-white z-[100] flex flex-col" dir="rtl">
+      {/* Scroll area — the user-icon strip is the FIRST item INSIDE here, in
+          normal flow (not pinned). So as the user scrolls down it simply
+          scrolls up and off the screen and disappears, like any other page
+          content. `flex-1 min-h-0` makes this the single scrolling region.
+          Only the bottom action button below stays fixed. */}
+      <div className="flex-1 min-h-0 overflow-y-auto hide-scrollbar pb-28" style={{ overscrollBehavior: 'contain' }}>
+        <TopBar showBack />
+        <Screen1 />
         <Screen2 />
         <Screen3 />
       </div>
 
-      {/* Single fixed action button — pinned to the bottom of the page */}
-      <div
-        className="absolute bottom-0 inset-x-0 bg-white border-t border-gray-100"
-        style={{ padding: '16px 24px 32px', boxShadow: '0 -4px 10px rgba(0, 0, 0, 0.05)' }}
-      >
-        <button className="w-full bg-[#7dd3fc] hover:bg-[#38bdf8] text-[#0a2540] font-bold text-lg py-4 rounded-[28px] shadow-sm transition-colors">
-          שתפו את Nexus
+      {/* Floating action button — overlays the scrolling content with a fully
+          transparent background (no white panel behind it). Matches the dark
+          pill CTA on the business page: navy fill, white text, Nexus logo
+          chip on sky-blue. The wrapper passes touches through; only the
+          button itself is interactive. */}
+      <div className="absolute bottom-0 inset-x-0" style={{ padding: '16px 24px 24px', pointerEvents: 'none' }}>
+        <button onClick={handleShare} className="pointer-events-auto relative w-full overflow-hidden bg-bg-dark text-white py-3.5 rounded-full font-bold text-base shadow-lg shadow-bg-dark/30 flex items-center justify-center gap-1.5">
+          <span>שתפו את</span>
+          <span className="inline-flex items-center bg-sky-300 rounded-xl px-3 py-1 overflow-hidden" style={{ transform: 'scale(0.873)' }}>
+            <img
+              src="/nexus-logo-black.png"
+              alt="Nexus"
+              className="h-7 w-auto object-contain"
+              style={{ transform: 'scale(1.373)' }}
+            />
+          </span>
         </button>
-        <div className="w-32 h-1.5 bg-black mx-auto mt-6 rounded-full" />
       </div>
     </div>
   );

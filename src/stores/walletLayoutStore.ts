@@ -3,13 +3,15 @@ import { create } from 'zustand';
 /**
  * Section IDs the user can reorder on the wallet page.
  *  - widgets       → the horizontally-scrolling widgets collage
+ *  - offers        → the "deals just for you" home-style offers slider
  *  - digitalCards  → the issued digital card preview + issue CTA
  *  - vouchers      → the "my vouchers" tab strip + grid
  */
-export type WalletSectionId = 'widgets' | 'digitalCards' | 'vouchers';
+export type WalletSectionId = 'widgets' | 'offers' | 'digitalCards' | 'vouchers';
 
 export const DEFAULT_SECTION_ORDER: WalletSectionId[] = [
   'widgets',
+  'offers',
   'digitalCards',
   'vouchers',
 ];

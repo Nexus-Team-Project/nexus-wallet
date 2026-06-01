@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Reorder, useDragControls } from 'framer-motion';
-import { GripVertical, Boxes, CreditCard, Ticket } from 'lucide-react';
+import { GripVertical, Boxes, CreditCard, Ticket, Sparkles } from 'lucide-react';
 import { useLanguage } from '../i18n/LanguageContext';
 import {
   useWalletLayoutStore,
@@ -82,6 +82,10 @@ export default function WalletCustomizePage() {
     widgets: {
       label: t.profile.customizeSectionWidgets,
       icon: <Boxes size={20} strokeWidth={1.6} />,
+    },
+    offers: {
+      label: t.profile.customizeSectionOffers,
+      icon: <Sparkles size={20} strokeWidth={1.6} />,
     },
     digitalCards: {
       label: t.profile.customizeSectionDigitalCards,
