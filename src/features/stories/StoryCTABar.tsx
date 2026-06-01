@@ -26,17 +26,19 @@ export function StoryCTABar({
       <div className="h-24 bg-gradient-to-t from-black/70 to-transparent" />
       <div className="bg-black/70 backdrop-blur-sm px-6 pb-6 pt-1 pointer-events-auto" dir="rtl">
         {/* Primary CTA. The "רוצה להתחבר עם ארגון אחר?" secondary link
-            was removed - the post-login RouterScreen is now the single
-            place where users switch context, and exposing a duplicate
-            switch from inside the story chain confused first-time
-            users. */}
+            was removed - the post-login routing in lib/postLogin.ts is
+            now the single place where users switch context, and exposing
+            a duplicate switch from inside the story chain confused
+            first-time users. */}
         <div className="flex items-center justify-end">
           <button
             onClick={(e) => {
               e.stopPropagation();
               if (isOrgFlow) {
-                const matchIdx = steps.findIndex(s => s.id === 'match-screen');
-                if (matchIdx !== -1) goTo(matchIdx);
+                // Jump to the terminal interactive slide: match-screen for an
+                // org member, or join-prompt for a non-member of ?tenant=X.
+                const targetIdx = steps.findIndex(s => s.id === 'match-screen' || s.id === 'join-prompt');
+                if (targetIdx !== -1) goTo(targetIdx);
               } else {
                 onNewUserContinue();
               }

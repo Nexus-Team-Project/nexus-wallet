@@ -1,9 +1,10 @@
 import { lazy, Suspense } from 'react';
-import { createBrowserRouter, Navigate, useParams, useSearchParams } from 'react-router-dom';
+import { createBrowserRouter, Navigate, Outlet, useParams, useSearchParams, useLocation } from 'react-router-dom';
 import LanguageRouter from './LanguageRouter';
 import ProtectedRoute from './ProtectedRoute';
 import ErrorBoundary from '../components/ErrorBoundary';
 import { useAuth } from '../contexts/AuthContext';
+import { useRegistrationStore } from '../stores/registrationStore';
 
 // ── Always eager (tiny, needed immediately) ─────────────────────────────────
 import RegistrationGuard from '../components/registration/RegistrationGuard';
@@ -60,9 +61,7 @@ const CardIssuanceStoriesPage = lazy(() => import('../pages/CardIssuanceStoriesP
 const FlowTestPage         = lazy(() => import('../pages/auth-flow/FlowTestPage'));
 const EmailRequiredPage    = lazy(() => import('../pages/auth/EmailRequiredPage'));
 const EmailOtpPage         = lazy(() => import('../pages/auth/EmailOtpPage'));
-const RouterScreen         = lazy(() => import('../pages/router/RouterScreen'));
-const JoinTenantPage       = lazy(() => import('../pages/wallet/JoinTenantPage'));
-const JoinSubmittedPage    = lazy(() => import('../pages/wallet/JoinSubmittedPage'));
+const JoinStandalone       = lazy(() => import('../pages/auth-flow/JoinStandalone'));
 const NewUserFlow = lazy(() =>
   import('../pages/auth-flow/AuthFlowStories').then((m) => ({ default: m.NewUserFlow }))
 );
@@ -80,48 +79,49 @@ function S({ children }: { children: React.ReactNode }) {
 }
 
 /**
- * Index route for /:lang. Logged-in users get redirected to the store
- * catalog. Anonymous users render nothing so AppLayout shows the
- * AnonymousSplash. Post-login routing to RouterScreen is handled by
- * AuthContext.bootstrap via a hard window.location.replace, so this
- * route doesn't have to know anything about it.
+ * Index route for /:lang. The catalog is the public front door for
+ * everyone (anonymous + logged-in), so redirect to /store. Preserve the
+ * full incoming query string so ?tenant=X AND the Google OAuth ?code=
+ * callback survive. Default to ?ecosystem=1 when no context is present.
  */
 function IndexRoute() {
-  const { me, loading } = useAuth();
-  if (loading) return null;
-  if (!me) return null;
-  return <Navigate to="store" replace />;
+  const { search } = useLocation();
+  const params = new URLSearchParams(search);
+  if (!params.get('tenant') && params.get('ecosystem') !== '1') {
+    params.set('ecosystem', '1');
+  }
+  return <Navigate to={{ pathname: 'store', search: `?${params.toString()}` }} replace />;
 }
 
 /**
- * /:lang/store guard. Anonymous users get bounced back to /:lang so
- * the wallet has exactly one anonymous landing URL. Logged-in users
- * see StorePage as usual.
+ * /:lang/store - the public catalog. No auth required to view. If neither
+ * ?tenant nor ?ecosystem is present, default to ecosystem.
  */
 function StoreRoute() {
-  const { me, loading } = useAuth();
   const { lang = 'he' } = useParams();
   const [searchParams] = useSearchParams();
-  if (loading) return null;
-  if (!me) return <Navigate to={`/${lang}`} replace />;
-
-  // /store is only meaningful with a context selection: either
-  // ?tenant=<id> (a specific tenant's catalog) or ?ecosystem=1 (the
-  // cross-tenant Nexus catalog). Direct hits to /store with neither
-  // parameter mean the user typed the URL manually instead of
-  // picking from RouterScreen - bounce them to the chooser so they
-  // never land in an undefined state.
-  const hasContext =
-    !!searchParams.get('tenant') || searchParams.get('ecosystem') === '1';
+  const hasContext = !!searchParams.get('tenant') || searchParams.get('ecosystem') === '1';
   if (!hasContext) {
-    return <Navigate to={`/${lang}/router`} replace />;
+    return <Navigate to={`/${lang}/store?ecosystem=1`} replace />;
   }
+  return (<S><StorePage /></S>);
+}
 
-  return (
-    <S>
-      <StorePage />
-    </S>
-  );
+/**
+ * Guards /:lang/auth-flow/*. The stories/onboarding chain only makes sense
+ * mid-flow: allow when a registration is in progress OR a session exists
+ * (a returning non-member reaching auth-flow/join is logged in). Otherwise
+ * an anonymous cold-load bounces to the public ecosystem catalog.
+ */
+function AuthFlowGuard() {
+  const { lang = 'he' } = useParams();
+  const { me, loading } = useAuth();
+  const isRegistering = useRegistrationStore((s) => s.isRegistering);
+  if (loading) return null;
+  if (!isRegistering && !me) {
+    return <Navigate to={`/${lang}/store?ecosystem=1`} replace />;
+  }
+  return <Outlet />;
 }
 
 export const router = createBrowserRouter([
@@ -138,10 +138,10 @@ export const router = createBrowserRouter([
         element: <AppLayout />,
         children: [
           // === PUBLIC routes ===
-          // /:lang and /:lang/store: a single anonymous landing URL.
-          // Anonymous typing /he/store gets redirected to /he, where
-          // AppLayout renders AnonymousSplash. Logged-in typing /he
-          // gets redirected to /he/store, where StorePage renders.
+          // /:lang and /:lang/store: the public catalog front door for
+          // everyone. /he redirects to /he/store, defaulting to
+          // ?ecosystem=1 when no tenant/ecosystem context is present, so
+          // anonymous and logged-in users both land on StorePage.
           // See IndexRoute + StoreRoute above.
           { index: true,      element: <IndexRoute /> },
           { path: 'home',     element: <S><HomePage /></S> },
@@ -157,18 +157,18 @@ export const router = createBrowserRouter([
           { path: 'category/:categoryId', element: <S><CategoryPage /></S> },
           { path: 'business/:businessId', element: <S><BusinessPage /></S> },
           { path: 'business/:businessId/voucher/:voucherId', element: <S><VoucherPurchasePage /></S> },
-          { path: 'wallet/add-money',          element: <S><AddMoneyPage /></S> },
-          { path: 'wallet/add-money/source',   element: <S><AddMoneySourcePage /></S> },
-          { path: 'wallet/add-money/loading',  element: <S><AddMoneyLoadingPage /></S> },
-          { path: 'wallet/voucher/:voucherId', element: <S><VoucherDetailPage /></S> },
 
           // === PROTECTED routes ===
           {
             element: <ProtectedRoute />,
             children: [
-              { path: 'wallet',   element: <S><WalletPage /></S> },
-              { path: 'activity', element: <S><ActivityPage /></S> },
-              { path: 'profile',  element: <S><ProfilePage /></S> },
+              { path: 'wallet',                    element: <S><WalletPage /></S> },
+              { path: 'wallet/add-money',          element: <S><AddMoneyPage /></S> },
+              { path: 'wallet/add-money/source',   element: <S><AddMoneySourcePage /></S> },
+              { path: 'wallet/add-money/loading',  element: <S><AddMoneyLoadingPage /></S> },
+              { path: 'wallet/voucher/:voucherId', element: <S><VoucherDetailPage /></S> },
+              { path: 'activity',                  element: <S><ActivityPage /></S> },
+              { path: 'profile',                   element: <S><ProfilePage /></S> },
             ],
           },
         ],
@@ -198,10 +198,12 @@ export const router = createBrowserRouter([
       // Auth Flow
       {
         path: 'auth-flow',
+        element: <AuthFlowGuard />,
         children: [
-          { path: 'test',       element: <S><FlowTestPage /></S> },
-          { path: 'new-user',   element: <S><NewUserFlow /></S> },
-          { path: 'org-user',   element: <S><OrgUserFlow /></S> },
+          { path: 'test',     element: <S><FlowTestPage /></S> },
+          { path: 'new-user', element: <S><NewUserFlow /></S> },
+          { path: 'org-user', element: <S><OrgUserFlow /></S> },
+          { path: 'join',     element: <S><JoinStandalone /></S> },
         ],
       },
 
@@ -213,25 +215,6 @@ export const router = createBrowserRouter([
           { path: 'email-otp',      element: <S><EmailOtpPage /></S> },
         ],
       },
-      // Authenticated-only post-login screens. ProtectedRoute reads
-      // AuthContext (not the legacy authStore) so the gate respects
-      // the refresh-cookie bootstrap window. Anonymous visitors get
-      // redirected to /:lang instead of seeing the router/join pages
-      // flash for a frame before the global middleware reacts.
-      {
-        element: <ProtectedRoute />,
-        children: [
-          { path: 'router', element: <S><RouterScreen /></S> },
-          {
-            path: 'wallet',
-            children: [
-              { path: 'join-tenant',    element: <S><JoinTenantPage /></S> },
-              { path: 'join-submitted', element: <S><JoinSubmittedPage /></S> },
-            ],
-          },
-        ],
-      },
-
       { path: '*', element: <Navigate to=".." replace /> },
     ],
   },

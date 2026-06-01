@@ -139,46 +139,58 @@ export default function TopBar({ collapsed = false, showBack = false }: TopBarPr
               </span>
             </button>
           )}
-          {/* Avatar cluster */}
-          <button
-            onClick={handleProfile}
-            className={`relative flex items-center transition-transform duration-300 ease-in-out origin-left ${collapsed ? 'scale-[0.65]' : 'scale-100'}`}
-            aria-label="Profile"
-          >
-            {/* Logo circle */}
-            <div
-              className="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-sm border border-border/60 -me-3 z-0"
-              title={logoAlt}
+          {/* Avatar cluster (authenticated) or "Log in" button (anonymous).
+              Anonymous visitors browse the catalog publicly; the Log in
+              button opens the LoginSheet via the auth gate so they can
+              sign in to buy / redeem. */}
+          {isAuthenticated ? (
+            <button
+              onClick={handleProfile}
+              className={`relative flex items-center transition-transform duration-300 ease-in-out origin-left ${collapsed ? 'scale-[0.65]' : 'scale-100'}`}
+              aria-label="Profile"
             >
-              <img
-                src={logoSrc}
-                alt={logoAlt}
-                className="w-7 h-7 object-contain rounded-full"
-                onError={(e) => {
-                  const parent = (e.target as HTMLImageElement).parentElement;
-                  if (parent) {
-                    (e.target as HTMLImageElement).style.display = 'none';
-                    const fallback = document.createElement('span');
-                    fallback.className = 'text-[11px] font-bold text-primary';
-                    fallback.textContent = hasTenant ? (organizationName?.charAt(0) ?? '?') : 'N';
-                    parent.appendChild(fallback);
-                  }
-                }}
-              />
-            </div>
-            {/* Profile circle */}
-            {avatarUrl ? (
-              <img
-                src={avatarUrl}
-                alt="Profile"
-                className="relative z-10 w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm"
-              />
-            ) : (
-              <div className="relative z-10 w-10 h-10 rounded-full bg-surface flex items-center justify-center hover:bg-border">
-                <span className="material-symbols-outlined text-text-primary">person</span>
+              {/* Logo circle */}
+              <div
+                className="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-sm border border-border/60 -me-3 z-0"
+                title={logoAlt}
+              >
+                <img
+                  src={logoSrc}
+                  alt={logoAlt}
+                  className="w-7 h-7 object-contain rounded-full"
+                  onError={(e) => {
+                    const parent = (e.target as HTMLImageElement).parentElement;
+                    if (parent) {
+                      (e.target as HTMLImageElement).style.display = 'none';
+                      const fallback = document.createElement('span');
+                      fallback.className = 'text-[11px] font-bold text-primary';
+                      fallback.textContent = hasTenant ? (organizationName?.charAt(0) ?? '?') : 'N';
+                      parent.appendChild(fallback);
+                    }
+                  }}
+                />
               </div>
-            )}
-          </button>
+              {/* Profile circle */}
+              {avatarUrl ? (
+                <img
+                  src={avatarUrl}
+                  alt="Profile"
+                  className="relative z-10 w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm"
+                />
+              ) : (
+                <div className="relative z-10 w-10 h-10 rounded-full bg-surface flex items-center justify-center hover:bg-border">
+                  <span className="material-symbols-outlined text-text-primary">person</span>
+                </div>
+              )}
+            </button>
+          ) : (
+            <button
+              onClick={() => { void requireAuth(); }}
+              className="px-3 py-1.5 rounded-full bg-primary text-white text-sm font-semibold shadow-sm hover:opacity-90"
+            >
+              {isHe ? 'התחבר' : 'Log in'}
+            </button>
+          )}
 
           {/* Greeting — fades out on collapse */}
           {showGreeting && (
@@ -212,7 +224,7 @@ export default function TopBar({ collapsed = false, showBack = false }: TopBarPr
 
         {/* Right: action buttons - hidden for anonymous visitors. The
             chat and notifications surfaces are member-only and would
-            be confusing on the AnonymousSplash. */}
+            be confusing for an anonymous visitor. */}
         {isAuthenticated && (
           <div className="flex items-center gap-1.5">
             <button

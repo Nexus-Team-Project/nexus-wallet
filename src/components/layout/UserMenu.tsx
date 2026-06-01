@@ -13,6 +13,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { useAuthStore } from '../../stores/authStore';
+import { clearPostLoginReturn } from '../../lib/postLogin';
 
 interface UserMenuProps {
   isOpen: boolean;
@@ -57,10 +58,11 @@ export default function UserMenu({ isOpen, onClose }: UserMenuProps) {
   const handleLogout = async (): Promise<void> => {
     onClose();
     await logout();
-    // Anonymous users belong on /:lang (the single anonymous landing).
-    // The store route is logged-in only; navigating there would trigger
-    // an immediate middleware bounce back to /:lang anyway.
-    navigate(`/${lang}`, { replace: true });
+    // Clear any stashed gated-action return so a later login never
+    // misfires to a stale page, then drop the now-anonymous user on the
+    // public ecosystem catalog (the front door for everyone).
+    clearPostLoginReturn();
+    navigate(`/${lang}/store?ecosystem=1`, { replace: true });
   };
 
   return (

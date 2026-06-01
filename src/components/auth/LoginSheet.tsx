@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useLanguage } from '../../i18n/LanguageContext';
+import { nextPathAfterLogin } from '../../lib/postLogin';
 import { useAuthStore } from '../../stores/authStore';
 import { useLoginSheetStore } from '../../stores/loginSheetStore';
 import { useTenantStore } from '../../stores/tenantStore';
@@ -19,6 +20,11 @@ import { useAuth } from '../../contexts/AuthContext';
 export default function LoginSheet() {
   const { lang = 'he' } = useParams();
   const navigate = useNavigate();
+  const [sp] = useSearchParams();
+  // ?tenant=X drives org-aware post-login routing; ?ecosystem=1 means "no tenant".
+  const urlTenantId = sp.get('ecosystem') === '1' ? null : sp.get('tenant');
+  // Suffix appended to stories navigations so they can resolve org context.
+  const tenantSuffix = urlTenantId ? `?tenant=${encodeURIComponent(urlTenantId)}` : '';
   const { t, language } = useLanguage();
   const isHe = language === 'he';
   const { isOpen, step, close, setStep, completeLogin } =
@@ -243,13 +249,13 @@ export default function LoginSheet() {
 
       const { session, registrationContext } = result;
 
-      // Plan #2: hydrate AuthContext so /api/me + router screen work.
+      // Plan #2: hydrate AuthContext so /api/me + post-login routing work.
       const me = await onLoginSucceeded(session.token);
       // Plan #3: returning user (profile already completed once) -> go
-      // straight to RouterScreen and skip the slide chain.
+      // straight to the resolved post-login path and skip the slide chain.
       if (me?.profile?.completedAt) {
         close();
-        navigate(`/${lang}/router`);
+        navigate(nextPathAfterLogin({ lang, urlTenantId, me }));
         return;
       }
       const orgMember = registrationContext?.orgMember;
@@ -320,7 +326,7 @@ export default function LoginSheet() {
           // orgMember is NOT passed — tenant branding/flow takes full precedence
         });
         close();
-        navigate(`/${lang}/auth-flow/org-user`);
+        navigate(`/${lang}/auth-flow/org-user${tenantSuffix}`);
         return;
       }
 
@@ -339,7 +345,7 @@ export default function LoginSheet() {
           missingFields,
         });
         close();
-        navigate(`/${lang}/auth-flow/new-user`); // nexus-hero first, match-screen follows
+        navigate(`/${lang}/auth-flow/new-user${tenantSuffix}`); // nexus-hero first, match-screen follows
         return;
       }
 
@@ -350,7 +356,7 @@ export default function LoginSheet() {
         missingFields: phoneMissing,
       });
       close();
-      navigate(`/${lang}/auth-flow/new-user`);
+      navigate(`/${lang}/auth-flow/new-user${tenantSuffix}`);
     } finally {
       setIsLoading(false);
     }
@@ -374,7 +380,7 @@ export default function LoginSheet() {
           organizationName: orgMember?.organizationName,
         });
 
-        // Plan #2: hydrate AuthContext so /api/me + router screen work.
+        // Plan #2: hydrate AuthContext so /api/me + post-login routing work.
         const me = await onLoginSucceeded(result.session.token);
         void firebaseSaveConsent(result.session.userId, marketingOptIn);
         // Plan #3: real consent save against backend (audit-trail object).
@@ -383,10 +389,10 @@ export default function LoginSheet() {
         );
         setMarketingConsent(marketingOptIn);
         // Plan #3: returning user (profile already completed once) ->
-        // skip slide chain, go to RouterScreen.
+        // skip slide chain, go to the resolved post-login path.
         if (me?.profile?.completedAt) {
           close();
-          navigate(`/${lang}/router`);
+          navigate(nextPathAfterLogin({ lang, urlTenantId, me }));
           return;
         }
 
@@ -421,7 +427,7 @@ export default function LoginSheet() {
             });
           }
           close();
-          navigate(`/${lang}/auth-flow/org-user`);
+          navigate(`/${lang}/auth-flow/org-user${tenantSuffix}`);
           return;
         }
 
@@ -451,7 +457,7 @@ export default function LoginSheet() {
             });
           }
           close();
-          navigate(`/${lang}/auth-flow/new-user`); // nexus-hero first, match-screen follows
+          navigate(`/${lang}/auth-flow/new-user${tenantSuffix}`); // nexus-hero first, match-screen follows
           return;
         }
 
@@ -465,7 +471,7 @@ export default function LoginSheet() {
           });
         }
         close();
-        navigate(`/${lang}/auth-flow/new-user`);
+        navigate(`/${lang}/auth-flow/new-user${tenantSuffix}`);
       }
     } finally {
       setIsLoading(false);

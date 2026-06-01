@@ -4,7 +4,6 @@ import TopBar from './TopBar';
 import FloatingActions from './FloatingActions';
 import CategoryRow from '../home/CategoryRow';
 import ProfileNudgeBanner from '../profile/ProfileNudgeBanner';
-import AnonymousSplash from '../auth/AnonymousSplash';
 import WalletLoadingScreen from '../wallet/WalletLoadingScreen';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -14,6 +13,10 @@ export default function AppLayout() {
   const { pathname } = useLocation();
   const isHome = /^\/[a-z]{2}\/?$/.test(pathname);
   const isSearch = /^\/[a-z]{2}\/search\/?$/.test(pathname);
+  // The store front door is a primary surface (like home): it gets the sticky
+  // TopBar (app chrome - avatar / Log in / switcher) above StorePage's own
+  // StoreHeader (page title + search), and no overlay back-header.
+  const isStore = /^\/[a-z]{2}\/store\/?$/.test(pathname);
   const [collapsed, setCollapsed] = useState(false);
   const { me, loading: authLoading } = useAuth();
 
@@ -37,22 +40,6 @@ export default function AppLayout() {
 
   // Short-circuit the entire layout while auth bootstrap is in flight.
   if (authLoading) return <WalletLoadingScreen />;
-
-  // Full-bleed routes opt out of the phone-style max-w-md column so
-  // they can use the whole desktop viewport. Mobile still gets a
-  // single-column stack via each page's own responsive classes.
-  //   /:lang          when anonymous - AnonymousSplash has its own
-  //                   desktop hero layout
-  //   /:lang/router   - RouterScreen has a 2-col hero on lg+
-  const isAnonymousLanding = /^\/[a-z]{2}\/?$/.test(pathname) && !me;
-  const isRouterPage = /^\/[a-z]{2}\/router\/?$/.test(pathname);
-  if (isAnonymousLanding || isRouterPage) {
-    return (
-      <div className="min-h-screen bg-bg-light">
-        <main>{!me ? <AnonymousSplash /> : <Outlet />}</main>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-surface">
@@ -79,21 +66,27 @@ export default function AppLayout() {
               <CategoryRow collapsed={collapsed} />
             </div>
           </div>
+        ) : isStore ? (
+          /* Store front door: primary surface. Sticky TopBar (avatar / Log in /
+             switcher) sits above StorePage's own StoreHeader - app chrome plus
+             page content, like home's TopBar + CategoryRow. No back button. */
+          <div className="sticky top-0 z-50">
+            <TopBar collapsed={false} />
+          </div>
         ) : isSearch ? null : (
-          /* Other pages: transparent overlay, does not scroll */
+          /* Other pages: transparent overlay back-header, does not scroll. */
           <div className="relative z-50 h-0 overflow-visible">
             <TopBar collapsed={false} showBack />
           </div>
         )}
 
         <main className="relative z-10">
-          {/* Anonymous wallet visitors must log in before browsing.
-              Render the splash + login CTA in place of any page
-              content until they sign in. */}
-          {!me ? <AnonymousSplash /> : <Outlet />}
+          <Outlet />
         </main>
+        {/* Profile nudge is logged-in only; FABs render for everyone so
+            anonymous visitors can still navigate (search / wallet / home). */}
         {me && <ProfileNudgeBanner />}
-        {me && <FloatingActions />}
+        <FloatingActions />
       </div>
     </div>
   );

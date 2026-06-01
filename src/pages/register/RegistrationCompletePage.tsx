@@ -19,6 +19,7 @@ import { getOnboardingTotalWithComplete } from '../../utils/onboardingNavigation
 import { PremiumRevealContent } from '../PremiumRevealPage';
 import { saveWalletProfile, saveMarketingConsent, type WalletProfilePatch } from '../../services/walletProfile.service';
 import { useAuth } from '../../contexts/AuthContext';
+import { consumePostLoginReturn } from '../../lib/postLogin';
 
 export default function RegistrationCompletePage() {
   const { lang = 'he' } = useParams();
@@ -80,7 +81,8 @@ export default function RegistrationCompletePage() {
 
   /**
    * Flush every slide answer from registrationStore to the backend in
-   * one PATCH, then navigate to the RouterScreen. Best-effort: if the
+   * one PATCH, then navigate onward (a stashed gated-action return if
+   * one was set, otherwise the ecosystem catalog). Best-effort: if the
    * save fails we still let the user proceed - the next login will
    * retry (profile.completedAt won't be set, so the slides run again).
    *
@@ -113,7 +115,10 @@ export default function RegistrationCompletePage() {
     }
 
     completeRegistration();
-    navigate(`/${lang}/router`, { replace: true });
+    // End of new-user onboarding: honor a stashed gated-action return if one
+    // was set when login popped, otherwise land on the ecosystem catalog.
+    const ret = consumePostLoginReturn();
+    navigate(ret ?? `/${lang}/store?ecosystem=1`, { replace: true });
   };
 
   return (
