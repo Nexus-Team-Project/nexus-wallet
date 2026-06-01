@@ -272,7 +272,7 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
               transition={{ duration: 0.3, ease: [0.25, 0.46, 0.45, 0.94] }}
               className="absolute inset-0"
             >
-              {steps[current]?.id === 'nexus-hero'  && <SlideNexusHero failedImages={failedImages} />}
+              {steps[current]?.id === 'nexus-hero'  && <SlideNexusHero failedImages={failedImages} orgName={resolvedOrgName} />}
               {steps[current]?.id === 'welcome-org' && <SlideWelcomeOrg org={resolvedOrgInfo} />}
               {steps[current]?.id === 'story-insights'    && (
                 <div className="w-full h-full flex flex-col items-center justify-center px-6 relative overflow-hidden" style={{ backgroundColor: 'var(--color-surface)' }} dir="rtl">

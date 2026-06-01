@@ -61,7 +61,7 @@ export function StoryCTABar({
         {/* Secondary: continue with another organization → opens the
             tenant-join discovery sheet. Plain white text, bottom-right (RTL). */}
         {onJoinOtherOrg && (
-          <div className="flex justify-end mt-2">
+          <div className="flex justify-start mt-2">
             <button
               onClick={(e) => { e.stopPropagation(); onJoinOtherOrg(); }}
               className="text-white/90 text-xs font-medium active:scale-95"
