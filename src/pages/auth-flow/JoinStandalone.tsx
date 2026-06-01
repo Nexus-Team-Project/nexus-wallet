@@ -46,7 +46,7 @@ export default function JoinStandalone() {
     if (result.joinedRequested) {
       const isHe = lang === 'he';
       toast.success(
-        isHe ? 'הבקשה נשלחה — ממתינה לאישור מנהל' : 'Request sent — pending admin approval',
+        isHe ? 'הבקשה נשלחה - ממתינה לאישור מנהל' : 'Request sent - pending admin approval',
       );
     }
     void navigate(`/${lang}/store?ecosystem=1`, { replace: true });

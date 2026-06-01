@@ -20,6 +20,7 @@ import GiftCardsPage from '../GiftCardsPage';
 import WalletCardsPage from '../WalletCardsPage';
 import NearbyMapPage from '../NearbyMapPage';
 import SlideJoinPrompt from '../../components/auth-flow/SlideJoinPrompt';
+import SlideDiscoverOrg from '../../components/auth-flow/SlideDiscoverOrg';
 import TenantDiscoverySheet from '../../components/wallet/TenantDiscoverySheet';
 import { createJoinRequests } from '../../services/walletTenants.service';
 import { toast } from 'sonner';
@@ -149,7 +150,9 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
     ? [...baseSteps, { id: 'join-prompt', interactive: true }]
     : isOrgFlow
       ? [...baseSteps, { id: 'match-screen', interactive: true }]
-      : baseSteps;
+      // No tenant context → a light "belong to an organization?" nudge before
+      // onboarding, with a "continue to Nexus catalog" skip.
+      : [...baseSteps, { id: 'discover-org', interactive: true }];
 
   // ── If user pressed Back from onboarding/membership, restore match-screen ─
   // Also supports direct-linking via ?step=<stepId> so every slide has a URL.
@@ -227,7 +230,7 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
   const orgColor = tenantConfig?.primaryColor ?? '#635bff';
 
   // ── Slides that own their own bottom UI (no CTA bar overlay) ─────────────
-  const noCTASlides = ['match-screen', 'join-prompt'];
+  const noCTASlides = ['match-screen', 'join-prompt', 'discover-org'];
 
   // ─────────────────────────────────────────────────────────────────────────
   return (
@@ -292,6 +295,9 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
                   mode="new"
                   onResolve={() => handleNewUserContinue()}
                 />
+              )}
+              {steps[current]?.id === 'discover-org'       && (
+                <SlideDiscoverOrg onResolve={() => handleNewUserContinue()} />
               )}
             </motion.div>
           )}

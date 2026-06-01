@@ -19,7 +19,7 @@ import TenantDiscoverySheet from '../wallet/TenantDiscoverySheet';
 interface SlideJoinPromptProps {
   tenantId: string | null;
   orgName: string | null;
-  /** Organization brand color — tints the hero gradient + primary button. */
+  /** Organization brand color - tints the hero gradient + primary button. */
   orgColor?: string;
   /** Optional organization logo URL shown in the top badge. */
   orgLogo?: string;
@@ -97,7 +97,7 @@ export default function SlideJoinPrompt({
         background: `linear-gradient(135deg, rgba(0,0,0,0.28) 0%, rgba(0,0,0,0) 42%, rgba(255,255,255,0.18) 100%), ${color}`,
       }}
     >
-      {/* Soft blur blobs — same treatment as SlideNexusHero. */}
+      {/* Soft blur blobs - same treatment as SlideNexusHero. */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
         <div
           className="absolute w-72 h-72 rounded-full opacity-20"
@@ -145,7 +145,7 @@ export default function SlideJoinPrompt({
         </motion.p>
       </div>
 
-      {/* Actions — anchored to the lower area like the hero's content. */}
+      {/* Actions - anchored to the lower area like the hero's content. */}
       <div className="flex-1 flex flex-col justify-end relative z-10 px-6 pb-10">
         <motion.div
           initial={{ opacity: 0, y: 16 }}

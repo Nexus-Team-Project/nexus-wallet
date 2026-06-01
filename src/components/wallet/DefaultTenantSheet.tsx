@@ -1,5 +1,5 @@
 /**
- * Bottom sheet for choosing the member's default landing context — the tenant
+ * Bottom sheet for choosing the member's default landing context - the tenant
  * (with its logo) or the Nexus catalog they land on at login. Opened from the
  * avatar/UserMenu. Single-select; persists via setDefaultTenant and refreshes
  * /api/me. Styled like the other wallet bottom sheets (TenantDiscoverySheet /

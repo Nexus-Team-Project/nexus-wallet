@@ -40,11 +40,15 @@ export function StoryCTABar({
           <button
             onClick={(e) => {
               e.stopPropagation();
-              if (isOrgFlow) {
-                // Jump to the terminal interactive slide: match-screen for an
-                // org member, or join-prompt for a non-member of ?tenant=X.
-                const targetIdx = steps.findIndex(s => s.id === 'match-screen' || s.id === 'join-prompt');
-                if (targetIdx !== -1) goTo(targetIdx);
+              // Jump to the terminal interactive slide if the chain has one:
+              // match-screen (org member), join-prompt (non-member of
+              // ?tenant=X), or discover-org (no-tenant new user). Otherwise go
+              // straight to onboarding.
+              const targetIdx = steps.findIndex(
+                (s) => s.id === 'match-screen' || s.id === 'join-prompt' || s.id === 'discover-org',
+              );
+              if (targetIdx !== -1) {
+                goTo(targetIdx);
               } else {
                 onNewUserContinue();
               }
