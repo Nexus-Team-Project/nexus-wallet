@@ -75,18 +75,46 @@ export function resolvePostLogin(ctx: PostLoginContext): PostLoginDecision {
   if (urlTenantId && !isMemberOf(me, urlTenantId)) {
     return { kind: 'stories-nonmember', path: `/${lang}/auth-flow/join${tenantQuery}` };
   }
-  return { kind: 'catalog', path: `/${lang}/store?ecosystem=1` };
+  // Returning user, no tenant in the URL → their default landing context.
+  // A member with a default (explicit choice or last-joined) lands on that
+  // tenant; everyone else lands on the Nexus ecosystem catalog. A stashed
+  // gated-action return still overrides this in nextPathAfterLogin().
+  const def = me.defaultTenantId;
+  return {
+    kind: 'catalog',
+    path: def
+      ? `/${lang}/store?tenant=${encodeURIComponent(def)}`
+      : `/${lang}/store?ecosystem=1`,
+  };
 }
 
 /**
- * Convenience used by login call sites: returns the path to navigate to,
- * honoring a stashed return for returning users who skip onboarding.
+ * Is this stashed return path a bare catalog / front-door URL?
+ *
+ * Matches `/:lang`, `/:lang/`, and `/:lang/store...`. Returning to one of
+ * these is pointless for a member with a default tenant — clicking "Log in"
+ * on the ecosystem front door would otherwise stash that URL and override
+ * the default-tenant landing. Specific pages (an offer, the wallet) are NOT
+ * matched, so a genuine action return is still honored.
+ */
+function isCatalogReturn(path: string): boolean {
+  return (
+    /^\/[a-z]{2}\/?(\?.*)?$/.test(path) ||
+    /^\/[a-z]{2}\/store\/?(\?.*)?$/.test(path)
+  );
+}
+
+/**
+ * Convenience used by login call sites: returns the path to navigate to.
+ * Honors a stashed gated-action return ONLY when it points at a specific
+ * actionable page; a bare catalog/front-door stash yields to the member's
+ * default-tenant landing instead.
  */
 export function nextPathAfterLogin(ctx: PostLoginContext): string {
   const decision = resolvePostLogin(ctx);
   if (decision.kind === 'catalog') {
     const ret = consumePostLoginReturn();
-    if (ret) return ret;
+    if (ret && !isCatalogReturn(ret)) return ret;
   }
   return decision.path;
 }

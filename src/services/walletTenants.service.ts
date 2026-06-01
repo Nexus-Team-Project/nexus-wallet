@@ -42,6 +42,15 @@ export async function createJoinRequests(tenantIds: string[]): Promise<CreateJoi
   });
 }
 
+/**
+ * Set the member's default landing context (the tenant or ecosystem they
+ * land on at login when no ?tenant is in the URL). Pass a tenantId the
+ * caller belongs to, or null for the Nexus (ecosystem) catalog.
+ */
+export async function setDefaultTenant(tenantId: string | null): Promise<void> {
+  await api('/api/v1/wallet/default-tenant', { method: 'PATCH', body: { tenantId } });
+}
+
 /** List the caller's own join requests. */
 export async function listMyJoinRequests(): Promise<JoinRequestRecord[]> {
   const r = await api<{ requests: JoinRequestRecord[] }>('/api/v1/wallet/join-requests/mine');

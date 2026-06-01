@@ -34,11 +34,18 @@ export interface WalletMeResponse {
   memberships?: Array<{
     tenantId: string;
     tenantName: string;
+    logoUrl?: string;
     role: string;
     isPrivilegedRole: boolean;
   }>;
   isPlatformAdmin?: boolean;
   canOpenDashboard?: boolean;
+  /**
+   * Effective default landing context for a returning member: a tenantId to
+   * land on that tenant's catalog, or null for the Nexus (ecosystem) catalog.
+   * Drives resolvePostLogin when logging in without a ?tenant in the URL.
+   */
+  defaultTenantId?: string | null;
   router?: {
     showMemberTenants: Array<{ tenantId: string; tenantName: string }>;
     showAdminEntry: boolean;
