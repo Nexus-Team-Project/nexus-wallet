@@ -91,7 +91,7 @@ export default function TopBar({ collapsed = false, showBack = false }: TopBarPr
       ? 'קטלוג נקסוס'
       : 'Nexus-Catalog'
     : activeMembership?.tenantName
-      ?? (hasTenant ? (isHe ? tenantConfig?.nameHe : tenantConfig?.name) : undefined)
+      ?? (isHe ? tenantConfig?.nameHe : tenantConfig?.name)
       ?? organizationName;
 
   const handleProfile = async () => {
@@ -139,58 +139,51 @@ export default function TopBar({ collapsed = false, showBack = false }: TopBarPr
               </span>
             </button>
           )}
-          {/* Avatar cluster (authenticated) or "Log in" button (anonymous).
-              Anonymous visitors browse the catalog publicly; the Log in
-              button opens the LoginSheet via the auth gate so they can
-              sign in to buy / redeem. */}
-          {isAuthenticated ? (
-            <button
-              onClick={handleProfile}
-              className={`relative flex items-center transition-transform duration-300 ease-in-out origin-left ${collapsed ? 'scale-[0.65]' : 'scale-100'}`}
-              aria-label="Profile"
+          {/* Avatar cluster — shown for everyone. Anonymous visitors see the
+              default Nexus logo + person avatar and the "Nexus-Catalog"
+              context label, exactly like a logged-in ecosystem view; tapping
+              the avatar opens the LoginSheet via the auth gate (handleProfile
+              calls requireAuth when not authenticated) so they can sign in to
+              buy / redeem. */}
+          <button
+            onClick={handleProfile}
+            className={`relative flex items-center transition-transform duration-300 ease-in-out origin-left ${collapsed ? 'scale-[0.65]' : 'scale-100'}`}
+            aria-label={isAuthenticated ? 'Profile' : (isHe ? 'התחבר' : 'Log in')}
+          >
+            {/* Logo circle */}
+            <div
+              className="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-sm border border-border/60 -me-3 z-0"
+              title={logoAlt}
             >
-              {/* Logo circle */}
-              <div
-                className="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-sm border border-border/60 -me-3 z-0"
-                title={logoAlt}
-              >
-                <img
-                  src={logoSrc}
-                  alt={logoAlt}
-                  className="w-7 h-7 object-contain rounded-full"
-                  onError={(e) => {
-                    const parent = (e.target as HTMLImageElement).parentElement;
-                    if (parent) {
-                      (e.target as HTMLImageElement).style.display = 'none';
-                      const fallback = document.createElement('span');
-                      fallback.className = 'text-[11px] font-bold text-primary';
-                      fallback.textContent = hasTenant ? (organizationName?.charAt(0) ?? '?') : 'N';
-                      parent.appendChild(fallback);
-                    }
-                  }}
-                />
+              <img
+                src={logoSrc}
+                alt={logoAlt}
+                className="w-7 h-7 object-contain rounded-full"
+                onError={(e) => {
+                  const parent = (e.target as HTMLImageElement).parentElement;
+                  if (parent) {
+                    (e.target as HTMLImageElement).style.display = 'none';
+                    const fallback = document.createElement('span');
+                    fallback.className = 'text-[11px] font-bold text-primary';
+                    fallback.textContent = hasTenant ? (organizationName?.charAt(0) ?? '?') : 'N';
+                    parent.appendChild(fallback);
+                  }
+                }}
+              />
+            </div>
+            {/* Profile circle */}
+            {avatarUrl ? (
+              <img
+                src={avatarUrl}
+                alt="Profile"
+                className="relative z-10 w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm"
+              />
+            ) : (
+              <div className="relative z-10 w-10 h-10 rounded-full bg-surface flex items-center justify-center hover:bg-border">
+                <span className="material-symbols-outlined text-text-primary">person</span>
               </div>
-              {/* Profile circle */}
-              {avatarUrl ? (
-                <img
-                  src={avatarUrl}
-                  alt="Profile"
-                  className="relative z-10 w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm"
-                />
-              ) : (
-                <div className="relative z-10 w-10 h-10 rounded-full bg-surface flex items-center justify-center hover:bg-border">
-                  <span className="material-symbols-outlined text-text-primary">person</span>
-                </div>
-              )}
-            </button>
-          ) : (
-            <button
-              onClick={() => { void requireAuth(); }}
-              className="px-3 py-1.5 rounded-full bg-primary text-white text-sm font-semibold shadow-sm hover:opacity-90"
-            >
-              {isHe ? 'התחבר' : 'Log in'}
-            </button>
-          )}
+            )}
+          </button>
 
           {/* Greeting — fades out on collapse */}
           {showGreeting && (
@@ -204,8 +197,9 @@ export default function TopBar({ collapsed = false, showBack = false }: TopBarPr
           <UserMenu isOpen={userMenuOpen} onClose={() => setUserMenuOpen(false)} />
         </div>
 
-        {/* Center: tenant name — fades in on collapse */}
-        {isAuthenticated && tenantDisplayName && (
+        {/* Center: tenant name — fades in on collapse. Shown for anonymous
+            too so the front door reads "Nexus-Catalog" like a logged-in view. */}
+        {tenantDisplayName && (
           <div className={`absolute left-1/2 -translate-x-1/2 transition-all duration-300 ease-in-out ${collapsed ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
             <button
               onClick={() => { if (!isEcosystem) setTenantSheetOpen(true); }}
@@ -256,16 +250,22 @@ export default function TopBar({ collapsed = false, showBack = false }: TopBarPr
         )}
       </div>
 
-      {/* Tenant row below — slides out on collapse */}
-      {isAuthenticated && tenantDisplayName && (
+      {/* Tenant row below — slides out on collapse. Shown for anonymous too. */}
+      {tenantDisplayName && (
         <div className={`overflow-hidden transition-all duration-300 ease-in-out ${collapsed ? 'max-h-0 opacity-0' : 'max-h-10 opacity-100 mt-2'}`}>
-          <button onClick={() => setTenantSheetOpen(true)} className="flex items-center gap-1 active:scale-95">
+          <button
+            onClick={() => { if (!isEcosystem) setTenantSheetOpen(true); }}
+            className="flex items-center gap-1 active:scale-95"
+            disabled={isEcosystem}
+          >
             <span className="text-[11px] font-semibold text-text-secondary truncate max-w-[200px]">
               {tenantDisplayName}
             </span>
-            <span className="material-symbols-outlined text-text-muted" style={{ fontSize: '14px' }}>
-              keyboard_arrow_down
-            </span>
+            {!isEcosystem && (
+              <span className="material-symbols-outlined text-text-muted" style={{ fontSize: '14px' }}>
+                keyboard_arrow_down
+              </span>
+            )}
           </button>
         </div>
       )}
