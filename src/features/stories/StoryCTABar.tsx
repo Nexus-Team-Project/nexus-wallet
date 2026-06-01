@@ -34,7 +34,9 @@ export function StoryCTABar({
             now the single place where users switch context, and exposing
             a duplicate switch from inside the story chain confused
             first-time users. */}
-        <div className="flex items-center justify-end">
+        {/* Right-aligned in RTL (justify-start) so the CTA clears the
+            accessibility widget pinned in the bottom-left corner. */}
+        <div className="flex items-center justify-start">
           <button
             onClick={(e) => {
               e.stopPropagation();
