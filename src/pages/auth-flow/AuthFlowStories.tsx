@@ -287,6 +287,8 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
                 <SlideJoinPrompt
                   tenantId={urlTenantId}
                   orgName={resolvedOrgName}
+                  orgColor={orgColor}
+                  orgLogo={tenantConfig?.logo}
                   mode="new"
                   onResolve={() => handleNewUserContinue()}
                 />

@@ -8,6 +8,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useAuth } from '../../contexts/AuthContext';
+import { useTenantStore } from '../../stores/tenantStore';
 import { fetchPublicTenant } from '../../services/publicTenant.service';
 import SlideJoinPrompt from '../../components/auth-flow/SlideJoinPrompt';
 
@@ -22,6 +23,7 @@ export default function JoinStandalone() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
   const { me } = useAuth();
+  const tenantConfig = useTenantStore((s) => s.config);
   const tenantId = params.get('tenant');
   const [orgName, setOrgName] = useState<string | null>(null);
 
@@ -50,5 +52,19 @@ export default function JoinStandalone() {
     void navigate(`/${lang}/store?ecosystem=1`, { replace: true });
   };
 
-  return <SlideJoinPrompt tenantId={tenantId} orgName={orgName} mode="returning" onResolve={finish} />;
+  // Pin to the viewport so this standalone page never scrolls. SlideJoinPrompt
+  // is absolute inset-0 (to fill the stories slide in its other usage); this
+  // fixed wrapper gives it a non-scrolling, viewport-sized positioned parent.
+  return (
+    <div className="fixed inset-0 overflow-hidden">
+      <SlideJoinPrompt
+        tenantId={tenantId}
+        orgName={orgName}
+        orgColor={tenantConfig?.primaryColor}
+        orgLogo={tenantConfig?.logo}
+        mode="returning"
+        onResolve={finish}
+      />
+    </div>
+  );
 }
