@@ -18,81 +18,21 @@ import { useLanguage } from '../i18n/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
 import SelectionCard from '../components/ui/SelectionCard';
 import ConsentToggleCard from '../components/ui/ConsentToggleCard';
+import PurposeSection from '../components/profile/edit/PurposeSection';
+import InviteFriendsCard from '../components/profile/edit/InviteFriendsCard';
+import {
+  type GenderValue,
+  normaliseGender,
+  maxBirthday,
+  INPUT_CLASS,
+  CARD_CLASS,
+  SECTION_LABEL_CLASS,
+} from '../components/profile/edit/editProfile.constants';
 import {
   saveWalletProfile,
   saveMarketingConsent,
   type WalletProfilePatch,
 } from '../services/walletProfile.service';
-
-/** Backend gender enum value. The slides expose a legacy 'prefer-not' id. */
-type GenderValue = 'male' | 'female' | 'prefer_not_to_say';
-
-/**
- * Purpose chip categories - copied verbatim from PurposeSlide.tsx so the chip
- * ids, icons, and category labels stay identical to what onboarding saved.
- */
-interface ChipOption {
-  id: string;
-  icon: string;
-  labelKey:
-    | 'purposeSaveMoney' | 'purposeDiscover' | 'purposeGiftCards' | 'purposeCompareDeals'
-    | 'purposeOrgBenefits' | 'purposeMemberPrices' | 'purposeExclusiveOffers'
-    | 'purposeSendGifts' | 'purposeBirthdaySurprises' | 'purposeExploring';
-}
-interface ChipCategory {
-  titleKey: 'purposeCatShopping' | 'purposeCatBenefits' | 'purposeCatGifting';
-  chips: ChipOption[];
-}
-const PURPOSE_CATEGORIES: ChipCategory[] = [
-  {
-    titleKey: 'purposeCatShopping',
-    chips: [
-      { id: 'save-money', icon: 'savings', labelKey: 'purposeSaveMoney' },
-      { id: 'discover', icon: 'location_on', labelKey: 'purposeDiscover' },
-      { id: 'gift-cards', icon: 'redeem', labelKey: 'purposeGiftCards' },
-      { id: 'compare-deals', icon: 'swap_horiz', labelKey: 'purposeCompareDeals' },
-    ],
-  },
-  {
-    titleKey: 'purposeCatBenefits',
-    chips: [
-      { id: 'org-benefits', icon: 'corporate_fare', labelKey: 'purposeOrgBenefits' },
-      { id: 'member-prices', icon: 'loyalty', labelKey: 'purposeMemberPrices' },
-      { id: 'exclusive-offers', icon: 'stars', labelKey: 'purposeExclusiveOffers' },
-    ],
-  },
-  {
-    titleKey: 'purposeCatGifting',
-    chips: [
-      { id: 'send-gifts', icon: 'card_giftcard', labelKey: 'purposeSendGifts' },
-      { id: 'birthday-surprises', icon: 'cake', labelKey: 'purposeBirthdaySurprises' },
-      { id: 'exploring', icon: 'explore', labelKey: 'purposeExploring' },
-    ],
-  },
-];
-
-/**
- * Normalises a stored gender value into the backend enum. Treats the legacy
- * slide id 'prefer-not' as 'prefer_not_to_say'. Anything unrecognised (or the
- * generic 'other') becomes null so no stale value is shown selected.
- */
-function normaliseGender(raw: string | undefined): GenderValue | null {
-  if (raw === 'male' || raw === 'female' || raw === 'prefer_not_to_say') return raw;
-  if (raw === 'prefer-not') return 'prefer_not_to_say';
-  return null;
-}
-
-/** Max selectable birthday: today minus 13 years, as YYYY-MM-DD. */
-function maxBirthday(): string {
-  const d = new Date();
-  d.setFullYear(d.getFullYear() - 13);
-  return d.toISOString().split('T')[0];
-}
-
-const INPUT_CLASS =
-  'w-full px-4 py-3.5 rounded-2xl border-2 text-sm bg-white outline-none transition-colors border-border focus:border-primary';
-const CARD_CLASS = 'rounded-2xl border border-border bg-white p-4';
-const SECTION_LABEL_CLASS = 'text-sm font-semibold text-text-primary mb-3';
 
 /**
  * Edit Profile screen. AppLayout already supplies the overlay back-TopBar for
@@ -292,56 +232,7 @@ export default function EditProfilePage() {
       </section>
 
       {/* 4. How you'll use it (purpose) */}
-      <section className={CARD_CLASS}>
-        <h2 className={SECTION_LABEL_CLASS}>{t.profile.editSectionPurpose}</h2>
-        <div className="space-y-6">
-          {PURPOSE_CATEGORIES.map((cat) => (
-            <div key={cat.titleKey}>
-              <h3
-                className="text-base font-bold tracking-tight mb-3"
-                style={{ color: 'var(--color-text-primary)' }}
-              >
-                {t.registration[cat.titleKey]}
-              </h3>
-              <div className="flex flex-wrap gap-2.5">
-                {cat.chips.map((chip) => {
-                  const isSelected = purpose.includes(chip.id);
-                  return (
-                    <button
-                      key={chip.id}
-                      type="button"
-                      onClick={() => togglePurpose(chip.id)}
-                      aria-pressed={isSelected}
-                      className={`flex h-11 items-center gap-2 rounded-xl border ps-3 pe-4 transition-all active:scale-95 ${
-                        isSelected ? 'bg-primary/10 border-primary/30' : 'bg-surface border-border'
-                      }`}
-                    >
-                      <span
-                        className="material-symbols-outlined flex-shrink-0"
-                        style={{
-                          fontSize: '20px',
-                          color: isSelected
-                            ? 'var(--color-primary)'
-                            : 'var(--color-text-muted)',
-                          fontVariationSettings: isSelected ? "'FILL' 1" : "'FILL' 0",
-                        }}
-                      >
-                        {chip.icon}
-                      </span>
-                      <span
-                        className="text-sm font-medium whitespace-nowrap"
-                        style={{ color: 'var(--color-text-primary)' }}
-                      >
-                        {t.registration[chip.labelKey]}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
+      <PurposeSection selected={purpose} onToggle={togglePurpose} />
 
       {/* 5. Notifications - marketing consent */}
       <section className={CARD_CLASS}>
@@ -362,32 +253,7 @@ export default function EditProfilePage() {
       </section>
 
       {/* 6. Invite friends - present but non-functional (Soon) */}
-      <section className={CARD_CLASS}>
-        <h2 className={SECTION_LABEL_CLASS}>{t.profile.editSectionInvite}</h2>
-        <button
-          type="button"
-          onClick={() => toast(t.profile.editSoonBadge)}
-          className="flex w-full items-center gap-3 rounded-2xl border border-border bg-surface/60 p-3 text-start opacity-90"
-        >
-          <span className="flex-shrink-0 w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-            <span
-              className="material-symbols-outlined text-primary"
-              style={{ fontSize: '20px' }}
-            >
-              group_add
-            </span>
-          </span>
-          <span className="flex-1 min-w-0">
-            <span className="block text-sm font-semibold text-text-primary">
-              {t.profile.editInviteTitle}
-            </span>
-            <span className="block text-xs text-text-muted">{t.profile.editInviteSubtitle}</span>
-          </span>
-          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary uppercase tracking-wide flex-shrink-0">
-            {t.profile.editSoonBadge}
-          </span>
-        </button>
-      </section>
+      <InviteFriendsCard />
 
       {/* Sticky Save bar */}
       <div className="fixed bottom-0 inset-x-0 z-50 bg-bg-light/95 backdrop-blur border-t border-border/60 px-4 py-3">
