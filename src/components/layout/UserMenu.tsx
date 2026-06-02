@@ -22,7 +22,7 @@ interface UserMenuProps {
 
 export default function UserMenu({ isOpen, onClose, onOpenDefaultSheet }: UserMenuProps) {
   const { me, logout } = useAuth();
-  const { language } = useLanguage();
+  const { language, t } = useLanguage();
   const { lang = 'he' } = useParams();
   const navigate = useNavigate();
   const isHe = language === 'he';
@@ -92,6 +92,29 @@ export default function UserMenu({ isOpen, onClose, onOpenDefaultSheet }: UserMe
 
       {/* Actions */}
       <div className="py-1">
+        {/* Edit profile — opens the full profile editor. This is the only
+            discoverable entry to it: the BottomNav (which has a profile tab)
+            is not mounted, so the avatar menu is where users look. */}
+        <button
+          type="button"
+          onClick={() => {
+            onClose();
+            navigate(`/${lang}/profile/edit`);
+          }}
+          className="w-full text-start px-4 py-2.5 text-sm text-text-primary hover:bg-surface flex items-center gap-2"
+        >
+          {/* Inline SVG user/edit icon (wallet does not load material-icons). */}
+          <svg
+            width="16" height="16" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+            className="text-text-muted flex-shrink-0" aria-hidden="true"
+          >
+            <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+            <circle cx="12" cy="7" r="4" />
+          </svg>
+          <span>{t.profile.editProfile}</span>
+        </button>
+
         {/* Default landing view — members only. Opens the bottom sheet. */}
         {memberships.length > 0 && (
           <button
