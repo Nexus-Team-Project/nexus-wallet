@@ -6,15 +6,24 @@ import { walletCards, PUSH_IMAGES } from './constants';
 
 interface SlideNexusHeroProps {
   failedImages: Set<string>;
+  /** Organization the user is logging in through (tenant URL), if any.
+      When set, the welcome headline names it. */
+  orgName?: string | null;
 }
 
-export function SlideNexusHero({ failedImages }: SlideNexusHeroProps) {
+export function SlideNexusHero({ failedImages, orgName }: SlideNexusHeroProps) {
   const [pushIdx, setPushIdx] = useState(0);
   const authFirstName = useAuthStore((s) => s.firstName);
   const authAvatarUrl = useAuthStore((s) => s.avatarUrl);
   const orgMember = useRegistrationStore((s) => s.orgMember);
 
   const firstName = authFirstName ?? orgMember?.firstName ?? null;
+
+  // First headline line. When the user arrived through an organization's
+  // link, welcome them to that org by name; otherwise a plain welcome.
+  const welcomeLine = orgName
+    ? (firstName ? `${firstName}, טוב שבאת ל${orgName},` : `טוב שבאת ל${orgName},`)
+    : (firstName ? `${firstName}, טוב שבאת,` : 'טוב שבאת,');
 
   // Push animation fires once after 1.2 s
   useEffect(() => {
@@ -79,7 +88,7 @@ export function SlideNexusHero({ failedImages }: SlideNexusHeroProps) {
       <div className="flex-shrink-0 pt-3 pb-3 relative z-10 px-6">
         <div className="w-[60%]">
           <h2 className="text-white font-extrabold text-[34px] leading-tight" dir="rtl">
-            {firstName ? `${firstName}, טוב שבאת,` : 'טוב שבאת,'}
+            {welcomeLine}
           </h2>
           <h2 className="text-white font-extrabold text-[34px] leading-tight" dir="rtl">
             נקסוס עוזרת לך לקנות חכם יותר, נתחיל?

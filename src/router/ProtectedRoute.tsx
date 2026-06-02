@@ -1,38 +1,30 @@
 /**
- * ProtectedRoute - blocks anonymous users from rendering authenticated
- * pages. Reads AuthContext rather than the legacy Zustand authStore so
- * the gate respects the post-login bootstrap window: during the
- * refresh-cookie + /api/me round-trip we render nothing instead of
- * redirecting, otherwise the user would briefly bounce back to /:lang
- * mid-login.
- *
- * Use as a wrapper route around any tree that must require a session,
- * e.g. /wallet, /activity, /profile, /router, /wallet/join-tenant.
+ * ProtectedRoute - blocks anonymous users from authenticated pages. Reads
+ * AuthContext (not the legacy authStore) so the gate respects the
+ * refresh-cookie bootstrap window. On an anonymous direct hit it stashes
+ * the intended path, opens the LoginSheet, and redirects to the public
+ * ecosystem catalog as the backdrop.
  */
-import { Navigate, Outlet, useParams, useLocation } from 'react-router-dom';
+import { Navigate, Outlet, useParams } from 'react-router-dom';
+import { useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { useLoginSheetStore } from '../stores/loginSheetStore';
+import { stashPostLoginReturn } from '../lib/postLogin';
 
 export default function ProtectedRoute() {
   const { me, loading } = useAuth();
   const { lang = 'he' } = useParams();
-  const location = useLocation();
+  const openLoginSheet = useLoginSheetStore((s) => s.open);
+  const blocked = !loading && !me;
 
-  // Still resolving the session - render nothing so AppLayout can keep
-  // its own loading skeleton up. Never redirect mid-bootstrap.
+  useEffect(() => {
+    if (blocked) {
+      stashPostLoginReturn(window.location.pathname + window.location.search);
+      void openLoginSheet().catch(() => { /* dismissed - user stays on catalog */ });
+    }
+  }, [blocked, openLoginSheet]);
+
   if (loading) return null;
-
-  if (!me) {
-    // Anonymous - bounce to the single anonymous landing URL.
-    // location.state.from lets the login flow optionally return the
-    // user here after they sign in (not wired yet, but cheap to carry).
-    return (
-      <Navigate
-        to={`/${lang || 'he'}`}
-        replace
-        state={{ from: location.pathname + location.search }}
-      />
-    );
-  }
-
+  if (!me) return <Navigate to={`/${lang}/store?ecosystem=1`} replace />;
   return <Outlet />;
 }

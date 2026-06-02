@@ -1,27 +1,45 @@
 import { useEffect } from 'react';
-import { Outlet, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { Outlet, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { LanguageProvider } from '../i18n/LanguageContext';
+import AppToaster from '../components/AppToaster';
 import LoginSheet from '../components/auth/LoginSheet';
 import WalletTenantSwitcher from '../components/wallet/WalletTenantSwitcher';
 import { useAuth } from '../contexts/AuthContext';
 import { useTenantStore } from '../stores/tenantStore';
+import { useRegistrationStore } from '../stores/registrationStore';
 import { lookupTenant } from '../mock/handlers/tenant.handler';
+import { fetchPublicTenant } from '../services/publicTenant.service';
+import type { TenantConfig } from '../types/tenant.types';
 
 /**
- * Paths under /:lang that anonymous visitors are allowed to load
- * directly. Everything else gets bounced to /:lang where the
- * AnonymousSplash + LoginSheet take over.
- *
- * Why this allowlist exists: the SMS-OTP flow temporarily routes an
- * un-authenticated user through /auth/email-required and
- * /auth/email-otp before the session is minted. Those two pages MUST
- * be reachable anonymous; everything else is post-login.
+ * Default brand color used when a tenant has no themed config of its
+ * own. Mirrors the `--color-primary` CSS variable (Nexus brand) declared
+ * in index.css so anonymous ?tenant=X links that only know a real org's
+ * name/logo still render with consistent Nexus theming.
  */
-const ANONYMOUS_ALLOW_PATTERNS: RegExp[] = [
-  /^\/[a-z]{2}\/?$/,                     // /:lang itself (the landing)
-  /^\/[a-z]{2}\/auth\/email-required\/?/, // mid-signup
-  /^\/[a-z]{2}\/auth\/email-otp\/?/,      // mid-signup
-];
+const DEFAULT_PRIMARY_COLOR = '#635bff';
+
+/**
+ * Build a minimal TenantConfig (name/logo only) from public endpoint info.
+ * Real backend tenants have no themed mock entry, so we synthesize a config
+ * that carries the org name + logo and falls back to the Nexus brand color.
+ * @param id domain tenantId from ?tenant=X
+ * @param info public tenant info (organization name + optional logo URL)
+ * @returns a TenantConfig safe to feed into the tenant store / theme.
+ */
+function buildPublicTenantConfig(
+  id: string,
+  info: { organizationName: string; logoUrl?: string },
+): TenantConfig {
+  return {
+    id,
+    name: info.organizationName,
+    nameHe: info.organizationName,
+    logo: info.logoUrl ?? '/nexus-logo.png',
+    primaryColor: DEFAULT_PRIMARY_COLOR,
+    requiresMembershipFee: false,
+  };
+}
 
 /** Darken a hex color by a given percentage */
 function darkenColor(hex: string, percent: number): string {
@@ -36,24 +54,13 @@ export default function LanguageRouter() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const location = useLocation();
-  const { lang = 'he' } = useParams();
   const { tenantId, config, setTenant, clearTenant } = useTenantStore();
-  const { me, loading: authLoading } = useAuth();
+  const { me } = useAuth();
+  const isRegistering = useRegistrationStore((s) => s.isRegistering);
 
-  /**
-   * Global auth middleware. Anonymous visitors land on /:lang only.
-   * Every other route under /:lang gets redirected back to /:lang.
-   * Runs after the auth bootstrap completes so a valid refresh-cookie
-   * session is not redirected away mid-load.
-   */
-  useEffect(() => {
-    if (authLoading) return;
-    if (me) return;
-    const allowed = ANONYMOUS_ALLOW_PATTERNS.some((re) => re.test(location.pathname));
-    if (allowed) return;
-    navigate(`/${lang}`, { replace: true });
-  }, [authLoading, me, location.pathname, lang, navigate]);
-
+  // Public-by-default: anonymous visitors may load any route. There is no
+  // global redirect here anymore - the route tree (ProtectedRoute on the
+  // member-only paths) decides what an anonymous user can reach.
 
   useEffect(() => {
     const tenantSlug = searchParams.get('tenant');
@@ -67,12 +74,22 @@ export default function LanguageRouter() {
       // tenant name after the user opted into ecosystem view.
       clearTenant();
     } else if (tenantSlug) {
-      // ?tenant= in URL → set (or refresh) tenant
       const tenantConfig = lookupTenant(tenantSlug);
       if (tenantConfig) {
         setTenant(tenantSlug, tenantConfig);
       } else {
-        clearTenant();
+        // Not a known mock tenant - resolve the REAL org name/logo from the
+        // public endpoint so anonymous ?tenant=X links still brand correctly.
+        // 404 (no such tenant / catalog not active) -> clear to Nexus.
+        fetchPublicTenant(tenantSlug)
+          .then((info) => {
+            if (info) {
+              setTenant(tenantSlug, buildPublicTenantConfig(tenantSlug, info));
+            } else {
+              clearTenant();
+            }
+          })
+          .catch(() => clearTenant());
       }
     } else if (tenantId) {
       // Tenant is active but missing from URL → restore it silently
@@ -109,22 +126,18 @@ export default function LanguageRouter() {
     <LanguageProvider>
       <div style={tenantStyle}>
         <Outlet />
+        {/* Single app-wide toaster, RTL-aware (Hebrew toasts render right-to-left). */}
+        <AppToaster />
         <LoginSheet />
-        {/* Real tenant switcher when logged in. Hidden on the screens
-            that already ARE pickers or own a fullscreen flow - showing
-            the top-left "Pick view" chip there is redundant and
-            confusing while the user is still choosing their context:
-              - /:lang/router                 - post-login chooser
-              - /:lang/wallet/join-tenant     - tenant join flow
-              - /:lang/wallet/join-submitted  - join confirmation
-              - /:lang/auth-flow/*            - story onboarding chain
-                                                (new-user / org-user)
-            Dev-only simulators (TenantSimulator + UserTypeSimulator)
-            were removed - they were vestiges of the mock-auth era. */}
+        {/* Real tenant switcher when logged in. Hidden across the entire
+            signup journey - the auth-flow story chain AND the /register
+            onboarding slides, plus any time a registration is in progress
+            (isRegistering) - where the top-left "Pick view" chip would be
+            redundant and confusing while the user is still onboarding. The
+            in-story "continue with another organization" link replaces it. */}
         {me &&
-          !/^\/[a-z]{2}\/router\/?$/.test(location.pathname) &&
-          !/^\/[a-z]{2}\/wallet\/join-(tenant|submitted)\/?$/.test(location.pathname) &&
-          !/^\/[a-z]{2}\/auth-flow(\/|$)/.test(location.pathname) && (
+          !isRegistering &&
+          !/^\/[a-z]{2}\/(auth-flow|register|profile\/edit)(\/|$)/.test(location.pathname) && (
             <WalletTenantSwitcher />
           )}
       </div>

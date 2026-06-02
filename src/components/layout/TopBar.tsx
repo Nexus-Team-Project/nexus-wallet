@@ -8,6 +8,7 @@ import { useLanguage } from '../../i18n/LanguageContext';
 import { useUser } from '../../hooks/useUser';
 import TenantSheet from './TenantSheet';
 import UserMenu from './UserMenu';
+import DefaultTenantSheet from '../wallet/DefaultTenantSheet';
 
 function getGreeting(t: { home: { goodMorning: string; goodAfternoon: string; goodEvening: string; goodNight: string } }) {
   const hour = new Date().getHours();
@@ -74,6 +75,7 @@ export default function TopBar({ collapsed = false, showBack = false }: TopBarPr
 
   const [tenantSheetOpen, setTenantSheetOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [defaultSheetOpen, setDefaultSheetOpen] = useState(false);
 
   // Display name for the top-bar context chip. Order of preference:
   //  1. Ecosystem mode -> "Nexus-Catalog" (the view label, not a tenant).
@@ -91,7 +93,7 @@ export default function TopBar({ collapsed = false, showBack = false }: TopBarPr
       ? 'קטלוג נקסוס'
       : 'Nexus-Catalog'
     : activeMembership?.tenantName
-      ?? (hasTenant ? (isHe ? tenantConfig?.nameHe : tenantConfig?.name) : undefined)
+      ?? (isHe ? tenantConfig?.nameHe : tenantConfig?.name)
       ?? organizationName;
 
   const handleProfile = async () => {
@@ -123,9 +125,12 @@ export default function TopBar({ collapsed = false, showBack = false }: TopBarPr
       className={`px-5 transition-all duration-300 ease-in-out ${collapsed ? 'pt-1.5 pb-1' : 'pt-4 pb-3'}`}
     >
       {/* ── Main row ── */}
-      <div className="relative flex items-center justify-between">
+      <div className="relative flex items-center">
 
-        {/* Left: back button (non-home) + avatars + greeting */}
+        {/* Left: back button (non-home) + avatars + greeting + actions.
+            Everything is grouped on the start side so the action icons sit
+            next to the avatar and never collide with the floating tenant
+            switcher pill anchored in the opposite top corner. */}
         <div className="flex items-center gap-2 relative">
           {/* Back button — non-home pages only */}
           {showBack && (
@@ -139,11 +144,16 @@ export default function TopBar({ collapsed = false, showBack = false }: TopBarPr
               </span>
             </button>
           )}
-          {/* Avatar cluster */}
+          {/* Avatar cluster — shown for everyone. Anonymous visitors see the
+              default Nexus logo + person avatar and the "Nexus-Catalog"
+              context label, exactly like a logged-in ecosystem view; tapping
+              the avatar opens the LoginSheet via the auth gate (handleProfile
+              calls requireAuth when not authenticated) so they can sign in to
+              buy / redeem. */}
           <button
             onClick={handleProfile}
             className={`relative flex items-center transition-transform duration-300 ease-in-out origin-left ${collapsed ? 'scale-[0.65]' : 'scale-100'}`}
-            aria-label="Profile"
+            aria-label={isAuthenticated ? 'Profile' : (isHe ? 'התחבר' : 'Log in')}
           >
             {/* Logo circle */}
             <div
@@ -188,12 +198,49 @@ export default function TopBar({ collapsed = false, showBack = false }: TopBarPr
             </div>
           )}
 
+          {/* Action buttons (chat + notifications) — grouped beside the
+              avatar/greeting. Member-only and hidden for anonymous visitors. */}
+          {isAuthenticated && (
+            <div className="flex items-center gap-1.5 ms-1">
+              <button
+                onClick={() => navigate(`/${lang}/chat`)}
+                className={`relative rounded-full bg-surface flex items-center justify-center hover:bg-border transition-all duration-300 ease-in-out ${btnSize}`}
+                aria-label="Chat"
+              >
+                <span className={`material-symbols-outlined text-text-primary transition-transform duration-300 ${iconScale}`}>chat_bubble_outline</span>
+                {chatCount > 0 && (
+                  <span className="absolute -top-0.5 -left-0.5 w-[18px] h-[18px] bg-error rounded-full border-2 border-white flex items-center justify-center">
+                    <span className="text-[10px] font-bold text-white leading-none">{chatCount > 9 ? '9+' : chatCount}</span>
+                  </span>
+                )}
+              </button>
+
+              <button
+                onClick={handleNotifications}
+                className={`relative rounded-full bg-surface flex items-center justify-center hover:bg-border transition-all duration-300 ease-in-out ${btnSize}`}
+                aria-label="Notifications"
+              >
+                <span className={`material-symbols-outlined text-text-primary transition-transform duration-300 ${iconScale}`}>notifications</span>
+                {notificationCount > 0 && (
+                  <span className="absolute -top-0.5 -left-0.5 w-[18px] h-[18px] bg-error rounded-full border-2 border-white flex items-center justify-center">
+                    <span className="text-[10px] font-bold text-white leading-none">{notificationCount > 9 ? '9+' : notificationCount}</span>
+                  </span>
+                )}
+              </button>
+            </div>
+          )}
+
           {/* UserMenu dropdown — anchored under the avatar (start edge). */}
-          <UserMenu isOpen={userMenuOpen} onClose={() => setUserMenuOpen(false)} />
+          <UserMenu
+            isOpen={userMenuOpen}
+            onClose={() => setUserMenuOpen(false)}
+            onOpenDefaultSheet={() => setDefaultSheetOpen(true)}
+          />
         </div>
 
-        {/* Center: tenant name — fades in on collapse */}
-        {isAuthenticated && tenantDisplayName && (
+        {/* Center: tenant name — fades in on collapse. Shown for anonymous
+            too so the front door reads "Nexus-Catalog" like a logged-in view. */}
+        {tenantDisplayName && (
           <div className={`absolute left-1/2 -translate-x-1/2 transition-all duration-300 ease-in-out ${collapsed ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
             <button
               onClick={() => { if (!isEcosystem) setTenantSheetOpen(true); }}
@@ -210,55 +257,30 @@ export default function TopBar({ collapsed = false, showBack = false }: TopBarPr
           </div>
         )}
 
-        {/* Right: action buttons - hidden for anonymous visitors. The
-            chat and notifications surfaces are member-only and would
-            be confusing on the AnonymousSplash. */}
-        {isAuthenticated && (
-          <div className="flex items-center gap-1.5">
-            <button
-              onClick={() => navigate(`/${lang}/chat`)}
-              className={`relative rounded-full bg-surface flex items-center justify-center hover:bg-border transition-all duration-300 ease-in-out ${btnSize}`}
-              aria-label="Chat"
-            >
-              <span className={`material-symbols-outlined text-text-primary transition-transform duration-300 ${iconScale}`}>chat_bubble_outline</span>
-              {chatCount > 0 && (
-                <span className="absolute -top-0.5 -left-0.5 w-[18px] h-[18px] bg-error rounded-full border-2 border-white flex items-center justify-center">
-                  <span className="text-[10px] font-bold text-white leading-none">{chatCount > 9 ? '9+' : chatCount}</span>
-                </span>
-              )}
-            </button>
-
-            <button
-              onClick={handleNotifications}
-              className={`relative rounded-full bg-surface flex items-center justify-center hover:bg-border transition-all duration-300 ease-in-out ${btnSize}`}
-              aria-label="Notifications"
-            >
-              <span className={`material-symbols-outlined text-text-primary transition-transform duration-300 ${iconScale}`}>notifications</span>
-              {notificationCount > 0 && (
-                <span className="absolute -top-0.5 -left-0.5 w-[18px] h-[18px] bg-error rounded-full border-2 border-white flex items-center justify-center">
-                  <span className="text-[10px] font-bold text-white leading-none">{notificationCount > 9 ? '9+' : notificationCount}</span>
-                </span>
-              )}
-            </button>
-          </div>
-        )}
       </div>
 
-      {/* Tenant row below — slides out on collapse */}
-      {isAuthenticated && tenantDisplayName && (
+      {/* Tenant row below — slides out on collapse. Shown for anonymous too. */}
+      {tenantDisplayName && (
         <div className={`overflow-hidden transition-all duration-300 ease-in-out ${collapsed ? 'max-h-0 opacity-0' : 'max-h-10 opacity-100 mt-2'}`}>
-          <button onClick={() => setTenantSheetOpen(true)} className="flex items-center gap-1 active:scale-95">
+          <button
+            onClick={() => { if (!isEcosystem) setTenantSheetOpen(true); }}
+            className="flex items-center gap-1 active:scale-95"
+            disabled={isEcosystem}
+          >
             <span className="text-[11px] font-semibold text-text-secondary truncate max-w-[200px]">
               {tenantDisplayName}
             </span>
-            <span className="material-symbols-outlined text-text-muted" style={{ fontSize: '14px' }}>
-              keyboard_arrow_down
-            </span>
+            {!isEcosystem && (
+              <span className="material-symbols-outlined text-text-muted" style={{ fontSize: '14px' }}>
+                keyboard_arrow_down
+              </span>
+            )}
           </button>
         </div>
       )}
 
       <TenantSheet isOpen={tenantSheetOpen} onClose={() => setTenantSheetOpen(false)} />
+      {defaultSheetOpen && <DefaultTenantSheet onClose={() => setDefaultSheetOpen(false)} />}
     </header>
   );
 }

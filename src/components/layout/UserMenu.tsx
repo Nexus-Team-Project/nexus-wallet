@@ -2,30 +2,35 @@
  * UserMenu - small dropdown anchored to the TopBar avatar.
  *
  * Opens on avatar click when the user is authenticated. Shows the
- * user's display name + email and a Logout button. Closes on
- * outside-click or after the action fires.
- *
- * Future additions live here: account settings link, theme toggle,
- * language switcher, marketing-consent toggle, etc.
+ * user's display name + email, a "default view on login" entry that
+ * opens the DefaultTenantSheet (members only), and a Logout button.
+ * Closes on outside-click or after an action fires.
  */
 import { useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { useAuthStore } from '../../stores/authStore';
+import { clearPostLoginReturn } from '../../lib/postLogin';
 
 interface UserMenuProps {
   isOpen: boolean;
   onClose: () => void;
+  /** Opens the default-tenant bottom sheet (rendered by the parent). */
+  onOpenDefaultSheet: () => void;
 }
 
-export default function UserMenu({ isOpen, onClose }: UserMenuProps) {
+export default function UserMenu({ isOpen, onClose, onOpenDefaultSheet }: UserMenuProps) {
   const { me, logout } = useAuth();
-  const { language } = useLanguage();
+  const { language, t } = useLanguage();
   const { lang = 'he' } = useParams();
   const navigate = useNavigate();
   const isHe = language === 'he';
   const ref = useRef<HTMLDivElement>(null);
+
+  // The default-view entry only makes sense for 'member'-role tenants
+  // (privileged/admin tenants are dashboard contexts, not wallet catalogs).
+  const memberships = (me?.memberships ?? []).filter((m) => m.isMember);
 
   // Close on outside-click. Re-attaches on every isOpen toggle so we
   // never run a stale handler.
@@ -57,10 +62,11 @@ export default function UserMenu({ isOpen, onClose }: UserMenuProps) {
   const handleLogout = async (): Promise<void> => {
     onClose();
     await logout();
-    // Anonymous users belong on /:lang (the single anonymous landing).
-    // The store route is logged-in only; navigating there would trigger
-    // an immediate middleware bounce back to /:lang anyway.
-    navigate(`/${lang}`, { replace: true });
+    // Clear any stashed gated-action return so a later login never
+    // misfires to a stale page, then drop the now-anonymous user on the
+    // public ecosystem catalog (the front door for everyone).
+    clearPostLoginReturn();
+    navigate(`/${lang}/store?ecosystem=1`, { replace: true });
   };
 
   return (
@@ -86,6 +92,53 @@ export default function UserMenu({ isOpen, onClose }: UserMenuProps) {
 
       {/* Actions */}
       <div className="py-1">
+        {/* Edit profile — opens the full profile editor. This is the only
+            discoverable entry to it: the BottomNav (which has a profile tab)
+            is not mounted, so the avatar menu is where users look. */}
+        <button
+          type="button"
+          onClick={() => {
+            onClose();
+            navigate(`/${lang}/profile/edit`);
+          }}
+          className="w-full text-start px-4 py-2.5 text-sm text-text-primary hover:bg-surface flex items-center gap-2"
+        >
+          {/* Inline SVG user/edit icon (wallet does not load material-icons). */}
+          <svg
+            width="16" height="16" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+            className="text-text-muted flex-shrink-0" aria-hidden="true"
+          >
+            <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+            <circle cx="12" cy="7" r="4" />
+          </svg>
+          <span>{t.profile.editProfile}</span>
+        </button>
+
+        {/* Default landing view — members only. Opens the bottom sheet. */}
+        {memberships.length > 0 && (
+          <button
+            type="button"
+            onClick={() => {
+              onClose();
+              onOpenDefaultSheet();
+            }}
+            className="w-full text-start px-4 py-2.5 text-sm text-text-primary hover:bg-surface flex items-center gap-2"
+          >
+            {/* Inline SVG layers/view icon. */}
+            <svg
+              width="16" height="16" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+              className="text-text-muted flex-shrink-0" aria-hidden="true"
+            >
+              <polygon points="12 2 2 7 12 12 22 7 12 2" />
+              <polyline points="2 17 12 22 22 17" />
+              <polyline points="2 12 12 17 22 12" />
+            </svg>
+            <span>{isHe ? 'תצוגת ברירת מחדל בכניסה' : 'Default view on login'}</span>
+          </button>
+        )}
+
         <button
           type="button"
           onClick={handleLogout}

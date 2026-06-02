@@ -19,8 +19,11 @@ export default function FloatingActions() {
   const isWallet = location.pathname.includes('/wallet');
   const isBusiness = /\/business\/[^/]+/.test(location.pathname);
   const isVoucherPurchase = /\/business\/[^/]+\/voucher\//.test(location.pathname);
+  // The edit-profile page has its own sticky Save bar at the bottom; the FABs
+  // would overlap it, so hide them there.
+  const isProfileEdit = /\/profile\/edit\/?$/.test(location.pathname);
 
-  if (isBusiness || isVoucherPurchase) return null;
+  if (isBusiness || isVoucherPurchase || isProfileEdit) return null;
 
   const handleWallet = async () => {
     if (isAuthenticated) {

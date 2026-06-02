@@ -18,7 +18,7 @@ export default function MenuList() {
   };
 
   const menuItems = [
-    { icon: User, label: t.profile.editProfile, action: () => {} },
+    { icon: User, label: t.profile.editProfile, action: () => navigate(`/${lang}/profile/edit`) },
     { icon: Bell, label: t.profile.notifications, action: () => {} },
     {
       icon: Globe,

@@ -225,6 +225,27 @@ export interface TranslationKeys {
     about: string;
     logout: string;
     version: string;
+    // Edit profile page
+    editProfileTitle: string;
+    editSectionName: string;
+    editSectionBirthday: string;
+    editSectionAbout: string;
+    editSectionGender: string;
+    editSectionHousehold: string;
+    editSectionPurpose: string;
+    editSectionNotifications: string;
+    editSectionInvite: string;
+    editConsentNote: string;
+    editInviteTitle: string;
+    editInviteSubtitle: string;
+    editSoonBadge: string;
+    editSectionDelete: string;
+    editDeleteTitle: string;
+    editDeleteSubtitle: string;
+    editSave: string;
+    editSaving: string;
+    editSavedToast: string;
+    editFailedToast: string;
   };
   nav: {
     home: string;

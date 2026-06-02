@@ -8,16 +8,23 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useRegistrationStore } from '../../stores/registrationStore';
 import { getFirstOnboardingSlide, getOnboardingTotalWithComplete } from '../../utils/onboardingNavigation';
 import { useTenantStore } from '../../stores/tenantStore';
+import { useAuth } from '../../contexts/AuthContext';
+import { fetchPublicTenant } from '../../services/publicTenant.service';
+import { saveWalletProfile } from '../../services/walletProfile.service';
+import { nextPathAfterLogin } from '../../lib/postLogin';
 import { useImagePreloader } from '../../hooks/useImagePreloader';
-import { mockTenants } from '../../mock/data/tenants.mock';
 import { SmartInsightsCarousel } from '../InsightsPage';
 import GiftCardsPage from '../GiftCardsPage';
 import WalletCardsPage from '../WalletCardsPage';
 import NearbyMapPage from '../NearbyMapPage';
+import SlideJoinPrompt from '../../components/auth-flow/SlideJoinPrompt';
+import SlideDiscoverOrg from '../../components/auth-flow/SlideDiscoverOrg';
+import TenantDiscoverySheet from '../../components/wallet/TenantDiscoverySheet';
+import { useStoryMemberOrgs } from '../../hooks/useStoryMemberOrgs';
 
 import {
   type FlowType,
@@ -25,7 +32,6 @@ import {
   FLOW_IMAGES,
   FlowSkeleton,
   SlideNexusHero,
-  SlideSelectOrg,
   SlideWelcomeOrg,
   SlideMatchScreen,
   useStoryFlow,
@@ -48,39 +54,104 @@ const smartStorySteps = [
   { id: 'story-nearby' },
 ];
 
-const newUserSteps = [{ id: 'nexus-hero' }, ...smartStorySteps, { id: 'select-org', interactive: true }];
-const orgUserSteps = [{ id: 'welcome-org' }, ...smartStorySteps, { id: 'select-org', interactive: true }];
+const newUserSteps = [{ id: 'nexus-hero' }, ...smartStorySteps];
+const orgUserSteps = [{ id: 'welcome-org' }, ...smartStorySteps];
 
 // ─────────────────────────────────────────────────────────────────────────────
 export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
   const { lang = 'he' } = useParams();
   const navigate = useNavigate();
-  const setTenant    = useTenantStore((s) => s.setTenant);
+  const [sp] = useSearchParams();
+  const { me, reload } = useAuth();
   const tenantConfig = useTenantStore((s) => s.config);
   const orgMember    = useRegistrationStore((s) => s.orgMember);
-  const startRegistration = useRegistrationStore((s) => s.startRegistration);
   const registrationPath  = useRegistrationStore((s) => s.registrationPath);
-  const phone             = useRegistrationStore((s) => s.phone);
 
   // ── Image preloader ───────────────────────────────────────────────────────
   const { loaded: imagesLoaded, failed: failedImages } = useImagePreloader(FLOW_IMAGES);
 
+  // ── URL-driven org context ────────────────────────────────────────────────
+  // The org now comes from the URL (?tenant=X) / membership, not a picker.
+  // ?ecosystem=1 explicitly opts out of any tenant context.
+  const urlTenantId = sp.get('ecosystem') === '1' ? null : sp.get('tenant');
+  // Wallet membership = the 'member' role only. A tenant the user merely
+  // administers (privileged role) is NOT a wallet member context.
+  const membership = urlTenantId
+    ? (me?.memberships ?? []).find((m) => m.tenantId === urlTenantId && m.isMember)
+    : undefined;
+  // Does the user hold ANY role (member or privileged) in the URL tenant?
+  const hasAnyRoleInUrlTenant =
+    !!urlTenantId && (me?.memberships ?? []).some((m) => m.tenantId === urlTenantId);
+  // Non-member: a ?tenant=X is present, /api/me has loaded, and the user is
+  // truly unaffiliated (no role at all) - so we offer to join. We never show
+  // the join prompt to someone who already administers the tenant.
+  const isNonMember = !!urlTenantId && me != null && !hasAnyRoleInUrlTenant;
+
+  // ── Resolved public org name for the non-member join prompt ───────────────
+  // Only fetched when we have a tenant in the URL the user does not belong to.
+  const [publicOrgName, setPublicOrgName] = useState<string | null>(null);
+  useEffect(() => {
+    if (urlTenantId && !membership) {
+      let active = true;
+      fetchPublicTenant(urlTenantId).then((i) => {
+        if (active) setPublicOrgName(i?.organizationName ?? null);
+      });
+      return () => { active = false; };
+    }
+  }, [urlTenantId, membership]);
+
+  // ── Org name resolution order: membership → public tenant → store → orgMember.
+  const resolvedOrgName =
+    membership?.tenantName ?? publicOrgName ?? tenantConfig?.name ?? orgMember?.organizationName ?? null;
+
+  // ── "Continue with another organization" — opens the tenant-join discovery
+  //    sheet from inside the stories (the bottom-right white text link). The
+  //    picker also lists the user's own member orgs so they can jump straight
+  //    into one (enterOrg). submitJoin (shared) celebrates an auto-accepted
+  //    join or toasts a pending one.
+  const [showJoin, setShowJoin] = useState(false);
+  const { memberOrgs, enterOrg, submitJoin } = useStoryMemberOrgs();
+
   // ── Whether this session has an org/tenant context ────────────────────────
-  const isOrgFlow = Boolean(orgMember || tenantConfig);
+  // True when the registration store / tenant theme carries an org (the
+  // existing invited/pre-provisioned path) OR the URL tenant is one the
+  // logged-in user is a member of.
+  const isOrgFlow = Boolean(orgMember || tenantConfig || membership);
 
   // ── Flow label for ?flow= URL param — tracks which onboarding path the user
   //    arrived on. Based on registrationPath at entry time, not mid-flow state.
   const flowLabel: 'new-user' | 'pre-provisioned' =
     registrationPath === 'org-member-incomplete' ? 'pre-provisioned' : 'new-user';
 
-  // ── Selected org state (for SlideWelcomeOrg after selecting) ─────────────
-  const [selectedOrg, setSelectedOrg] = useState<OrgInfo | null>(null);
+  // ── Resolved org passed to the welcome/match slides ───────────────────────
+  // The slides accept an optional `org: OrgInfo | null` and fall back to the
+  // tenant store / orgMember when null. When the org comes from the URL
+  // (membership or public tenant) the store may be empty, so we synthesize a
+  // minimal OrgInfo from resolvedOrgName + urlTenantId to guarantee a name.
+  const resolvedOrgInfo: OrgInfo | null = resolvedOrgName
+    ? {
+        id: urlTenantId ?? membership?.tenantId ?? 'org',
+        name: resolvedOrgName,
+        initials: resolvedOrgName.slice(0, 2).toUpperCase(),
+        color: tenantConfig?.primaryColor ?? '#635bff',
+        available: true,
+        tenantId: urlTenantId ?? membership?.tenantId,
+        logo: tenantConfig?.logo,
+      }
+    : null;
 
   // ── Initial step list ─────────────────────────────────────────────────────
+  // Non-member (?tenant=X, not a member) → append the join-prompt branch.
+  // Org flow (member / pre-provisioned) → append the match-screen.
+  // Ecosystem new user → base steps only (CTA goes straight to onboarding).
   const baseSteps = flowType === 'new-user' ? newUserSteps : orgUserSteps;
-  const initialSteps = isOrgFlow
-    ? [...baseSteps, { id: 'match-screen', interactive: true }]
-    : baseSteps;
+  const initialSteps = isNonMember
+    ? [...baseSteps, { id: 'join-prompt', interactive: true }]
+    : isOrgFlow
+      ? [...baseSteps, { id: 'match-screen', interactive: true }]
+      // No tenant context → a light "belong to an organization?" nudge before
+      // onboarding, with a "continue to Nexus catalog" skip.
+      : [...baseSteps, { id: 'discover-org', interactive: true }];
 
   // ── If user pressed Back from onboarding/membership, restore match-screen ─
   // Also supports direct-linking via ?step=<stepId> so every slide has a URL.
@@ -90,7 +161,7 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
       sessionStorage.removeItem('nexus_return_match');
       return Math.max(0, initialSteps.findIndex(s => s.id === 'match-screen'));
     }
-    // Restore from URL slug if present (e.g. ?step=select-org)
+    // Restore from URL slug if present (e.g. ?step=welcome-org)
     const stepParam = new URLSearchParams(window.location.search).get('step');
     if (stepParam) {
       const idx = initialSteps.findIndex(s => s.id === stepParam);
@@ -125,43 +196,25 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
     navigate(`/${lang}/register/onboarding/${firstSlide}`);
   };
 
-  const handleSelectOrg = (org: OrgInfo) => {
-    setSelectedOrg(org);
-
-    if (org.id === 'nexus') {
-      const firstSlide = getFirstOnboardingSlide(useRegistrationStore.getState());
-      navigate(`/${lang}/register/onboarding/${firstSlide}`);
-      return;
+  /**
+   * Close (X) the stories. Skipping onboarding still counts as "onboarded" so
+   * the user is not treated as new (shown the stories) on the next login. We
+   * stamp completedAt, end the registration session, refresh /api/me, then
+   * route to the post-login default landing (their tenant if a member - e.g.
+   * one they just auto-joined - otherwise the ecosystem catalog).
+   */
+  const handleClose = async (): Promise<void> => {
+    try {
+      await saveWalletProfile({ complete: true });
+    } catch (e) {
+      console.error('[wallet] mark onboarding complete on close failed (non-fatal):', e);
     }
-
-    // Update registration store with selected org
-    startRegistration({
-      path: registrationPath ?? 'new-user',
-      phone: phone ?? '',
-      orgMember: {
-        organizationId: org.id,
-        organizationName: org.name,
-      },
-    });
-
-    const tenantId = org.tenantId;
-    if (tenantId && mockTenants[tenantId]) {
-      setTenant(tenantId, mockTenants[tenantId]);
-    }
-
-    // Navigate to welcome-org slide if it exists, else inject it
-    const welcomeIdx = steps.findIndex(s => s.id === 'welcome-org');
-    if (welcomeIdx !== -1) {
-      setDirection(1); setCurrent(welcomeIdx);
-    } else {
-      setSteps(prev => [...prev, { id: 'welcome-org' }]);
-      setDirection(1); setCurrent(steps.length);
-    }
-  };
-
-  const handleSelectOrgSkip = () => {
-    const firstSlide = getFirstOnboardingSlide(useRegistrationStore.getState());
-    navigate(`/${lang}/register/onboarding/${firstSlide}`);
+    useRegistrationStore.getState().completeRegistration();
+    const updated = await reload();
+    const target = updated
+      ? nextPathAfterLogin({ lang, urlTenantId, me: updated })
+      : `/${lang}/store?ecosystem=1`;
+    navigate(target, { replace: true });
   };
 
   // ── Progress bar segment computation ─────────────────────────────────────
@@ -176,7 +229,7 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
       isActive: i === 0,
     }));
   } else if (isOrgFlow) {
-    const barSteps   = steps.filter(s => s.id !== 'match-screen' && s.id !== 'select-org');
+    const barSteps   = steps.filter(s => s.id !== 'match-screen' && s.id !== 'join-prompt');
     const barCurrent = barSteps.findIndex(s => s.id === steps[current]?.id);
     barSegments = barSteps.map((step, i) => ({
       key:      step.id,
@@ -184,7 +237,7 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
       isActive: i === barCurrent,
     }));
   } else {
-    const barSteps   = steps.filter(s => s.id !== 'select-org');
+    const barSteps   = steps.filter(s => s.id !== 'join-prompt');
     const barCurrent = barSteps.findIndex(s => s.id === steps[current]?.id);
     barSegments = barSteps.map((step, i) => ({
       key:      step.id,
@@ -197,7 +250,7 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
   const orgColor = tenantConfig?.primaryColor ?? '#635bff';
 
   // ── Slides that own their own bottom UI (no CTA bar overlay) ─────────────
-  const noCTASlides = ['match-screen', 'select-org'];
+  const noCTASlides = ['match-screen', 'join-prompt', 'discover-org'];
 
   // ─────────────────────────────────────────────────────────────────────────
   return (
@@ -208,10 +261,12 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
         <StoryProgressBar segments={barSegments} progress={progress} />
       </div>
 
-      {/* ── Close button ── */}
+      {/* ── Close button. A dark translucent backdrop keeps the white X
+            visible on light story slides (it vanished against them before). */}
       <button
-        onClick={() => navigate(`/${lang}`)}
-        className="absolute top-3 left-3 z-50 w-8 h-8 flex items-center justify-center"
+        onClick={() => { void handleClose(); }}
+        aria-label="Close"
+        className="absolute top-3 left-3 z-50 w-9 h-9 flex items-center justify-center rounded-full bg-black/40 backdrop-blur-sm shadow-sm active:scale-95 transition-transform"
       >
         <span className="material-symbols-outlined text-white" style={{ fontSize: '20px' }}>close</span>
       </button>
@@ -242,9 +297,8 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
               transition={{ duration: 0.3, ease: [0.25, 0.46, 0.45, 0.94] }}
               className="absolute inset-0"
             >
-              {steps[current]?.id === 'nexus-hero'  && <SlideNexusHero failedImages={failedImages} />}
-              {steps[current]?.id === 'select-org'  && <SlideSelectOrg onSelect={handleSelectOrg} onSkip={handleSelectOrgSkip} />}
-              {steps[current]?.id === 'welcome-org' && <SlideWelcomeOrg org={selectedOrg} />}
+              {steps[current]?.id === 'nexus-hero'  && <SlideNexusHero failedImages={failedImages} orgName={resolvedOrgName} />}
+              {steps[current]?.id === 'welcome-org' && <SlideWelcomeOrg org={resolvedOrgInfo} />}
               {steps[current]?.id === 'story-insights'    && (
                 <div className="w-full h-full flex flex-col items-center justify-center px-6 relative overflow-hidden" style={{ backgroundColor: 'var(--color-surface)' }} dir="rtl">
                   <SmartInsightsCarousel />
@@ -254,6 +308,19 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
               {steps[current]?.id === 'story-wallet'      && <WalletCardsPage />}
               {steps[current]?.id === 'story-nearby'      && <NearbyMapPage />}
               {steps[current]?.id === 'match-screen'      && <SlideMatchScreen />}
+              {steps[current]?.id === 'join-prompt'       && (
+                <SlideJoinPrompt
+                  tenantId={urlTenantId}
+                  orgName={resolvedOrgName}
+                  orgColor={orgColor}
+                  orgLogo={tenantConfig?.logo}
+                  mode="new"
+                  onResolve={() => handleNewUserContinue()}
+                />
+              )}
+              {steps[current]?.id === 'discover-org'       && (
+                <SlideDiscoverOrg onResolve={() => handleNewUserContinue()} />
+              )}
             </motion.div>
           )}
         </AnimatePresence>
@@ -261,7 +328,7 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
         {/* ── Persistent CTA bar — hidden on slides that own their own bottom UI ── */}
         {!noCTASlides.includes(steps[current]?.id ?? '') && (
           <StoryCTABar
-            isOrgFlow={isOrgFlow}
+            isOrgFlow={isOrgFlow || isNonMember}
             steps={steps}
             setSteps={setSteps}
             setDirection={setDirection}
@@ -269,9 +336,21 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
             goTo={goTo}
             orgColor={orgColor}
             onNewUserContinue={handleNewUserContinue}
+            onJoinOtherOrg={() => setShowJoin(true)}
           />
         )}
       </div>
+
+      {/* Tenant-join discovery sheet, opened from the "continue with another
+          organization" link. z-[200]+ so it layers above the stories overlay. */}
+      {showJoin && (
+        <TenantDiscoverySheet
+          onClose={() => setShowJoin(false)}
+          onSubmit={(ids) => { setShowJoin(false); void submitJoin(ids); }}
+          memberOrgs={memberOrgs}
+          onPickMember={(id) => { void enterOrg(id); }}
+        />
+      )}
     </div>
   );
 }

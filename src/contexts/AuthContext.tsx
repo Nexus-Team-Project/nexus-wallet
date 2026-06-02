@@ -5,8 +5,8 @@
  *
  * onLoginSucceeded is what every successful login path calls (phone
  * verify mode=logged_in, email-otp verify, google/wallet) to seed the
- * access token + refresh /api/me - the wallet RouterScreen reads
- * straight from me.router.
+ * access token + refresh /api/me - the central post-login routing in
+ * lib/postLogin.ts reads straight from me.router.
  *
  * Spec: docs/superpowers/specs/2026-05-25-nexus-wallet-auth-design.md sections 3 and 7
  */
@@ -16,6 +16,7 @@ import { api, setAccessToken, getAccessToken } from '../lib/api';
 import { useAuthStore } from '../stores/authStore';
 import { useRegistrationStore } from '../stores/registrationStore';
 import { exchangeGoogleCode } from '../services/auth.service';
+import { nextPathAfterLogin } from '../lib/postLogin';
 
 /**
  * Subset of /api/me the wallet reads. Mirrors the backend MeResponse
@@ -33,11 +34,24 @@ export interface WalletMeResponse {
   memberships?: Array<{
     tenantId: string;
     tenantName: string;
+    logoUrl?: string;
     role: string;
     isPrivilegedRole: boolean;
+    /**
+     * Whether the user holds the 'member' role in this tenant (even if they
+     * also hold a privileged role). The wallet uses this to decide whether the
+     * tenant's catalog is browsable - admin-only tenants are excluded.
+     */
+    isMember?: boolean;
   }>;
   isPlatformAdmin?: boolean;
   canOpenDashboard?: boolean;
+  /**
+   * Effective default landing context for a returning member: a tenantId to
+   * land on that tenant's catalog, or null for the Nexus (ecosystem) catalog.
+   * Drives resolvePostLogin when logging in without a ?tenant in the URL.
+   */
+  defaultTenantId?: string | null;
   router?: {
     showMemberTenants: Array<{ tenantId: string; tenantName: string }>;
     showAdminEntry: boolean;
@@ -72,13 +86,14 @@ interface AuthState {
    * Called by every successful login path (phone verify, email-otp
    * verify, google). Seeds the access token, fetches /api/me, and
    * returns the loaded MeResponse so the caller can decide where to
-   * navigate (e.g. RouterScreen for known identities).
+   * navigate (via lib/postLogin.ts for known identities).
    */
   onLoginSucceeded: (accessToken: string) => Promise<WalletMeResponse | null>;
   /**
-   * Post-login navigation signal. Set to a lang-relative path (e.g.
-   * '/router') when bootstrap completes a fresh Google redirect login
-   * and the user should land on a specific screen. Consumers inside
+   * Post-login navigation signal. Set to a resolved path (e.g.
+   * '/he/store') by nextPathAfterLogin when bootstrap completes a fresh
+   * Google redirect login and the user should land on a specific screen.
+   * Consumers inside
    * the router watch this and call clearPostLoginRedirect once handled.
    */
   postLoginRedirect: string | null;
@@ -163,16 +178,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setAccessToken(r.accessToken);
           const lang = window.location.pathname.split('/')[1] || 'he';
 
+          // ?tenant=X drives org-aware post-login routing; ?ecosystem=1
+          // (or absent) means "no tenant". Read from the live callback URL.
+          const sp = new URLSearchParams(window.location.search);
+          const urlTenantId = sp.get('ecosystem') === '1' ? null : sp.get('tenant');
+          const tenantSuffix = urlTenantId ? `?tenant=${encodeURIComponent(urlTenantId)}` : '';
+
           // Decide where the Google login lands BEFORE the hard-nav.
-          // - Returning user (profile.completedAt set) -> chooser.
+          // - Returning user (profile.completedAt set) -> resolver picks
+          //   the catalog / join / member destination.
           // - New user (no completedAt) -> the same onboarding story
           //   chain phone-OTP signups see. We seed the registration
           //   session in sessionStorage before reloading so
           //   useRegistrationStore.isRegistering is true on the next
           //   bootstrap and RegistrationGuard lets the slide chain run.
-          // /api/me failure falls back to /router so a hiccup never
-          // strands the user mid-bootstrap.
-          let destination = `/${lang}/router`;
+          // /api/me failure falls back to the ecosystem catalog so a
+          // hiccup never strands the user mid-bootstrap.
+          let destination = `/${lang}/store?ecosystem=1`;
           try {
             const me = await api<WalletMeResponse>('/api/me');
             if (!me.profile?.completedAt) {
@@ -190,7 +212,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 lastName,
                 email: me.user.email,
               });
-              destination = `/${lang}/auth-flow/new-user`;
+              destination = `/${lang}/auth-flow/new-user${tenantSuffix}`;
+            } else {
+              destination = nextPathAfterLogin({ lang, urlTenantId, me });
             }
           } catch (err) {
             console.error('[wallet-auth] /api/me failed after Google exchange:', err);

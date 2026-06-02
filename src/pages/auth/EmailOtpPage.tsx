@@ -1,7 +1,7 @@
 /**
  * 6-digit email verification. On success the backend mints a wallet
- * session; we hydrate AuthContext via onLoginSucceeded and route to
- * the post-login RouterScreen.
+ * session; we hydrate AuthContext via onLoginSucceeded and run the
+ * central post-login routing in lib/postLogin.ts.
  *
  * Spec: docs/superpowers/specs/2026-05-25-nexus-wallet-auth-design.md section 8
  */
@@ -10,6 +10,7 @@ import { useNavigate, useSearchParams, useParams } from 'react-router-dom';
 import { walletVerifyEmailOtp } from '../../services/auth.service';
 import { useAuth } from '../../contexts/AuthContext';
 import { useLanguage } from '../../i18n/LanguageContext';
+import { nextPathAfterLogin } from '../../lib/postLogin';
 
 export default function EmailOtpPage() {
   const navigate = useNavigate();
@@ -29,8 +30,15 @@ export default function EmailOtpPage() {
     setErr('');
     try {
       const r = await walletVerifyEmailOtp(code);
-      await onLoginSucceeded(r.accessToken);
-      navigate(`/${lang}/router`);
+      const me = await onLoginSucceeded(r.accessToken);
+      // ?tenant=X drives org-aware routing; ?ecosystem=1 (or absent) = no tenant.
+      const urlTenantId = params.get('ecosystem') === '1' ? null : params.get('tenant');
+      if (me) {
+        navigate(nextPathAfterLogin({ lang, urlTenantId, me }));
+      } else {
+        // /api/me hydration hiccupped — fall back to the ecosystem catalog.
+        navigate(`/${lang}/store?ecosystem=1`);
+      }
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'unknown';
       setErr(msg);

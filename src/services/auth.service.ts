@@ -125,7 +125,8 @@ export interface WalletEmailVerifyResult {
 /**
  * Verify the email-OTP. On success the backend issued a wallet
  * session (refresh cookie set, access token returned). The caller
- * hydrates AuthContext via onLoginSucceeded and routes to /router.
+ * hydrates AuthContext via onLoginSucceeded and runs the central
+ * post-login routing in lib/postLogin.ts.
  */
 export async function walletVerifyEmailOtp(code: string): Promise<WalletEmailVerifyResult> {
   if (!emailChallengeId) throw new Error('no_email_challenge');

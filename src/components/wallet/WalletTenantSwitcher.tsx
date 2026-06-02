@@ -18,18 +18,23 @@
  */
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { toast } from 'sonner';
 import { useAuth } from '../../contexts/AuthContext';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { useTenantStore } from '../../stores/tenantStore';
+import { createJoinRequests } from '../../services/walletTenants.service';
+import { joinResultToast } from '../../lib/joinToast';
+import TenantDiscoverySheet from './TenantDiscoverySheet';
 
 export default function WalletTenantSwitcher() {
-  const { me } = useAuth();
+  const { me, reload } = useAuth();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { language } = useLanguage();
   const isHe = language === 'he';
   const tenantConfig = useTenantStore((s) => s.config);
   const [open, setOpen] = useState(false);
+  const [showJoin, setShowJoin] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
   // Close on outside click.
@@ -44,14 +49,15 @@ export default function WalletTenantSwitcher() {
 
   if (!me) return null;
 
-  // Show every tenant the user belongs to (any role), not just plain
-  // members. The router-screen card list intentionally filters to
-  // plain-member tenants, but the in-page switcher is a "what context
-  // am I browsing as" picker that should include admin tenants too.
-  const tenants = (me.memberships ?? []).map((m) => ({
-    tenantId: m.tenantId,
-    tenantName: m.tenantName,
-  }));
+  // Wallet is member-facing: only show tenants where the user is a 'member'.
+  // Tenants they merely administer (privileged roles) are dashboard contexts,
+  // not browsable wallet catalogs, so they are excluded from the switcher.
+  const tenants = (me.memberships ?? [])
+    .filter((m) => m.isMember)
+    .map((m) => ({
+      tenantId: m.tenantId,
+      tenantName: m.tenantName,
+    }));
   const ecosystem = searchParams.get('ecosystem') === '1';
   const activeTenantId = !ecosystem ? searchParams.get('tenant') : null;
   const activeTenant = tenants.find((t) => t.tenantId === activeTenantId);
@@ -89,6 +95,27 @@ export default function WalletTenantSwitcher() {
     next.delete('tenant');
     navigate({ search: next.toString() }, { replace: true });
     setOpen(false);
+  };
+
+  /**
+   * Submit one or more tenant join requests from the discovery sheet.
+   * Closes the sheet, sends the requests, and toasts the outcome. Stays
+   * on the current page (no navigation) so the user keeps their context.
+   * @param ids domain tenantIds the user selected in the discovery sheet.
+   */
+  const submitJoin = async (ids: string[]): Promise<void> => {
+    setShowJoin(false);
+    if (ids.length === 0) return;
+    try {
+      const result = await createJoinRequests(ids);
+      joinResultToast(result, isHe);
+      // Auto-accepted joins make the user a member now; refresh /api/me so the
+      // new tenant appears in the switcher (and becomes a default candidate).
+      if (result.autoAccepted.length > 0) await reload();
+    } catch (e) {
+      console.error('[wallet-join] switcher join failed:', e);
+      toast.error(isHe ? 'שליחת הבקשה נכשלה' : 'Could not send request');
+    }
   };
 
   return (
@@ -192,7 +219,33 @@ export default function WalletTenantSwitcher() {
           >
             {isHe ? 'קטלוג Nexus' : 'Nexus-Catalog'}
           </button>
+          <div style={{ height: 1, background: '#e5e7eb', margin: '4px 6px' }} />
+          <button
+            onClick={() => {
+              setOpen(false);
+              setShowJoin(true);
+            }}
+            style={{
+              display: 'block',
+              width: '100%',
+              textAlign: 'start',
+              padding: '8px 10px',
+              borderRadius: 8,
+              background: 'transparent',
+              color: '#1f2937',
+              fontSize: 13,
+              fontWeight: 600,
+              border: 'none',
+              cursor: 'pointer',
+            }}
+          >
+            {isHe ? 'הצטרפות לארגון' : 'Join an organization'}
+          </button>
         </div>
+      )}
+
+      {showJoin && (
+        <TenantDiscoverySheet onClose={() => setShowJoin(false)} onSubmit={submitJoin} />
       )}
     </div>
   );
