@@ -17,6 +17,7 @@ import { toast } from 'sonner';
 import { createJoinRequests } from '../../services/walletTenants.service';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { joinResultToast } from '../../lib/joinToast';
+import { useStoryMemberOrgs } from '../../hooks/useStoryMemberOrgs';
 import TenantDiscoverySheet from '../wallet/TenantDiscoverySheet';
 
 interface SlideJoinPromptProps {
@@ -70,6 +71,7 @@ export default function SlideJoinPrompt({
   const isHe = language === 'he';
   const [showDiscovery, setShowDiscovery] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const { memberOrgs, enterOrg, submitJoin } = useStoryMemberOrgs();
 
   const displayName = orgName ?? 'הארגון';
   const initials = (orgName ?? 'N').trim().slice(0, 2).toUpperCase();
@@ -191,10 +193,15 @@ export default function SlideJoinPrompt({
       {showDiscovery && (
         <TenantDiscoverySheet
           onClose={() => setShowDiscovery(false)}
-          onSubmit={(ids) => {
+          onSubmit={async (ids) => {
             setShowDiscovery(false);
-            void requestJoin(ids);
+            // Auto-accepted -> the hook navigates to the celebration screen.
+            // Pending/empty -> toast handled by the hook, then continue onboarding.
+            const navigated = await submitJoin(ids);
+            if (!navigated) onResolve({ joinedRequested: true });
           }}
+          memberOrgs={memberOrgs}
+          onPickMember={(id) => { void enterOrg(id); }}
         />
       )}
     </div>

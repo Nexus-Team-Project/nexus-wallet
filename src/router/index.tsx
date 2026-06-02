@@ -18,6 +18,7 @@ const StorePage          = lazy(() => import('../pages/StorePage'));
 const WalletPage         = lazy(() => import('../pages/WalletPage'));
 const ActivityPage       = lazy(() => import('../pages/ActivityPage'));
 const ProfilePage        = lazy(() => import('../pages/ProfilePage'));
+const EditProfilePage    = lazy(() => import('../pages/EditProfilePage'));
 
 // Utility pages
 const SearchPage         = lazy(() => import('../pages/SearchPage'));
@@ -62,6 +63,7 @@ const FlowTestPage         = lazy(() => import('../pages/auth-flow/FlowTestPage'
 const EmailRequiredPage    = lazy(() => import('../pages/auth/EmailRequiredPage'));
 const EmailOtpPage         = lazy(() => import('../pages/auth/EmailOtpPage'));
 const JoinStandalone       = lazy(() => import('../pages/auth-flow/JoinStandalone'));
+const JoinedCelebration    = lazy(() => import('../pages/auth-flow/JoinedCelebration'));
 const NewUserFlow = lazy(() =>
   import('../pages/auth-flow/AuthFlowStories').then((m) => ({ default: m.NewUserFlow }))
 );
@@ -169,6 +171,7 @@ export const router = createBrowserRouter([
               { path: 'wallet/voucher/:voucherId', element: <S><VoucherDetailPage /></S> },
               { path: 'activity',                  element: <S><ActivityPage /></S> },
               { path: 'profile',                   element: <S><ProfilePage /></S> },
+              { path: 'profile/edit',              element: <S><EditProfilePage /></S> },
             ],
           },
         ],
@@ -204,6 +207,7 @@ export const router = createBrowserRouter([
           { path: 'new-user', element: <S><NewUserFlow /></S> },
           { path: 'org-user', element: <S><OrgUserFlow /></S> },
           { path: 'join',     element: <S><JoinStandalone /></S> },
+          { path: 'joined',   element: <S><JoinedCelebration /></S> },
         ],
       },
 

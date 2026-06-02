@@ -8,10 +8,7 @@
  */
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { toast } from 'sonner';
-import { createJoinRequests } from '../../services/walletTenants.service';
-import { useLanguage } from '../../i18n/LanguageContext';
-import { joinResultToast } from '../../lib/joinToast';
+import { useStoryMemberOrgs } from '../../hooks/useStoryMemberOrgs';
 import TenantDiscoverySheet from '../wallet/TenantDiscoverySheet';
 
 interface SlideDiscoverOrgProps {
@@ -22,25 +19,8 @@ interface SlideDiscoverOrgProps {
 const ACCENT = '#7c3aed';
 
 export default function SlideDiscoverOrg({ onResolve }: SlideDiscoverOrgProps) {
-  const { language } = useLanguage();
-  const isHe = language === 'he';
   const [showDiscovery, setShowDiscovery] = useState(false);
-
-  /** Send the chosen join request(s), toast the outcome, then continue. */
-  const submitJoin = async (ids: string[]): Promise<void> => {
-    setShowDiscovery(false);
-    if (ids.length === 0) return;
-    try {
-      const result = await createJoinRequests(ids);
-      joinResultToast(result, isHe);
-    } catch (e) {
-      console.error('[wallet-join] discover-org join failed:', e);
-      toast.error(isHe ? 'שליחת הבקשה נכשלה' : 'Could not send request');
-    } finally {
-      // Continue regardless: they still need to finish onboarding.
-      onResolve();
-    }
-  };
+  const { memberOrgs, enterOrg, submitJoin } = useStoryMemberOrgs();
 
   return (
     <div
@@ -125,7 +105,15 @@ export default function SlideDiscoverOrg({ onResolve }: SlideDiscoverOrgProps) {
       {showDiscovery && (
         <TenantDiscoverySheet
           onClose={() => setShowDiscovery(false)}
-          onSubmit={(ids) => { void submitJoin(ids); }}
+          onSubmit={async (ids) => {
+            setShowDiscovery(false);
+            // Auto-accepted -> the hook navigates to the celebration screen, so
+            // we must NOT also continue onboarding. Pending/empty -> continue.
+            const navigated = await submitJoin(ids);
+            if (!navigated) onResolve();
+          }}
+          memberOrgs={memberOrgs}
+          onPickMember={(id) => { void enterOrg(id); }}
         />
       )}
     </div>

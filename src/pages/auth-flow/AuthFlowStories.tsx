@@ -14,6 +14,8 @@ import { getFirstOnboardingSlide, getOnboardingTotalWithComplete } from '../../u
 import { useTenantStore } from '../../stores/tenantStore';
 import { useAuth } from '../../contexts/AuthContext';
 import { fetchPublicTenant } from '../../services/publicTenant.service';
+import { saveWalletProfile } from '../../services/walletProfile.service';
+import { nextPathAfterLogin } from '../../lib/postLogin';
 import { useImagePreloader } from '../../hooks/useImagePreloader';
 import { SmartInsightsCarousel } from '../InsightsPage';
 import GiftCardsPage from '../GiftCardsPage';
@@ -22,8 +24,7 @@ import NearbyMapPage from '../NearbyMapPage';
 import SlideJoinPrompt from '../../components/auth-flow/SlideJoinPrompt';
 import SlideDiscoverOrg from '../../components/auth-flow/SlideDiscoverOrg';
 import TenantDiscoverySheet from '../../components/wallet/TenantDiscoverySheet';
-import { createJoinRequests } from '../../services/walletTenants.service';
-import { toast } from 'sonner';
+import { useStoryMemberOrgs } from '../../hooks/useStoryMemberOrgs';
 
 import {
   type FlowType,
@@ -61,7 +62,7 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
   const { lang = 'he' } = useParams();
   const navigate = useNavigate();
   const [sp] = useSearchParams();
-  const { me } = useAuth();
+  const { me, reload } = useAuth();
   const tenantConfig = useTenantStore((s) => s.config);
   const orgMember    = useRegistrationStore((s) => s.orgMember);
   const registrationPath  = useRegistrationStore((s) => s.registrationPath);
@@ -104,19 +105,12 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
     membership?.tenantName ?? publicOrgName ?? tenantConfig?.name ?? orgMember?.organizationName ?? null;
 
   // ── "Continue with another organization" — opens the tenant-join discovery
-  //    sheet from inside the stories (the bottom-right white text link).
+  //    sheet from inside the stories (the bottom-right white text link). The
+  //    picker also lists the user's own member orgs so they can jump straight
+  //    into one (enterOrg). submitJoin (shared) celebrates an auto-accepted
+  //    join or toasts a pending one.
   const [showJoin, setShowJoin] = useState(false);
-  const submitJoin = async (ids: string[]): Promise<void> => {
-    setShowJoin(false);
-    if (ids.length === 0) return;
-    try {
-      await createJoinRequests(ids);
-      toast.success('הבקשה נשלחה — ממתינה לאישור מנהל');
-    } catch (e) {
-      console.error('[wallet-join] stories join failed:', e);
-      toast.error('שליחת הבקשה נכשלה');
-    }
-  };
+  const { memberOrgs, enterOrg, submitJoin } = useStoryMemberOrgs();
 
   // ── Whether this session has an org/tenant context ────────────────────────
   // True when the registration store / tenant theme carries an org (the
@@ -202,6 +196,27 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
     navigate(`/${lang}/register/onboarding/${firstSlide}`);
   };
 
+  /**
+   * Close (X) the stories. Skipping onboarding still counts as "onboarded" so
+   * the user is not treated as new (shown the stories) on the next login. We
+   * stamp completedAt, end the registration session, refresh /api/me, then
+   * route to the post-login default landing (their tenant if a member - e.g.
+   * one they just auto-joined - otherwise the ecosystem catalog).
+   */
+  const handleClose = async (): Promise<void> => {
+    try {
+      await saveWalletProfile({ complete: true });
+    } catch (e) {
+      console.error('[wallet] mark onboarding complete on close failed (non-fatal):', e);
+    }
+    useRegistrationStore.getState().completeRegistration();
+    const updated = await reload();
+    const target = updated
+      ? nextPathAfterLogin({ lang, urlTenantId, me: updated })
+      : `/${lang}/store?ecosystem=1`;
+    navigate(target, { replace: true });
+  };
+
   // ── Progress bar segment computation ─────────────────────────────────────
   const isMatchScreenActive = steps[current]?.id === 'match-screen';
   let barSegments: Array<{ key: string; isDone: boolean; isActive: boolean }>;
@@ -246,10 +261,12 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
         <StoryProgressBar segments={barSegments} progress={progress} />
       </div>
 
-      {/* ── Close button ── */}
+      {/* ── Close button. A dark translucent backdrop keeps the white X
+            visible on light story slides (it vanished against them before). */}
       <button
-        onClick={() => navigate(`/${lang}`)}
-        className="absolute top-3 left-3 z-50 w-8 h-8 flex items-center justify-center"
+        onClick={() => { void handleClose(); }}
+        aria-label="Close"
+        className="absolute top-3 left-3 z-50 w-9 h-9 flex items-center justify-center rounded-full bg-black/40 backdrop-blur-sm shadow-sm active:scale-95 transition-transform"
       >
         <span className="material-symbols-outlined text-white" style={{ fontSize: '20px' }}>close</span>
       </button>
@@ -327,7 +344,12 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
       {/* Tenant-join discovery sheet, opened from the "continue with another
           organization" link. z-[200]+ so it layers above the stories overlay. */}
       {showJoin && (
-        <TenantDiscoverySheet onClose={() => setShowJoin(false)} onSubmit={submitJoin} />
+        <TenantDiscoverySheet
+          onClose={() => setShowJoin(false)}
+          onSubmit={(ids) => { setShowJoin(false); void submitJoin(ids); }}
+          memberOrgs={memberOrgs}
+          onPickMember={(id) => { void enterOrg(id); }}
+        />
       )}
     </div>
   );

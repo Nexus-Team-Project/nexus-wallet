@@ -17,11 +17,28 @@ import {
   type DiscoverableTenant,
 } from '../../services/walletTenants.service';
 
+/** One organization the user already belongs to, shown badged at the top. */
+export interface MemberOrgOption {
+  tenantId: string;
+  tenantName: string;
+  logoUrl?: string;
+}
+
 interface TenantDiscoverySheetProps {
   /** Fires with the selected domain tenantIds when the user confirms. */
   onSubmit: (tenantIds: string[]) => void;
   /** Closes the sheet without submitting. */
   onClose: () => void;
+  /**
+   * Organizations the user is already a member of. When provided together
+   * with onPickMember, they render at the top of the list with a "Member"
+   * badge so the user can jump straight into one. Only the stories flow
+   * passes these; the switcher leaves them undefined (it already lists
+   * member orgs in its own dropdown).
+   */
+  memberOrgs?: MemberOrgOption[];
+  /** Called with the tenantId when the user taps one of their member orgs. */
+  onPickMember?: (tenantId: string) => void;
 }
 
 /** Two-letter initials fallback when a tenant has no logo. */
@@ -50,7 +67,7 @@ function colorFor(name: string): string {
  * @param onClose closes the sheet without submitting.
  * @returns the animated bottom-sheet / modal element.
  */
-export default function TenantDiscoverySheet({ onSubmit, onClose }: TenantDiscoverySheetProps) {
+export default function TenantDiscoverySheet({ onSubmit, onClose, memberOrgs, onPickMember }: TenantDiscoverySheetProps) {
   const { language } = useLanguage();
   const isHe = language === 'he';
 
@@ -93,6 +110,20 @@ export default function TenantDiscoverySheet({ onSubmit, onClose }: TenantDiscov
   };
 
   const canSubmit = selected.size > 0;
+
+  // ── Member orgs shown at the top (stories flow only) ──────────────────────
+  // The user's own organizations, matched against the same search box, so they
+  // can jump straight into one instead of only seeing joinable orgs. The
+  // backend discoverTenants already excludes orgs the user has a role in, but
+  // we also filter them out defensively to guarantee no duplicate row.
+  const memberIds = new Set((memberOrgs ?? []).map((m) => m.tenantId));
+  const query = search.trim().toLowerCase();
+  const memberMatches = (memberOrgs ?? []).filter((m) =>
+    m.tenantName.toLowerCase().includes(query),
+  );
+  const discovered = tenants.filter((t) => !memberIds.has(t.tenantId));
+  const showMemberSection = !!onPickMember && memberMatches.length > 0;
+  const showMoreHeader = showMemberSection && (discovered.length > 0 || loading);
 
   return (
     <AnimatePresence>
@@ -154,16 +185,75 @@ export default function TenantDiscoverySheet({ onSubmit, onClose }: TenantDiscov
 
         <div className="min-h-0 flex-1 overflow-y-auto px-4 sm:px-8">
           <div className="space-y-2 pb-4 sm:space-y-3">
-            {loading && tenants.length === 0 ? (
-              <p className="text-center text-sm py-8" style={{ color: 'var(--color-text-muted)' }}>
-                {isHe ? 'טוען...' : 'Loading...'}
+            {/* ── Your organizations (member orgs) — stories flow only ── */}
+            {showMemberSection && (
+              <>
+                <p className="px-1 pt-1 text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--color-text-muted)' }}>
+                  {isHe ? 'הארגונים שלך' : 'Your organizations'}
+                </p>
+                {memberMatches.map((m, i) => (
+                  <motion.button
+                    key={m.tenantId}
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.2, delay: i * 0.03 }}
+                    onClick={() => onPickMember?.(m.tenantId)}
+                    className="flex w-full items-center gap-3 rounded-2xl border-2 border-border bg-white px-4 py-3 text-start transition-all hover:border-primary sm:gap-4 sm:px-5 sm:py-4"
+                  >
+                    <div
+                      className="flex h-9 w-9 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg text-xs font-bold text-white sm:h-11 sm:w-11 sm:text-sm"
+                      style={{ background: colorFor(m.tenantName) }}
+                    >
+                      {m.logoUrl ? (
+                        <img
+                          src={m.logoUrl}
+                          alt=""
+                          className="h-6 w-6 object-contain sm:h-8 sm:w-8"
+                          style={{ filter: 'brightness(0) invert(1)' }}
+                        />
+                      ) : (
+                        deriveInitials(m.tenantName)
+                      )}
+                    </div>
+                    <span className="flex-1 text-sm font-semibold sm:text-base" style={{ color: 'var(--color-text-primary)' }}>
+                      {m.tenantName}
+                    </span>
+                    <span className="flex-shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary">
+                      {isHe ? 'חבר/ה' : 'Member'}
+                    </span>
+                    <span
+                      className="material-symbols-outlined flex-shrink-0 text-text-muted"
+                      style={{ fontSize: 18 }}
+                    >
+                      {isHe ? 'chevron_left' : 'chevron_right'}
+                    </span>
+                  </motion.button>
+                ))}
+              </>
+            )}
+
+            {/* ── Subheader for joinable orgs, only when a member section sits above ── */}
+            {showMoreHeader && (
+              <p className="px-1 pt-2 text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--color-text-muted)' }}>
+                {isHe ? 'ארגונים נוספים' : 'More organizations'}
               </p>
-            ) : tenants.length === 0 ? (
-              <p className="text-center text-sm py-8" style={{ color: 'var(--color-text-muted)' }}>
-                {isHe ? 'לא נמצאו ארגונים' : 'No organizations found'}
-              </p>
+            )}
+
+            {/* ── Joinable orgs (discoverTenants) ── */}
+            {loading && discovered.length === 0 ? (
+              !showMemberSection && (
+                <p className="text-center text-sm py-8" style={{ color: 'var(--color-text-muted)' }}>
+                  {isHe ? 'טוען...' : 'Loading...'}
+                </p>
+              )
+            ) : discovered.length === 0 ? (
+              !showMemberSection && (
+                <p className="text-center text-sm py-8" style={{ color: 'var(--color-text-muted)' }}>
+                  {isHe ? 'לא נמצאו ארגונים' : 'No organizations found'}
+                </p>
+              )
             ) : (
-              tenants.map((t, i) => {
+              discovered.map((t, i) => {
                 const isPicked = selected.has(t.tenantId);
                 return (
                   <motion.button

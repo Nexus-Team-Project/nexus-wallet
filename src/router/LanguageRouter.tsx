@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { Outlet, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { LanguageProvider } from '../i18n/LanguageContext';
+import AppToaster from '../components/AppToaster';
 import LoginSheet from '../components/auth/LoginSheet';
 import WalletTenantSwitcher from '../components/wallet/WalletTenantSwitcher';
 import { useAuth } from '../contexts/AuthContext';
@@ -125,6 +126,8 @@ export default function LanguageRouter() {
     <LanguageProvider>
       <div style={tenantStyle}>
         <Outlet />
+        {/* Single app-wide toaster, RTL-aware (Hebrew toasts render right-to-left). */}
+        <AppToaster />
         <LoginSheet />
         {/* Real tenant switcher when logged in. Hidden across the entire
             signup journey - the auth-flow story chain AND the /register
