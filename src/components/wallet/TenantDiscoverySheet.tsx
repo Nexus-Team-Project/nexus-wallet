@@ -78,7 +78,9 @@ export default function TenantDiscoverySheet({ onSubmit, onClose, memberOrgs, on
   const [search, setSearch] = useState('');
   const [tenants, setTenants] = useState<DiscoverableTenant[]>([]);
   const [loading, setLoading] = useState(false);
-  const [selected, setSelected] = useState<Set<string>>(new Set());
+  // Single-select: the user joins one organization at a time. Tapping a
+  // different row replaces the selection; tapping the selected row clears it.
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -99,17 +101,12 @@ export default function TenantDiscoverySheet({ onSubmit, onClose, memberOrgs, on
     return () => { active = false; clearTimeout(handle); };
   }, [search]);
 
-  /** Toggle a tenant in/out of the multi-select set. */
+  /** Select a tenant (single-select); tapping the selected one clears it. */
   const toggle = (tenantId: string): void => {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(tenantId)) next.delete(tenantId);
-      else next.add(tenantId);
-      return next;
-    });
+    setSelectedId((prev) => (prev === tenantId ? null : tenantId));
   };
 
-  const canSubmit = selected.size > 0;
+  const canSubmit = selectedId !== null;
 
   // ── Member orgs shown at the top (stories flow only) ──────────────────────
   // The user's own organizations, matched against the same search box, so they
@@ -254,7 +251,7 @@ export default function TenantDiscoverySheet({ onSubmit, onClose, memberOrgs, on
               )
             ) : (
               discovered.map((t, i) => {
-                const isPicked = selected.has(t.tenantId);
+                const isPicked = selectedId === t.tenantId;
                 return (
                   <motion.button
                     key={t.tenantId}
@@ -316,12 +313,10 @@ export default function TenantDiscoverySheet({ onSubmit, onClose, memberOrgs, on
           <button
             type="button"
             disabled={!canSubmit}
-            onClick={() => onSubmit(Array.from(selected))}
+            onClick={() => onSubmit(selectedId ? [selectedId] : [])}
             className="w-full rounded-2xl bg-primary py-3 text-sm font-semibold text-white shadow-sm transition-all hover:opacity-90 disabled:opacity-40 sm:py-4 sm:text-base"
           >
-            {isHe
-              ? `המשך (${selected.size})`
-              : `Continue (${selected.size})`}
+            {isHe ? 'המשך' : 'Continue'}
           </button>
         </div>
       </motion.div>

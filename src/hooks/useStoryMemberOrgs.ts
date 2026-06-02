@@ -19,6 +19,7 @@ import { toast } from 'sonner';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useRegistrationStore } from '../stores/registrationStore';
+import { getFirstOnboardingSlide } from '../utils/onboardingNavigation';
 import { saveWalletProfile } from '../services/walletProfile.service';
 import { createJoinRequests } from '../services/walletTenants.service';
 import { joinResultToast } from '../lib/joinToast';
@@ -29,12 +30,17 @@ export interface UseStoryMemberOrgs {
   memberOrgs: MemberOrgOption[];
   /** Open a member org: mark onboarding complete, refresh, route to its catalog. */
   enterOrg: (tenantId: string) => Promise<void>;
+  /** Leave onboarding for the general Nexus catalog (marks profile complete). */
+  enterEcosystem: () => Promise<void>;
+  /** Go fill the onboarding questions (onboarding stamps completedAt at its end). */
+  fillOnboarding: () => void;
   /**
-   * Submit join request(s) chosen from a stories picker and react to the
-   * outcome: if the (first) target auto-accepts, refresh /api/me and route to
-   * the celebration screen; otherwise toast the pending/skipped result.
-   * @returns true when it navigated to the celebration (auto-accepted), so the
-   *          caller knows NOT to run its own "continue onboarding" follow-up.
+   * Submit a join request chosen from a stories picker and route on the outcome:
+   *   - auto-accepted -> refresh /api/me + go to the celebration screen.
+   *   - pending (created or already-pending) -> go to the pending-approval screen.
+   *   - otherwise (insert failure / empty) -> toast.
+   * @returns true when it navigated to a result screen, so the caller knows NOT
+   *          to run its own "continue onboarding" follow-up.
    */
   submitJoin: (tenantIds: string[]) => Promise<boolean>;
 }
@@ -70,6 +76,22 @@ export function useStoryMemberOrgs(): UseStoryMemberOrgs {
     [lang, navigate, reload],
   );
 
+  const enterEcosystem = useCallback(async (): Promise<void> => {
+    try {
+      await saveWalletProfile({ complete: true });
+    } catch (e) {
+      console.error('[wallet] mark onboarding complete on enter-ecosystem failed (non-fatal):', e);
+    }
+    useRegistrationStore.getState().completeRegistration();
+    await reload();
+    navigate(`/${lang}/store?ecosystem=1`, { replace: true });
+  }, [lang, navigate, reload]);
+
+  const fillOnboarding = useCallback((): void => {
+    const firstSlide = getFirstOnboardingSlide(useRegistrationStore.getState());
+    navigate(`/${lang}/register/onboarding/${firstSlide}`);
+  }, [lang, navigate]);
+
   const submitJoin = useCallback(
     async (tenantIds: string[]): Promise<boolean> => {
       if (tenantIds.length === 0) return false;
@@ -87,8 +109,20 @@ export function useStoryMemberOrgs(): UseStoryMemberOrgs {
           );
           return true;
         }
-        // Nothing auto-accepted -> pending approval / already-requested. Toast
-        // it and let the caller continue its own flow.
+        // Not auto-accepted but a request now exists (freshly created OR an
+        // earlier one still pending) -> show the "waiting for admin approval"
+        // screen for that org.
+        const pendingId =
+          result.created[0] ??
+          result.skipped.find((s) => s.reason === 'already_pending')?.tenantId;
+        if (pendingId) {
+          navigate(
+            `/${lang}/auth-flow/join-pending?tenant=${encodeURIComponent(pendingId)}`,
+            { replace: true },
+          );
+          return true;
+        }
+        // Nothing actionable (e.g. insert failure) -> toast, let caller continue.
         joinResultToast(result, lang === 'he');
         return false;
       } catch (e) {
@@ -100,5 +134,5 @@ export function useStoryMemberOrgs(): UseStoryMemberOrgs {
     [lang, navigate, reload],
   );
 
-  return { memberOrgs, enterOrg, submitJoin };
+  return { memberOrgs, enterOrg, enterEcosystem, fillOnboarding, submitJoin };
 }

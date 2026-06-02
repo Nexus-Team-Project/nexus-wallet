@@ -64,6 +64,7 @@ const EmailRequiredPage    = lazy(() => import('../pages/auth/EmailRequiredPage'
 const EmailOtpPage         = lazy(() => import('../pages/auth/EmailOtpPage'));
 const JoinStandalone       = lazy(() => import('../pages/auth-flow/JoinStandalone'));
 const JoinedCelebration    = lazy(() => import('../pages/auth-flow/JoinedCelebration'));
+const JoinPendingScreen    = lazy(() => import('../pages/auth-flow/JoinPendingScreen'));
 const NewUserFlow = lazy(() =>
   import('../pages/auth-flow/AuthFlowStories').then((m) => ({ default: m.NewUserFlow }))
 );
@@ -208,6 +209,7 @@ export const router = createBrowserRouter([
           { path: 'org-user', element: <S><OrgUserFlow /></S> },
           { path: 'join',     element: <S><JoinStandalone /></S> },
           { path: 'joined',   element: <S><JoinedCelebration /></S> },
+          { path: 'join-pending', element: <S><JoinPendingScreen /></S> },
         ],
       },
 
