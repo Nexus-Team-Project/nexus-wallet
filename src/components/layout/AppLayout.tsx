@@ -17,6 +17,9 @@ export default function AppLayout() {
   // TopBar (app chrome - avatar / Log in / switcher) above StorePage's own
   // StoreHeader (page title + search), and no overlay back-header.
   const isStore = /^\/[a-z]{2}\/store\/?$/.test(pathname);
+  // Settings/form pages render their own minimal SettingsHeader (back + title),
+  // so AppLayout must not also stamp the heavy overlay TopBar on top of them.
+  const isEditProfile = /^\/[a-z]{2}\/profile\/edit\/?$/.test(pathname);
   const [collapsed, setCollapsed] = useState(false);
   const { me, loading: authLoading } = useAuth();
 
@@ -73,8 +76,9 @@ export default function AppLayout() {
           <div className="sticky top-0 z-50">
             <TopBar collapsed={false} />
           </div>
-        ) : isSearch ? null : (
-          /* Other pages: transparent overlay back-header, does not scroll. */
+        ) : isSearch || isEditProfile ? null : (
+          /* Other pages: transparent overlay back-header, does not scroll.
+             (Edit Profile renders its own SettingsHeader instead.) */
           <div className="relative z-50 h-0 overflow-visible">
             <TopBar collapsed={false} showBack />
           </div>

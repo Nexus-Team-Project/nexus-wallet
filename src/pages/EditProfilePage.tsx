@@ -18,7 +18,9 @@ import { useLanguage } from '../i18n/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
 import SelectionCard from '../components/ui/SelectionCard';
 import ConsentToggleCard from '../components/ui/ConsentToggleCard';
+import SettingsHeader from '../components/layout/SettingsHeader';
 import PurposeSection from '../components/profile/edit/PurposeSection';
+import DeleteAccountCard from '../components/profile/edit/DeleteAccountCard';
 import InviteFriendsCard from '../components/profile/edit/InviteFriendsCard';
 import {
   type GenderValue,
@@ -137,9 +139,11 @@ export default function EditProfilePage() {
   const align = isHe ? 'text-right' : 'text-left';
 
   return (
-    <div className="px-4 space-y-5 animate-fade-in pb-28">
-      <h1 className="text-2xl font-bold text-text-primary">{t.profile.editProfileTitle}</h1>
+    <div className="animate-fade-in pb-28">
+      {/* Minimal back + title bar (replaces the heavy overlay TopBar here). */}
+      <SettingsHeader title={t.profile.editProfileTitle} />
 
+      <div className="px-4 space-y-5 pt-4">
       {/* 1. Name */}
       <section className={CARD_CLASS}>
         <h2 className={SECTION_LABEL_CLASS}>{t.profile.editSectionName}</h2>
@@ -254,6 +258,10 @@ export default function EditProfilePage() {
 
       {/* 6. Invite friends - present but non-functional (Soon) */}
       <InviteFriendsCard />
+
+      {/* 7. Delete account - disabled placeholder (Soon) */}
+      <DeleteAccountCard />
+      </div>
 
       {/* Sticky Save bar */}
       <div className="fixed bottom-0 inset-x-0 z-50 bg-bg-light/95 backdrop-blur border-t border-border/60 px-4 py-3">

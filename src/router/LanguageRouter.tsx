@@ -137,7 +137,7 @@ export default function LanguageRouter() {
             in-story "continue with another organization" link replaces it. */}
         {me &&
           !isRegistering &&
-          !/^\/[a-z]{2}\/(auth-flow|register)(\/|$)/.test(location.pathname) && (
+          !/^\/[a-z]{2}\/(auth-flow|register|profile\/edit)(\/|$)/.test(location.pathname) && (
             <WalletTenantSwitcher />
           )}
       </div>

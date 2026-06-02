@@ -239,6 +239,9 @@ export interface TranslationKeys {
     editInviteTitle: string;
     editInviteSubtitle: string;
     editSoonBadge: string;
+    editSectionDelete: string;
+    editDeleteTitle: string;
+    editDeleteSubtitle: string;
     editSave: string;
     editSaving: string;
     editSavedToast: string;
