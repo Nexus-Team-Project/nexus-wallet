@@ -101,10 +101,20 @@ export default function LanguageRouter() {
         }
       }
     } else if (tenantId) {
-      // Tenant is active but missing from URL → restore it silently
-      const next = new URLSearchParams(searchParams);
-      next.set('tenant', tenantId);
-      navigate({ search: next.toString() }, { replace: true });
+      // A persisted tenant is set but missing from the URL. Only auto-restore
+      // it when the user is actually a MEMBER of it — a remembered non-member /
+      // pending tenant view must NOT silently re-enter on reload/navigation; it
+      // falls back to the Nexus catalog instead.
+      const isMember = (me?.memberships ?? []).some(
+        (m) => m.tenantId === tenantId && m.isMember,
+      );
+      if (isMember) {
+        const next = new URLSearchParams(searchParams);
+        next.set('tenant', tenantId);
+        navigate({ search: next.toString() }, { replace: true });
+      } else {
+        clearTenant();
+      }
     } else {
       // No tenant anywhere → clear (ensures Nexus colors on plain home)
       clearTenant();
