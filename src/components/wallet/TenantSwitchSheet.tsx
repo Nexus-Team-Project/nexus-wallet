@@ -57,7 +57,7 @@ export default function TenantSwitchSheet({ onClose }: TenantSwitchSheetProps) {
   const isHe = language === 'he';
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { requireAuth } = useAuthGate();
+  const { isAuthenticated, requireAuth } = useAuthGate();
   const dragY = useRef(0);
   const [showJoin, setShowJoin] = useState(false);
 
@@ -108,10 +108,15 @@ export default function TenantSwitchSheet({ onClose }: TenantSwitchSheetProps) {
     onClose();
   };
 
-  /** Open the join picker (gated: anonymous visitors are asked to log in first). */
-  const openJoin = async (): Promise<void> => {
-    const authed = await requireAuth({ promptMessage: t.auth.genericPrompt });
-    if (authed) setShowJoin(true);
+  /** Open the join picker. Anonymous visitors must log in first — close this
+   *  sheet so the login sheet isn't stuck behind it. */
+  const openJoin = (): void => {
+    if (!isAuthenticated) {
+      onClose();
+      void requireAuth({ promptMessage: t.auth.genericPrompt });
+      return;
+    }
+    setShowJoin(true);
   };
 
   /**
