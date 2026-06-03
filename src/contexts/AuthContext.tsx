@@ -15,7 +15,7 @@ import type { ReactNode } from 'react';
 import { api, setAccessToken, getAccessToken } from '../lib/api';
 import { useAuthStore } from '../stores/authStore';
 import { useRegistrationStore } from '../stores/registrationStore';
-import { exchangeGoogleCode } from '../services/auth.service';
+import { exchangeGoogleCode, consumeGoogleReturnContext } from '../services/auth.service';
 import { nextPathAfterLogin } from '../lib/postLogin';
 
 /**
@@ -176,12 +176,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const r = await exchangeGoogleCode(initialGoogleCode);
         if (r) {
           setAccessToken(r.accessToken);
-          const lang = window.location.pathname.split('/')[1] || 'he';
 
-          // ?tenant=X drives org-aware post-login routing; ?ecosystem=1
-          // (or absent) means "no tenant". Read from the live callback URL.
-          const sp = new URLSearchParams(window.location.search);
-          const urlTenantId = sp.get('ecosystem') === '1' ? null : sp.get('tenant');
+          // Google redirects back to the bare origin, so the ?tenant=X and
+          // /he lang prefix are not on the callback URL — they were stashed
+          // before the redirect (consumeGoogleReturnContext). This makes a
+          // Google login resolve the same destination phone/email logins do.
+          const ret = consumeGoogleReturnContext();
+          const lang = ret.lang;
+          const urlTenantId = ret.tenant; // null = ecosystem
           const tenantSuffix = urlTenantId ? `?tenant=${encodeURIComponent(urlTenantId)}` : '';
 
           // Decide where the Google login lands BEFORE the hard-nav.

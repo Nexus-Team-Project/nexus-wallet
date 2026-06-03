@@ -231,11 +231,13 @@ export default function LoginSheet() {
     try {
       const result = await firebaseVerifyOtp(phone, code);
 
-      // Plan #2: phone verified but unknown -> ask for email next.
+      // Plan #2: phone verified but unknown -> ask for email next. Carry the
+      // originating ?tenant=X through the email-required/OTP hops so the new
+      // user lands in that org's stories rather than the ecosystem catalog.
       if (result.needsEmail) {
         close();
         navigate(
-          `/${lang}/auth/email-required?ticket=${result.needsEmail.signupTicketId}&phone=${encodeURIComponent(result.needsEmail.phone)}`,
+          `/${lang}/auth/email-required?ticket=${result.needsEmail.signupTicketId}&phone=${encodeURIComponent(result.needsEmail.phone)}${urlTenantId ? `&tenant=${encodeURIComponent(urlTenantId)}` : ''}`,
         );
         return;
       }
@@ -497,12 +499,24 @@ export default function LoginSheet() {
   const phoneDigits = phone.replace(/\D/g, '');
   const canSend = phoneDigits.length >= 9;
 
-  // Tenant welcome message
-  const welcomeTitle = tenantConfig?.flowOverrides?.customWelcomeMessage && !isHe
-    ? tenantConfig.flowOverrides.customWelcomeMessage
-    : tenantConfig?.flowOverrides?.customWelcomeMessageHe && isHe
-      ? tenantConfig.flowOverrides.customWelcomeMessageHe
-      : t.auth.loginSheetTitle;
+  // Tenant welcome message. When the user arrived via ?tenant=X (so tenantConfig
+  // is set), the login sheet names the org — a custom message if the tenant has
+  // one, otherwise a generic "sign in to {org}" / "join {org}" so the login
+  // clearly reflects the organization they came from.
+  const tenantName = tenantConfig ? (isHe ? tenantConfig.nameHe : tenantConfig.name) : null;
+  const customWelcome = isHe
+    ? tenantConfig?.flowOverrides?.customWelcomeMessageHe
+    : tenantConfig?.flowOverrides?.customWelcomeMessage;
+  const welcomeTitle =
+    customWelcome ??
+    (tenantName
+      ? (isHe ? `התחברות ל${tenantName}` : `Sign in to ${tenantName}`)
+      : t.auth.loginSheetTitle);
+  const welcomeSubtitle = tenantName
+    ? (isHe
+        ? `התחברו כדי להצטרף ל${tenantName} וליהנות מההטבות שלו`
+        : `Log in to join ${tenantName} and enjoy its benefits`)
+    : t.auth.loginSheetSubtitle;
 
   return (
     <>
@@ -564,7 +578,7 @@ export default function LoginSheet() {
                 {welcomeTitle}
               </h2>
               <p className="text-[11px] text-text-muted text-center mb-4">
-                {t.auth.loginSheetSubtitle}
+                {welcomeSubtitle}
               </p>
 
               {/* Row 1: Google + Apple */}
