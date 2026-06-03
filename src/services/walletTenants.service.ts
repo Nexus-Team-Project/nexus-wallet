@@ -9,6 +9,12 @@ export interface DiscoverableTenant {
   tenantId: string;
   tenantName: string;
   logoUrl?: string;
+  /**
+   * Whether the tenant has an active Benefits Catalog. Tenants without it are
+   * still listed but cannot be joined yet — the modal shows a "soon" badge and
+   * disables the row, and the backend rejects a join request to them.
+   */
+  catalogActive: boolean;
 }
 
 export interface JoinRequestRecord {

@@ -123,8 +123,14 @@ export default function TenantDiscoverySheet({ onSubmit, onClose, memberOrgs, on
     return () => { active = false; clearTimeout(handle); };
   }, [search]);
 
-  /** Select a tenant (single-select); tapping the selected one clears it. */
+  /**
+   * Select a tenant (single-select); tapping the selected one clears it.
+   * Tenants without an active catalog ("soon") are not joinable, so taps on
+   * them are ignored — a UX guard that mirrors the backend rejection.
+   */
   const toggle = (tenantId: string): void => {
+    const t = tenants.find((x) => x.tenantId === tenantId);
+    if (t && !t.catalogActive) return;
     setSelectedId((prev) => (prev === tenantId ? null : tenantId));
   };
 
@@ -140,9 +146,12 @@ export default function TenantDiscoverySheet({ onSubmit, onClose, memberOrgs, on
   const memberMatches = (memberOrgs ?? []).filter((m) =>
     m.tenantName.toLowerCase().includes(query),
   );
-  const discovered = tenants.filter(
-    (t) => !memberIds.has(t.tenantId) && !requestedIds.has(t.tenantId),
-  );
+  // Joinable (active catalog) tenants first, then the "soon" ones. The backend
+  // already sorts alphabetically and JS sort is stable, so names stay ordered
+  // within each group.
+  const discovered = tenants
+    .filter((t) => !memberIds.has(t.tenantId) && !requestedIds.has(t.tenantId))
+    .sort((a, b) => Number(b.catalogActive) - Number(a.catalogActive));
   const showMemberSection = !!onPickMember && memberMatches.length > 0;
   const showMoreHeader = showMemberSection && (discovered.length > 0 || loading);
 
@@ -277,29 +286,50 @@ export default function TenantDiscoverySheet({ onSubmit, onClose, memberOrgs, on
             ) : (
               discovered.map((t, i) => {
                 const isPicked = selectedId === t.tenantId;
+                // "soon" = catalog not activated yet: shown but not joinable.
+                const isSoon = !t.catalogActive;
                 return (
                   <motion.button
                     key={t.tenantId}
+                    type="button"
+                    disabled={isSoon}
+                    aria-disabled={isSoon}
                     initial={{ opacity: 0, y: 6 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.2, delay: i * 0.03 }}
                     onClick={() => toggle(t.tenantId)}
-                    className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-start transition-all sm:gap-4 sm:px-5 sm:py-4"
+                    className={`flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-start transition-all sm:gap-4 sm:px-5 sm:py-4 ${
+                      isSoon ? 'cursor-not-allowed' : ''
+                    }`}
                     style={{
-                      background: isPicked ? 'rgba(15,23,42,0.04)' : '#fff',
-                      border: isPicked ? '2px solid #0f172a' : '2px solid #ebebf0',
+                      background: isSoon
+                        ? '#f1f5f9'
+                        : isPicked
+                          ? 'rgba(15,23,42,0.04)'
+                          : '#fff',
+                      border: isSoon
+                        ? '2px solid #e2e8f0'
+                        : isPicked
+                          ? '2px solid #0f172a'
+                          : '2px solid #ebebf0',
                     }}
                   >
                     <div
                       className="flex h-9 w-9 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg text-xs font-bold text-white sm:h-11 sm:w-11 sm:text-sm"
-                      style={{ background: colorFor(t.tenantName) }}
+                      style={{
+                        background: isSoon ? '#cbd5e1' : colorFor(t.tenantName),
+                      }}
                     >
                       {t.logoUrl ? (
                         <img
                           src={t.logoUrl}
                           alt=""
                           className="h-6 w-6 object-contain sm:h-8 sm:w-8"
-                          style={{ filter: 'brightness(0) invert(1)' }}
+                          style={{
+                            filter: isSoon
+                              ? 'grayscale(1) brightness(0) invert(1) opacity(0.85)'
+                              : 'brightness(0) invert(1)',
+                          }}
                         />
                       ) : (
                         deriveInitials(t.tenantName)
@@ -307,11 +337,15 @@ export default function TenantDiscoverySheet({ onSubmit, onClose, memberOrgs, on
                     </div>
                     <span
                       className="flex-1 text-sm font-semibold sm:text-base"
-                      style={{ color: 'var(--color-text-primary)' }}
+                      style={{ color: isSoon ? '#94a3b8' : 'var(--color-text-primary)' }}
                     >
                       {t.tenantName}
                     </span>
-                    {isPicked ? (
+                    {isSoon ? (
+                      <span className="flex-shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-500">
+                        {isHe ? 'בקרוב' : 'Soon'}
+                      </span>
+                    ) : isPicked ? (
                       <span
                         className="material-symbols-outlined flex-shrink-0 text-slate-900"
                         style={{ fontSize: 20, fontVariationSettings: "'FILL' 1" }}
