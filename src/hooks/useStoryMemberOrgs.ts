@@ -71,22 +71,33 @@ export function useStoryMemberOrgs(): UseStoryMemberOrgs {
   const submitJoin = useCallback(
     async (tenantIds: string[]): Promise<boolean> => {
       if (tenantIds.length === 0) return false;
-      const tid = tenantIds[0]!;
       try {
         const result = await createJoinRequests(tenantIds);
-        // Resolve the org name from the public tenant endpoint (works for both
-        // a fresh member and a pending request) for the end-of-registration toast.
-        const orgName = (await fetchPublicTenant(tid).catch(() => null))?.organizationName;
 
         if (result.autoAccepted.length > 0) {
-          await reload();
-          setAffiliation({ kind: 'joined', tenantId: result.autoAccepted[0]!, orgName });
+          const joinedId = result.autoAccepted[0]!;
+          // The user is a member now. Refresh /api/me and read the org name from
+          // the membership (the public endpoint 404s for non-public orgs).
+          const updated = await reload();
+          const orgName =
+            (updated?.memberships ?? []).find((m) => m.tenantId === joinedId)?.tenantName ??
+            (await fetchPublicTenant(joinedId).catch(() => null))?.organizationName;
+          // Persist the joined org as the default so the end-of-registration
+          // landing reliably lands on its catalog.
+          try {
+            await setDefaultTenant(joinedId);
+          } catch (e) {
+            console.error('[wallet] set default on auto-join failed (non-fatal):', e);
+          }
+          setAffiliation({ kind: 'joined', tenantId: joinedId, orgName });
           return true;
         }
+
         const pendingId =
           result.created[0] ??
           result.skipped.find((s) => s.reason === 'already_pending')?.tenantId;
         if (pendingId) {
+          const orgName = (await fetchPublicTenant(pendingId).catch(() => null))?.organizationName;
           setAffiliation({ kind: 'pending', tenantId: pendingId, orgName });
           return true;
         }
