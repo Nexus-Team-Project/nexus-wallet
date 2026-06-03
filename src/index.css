@@ -237,3 +237,18 @@ body {
 @keyframes gali-ring-spin {
   to { transform: rotate(360deg); }
 }
+
+/* ── Sonner toaster: keep top-center toasts exactly centered and within the
+   mobile viewport, regardless of language direction (RTL was shifting them
+   off the right edge). Force explicit centering + a width cap so they never
+   overflow the screen sides. ── */
+[data-sonner-toaster][data-x-position='center'] {
+  left: 50% !important;
+  right: auto !important;
+  transform: translateX(-50%) !important;
+  width: calc(100vw - 32px) !important;
+  max-width: 420px !important;
+}
+[data-sonner-toaster][data-x-position='center'] [data-sonner-toast] {
+  width: 100% !important;
+}

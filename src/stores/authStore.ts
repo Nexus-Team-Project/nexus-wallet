@@ -45,7 +45,9 @@ function loadPersistedAuth(): Partial<AuthState> {
     const data = JSON.parse(raw);
     return {
       isAuthenticated: data.isAuthenticated ?? false,
-      token: data.token ?? null,
+      // Access token is memory-only — never hydrated from storage. lib/api
+      // holds the working copy; the refresh cookie restores it on bootstrap.
+      token: null,
       userId: data.userId ?? null,
       authMethod: data.authMethod ?? null,
       isOrgMember: data.isOrgMember ?? false,
@@ -67,7 +69,8 @@ function persistAuth(state: Partial<AuthState>) {
       STORAGE_KEY,
       JSON.stringify({
         isAuthenticated: state.isAuthenticated,
-        token: state.token,
+        // NEVER persist the access token — memory-only (XSS-safe). The httpOnly
+        // refresh cookie + lib/api restore the working token on reload.
         userId: state.userId,
         authMethod: state.authMethod,
         isOrgMember: state.isOrgMember,

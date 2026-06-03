@@ -1,189 +1,210 @@
-import { useParams, useNavigate } from 'react-router-dom';
+/**
+ * SlideMatchScreen — the story-styled "we found your organization(s)" step,
+ * reached when the user taps "קליק להמשך" and we matched him (by member role)
+ * to one or more organizations. Sourced from props (his real memberships /
+ * the URL tenant), not from stores.
+ *
+ * - Single match: confirm "continue with {org}" or "continue without an
+ *   organization".
+ * - Multiple matches: a SINGLE-SELECT list (pick exactly one org, logos shown)
+ *   plus "continue without an organization".
+ *
+ * Visual language matches the other story slides (gradient, blur blobs,
+ * framer-motion). The bottom "continue with another organization" link is
+ * present, like every story step.
+ */
+import { useState } from 'react';
+import { motion } from 'framer-motion';
 import { useLanguage } from '../../i18n/LanguageContext';
-import { useAuthStore } from '../../stores/authStore';
-import { useRegistrationStore } from '../../stores/registrationStore';
-import { useTenantStore } from '../../stores/tenantStore';
-import { useLoginSheetStore } from '../../stores/loginSheetStore';
-import { getFirstOnboardingSlide } from '../../utils/onboardingNavigation';
+import { StoryJoinOtherLink } from './StoryJoinOtherLink';
+import type { MemberOrgOption } from '../../components/wallet/TenantDiscoverySheet';
 
-export function SlideMatchScreen() {
-  const { lang = 'he' } = useParams();
-  const navigate = useNavigate();
+interface SlideMatchScreenProps {
+  /** Matched organizations (member role). 1 = single, >1 = select one. */
+  orgs: MemberOrgOption[];
+  /** Continue with an existing membership (existing member, no new join). */
+  onContinueWith: (tenantId: string) => void;
+  /** Continue with no organization affiliation (Nexus catalog). */
+  onContinueNoAffiliation: () => void;
+  /** Open the join picker (the bottom "another organization" link). */
+  onJoinOther: () => void;
+}
+
+const ACCENT = '#7c3aed';
+
+/** Two-letter initials fallback when an org has no logo. */
+function deriveInitials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) return (parts[0]![0]! + parts[1]![0]!).toUpperCase();
+  return name.trim().slice(0, 2).toUpperCase() || '?';
+}
+
+/** Stable hash -> color so the same org always renders the same tile. */
+function colorFor(name: string): string {
+  const PALETTE = ['#1e40af', '#059669', '#F97316', '#DC2626', '#2563EB', '#7C3AED', '#0D9488', '#CA8A04'];
+  let h = 0;
+  for (let i = 0; i < name.length; i++) { h = (h << 5) - h + name.charCodeAt(i); h |= 0; }
+  return PALETTE[Math.abs(h) % PALETTE.length]!;
+}
+
+/** A small org tile (logo or initials). */
+function OrgTile({ org, size = 44 }: { org: MemberOrgOption; size?: number }) {
+  return (
+    <div
+      className="flex flex-shrink-0 items-center justify-center overflow-hidden rounded-xl text-sm font-bold text-white"
+      style={{ width: size, height: size, background: colorFor(org.tenantName) }}
+    >
+      {org.logoUrl ? (
+        <img src={org.logoUrl} alt="" className="object-contain" style={{ width: size * 0.62, height: size * 0.62, filter: 'brightness(0) invert(1)' }} />
+      ) : (
+        deriveInitials(org.tenantName)
+      )}
+    </div>
+  );
+}
+
+/**
+ * @returns the match-screen story slide.
+ */
+export function SlideMatchScreen({ orgs, onContinueWith, onContinueNoAffiliation, onJoinOther }: SlideMatchScreenProps) {
   const { t, language } = useLanguage();
   const isHe = language === 'he';
+  const multiple = orgs.length > 1;
+  const [selectedId, setSelectedId] = useState<string | null>(orgs.length === 1 ? orgs[0]!.tenantId : null);
 
-  const authMethod        = useAuthStore((s) => s.authMethod);
-  const authFirstName     = useAuthStore((s) => s.firstName);
-  const logout            = useAuthStore((s) => s.logout);
+  const title = multiple
+    ? t.authFlow.matchTitleMultiple.replace('{{count}}', String(orgs.length))
+    : t.authFlow.matchTitleSingle.replace('{{orgName}}', orgs[0]?.tenantName ?? '');
 
-  const orgMember         = useRegistrationStore((s) => s.orgMember);
-  const phone             = useRegistrationStore((s) => s.phone);
-  const missingFields     = useRegistrationStore((s) => s.missingFields);
-  const profileData       = useRegistrationStore((s) => s.profileData);
-  const startRegistration = useRegistrationStore((s) => s.startRegistration);
-  const resetRegistration = useRegistrationStore((s) => s.resetRegistration);
+  const primaryLabel = multiple
+    ? t.authFlow.matchContinue
+    : t.authFlow.matchContinueWithOrg.replace('{{orgName}}', orgs[0]?.tenantName ?? '');
 
-  const tenantConfig  = useTenantStore((s) => s.config);
-  const clearTenant   = useTenantStore((s) => s.clearTenant);
-
-  const openLoginSheet = useLoginSheetStore((s) => s.open);
-
-  const orgName  = isHe
-    ? (tenantConfig?.nameHe ?? orgMember?.organizationName ?? '')
-    : (tenantConfig?.name   ?? orgMember?.organizationName ?? '');
-  const orgColor = tenantConfig?.primaryColor ?? '#635bff';
-  const orgLogo  = tenantConfig?.logo;
-
-  const userIdentifier =
-    (authMethod === 'google' || authMethod === 'apple') && profileData.email
-      ? profileData.email
-      : authFirstName ?? phone ?? null;
-
-  const handleContinueWithOrg = () => {
-    // Mark in sessionStorage BEFORE navigating so that pressing Back
-    // restores the match-screen step (location.state doesn't survive back-nav).
-    sessionStorage.setItem('nexus_return_match', '1');
-    if (tenantConfig?.requiresMembershipFee) {
-      navigate(`/${lang}/register/membership`);
-    } else {
-      navigate(
-        `/${lang}/register/onboarding/${getFirstOnboardingSlide(
-          useRegistrationStore.getState()
-        )}`
-      );
-    }
-  };
-
-  const handleContinueNoOrg = () => {
-    clearTenant();
-    startRegistration({
-      path:         'new-user',
-      phone:        phone ?? '',
-      orgMember:    null,
-      missingFields,
-    });
-    navigate(
-      `/${lang}/register/onboarding/${getFirstOnboardingSlide(
-        useRegistrationStore.getState()
-      )}`
-    );
-  };
-
-  const handleSwitchAccount = () => {
-    logout();
-    resetRegistration();
-    clearTenant();
-    navigate(`/${lang}`, { replace: true });
-    Promise.resolve().then(() => openLoginSheet().catch(() => {}));
+  const handlePrimary = () => {
+    const id = selectedId ?? orgs[0]?.tenantId;
+    if (id) onContinueWith(id);
   };
 
   return (
     <div
-      className="absolute inset-0 flex flex-col overflow-y-auto"
-      style={{ background: 'var(--color-surface)' }}
       dir={isHe ? 'rtl' : 'ltr'}
+      className="absolute inset-0 flex flex-col overflow-hidden"
+      style={{ background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 55%, #a855f7 100%)' }}
       onClick={(e) => e.stopPropagation()}
     >
-      <div className="flex-1 flex flex-col px-5 pb-8 pt-8">
+      {/* Floating blur blobs. */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+        <motion.div
+          className="absolute w-72 h-72 rounded-full opacity-20"
+          style={{ background: 'rgba(255,255,255,0.25)', top: '-15%', right: '-10%', filter: 'blur(48px)' }}
+          animate={{ y: [0, 14, 0], x: [0, -10, 0] }}
+          transition={{ repeat: Infinity, duration: 9, ease: 'easeInOut' }}
+        />
+        <motion.div
+          className="absolute w-56 h-56 rounded-full opacity-15"
+          style={{ background: 'rgba(255,255,255,0.2)', bottom: '-5%', left: '-5%', filter: 'blur(40px)' }}
+          animate={{ y: [0, -12, 0], x: [0, 8, 0] }}
+          transition={{ repeat: Infinity, duration: 11, ease: 'easeInOut' }}
+        />
+      </div>
 
-        {/* Header */}
-        <div className="mb-6">
-          <div
-            className="w-11 h-11 rounded-2xl flex items-center justify-center mb-4"
-            style={{ background: `${orgColor}1a` }}
-          >
-            <span
-              className="material-symbols-outlined"
-              style={{ fontSize: '22px', color: orgColor, fontVariationSettings: "'FILL' 1" }}
-            >
-              verified
-            </span>
-          </div>
-
-          <h1 className="text-2xl font-extrabold text-text-primary mb-1">
-            {t.authFlow.matchTitle}
-          </h1>
-          <p className="text-sm text-text-muted leading-snug">
-            {t.authFlow.matchSubtitleSingle.replace('{{orgName}}', orgName)}
-          </p>
-
-          {userIdentifier && (
-            <div className="mt-3 inline-flex items-center gap-1.5 bg-white border border-border rounded-full px-3 py-1">
-              {authMethod === 'google' ? (
-                <svg width="12" height="12" viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4" />
-                  <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
-                  <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
-                  <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
-                </svg>
-              ) : authMethod === 'apple' ? (
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="black" aria-hidden="true">
-                  <path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z" />
-                </svg>
-              ) : (
-                <span className="material-symbols-outlined text-text-muted" style={{ fontSize: '12px' }}>phone</span>
-              )}
-              <span className="text-xs text-text-secondary font-medium truncate max-w-[200px]">
-                {t.authFlow.matchConnectedAs.replace('{{identifier}}', userIdentifier)}
-              </span>
-            </div>
-          )}
-        </div>
-
-        {/* Org card */}
-        <div
-          className="rounded-2xl p-4 mb-6"
-          style={{ background: `linear-gradient(135deg, ${orgColor} 0%, ${orgColor}cc 100%)` }}
+      {/* Badge: the single org's logo, or a match mark for multiple. */}
+      <div className="flex-shrink-0 px-6 pt-10 pb-1 relative z-10 flex justify-start">
+        <motion.div
+          initial={{ opacity: 0, y: -10, scale: 0.9 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ duration: 0.5, delay: 0.15, ease: 'easeOut' }}
+          className="h-16 w-16 rounded-2xl bg-white/95 flex items-center justify-center overflow-hidden shadow-lg"
         >
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center flex-shrink-0">
-              {orgLogo ? (
-                <img src={orgLogo} alt={orgName} className="h-7 w-7 object-contain"
-                  style={{ filter: 'brightness(0) invert(1)' }}
-                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                />
-              ) : (
-                <span className="material-symbols-outlined text-white"
-                  style={{ fontSize: '22px', fontVariationSettings: "'FILL' 1" }}>
-                  business
+          {!multiple && orgs[0] ? (
+            <OrgTile org={orgs[0]} size={40} />
+          ) : (
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <circle cx="12" cy="12" r="10" fill={ACCENT} />
+              <path d="M8 12.5l2.5 2.5L16 9" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          )}
+        </motion.div>
+      </div>
+
+      {/* Headline. */}
+      <div className="flex-shrink-0 pt-4 relative z-10 px-6">
+        <motion.h2
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.25, ease: 'easeOut' }}
+          className="text-white font-extrabold text-[30px] leading-tight"
+        >
+          {title}
+        </motion.h2>
+      </div>
+
+      {/* Content: single org card, or single-select list for multiple. */}
+      <div className="flex-1 min-h-0 overflow-y-auto relative z-10 px-6 pt-5">
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.35, ease: 'easeOut' }}
+          className="space-y-2.5"
+        >
+          {orgs.map((org) => {
+            const selected = selectedId === org.tenantId;
+            return (
+              <button
+                key={org.tenantId}
+                type="button"
+                onClick={() => setSelectedId(org.tenantId)}
+                className="flex w-full items-center gap-3 rounded-2xl bg-white px-4 py-3 text-start transition-all"
+                style={{ border: selected ? `2px solid ${ACCENT}` : '2px solid transparent', boxShadow: '0 4px 14px rgba(0,0,0,0.12)' }}
+              >
+                <OrgTile org={org} />
+                <span className="flex-1 text-sm font-bold" style={{ color: 'var(--color-text-primary)' }}>
+                  {org.tenantName}
                 </span>
-              )}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-white font-bold text-base leading-tight truncate">{orgName}</p>
-              <p className="text-white/70 text-xs mt-0.5">{isHe ? 'חבר ארגון' : 'Organization member'}</p>
-            </div>
-            <div className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
-              <span className="material-symbols-outlined text-white"
-                style={{ fontSize: '14px', fontVariationSettings: "'FILL' 1" }}>check</span>
-            </div>
-          </div>
-        </div>
+                {(multiple || selected) && (
+                  <span
+                    className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full"
+                    style={{ background: selected ? ACCENT : '#e5e7eb' }}
+                  >
+                    {selected && (
+                      <span className="material-symbols-outlined text-white" style={{ fontSize: 16, fontVariationSettings: "'FILL' 1" }}>
+                        check
+                      </span>
+                    )}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </motion.div>
+      </div>
 
-        <div className="flex-1" />
-
-        {/* Action buttons */}
-        <div className="space-y-3">
+      {/* Actions. */}
+      <div className="flex-shrink-0 relative z-10 px-6 pb-8 pt-3">
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.45, ease: 'easeOut' }}
+          className="flex flex-col gap-3"
+        >
           <button
-            onClick={handleContinueWithOrg}
-            className="w-full py-4 rounded-2xl font-bold text-sm text-white active:scale-[0.98] transition-all"
-            style={{ background: orgColor }}
+            type="button"
+            disabled={multiple && !selectedId}
+            onClick={handlePrimary}
+            className="w-full py-3.5 rounded-2xl font-bold text-base shadow-lg active:scale-[0.98] transition-all disabled:opacity-50"
+            style={{ background: 'rgba(255,255,255,0.96)', color: ACCENT }}
           >
-            {t.authFlow.matchContinueWithOrg.replace('{{orgName}}', orgName)}
+            {primaryLabel}
           </button>
           <button
-            onClick={handleContinueNoOrg}
-            className="w-full py-3.5 rounded-2xl font-semibold text-sm border border-border text-text-primary bg-white active:scale-[0.98] transition-all hover:bg-surface"
+            type="button"
+            onClick={onContinueNoAffiliation}
+            className="w-full py-2 text-sm font-medium text-white/85 active:scale-95"
           >
-            {t.authFlow.matchContinueNoOrg}
+            {t.authFlow.matchContinueNoAffiliation}
           </button>
-          <button
-            onClick={handleSwitchAccount}
-            className="w-full py-2.5 text-center text-sm text-text-muted hover:text-text-secondary transition-colors"
-          >
-            {t.authFlow.matchSwitchAccount}
-          </button>
-        </div>
+          <StoryJoinOtherLink onClick={onJoinOther} />
+        </motion.div>
       </div>
     </div>
   );

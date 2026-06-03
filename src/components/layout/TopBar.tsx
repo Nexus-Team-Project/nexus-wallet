@@ -8,7 +8,6 @@ import { useLanguage } from '../../i18n/LanguageContext';
 import { useUser } from '../../hooks/useUser';
 import TenantSwitchSheet from '../wallet/TenantSwitchSheet';
 import UserMenu from './UserMenu';
-import DefaultTenantSheet from '../wallet/DefaultTenantSheet';
 
 function getGreeting(t: { home: { goodMorning: string; goodAfternoon: string; goodEvening: string; goodNight: string } }) {
   const hour = new Date().getHours();
@@ -107,7 +106,6 @@ export default function TopBar({ collapsed = false, showBack = false }: TopBarPr
 
   const [switchSheetOpen, setSwitchSheetOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
-  const [defaultSheetOpen, setDefaultSheetOpen] = useState(false);
 
   // Display name for the top-bar context chip. Order of preference:
   //  1. Ecosystem mode -> "Nexus-Catalog" (the view label, not a tenant).
@@ -273,7 +271,6 @@ export default function TopBar({ collapsed = false, showBack = false }: TopBarPr
           <UserMenu
             isOpen={userMenuOpen}
             onClose={() => setUserMenuOpen(false)}
-            onOpenDefaultSheet={() => setDefaultSheetOpen(true)}
           />
         </div>
 
@@ -315,7 +312,6 @@ export default function TopBar({ collapsed = false, showBack = false }: TopBarPr
       )}
 
       {switchSheetOpen && <TenantSwitchSheet onClose={() => setSwitchSheetOpen(false)} />}
-      {defaultSheetOpen && <DefaultTenantSheet onClose={() => setDefaultSheetOpen(false)} />}
     </header>
   );
 }

@@ -16,6 +16,30 @@ import type { AuthSession, OtpVerifyResult, OrgMember } from '../types/auth.type
  * full-page Google OAuth redirect. */
 const GOOGLE_REDIRECT_KEY = 'nexus_wallet_google_redirect';
 
+/** Key under which we stash the originating ?tenant + lang across the Google
+ * OAuth redirect (the bare-origin redirect_uri drops them). */
+const GOOGLE_RETURN_KEY = 'nexus_wallet_google_return';
+
+/**
+ * Read and clear the tenant + lang stashed before a Google OAuth redirect.
+ * Called once by AuthContext bootstrap after the code exchange so a Google
+ * login resolves the same destination a phone/email login would.
+ * @returns tenant (null = ecosystem) and lang (defaults to 'he').
+ */
+export function consumeGoogleReturnContext(): { tenant: string | null; lang: string } {
+  try {
+    const raw = sessionStorage.getItem(GOOGLE_RETURN_KEY);
+    sessionStorage.removeItem(GOOGLE_RETURN_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw) as { tenant?: string; lang?: string };
+      return { tenant: parsed.tenant ? parsed.tenant : null, lang: parsed.lang || 'he' };
+    }
+  } catch {
+    // Non-fatal: fall through to defaults.
+  }
+  return { tenant: null, lang: 'he' };
+}
+
 // Module-level state ties an in-flight challenge back to the verify call.
 let phoneChallengeId: string | null = null;
 let signupTicketId: string | null = null;
@@ -180,6 +204,18 @@ export async function firebaseGoogleSignIn(): Promise<WalletGoogleResult> {
   // the URL is ours (vs a code that happened to be there from a
   // different OAuth flow).
   sessionStorage.setItem(GOOGLE_REDIRECT_KEY, '1');
+  // Google redirects back to the bare origin (the registered redirect_uri),
+  // dropping the originating ?tenant=X and /he lang prefix. Stash them so the
+  // post-login routing can rebuild the same destination a phone/email login
+  // would reach — otherwise a Google login always lands on the ecosystem.
+  try {
+    const sp = new URLSearchParams(window.location.search);
+    const tenant = sp.get('ecosystem') === '1' ? '' : sp.get('tenant') ?? '';
+    const lang = window.location.pathname.split('/')[1] || 'he';
+    sessionStorage.setItem(GOOGLE_RETURN_KEY, JSON.stringify({ tenant, lang }));
+  } catch {
+    // Non-fatal: routing falls back to ecosystem + default lang.
+  }
   const redirectUri = window.location.origin;
   const scope = encodeURIComponent('email profile openid');
   const url =

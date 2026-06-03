@@ -13,17 +13,17 @@ import { useRegistrationStore } from '../../stores/registrationStore';
 import { getFirstOnboardingSlide, getOnboardingTotalWithComplete } from '../../utils/onboardingNavigation';
 import { useTenantStore } from '../../stores/tenantStore';
 import { useAuth } from '../../contexts/AuthContext';
+import { useLanguage } from '../../i18n/LanguageContext';
 import { fetchPublicTenant } from '../../services/publicTenant.service';
 import { saveWalletProfile } from '../../services/walletProfile.service';
-import { nextPathAfterLogin } from '../../lib/postLogin';
+import { setDefaultTenant } from '../../services/walletTenants.service';
+import { setAffiliation, finishWalletRegistration, resetRegistrationFinish } from '../../lib/registrationAffiliation';
 import { useImagePreloader } from '../../hooks/useImagePreloader';
 import { SmartInsightsCarousel } from '../InsightsPage';
 import GiftCardsPage from '../GiftCardsPage';
 import WalletCardsPage from '../WalletCardsPage';
 import NearbyMapPage from '../NearbyMapPage';
-import SlideJoinPrompt from '../../components/auth-flow/SlideJoinPrompt';
-import SlideDiscoverOrg from '../../components/auth-flow/SlideDiscoverOrg';
-import TenantDiscoverySheet from '../../components/wallet/TenantDiscoverySheet';
+import TenantDiscoverySheet, { type MemberOrgOption } from '../../components/wallet/TenantDiscoverySheet';
 import { useStoryMemberOrgs } from '../../hooks/useStoryMemberOrgs';
 
 import {
@@ -62,13 +62,18 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
   const { lang = 'he' } = useParams();
   const navigate = useNavigate();
   const [sp] = useSearchParams();
+  const { t } = useLanguage();
   const { me, reload } = useAuth();
   const tenantConfig = useTenantStore((s) => s.config);
+  const clearTenant  = useTenantStore((s) => s.clearTenant);
   const orgMember    = useRegistrationStore((s) => s.orgMember);
   const registrationPath  = useRegistrationStore((s) => s.registrationPath);
 
   // ── Image preloader ───────────────────────────────────────────────────────
   const { loaded: imagesLoaded, failed: failedImages } = useImagePreloader(FLOW_IMAGES);
+
+  // Fresh stories run -> allow the end-of-registration navigation to fire once.
+  useEffect(() => { resetRegistrationFinish(); }, []);
 
   // ── URL-driven org context ────────────────────────────────────────────────
   // The org now comes from the URL (?tenant=X) / membership, not a picker.
@@ -105,34 +110,72 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
     membership?.tenantName ?? publicOrgName ?? tenantConfig?.name ?? orgMember?.organizationName ?? null;
 
   // ── "Continue with another organization" — opens the tenant-join discovery
-  //    sheet from inside the stories (the bottom-right white text link). The
-  //    picker also lists the user's own member orgs so they can jump straight
-  //    into one (enterOrg). submitJoin (shared) celebrates an auto-accepted
-  //    join or toasts a pending one.
+  //    sheet from inside the stories (the bottom-right white text link). Picking
+  //    an org here skips the rest of the promos and goes straight to the
+  //    questions with that org as the target (a member org lands directly; a new
+  //    org sends a join request when the questions start).
   const [showJoin, setShowJoin] = useState(false);
-  const { memberOrgs, enterOrg, submitJoin } = useStoryMemberOrgs();
+  // Shows a loading overlay while a join request resolves (network ~1s) so the
+  // user gets feedback between proceeding and the questions appearing.
+  const [joining, setJoining] = useState(false);
+  const { memberOrgs, submitJoin } = useStoryMemberOrgs();
 
-  // ── Whether this session has an org/tenant context ────────────────────────
-  // True when the registration store / tenant theme carries an org (the
-  // existing invited/pre-provisioned path) OR the URL tenant is one the
-  // logged-in user is a member of.
-  const isOrgFlow = Boolean(orgMember || tenantConfig || membership);
+  // ── The org the user will affiliate with ─────────────────────────────────
+  // A single "target" drives both the promo branding and the join that fires
+  // when the questions start (or the stories are closed):
+  //   - null            → no affiliation (Nexus / ecosystem catalog).
+  //   - { isMember:true}→ an EXISTING membership: just land on it, no request.
+  //   - { isMember:false}→ a NEW join: send the request when the questions begin.
+  // `chosenTarget === undefined` means the user has not overridden the default
+  // (the URL tenant for a non-member; otherwise none).
+  type Target = { tenantId: string; orgName: string | null; isMember: boolean } | null;
+  const [chosenTarget, setChosenTarget] = useState<Target | undefined>(undefined);
+  // Default target: a non-member who arrived via ?tenant=X is, by default, trying
+  // to join that tenant. Everyone else defaults to no affiliation.
+  const defaultTarget: Target =
+    isNonMember && urlTenantId
+      ? { tenantId: urlTenantId, orgName: resolvedOrgName, isMember: false }
+      : null;
+  const effectiveTarget: Target = chosenTarget !== undefined ? chosenTarget : defaultTarget;
+
+  // ── Match set (member-role orgs) shown on the match-screen ────────────────
+  // ?tenant=X member -> [that org]; no ?tenant -> all member orgs; else the
+  // invited/pre-provisioned org (so that path keeps its match-screen).
+  const matchOrgs: MemberOrgOption[] = urlTenantId
+    ? (membership
+        ? [{ tenantId: membership.tenantId, tenantName: membership.tenantName, logoUrl: membership.logoUrl }]
+        : [])
+    : memberOrgs.length > 0
+      ? memberOrgs
+      : (orgMember
+          ? [{ tenantId: orgMember.organizationId, tenantName: orgMember.organizationName, logoUrl: tenantConfig?.logo }]
+          : []);
+
+  // ── Whether this session has an org/tenant context (cosmetic: CTA bar
+  //    "powered by", progress bar). True when there is any match or invite. ──
+  const isOrgFlow = Boolean(orgMember || tenantConfig || membership || matchOrgs.length > 0);
 
   // ── Flow label for ?flow= URL param — tracks which onboarding path the user
   //    arrived on. Based on registrationPath at entry time, not mid-flow state.
   const flowLabel: 'new-user' | 'pre-provisioned' =
     registrationPath === 'org-member-incomplete' ? 'pre-provisioned' : 'new-user';
 
+  // ── Org name shown in the PROMO slides ────────────────────────────────────
+  // The promos are branded with the effective target's name: the URL tenant for
+  // a non-member, the org picked on the match-screen, or generic Nexus copy when
+  // there is no affiliation.
+  const promoOrgName = effectiveTarget?.orgName ?? null;
+
   // ── Resolved org passed to the welcome/match slides ───────────────────────
   // The slides accept an optional `org: OrgInfo | null` and fall back to the
   // tenant store / orgMember when null. When the org comes from the URL
   // (membership or public tenant) the store may be empty, so we synthesize a
-  // minimal OrgInfo from resolvedOrgName + urlTenantId to guarantee a name.
-  const resolvedOrgInfo: OrgInfo | null = resolvedOrgName
+  // minimal OrgInfo from promoOrgName + urlTenantId to guarantee a name.
+  const resolvedOrgInfo: OrgInfo | null = promoOrgName
     ? {
         id: urlTenantId ?? membership?.tenantId ?? 'org',
-        name: resolvedOrgName,
-        initials: resolvedOrgName.slice(0, 2).toUpperCase(),
+        name: promoOrgName,
+        initials: promoOrgName.slice(0, 2).toUpperCase(),
         color: tenantConfig?.primaryColor ?? '#635bff',
         available: true,
         tenantId: urlTenantId ?? membership?.tenantId,
@@ -141,17 +184,17 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
     : null;
 
   // ── Initial step list ─────────────────────────────────────────────────────
-  // Non-member (?tenant=X, not a member) → append the join-prompt branch.
-  // Org flow (member / pre-provisioned) → append the match-screen.
-  // Ecosystem new user → base steps only (CTA goes straight to onboarding).
+  // When we MATCH the user to one or more member orgs, the match-screen is the
+  // FIRST story: they choose their org / another org / no-affiliation up front,
+  // THEN the promo slides play (re-branded with the chosen org), then the
+  // questions. Every other case (non-member ?tenant=X, or no match) plays just
+  // the promos — branded with the target org — and the CTA goes to the
+  // questions, where the join (if any) is sent. There is no join-prompt screen.
   const baseSteps = flowType === 'new-user' ? newUserSteps : orgUserSteps;
-  const initialSteps = isNonMember
-    ? [...baseSteps, { id: 'join-prompt', interactive: true }]
-    : isOrgFlow
-      ? [...baseSteps, { id: 'match-screen', interactive: true }]
-      // No tenant context → a light "belong to an organization?" nudge before
-      // onboarding, with a "continue to Nexus catalog" skip.
-      : [...baseSteps, { id: 'discover-org', interactive: true }];
+  const hasMatch = !isNonMember && matchOrgs.length >= 1;
+  const initialSteps = hasMatch
+    ? [{ id: 'match-screen', interactive: true }, ...baseSteps]
+    : [...baseSteps];
 
   // ── If user pressed Back from onboarding/membership, restore match-screen ─
   // Also supports direct-linking via ?step=<stepId> so every slide has a URL.
@@ -191,53 +234,105 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
 
   // ── Slide callbacks ───────────────────────────────────────────────────────
 
-  const handleNewUserContinue = () => {
+  /**
+   * Commit the chosen affiliation. A matched member org needs NO request — it is
+   * already a membership, so we just record it and make it the default. A new
+   * join sends the request now and records 'joined' (auto-accept) or 'pending'.
+   * No target = no affiliation. Called when the questions start (so the final
+   * landing is instant) and when the stories are closed.
+   * @param target the org to affiliate with, or null for no affiliation.
+   */
+  const commitTarget = async (target: Target): Promise<void> => {
+    if (!target) {
+      setAffiliation({ kind: 'none' });
+      return;
+    }
+    if (target.isMember) {
+      setAffiliation({ kind: 'member', tenantId: target.tenantId, orgName: target.orgName ?? undefined });
+      try { await setDefaultTenant(target.tenantId); } catch { /* non-fatal */ }
+      return;
+    }
+    // New join — submitJoin records 'joined'/'pending'. On failure fall back to
+    // no affiliation so the user still lands on the Nexus catalog.
+    const ok = await submitJoin([target.tenantId]);
+    if (!ok) setAffiliation({ kind: 'none' });
+  };
+
+  /**
+   * Leave the promos for the onboarding questions. The join (if the target is a
+   * new join) is sent up front — with a brief loading overlay — so the
+   * end-of-questions transition to the org's catalog is instant.
+   * @param target the org to affiliate with (defaults to the effective target).
+   */
+  const proceedToQuestions = async (target: Target): Promise<void> => {
+    const needsNetwork = !!target && !target.isMember;
+    if (needsNetwork) setJoining(true);
+    try {
+      await commitTarget(target);
+    } finally {
+      if (needsNetwork) setJoining(false);
+    }
     const firstSlide = getFirstOnboardingSlide(useRegistrationStore.getState());
     navigate(`/${lang}/register/onboarding/${firstSlide}`);
   };
 
+  /** Advance from the match-screen (step 0) to the first promo slide. */
+  const advanceToPromos = (): void => {
+    const firstPromo = steps.findIndex((s) => s.id !== 'match-screen');
+    goTo(firstPromo === -1 ? 0 : firstPromo);
+  };
+
+  /** Match-screen: continue with an existing membership (no new join). */
+  const handleMatchContinue = (tenantId: string): void => {
+    const org = matchOrgs.find((o) => o.tenantId === tenantId);
+    setChosenTarget({ tenantId, orgName: org?.tenantName ?? null, isMember: true });
+    // Make it the default now so the promos brand correctly; commitTarget repeats
+    // this on the way to the questions (idempotent).
+    void setDefaultTenant(tenantId).catch(() => { /* non-fatal */ });
+    advanceToPromos();
+  };
+
+  /** Match-screen: continue with no organization affiliation (Nexus catalog). */
+  const handleMatchNoAffiliation = (): void => {
+    setChosenTarget(null);
+    clearTenant();
+    advanceToPromos();
+  };
+
   /**
-   * Close (X) the stories. Skipping onboarding still counts as "onboarded" so
-   * the user is not treated as new (shown the stories) on the next login. We
-   * stamp completedAt, end the registration session, refresh /api/me, then
-   * route to the post-login default landing (their tenant if a member - e.g.
-   * one they just auto-joined - otherwise the ecosystem catalog).
+   * Close (X) the stories — skip the questions. Skipping still counts as
+   * "onboarded" (we stamp completedAt) so the user is not shown the stories
+   * again. We still commit the chosen affiliation (send the join if the target
+   * is a new one), then route + fire the single welcome/pending toast.
    */
   const handleClose = async (): Promise<void> => {
+    setJoining(true);
     try {
+      await commitTarget(effectiveTarget);
       await saveWalletProfile({ complete: true });
     } catch (e) {
-      console.error('[wallet] mark onboarding complete on close failed (non-fatal):', e);
+      console.error('[wallet] finalize on close failed (non-fatal):', e);
+    } finally {
+      setJoining(false);
     }
     useRegistrationStore.getState().completeRegistration();
-    const updated = await reload();
-    const target = updated
-      ? nextPathAfterLogin({ lang, urlTenantId, me: updated })
-      : `/${lang}/store?ecosystem=1`;
-    navigate(target, { replace: true });
+    await reload();
+    finishWalletRegistration({ navigate, lang, t });
   };
 
   // ── Progress bar segment computation ─────────────────────────────────────
   const isMatchScreenActive = steps[current]?.id === 'match-screen';
   let barSegments: Array<{ key: string; isDone: boolean; isActive: boolean }>;
 
-  if (isOrgFlow && isMatchScreenActive) {
+  if (isMatchScreenActive) {
     const onboardingTotal = getOnboardingTotalWithComplete(useRegistrationStore.getState()) + 1;
     barSegments = Array.from({ length: onboardingTotal }, (_, i) => ({
       key: `bar-${i}`,
       isDone:   false,
       isActive: i === 0,
     }));
-  } else if (isOrgFlow) {
-    const barSteps   = steps.filter(s => s.id !== 'match-screen' && s.id !== 'join-prompt');
-    const barCurrent = barSteps.findIndex(s => s.id === steps[current]?.id);
-    barSegments = barSteps.map((step, i) => ({
-      key:      step.id,
-      isDone:   i < barCurrent,
-      isActive: i === barCurrent,
-    }));
   } else {
-    const barSteps   = steps.filter(s => s.id !== 'join-prompt');
+    const barSteps   = steps.filter(s => s.id !== 'match-screen' && s.id !== 'join-prompt');
     const barCurrent = barSteps.findIndex(s => s.id === steps[current]?.id);
     barSegments = barSteps.map((step, i) => ({
       key:      step.id,
@@ -250,7 +345,7 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
   const orgColor = tenantConfig?.primaryColor ?? '#635bff';
 
   // ── Slides that own their own bottom UI (no CTA bar overlay) ─────────────
-  const noCTASlides = ['match-screen', 'join-prompt', 'discover-org'];
+  const noCTASlides = ['match-screen'];
 
   // ─────────────────────────────────────────────────────────────────────────
   return (
@@ -297,7 +392,7 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
               transition={{ duration: 0.3, ease: [0.25, 0.46, 0.45, 0.94] }}
               className="absolute inset-0"
             >
-              {steps[current]?.id === 'nexus-hero'  && <SlideNexusHero failedImages={failedImages} orgName={resolvedOrgName} />}
+              {steps[current]?.id === 'nexus-hero'  && <SlideNexusHero failedImages={failedImages} orgName={promoOrgName} />}
               {steps[current]?.id === 'welcome-org' && <SlideWelcomeOrg org={resolvedOrgInfo} />}
               {steps[current]?.id === 'story-insights'    && (
                 <div className="w-full h-full flex flex-col items-center justify-center px-6 relative overflow-hidden" style={{ backgroundColor: 'var(--color-surface)' }} dir="rtl">
@@ -307,19 +402,13 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
               {steps[current]?.id === 'story-gift-cards'  && <GiftCardsPage />}
               {steps[current]?.id === 'story-wallet'      && <WalletCardsPage />}
               {steps[current]?.id === 'story-nearby'      && <NearbyMapPage />}
-              {steps[current]?.id === 'match-screen'      && <SlideMatchScreen />}
-              {steps[current]?.id === 'join-prompt'       && (
-                <SlideJoinPrompt
-                  tenantId={urlTenantId}
-                  orgName={resolvedOrgName}
-                  orgColor={orgColor}
-                  orgLogo={tenantConfig?.logo}
-                  mode="new"
-                  onResolve={() => handleNewUserContinue()}
+              {steps[current]?.id === 'match-screen'      && (
+                <SlideMatchScreen
+                  orgs={matchOrgs}
+                  onContinueWith={handleMatchContinue}
+                  onContinueNoAffiliation={handleMatchNoAffiliation}
+                  onJoinOther={() => setShowJoin(true)}
                 />
-              )}
-              {steps[current]?.id === 'discover-org'       && (
-                <SlideDiscoverOrg onResolve={() => handleNewUserContinue()} />
               )}
             </motion.div>
           )}
@@ -335,8 +424,11 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
             setCurrent={setCurrent}
             goTo={goTo}
             orgColor={orgColor}
-            onNewUserContinue={handleNewUserContinue}
+            onNewUserContinue={() => { void proceedToQuestions(effectiveTarget); }}
             onJoinOtherOrg={() => setShowJoin(true)}
+            /* The match-screen is always behind us when the CTA shows, so the
+               primary CTA always goes to the questions (never back to it). */
+            skipToQuestions
           />
         )}
       </div>
@@ -346,10 +438,28 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
       {showJoin && (
         <TenantDiscoverySheet
           onClose={() => setShowJoin(false)}
-          onSubmit={(ids) => { setShowJoin(false); void submitJoin(ids); }}
+          onSubmit={(ids) => {
+            setShowJoin(false);
+            // Picking another org via the link skips the rest of the promos and
+            // goes straight to the questions with that org as the target.
+            if (ids.length > 0) {
+              void proceedToQuestions({ tenantId: ids[0]!, orgName: null, isMember: false });
+            }
+          }}
           memberOrgs={memberOrgs}
-          onPickMember={(id) => { void enterOrg(id); }}
+          onPickMember={(id) => {
+            setShowJoin(false);
+            const org = (me?.memberships ?? []).find((m) => m.tenantId === id);
+            void proceedToQuestions({ tenantId: id, orgName: org?.tenantName ?? null, isMember: true });
+          }}
         />
+      )}
+
+      {/* Loading overlay while a join request resolves (network ~1s). */}
+      {joining && (
+        <div className="absolute inset-0 z-[300] flex items-center justify-center bg-black/55 backdrop-blur-sm">
+          <div className="h-10 w-10 rounded-full border-[3px] border-white/30 border-t-white animate-spin" />
+        </div>
       )}
     </div>
   );

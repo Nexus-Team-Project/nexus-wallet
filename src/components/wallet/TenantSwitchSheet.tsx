@@ -5,21 +5,22 @@
  * avatar (it replaces the old top-left WalletTenantSwitcher pill and the mock
  * TenantSheet).
  *
- * Switching only updates the ?tenant / ?ecosystem URL state - it does not
- * persist a default landing (that is DefaultTenantSheet's job). Styled like the
- * other wallet bottom sheets (DefaultTenantSheet / LoginSheet): mobile =
+ * Switching updates the ?tenant / ?ecosystem URL state AND persists the choice
+ * as the member's default landing context (so the next visit reopens on it) —
+ * this is the single place a default is chosen now; the old DefaultTenantSheet
+ * was removed. Styled like the other wallet bottom sheets (LoginSheet): mobile =
  * bottom-anchored sheet, desktop (lg+) = centered modal. Portaled to <body> so
  * the fixed sheet escapes the sticky TopBar stacking context.
  */
 import { motion, AnimatePresence } from 'framer-motion';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { toast } from 'sonner';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { useAuthGate } from '../../hooks/useAuthGate';
-import { createJoinRequests } from '../../services/walletTenants.service';
+import { createJoinRequests, listMyJoinRequests, setDefaultTenant } from '../../services/walletTenants.service';
 import TenantDiscoverySheet from './TenantDiscoverySheet';
 
 interface TenantSwitchSheetProps {
@@ -57,7 +58,7 @@ export default function TenantSwitchSheet({ onClose }: TenantSwitchSheetProps) {
   const isHe = language === 'he';
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { requireAuth } = useAuthGate();
+  const { isAuthenticated, requireAuth } = useAuthGate();
   const dragY = useRef(0);
   const [showJoin, setShowJoin] = useState(false);
 
@@ -67,13 +68,39 @@ export default function TenantSwitchSheet({ onClose }: TenantSwitchSheetProps) {
   const isEcosystem = searchParams.get('ecosystem') === '1';
   const activeTenantId = !isEcosystem ? searchParams.get('tenant') : null;
 
+  // Orgs the user has a PENDING join request for — shown badged + non-clickable
+  // (can't switch into an org you haven't joined yet). Excludes orgs already a
+  // member of (those are in the switchable list).
+  const [pendingOrgs, setPendingOrgs] = useState<Array<{ tenantId: string; tenantName: string }>>([]);
+  useEffect(() => {
+    let active = true;
+    listMyJoinRequests()
+      .then((reqs) => {
+        if (!active) return;
+        const memberIds = new Set(memberships.map((m) => m.tenantId));
+        setPendingOrgs(
+          reqs
+            .filter((r) => r.status === 'pending' && !memberIds.has(r.tenantId))
+            .map((r) => ({ tenantId: r.tenantId, tenantName: r.tenantName ?? r.tenantId })),
+        );
+      })
+      .catch((e) => console.error('[wallet] load pending join requests failed:', e));
+    return () => { active = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Options: each org the user belongs to, plus the Nexus catalog (tenantId null).
   const options: Array<{ key: string; label: string; tenantId: string | null; logoUrl?: string }> = [
     ...memberships.map((m) => ({ key: m.tenantId, label: m.tenantName, tenantId: m.tenantId, logoUrl: m.logoUrl })),
     { key: 'ecosystem', label: isHe ? 'קטלוג Nexus' : 'Nexus catalog', tenantId: null },
   ];
 
-  /** Switch the current view. tenantId null -> the Nexus (ecosystem) catalog. */
+  /**
+   * Switch the current view. tenantId null -> the Nexus (ecosystem) catalog.
+   * Picking here also persists the choice as the member's DEFAULT landing
+   * context, so the next visit (with no ?tenant in the URL) reopens on it —
+   * this replaces the removed "default view on login" menu entry.
+   */
   const pick = (tenantId: string | null): void => {
     const next = new URLSearchParams(searchParams);
     if (tenantId) {
@@ -83,14 +110,24 @@ export default function TenantSwitchSheet({ onClose }: TenantSwitchSheetProps) {
       next.set('ecosystem', '1');
       next.delete('tenant');
     }
+    // Persist as the default landing context. Fire-and-forget: a failure here
+    // must not block the view switch (the URL change is the user-visible part).
+    void setDefaultTenant(tenantId).catch((e) =>
+      console.error('[wallet-switch] persist default tenant failed (non-fatal):', e),
+    );
     navigate({ search: next.toString() }, { replace: true });
     onClose();
   };
 
-  /** Open the join picker (gated: anonymous visitors are asked to log in first). */
-  const openJoin = async (): Promise<void> => {
-    const authed = await requireAuth({ promptMessage: t.auth.genericPrompt });
-    if (authed) setShowJoin(true);
+  /** Open the join picker. Anonymous visitors must log in first — close this
+   *  sheet so the login sheet isn't stuck behind it. */
+  const openJoin = (): void => {
+    if (!isAuthenticated) {
+      onClose();
+      void requireAuth({ promptMessage: t.auth.genericPrompt });
+      return;
+    }
+    setShowJoin(true);
   };
 
   /**
@@ -101,8 +138,10 @@ export default function TenantSwitchSheet({ onClose }: TenantSwitchSheetProps) {
    * @param ids selected tenantIds (single-select picker -> length 0 or 1).
    */
   const submitJoin = async (ids: string[]): Promise<void> => {
-    setShowJoin(false);
     if (ids.length === 0) return;
+    // Close the whole sheet immediately so it doesn't flash back to the switch
+    // list between the picker closing and the result. The join runs after.
+    onClose();
     try {
       const result = await createJoinRequests(ids);
 
@@ -113,7 +152,14 @@ export default function TenantSwitchSheet({ onClose }: TenantSwitchSheetProps) {
         const updated = await reload();
         const name = (updated?.memberships ?? []).find((m) => m.tenantId === tid)?.tenantName;
         toast.success(isHe ? `הצטרפת ל${name ?? 'הארגון'}!` : `You joined ${name ?? 'the organization'}!`);
-        pick(tid); // switch into the joined org + close
+        // Switch into the joined org and make it the default landing context.
+        void setDefaultTenant(tid).catch((e) =>
+          console.error('[wallet-switch] persist default tenant failed (non-fatal):', e),
+        );
+        const next = new URLSearchParams(searchParams);
+        next.set('tenant', tid);
+        next.delete('ecosystem');
+        navigate({ search: next.toString() }, { replace: true });
         return;
       }
 
@@ -222,6 +268,28 @@ export default function TenantSwitchSheet({ onClose }: TenantSwitchSheetProps) {
                 </motion.button>
               );
             })}
+
+            {/* Pending-approval orgs — non-clickable, badged. */}
+            {pendingOrgs.map((org) => (
+              <div
+                key={`pending-${org.tenantId}`}
+                className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-start sm:gap-4 sm:px-5 sm:py-4"
+                style={{ background: '#fff', border: '2px solid #ebebf0', opacity: 0.75 }}
+              >
+                <div
+                  className="flex h-9 w-9 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg text-xs font-bold text-white sm:h-11 sm:w-11 sm:text-sm"
+                  style={{ background: colorFor(org.tenantName) }}
+                >
+                  {deriveInitials(org.tenantName)}
+                </div>
+                <span className="flex-1 text-sm font-semibold sm:text-base" style={{ color: 'var(--color-text-primary)' }}>
+                  {org.tenantName}
+                </span>
+                <span className="flex-shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
+                  {t.authFlow.pendingApprovalBadge}
+                </span>
+              </div>
+            ))}
           </div>
         </div>
 

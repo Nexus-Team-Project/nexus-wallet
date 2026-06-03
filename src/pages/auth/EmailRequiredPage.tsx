@@ -28,7 +28,11 @@ export default function EmailRequiredPage() {
     setErr('');
     try {
       await walletStartEmailOtp(email.trim().toLowerCase());
-      navigate(`/${lang}/auth/email-otp?email=${encodeURIComponent(email)}`);
+      // Carry the originating ?tenant=X through so the post-login routing on the
+      // OTP page can land the new user in that org's stories (not the ecosystem).
+      const tenant = params.get('tenant');
+      const tenantSuffix = tenant ? `&tenant=${encodeURIComponent(tenant)}` : '';
+      navigate(`/${lang}/auth/email-otp?email=${encodeURIComponent(email)}${tenantSuffix}`);
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'unknown');
     } finally {

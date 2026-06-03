@@ -9,7 +9,7 @@
  * Instead we mark the profile complete, clear the registration session, and
  * navigate straight back to home.
  */
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useRegistrationStore } from '../../stores/registrationStore';
@@ -19,11 +19,14 @@ import { getOnboardingTotalWithComplete } from '../../utils/onboardingNavigation
 import { PremiumRevealContent } from '../PremiumRevealPage';
 import { saveWalletProfile, saveMarketingConsent, type WalletProfilePatch } from '../../services/walletProfile.service';
 import { useAuth } from '../../contexts/AuthContext';
-import { consumePostLoginReturn } from '../../lib/postLogin';
+import { useLanguage } from '../../i18n/LanguageContext';
+import { consumePostLoginReturn, isCatalogReturn } from '../../lib/postLogin';
+import { finishWalletRegistration, setRegistrationCompleting } from '../../lib/registrationAffiliation';
 
 export default function RegistrationCompletePage() {
   const { lang = 'he' } = useParams();
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const returnTo             = useRegistrationStore((s) => s.returnTo);
   const completeRegistration = useRegistrationStore((s) => s.completeRegistration);
   const setProfileCompleted  = useAuthStore((s) => s.setProfileCompleted);
@@ -34,6 +37,12 @@ export default function RegistrationCompletePage() {
   const [pathOnMount] = useState(
     () => useRegistrationStore.getState().registrationPath,
   );
+
+  // finish() is wired to BOTH the X button and the reveal's onReveal, so it can
+  // fire twice. The first call consumes the affiliation stash and navigates; a
+  // second call would read an empty stash and re-navigate to the ecosystem
+  // catalog, clobbering the joined-org landing. Guard it to run exactly once.
+  const finishedRef = useRef(false);
 
   // Snapshot total ONCE at mount — avoids the bar shrinking when
   // completeRegistration() fires (which clears isOrgFlow/orgMember) right
@@ -89,6 +98,8 @@ export default function RegistrationCompletePage() {
    * Plan #3: replaces the legacy navigate-to-home behavior.
    */
   const finish = async () => {
+    if (finishedRef.current) return;
+    finishedRef.current = true;
     setProfileCompleted(true);
 
     try {
@@ -114,11 +125,19 @@ export default function RegistrationCompletePage() {
       console.error('[registration-complete] profile save failed:', err);
     }
 
-    completeRegistration();
-    // End of new-user onboarding: honor a stashed gated-action return if one
-    // was set when login popped, otherwise land on the ecosystem catalog.
+    // End of new-user onboarding: route + fire the single welcome toast from
+    // the affiliation chosen during the stories (joined / pending / member /
+    // none). A stashed gated-action return wins ONLY when it points at a
+    // specific page; a bare catalog/front-door stash (e.g. the "Log in" front
+    // door) must NOT override landing on the joined org's catalog.
     const ret = consumePostLoginReturn();
-    navigate(ret ?? `/${lang}/store?ecosystem=1`, { replace: true });
+    const actionableRet = ret && !isCatalogReturn(ret) ? ret : undefined;
+    // Mark the completion in flight so RegistrationGuard does NOT redirect to
+    // /:lang (-> ecosystem) when completeRegistration() flips isRegistering off
+    // while the transition to the joined org's catalog is still committing.
+    setRegistrationCompleting(true);
+    completeRegistration();
+    finishWalletRegistration({ navigate, lang, t, overridePath: actionableRet });
   };
 
   return (

@@ -490,6 +490,15 @@ export interface TranslationKeys {
     matchContinueWithOrg: string;
     matchContinueNoOrg: string;
     matchSwitchAccount: string;
+    // Memberships-driven match + silent-join flow (2026-06-03)
+    matchTitleSingle: string;
+    matchTitleMultiple: string;
+    matchContinue: string;
+    matchContinueNoAffiliation: string;
+    joinOtherLink: string;
+    welcomeJoinedToast: string;
+    welcomePendingToast: string;
+    pendingApprovalBadge: string;
   };
   category: {
     location: string;

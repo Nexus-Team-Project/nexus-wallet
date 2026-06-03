@@ -76,18 +76,28 @@ export default function SlideJoinPrompt({
   const displayName = orgName ?? 'הארגון';
   const initials = (orgName ?? 'N').trim().slice(0, 2).toUpperCase();
 
-  /** Send a join request, toast the outcome (joined vs pending), then resolve. */
+  /**
+   * Send a join request and continue.
+   * - mode 'new' (inside the stories): SILENT — record the affiliation (via
+   *   submitJoin) and continue to the questions; the single welcome toast fires
+   *   at the end of registration.
+   * - mode 'returning' (standalone): toast the outcome immediately, then resolve.
+   */
   const requestJoin = async (ids: string[]): Promise<void> => {
     if (ids.length === 0) return;
     setSubmitting(true);
     try {
-      const result = await createJoinRequests(ids);
-      joinResultToast(result, isHe);
+      if (mode === 'new') {
+        await submitJoin(ids);
+      } else {
+        const result = await createJoinRequests(ids);
+        joinResultToast(result, isHe);
+      }
       onResolve({ joinedRequested: true });
     } catch (e) {
-      console.error('[wallet-join] createJoinRequests failed:', e);
-      toast.error(isHe ? 'שליחת הבקשה נכשלה' : 'Could not send request');
-      onResolve({ joinedRequested: false });
+      console.error('[wallet-join] join from prompt failed:', e);
+      if (mode !== 'new') toast.error(isHe ? 'שליחת הבקשה נכשלה' : 'Could not send request');
+      onResolve({ joinedRequested: mode === 'new' });
     } finally {
       setSubmitting(false);
     }
@@ -193,15 +203,17 @@ export default function SlideJoinPrompt({
       {showDiscovery && (
         <TenantDiscoverySheet
           onClose={() => setShowDiscovery(false)}
-          onSubmit={async (ids) => {
+          onSubmit={(ids) => {
             setShowDiscovery(false);
-            // Auto-accepted -> the hook navigates to the celebration screen.
-            // Pending/empty -> toast handled by the hook, then continue onboarding.
-            const navigated = await submitJoin(ids);
-            if (!navigated) onResolve({ joinedRequested: true });
+            void requestJoin(ids);
           }}
-          memberOrgs={memberOrgs}
-          onPickMember={(id) => { void enterOrg(id); }}
+          // Member orgs are only offered inside the stories (silent stash).
+          memberOrgs={mode === 'new' ? memberOrgs : undefined}
+          onPickMember={
+            mode === 'new'
+              ? (id) => { setShowDiscovery(false); void enterOrg(id).then(() => onResolve({ joinedRequested: true })); }
+              : undefined
+          }
         />
       )}
     </div>

@@ -112,7 +112,7 @@ export function resolvePostLogin(ctx: PostLoginContext): PostLoginDecision {
  * the default-tenant landing. Specific pages (an offer, the wallet) are NOT
  * matched, so a genuine action return is still honored.
  */
-function isCatalogReturn(path: string): boolean {
+export function isCatalogReturn(path: string): boolean {
   return (
     /^\/[a-z]{2}\/?(\?.*)?$/.test(path) ||
     /^\/[a-z]{2}\/store\/?(\?.*)?$/.test(path)
