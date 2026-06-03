@@ -17,7 +17,7 @@ import { useLanguage } from '../../i18n/LanguageContext';
 import { fetchPublicTenant } from '../../services/publicTenant.service';
 import { saveWalletProfile } from '../../services/walletProfile.service';
 import { setDefaultTenant } from '../../services/walletTenants.service';
-import { setAffiliation, finishWalletRegistration, resetRegistrationFinish } from '../../lib/registrationAffiliation';
+import { setAffiliation, getAffiliation, finishWalletRegistration, resetRegistrationFinish } from '../../lib/registrationAffiliation';
 import { useImagePreloader } from '../../hooks/useImagePreloader';
 import { SmartInsightsCarousel } from '../InsightsPage';
 import GiftCardsPage from '../GiftCardsPage';
@@ -116,9 +116,15 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
   //    into one (enterOrg). submitJoin (shared) celebrates an auto-accepted
   //    join or toasts a pending one.
   const [showJoin, setShowJoin] = useState(false);
-  // True once the user has actively chosen an org via the bottom link this
-  // session — then "קליק להמשך" skips the match-screen and goes to questions.
+  // True once the user has made their org decision (on the match-screen or via
+  // the bottom link) — then "קליק להמשך" at the end of the promos goes straight
+  // to the questions (rather than back to the match-screen).
   const [linkChosen, setLinkChosen] = useState(false);
+  // The org the user chose to continue with (match-screen pick or a bottom-link
+  // join). null = no affiliation. Once set, the promo slides re-brand to mention
+  // this org instead of the generic Nexus copy.
+  const [chosenOrgName, setChosenOrgName] = useState<string | null>(null);
+  const [chosenDecided, setChosenDecided] = useState(false);
   // Shows a loading overlay while a join request resolves (network ~1s) so the
   // user gets feedback between picking an org and the questions appearing.
   const [joining, setJoining] = useState(false);
@@ -146,16 +152,22 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
   const flowLabel: 'new-user' | 'pre-provisioned' =
     registrationPath === 'org-member-incomplete' ? 'pre-provisioned' : 'new-user';
 
+  // ── Org name shown in the PROMO slides ────────────────────────────────────
+  // Once the user has made their match-screen decision, the promos re-brand to
+  // the chosen org (or generic Nexus copy when they chose no affiliation).
+  // Before any decision, fall back to the URL/invite-resolved name.
+  const promoOrgName = chosenDecided ? chosenOrgName : resolvedOrgName;
+
   // ── Resolved org passed to the welcome/match slides ───────────────────────
   // The slides accept an optional `org: OrgInfo | null` and fall back to the
   // tenant store / orgMember when null. When the org comes from the URL
   // (membership or public tenant) the store may be empty, so we synthesize a
-  // minimal OrgInfo from resolvedOrgName + urlTenantId to guarantee a name.
-  const resolvedOrgInfo: OrgInfo | null = resolvedOrgName
+  // minimal OrgInfo from promoOrgName + urlTenantId to guarantee a name.
+  const resolvedOrgInfo: OrgInfo | null = promoOrgName
     ? {
         id: urlTenantId ?? membership?.tenantId ?? 'org',
-        name: resolvedOrgName,
-        initials: resolvedOrgName.slice(0, 2).toUpperCase(),
+        name: promoOrgName,
+        initials: promoOrgName.slice(0, 2).toUpperCase(),
         color: tenantConfig?.primaryColor ?? '#635bff',
         available: true,
         tenantId: urlTenantId ?? membership?.tenantId,
@@ -165,14 +177,14 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
 
   // ── Initial step list ─────────────────────────────────────────────────────
   // When we MATCH the user to one or more member orgs, the match-screen is the
-  // FIRST (and only) story — they choose their org / no-affiliation up front,
-  // then go to the questions; the promo slides are skipped. Non-member ?tenant=X
-  // still plays the promos then the join-prompt. No match -> just the promos
-  // (CTA goes straight to the questions).
+  // FIRST story: they choose their org / another org / no-affiliation up front,
+  // THEN the promo slides play (re-branded with the chosen org), then the
+  // questions. Non-member ?tenant=X plays the promos then the join-prompt. No
+  // match -> just the promos (CTA goes straight to the questions).
   const baseSteps = flowType === 'new-user' ? newUserSteps : orgUserSteps;
   const hasMatch = !isNonMember && matchOrgs.length >= 1;
   const initialSteps = hasMatch
-    ? [{ id: 'match-screen', interactive: true }]
+    ? [{ id: 'match-screen', interactive: true }, ...baseSteps]
     : isNonMember
       ? [...baseSteps, { id: 'join-prompt', interactive: true }]
       : [...baseSteps];
@@ -220,19 +232,51 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
     navigate(`/${lang}/register/onboarding/${firstSlide}`);
   };
 
+  /**
+   * After the match-screen decision: record the chosen org name (so the promos
+   * re-brand to it), flag the decision as made (so the promos' "קליק להמשך" goes
+   * to the questions, not back to the match-screen), and advance to the promos.
+   * @param orgName the chosen org's name, or null for no affiliation.
+   */
+  const proceedAfterMatch = (orgName: string | null): void => {
+    setChosenOrgName(orgName);
+    setChosenDecided(true);
+    setLinkChosen(true);
+    // Advance from the match-screen (step 0) to the first promo slide.
+    const firstPromo = steps.findIndex((s) => s.id !== 'match-screen');
+    goTo(firstPromo === -1 ? 0 : firstPromo);
+  };
+
   /** Match-screen: continue with an existing membership (no new join). */
   const handleMatchContinue = (tenantId: string): void => {
     const org = matchOrgs.find((o) => o.tenantId === tenantId);
     setAffiliation({ kind: 'member', tenantId, orgName: org?.tenantName });
     void setDefaultTenant(tenantId).catch(() => { /* non-fatal */ });
-    handleNewUserContinue();
+    proceedAfterMatch(org?.tenantName ?? null);
   };
 
   /** Match-screen: continue with no organization affiliation (Nexus catalog). */
   const handleMatchNoAffiliation = (): void => {
     setAffiliation({ kind: 'none' });
     clearTenant();
-    handleNewUserContinue();
+    proceedAfterMatch(null);
+  };
+
+  /**
+   * After a join chosen via the bottom "another organization" link (submitJoin
+   * / enterOrg already recorded the affiliation). Re-brand the promos to the
+   * joined org. From the match-screen this also advances into the promos; from
+   * a promo it just re-brands and stays (the promos continue to the questions).
+   */
+  const handleLinkJoin = (): void => {
+    const orgName = getAffiliation()?.orgName ?? null;
+    if (steps[current]?.id === 'match-screen') {
+      proceedAfterMatch(orgName);
+    } else {
+      setChosenOrgName(orgName);
+      setChosenDecided(true);
+      setLinkChosen(true);
+    }
   };
 
   /**
@@ -324,7 +368,7 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
               transition={{ duration: 0.3, ease: [0.25, 0.46, 0.45, 0.94] }}
               className="absolute inset-0"
             >
-              {steps[current]?.id === 'nexus-hero'  && <SlideNexusHero failedImages={failedImages} orgName={resolvedOrgName} />}
+              {steps[current]?.id === 'nexus-hero'  && <SlideNexusHero failedImages={failedImages} orgName={promoOrgName} />}
               {steps[current]?.id === 'welcome-org' && <SlideWelcomeOrg org={resolvedOrgInfo} />}
               {steps[current]?.id === 'story-insights'    && (
                 <div className="w-full h-full flex flex-col items-center justify-center px-6 relative overflow-hidden" style={{ backgroundColor: 'var(--color-surface)' }} dir="rtl">
@@ -380,19 +424,18 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
           onClose={() => setShowJoin(false)}
           onSubmit={async (ids) => {
             setShowJoin(false);
-            // Silent join: records the affiliation. Choosing an org via the link
-            // is the user's decision -> proceed straight to the questions (works
-            // from any slide, incl. the match-screen which has no "קליק להמשך").
+            // Silent join: records the affiliation. Re-brand the promos to the
+            // chosen org (and advance into them from the match-screen).
             setJoining(true);
             const chosen = await submitJoin(ids);
             setJoining(false);
-            if (chosen) { setLinkChosen(true); handleNewUserContinue(); }
+            if (chosen) handleLinkJoin();
           }}
           memberOrgs={memberOrgs}
           onPickMember={(id) => {
             setShowJoin(false);
             setJoining(true);
-            void enterOrg(id).then(() => { setJoining(false); setLinkChosen(true); handleNewUserContinue(); });
+            void enterOrg(id).then(() => { setJoining(false); handleLinkJoin(); });
           }}
         />
       )}
