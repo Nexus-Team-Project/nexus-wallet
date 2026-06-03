@@ -3,6 +3,7 @@ import { Outlet, useNavigate, useSearchParams } from 'react-router-dom';
 import { LanguageProvider } from '../i18n/LanguageContext';
 import AppToaster from '../components/AppToaster';
 import LoginSheet from '../components/auth/LoginSheet';
+import { useAuth } from '../contexts/AuthContext';
 import { useTenantStore } from '../stores/tenantStore';
 import { lookupTenant } from '../mock/handlers/tenant.handler';
 import { fetchPublicTenant } from '../services/publicTenant.service';
@@ -50,6 +51,7 @@ function darkenColor(hex: string, percent: number): string {
 export default function LanguageRouter() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const { me } = useAuth();
   const { tenantId, config, setTenant, clearTenant } = useTenantStore();
 
   // Public-by-default: anonymous visitors may load any route. There is no
@@ -72,18 +74,31 @@ export default function LanguageRouter() {
       if (tenantConfig) {
         setTenant(tenantSlug, tenantConfig);
       } else {
-        // Not a known mock tenant - resolve the REAL org name/logo from the
-        // public endpoint so anonymous ?tenant=X links still brand correctly.
-        // 404 (no such tenant / catalog not active) -> clear to Nexus.
-        fetchPublicTenant(tenantSlug)
-          .then((info) => {
-            if (info) {
-              setTenant(tenantSlug, buildPublicTenantConfig(tenantSlug, info));
-            } else {
-              clearTenant();
-            }
-          })
-          .catch(() => clearTenant());
+        // Prefer the user's own membership (name + logo) — a member tenant that
+        // is not publicly listed still brands correctly, and we skip the public
+        // endpoint, which 404s for tenants without an active public catalog.
+        const membership = (me?.memberships ?? []).find((m) => m.tenantId === tenantSlug);
+        if (membership) {
+          setTenant(
+            tenantSlug,
+            buildPublicTenantConfig(tenantSlug, {
+              organizationName: membership.tenantName,
+              logoUrl: membership.logoUrl,
+            }),
+          );
+        } else {
+          // Non-member ?tenant=X (anonymous branding) -> public endpoint.
+          // 404 (no such tenant / catalog not active) -> clear to Nexus.
+          fetchPublicTenant(tenantSlug)
+            .then((info) => {
+              if (info) {
+                setTenant(tenantSlug, buildPublicTenantConfig(tenantSlug, info));
+              } else {
+                clearTenant();
+              }
+            })
+            .catch(() => clearTenant());
+        }
       }
     } else if (tenantId) {
       // Tenant is active but missing from URL → restore it silently
@@ -105,8 +120,10 @@ export default function LanguageRouter() {
     // causes the URL to immediately revert.  The else-if branch reads tenantId
     // from the closure of whichever render triggered the effect (always the
     // render caused by a searchParams change), so the value is always correct.
+    // `me` is included so the tenant re-resolves once /api/me loads (e.g. a
+    // refresh on a ?tenant=X member view) and brands from the membership.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams, setTenant, clearTenant, navigate]);
+  }, [searchParams, setTenant, clearTenant, navigate, me]);
 
   // Inject tenant CSS variable overrides
   const tenantStyle = config
