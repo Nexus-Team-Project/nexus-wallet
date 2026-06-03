@@ -10,7 +10,6 @@
  * navigate straight back to home.
  */
 import { useEffect, useRef, useState } from 'react';
-import { flushSync } from 'react-dom';
 import { useNavigate, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useRegistrationStore } from '../../stores/registrationStore';
@@ -22,7 +21,7 @@ import { saveWalletProfile, saveMarketingConsent, type WalletProfilePatch } from
 import { useAuth } from '../../contexts/AuthContext';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { consumePostLoginReturn, isCatalogReturn } from '../../lib/postLogin';
-import { finishWalletRegistration } from '../../lib/registrationAffiliation';
+import { finishWalletRegistration, setRegistrationCompleting } from '../../lib/registrationAffiliation';
 
 export default function RegistrationCompletePage() {
   const { lang = 'he' } = useParams();
@@ -133,15 +132,12 @@ export default function RegistrationCompletePage() {
     // door) must NOT override landing on the joined org's catalog.
     const ret = consumePostLoginReturn();
     const actionableRet = ret && !isCatalogReturn(ret) ? ret : undefined;
-    // Commit the navigation SYNCHRONOUSLY so we leave /register BEFORE
-    // completeRegistration() flips isRegistering=false. Otherwise
-    // RegistrationGuard (still mounted on /register/complete) renders a
-    // <Navigate to="/:lang"> -> IndexRoute -> /store?ecosystem=1 that fires
-    // afterward and clobbers the joined-org landing.
-    flushSync(() => {
-      finishWalletRegistration({ navigate, lang, t, overridePath: actionableRet });
-    });
+    // Mark the completion in flight so RegistrationGuard does NOT redirect to
+    // /:lang (-> ecosystem) when completeRegistration() flips isRegistering off
+    // while the transition to the joined org's catalog is still committing.
+    setRegistrationCompleting(true);
     completeRegistration();
+    finishWalletRegistration({ navigate, lang, t, overridePath: actionableRet });
   };
 
   return (

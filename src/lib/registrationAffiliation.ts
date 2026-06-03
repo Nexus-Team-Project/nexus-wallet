@@ -40,9 +40,27 @@ const KEY = 'wallet_registration_affiliation';
 // (a ref does not) and is reset when a fresh registration's stories start.
 let registrationFinished = false;
 
-/** Reset the once-guard at the start of a new-user stories flow. */
+// True from the moment finish() begins routing to the destination until a new
+// stories run starts. While set, RegistrationGuard must NOT redirect to /:lang
+// even though completeRegistration() has flipped isRegistering=false — that
+// redirect (a render-time <Navigate>) would otherwise interrupt the in-flight
+// transition to the joined org's catalog and send the user to the ecosystem.
+let registrationCompleting = false;
+
+/** Reset the guards at the start of a new-user stories flow. */
 export function resetRegistrationFinish(): void {
   registrationFinished = false;
+  registrationCompleting = false;
+}
+
+/** Mark that the end-of-registration navigation is in flight. */
+export function setRegistrationCompleting(v: boolean): void {
+  registrationCompleting = v;
+}
+
+/** Whether a registration completion navigation is in flight. */
+export function isRegistrationCompleting(): boolean {
+  return registrationCompleting;
 }
 
 /** Record the chosen affiliation (overwrites any prior one this session). */
