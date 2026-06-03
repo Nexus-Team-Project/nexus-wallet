@@ -374,15 +374,16 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
           onClose={() => setShowJoin(false)}
           onSubmit={async (ids) => {
             setShowJoin(false);
-            // Silent join: records the affiliation; on success mark "chosen via
-            // link" so "קליק להמשך" skips the match-screen and goes to questions.
+            // Silent join: records the affiliation. Choosing an org via the link
+            // is the user's decision -> proceed straight to the questions (works
+            // from any slide, incl. the match-screen which has no "קליק להמשך").
             const chosen = await submitJoin(ids);
-            if (chosen) setLinkChosen(true);
+            if (chosen) { setLinkChosen(true); handleNewUserContinue(); }
           }}
           memberOrgs={memberOrgs}
           onPickMember={(id) => {
             setShowJoin(false);
-            void enterOrg(id).then(() => setLinkChosen(true));
+            void enterOrg(id).then(() => { setLinkChosen(true); handleNewUserContinue(); });
           }}
         />
       )}
