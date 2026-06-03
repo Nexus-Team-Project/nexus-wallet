@@ -1,5 +1,6 @@
 import type React from 'react';
 import type { StoryStep } from './types';
+import { StoryJoinOtherLink } from './StoryJoinOtherLink';
 
 interface StoryCTABarProps {
   isOrgFlow: boolean;
@@ -14,6 +15,9 @@ interface StoryCTABarProps {
   /** When provided, shows a "continue with another organization" text link
       under the primary CTA that opens the tenant-join discovery sheet. */
   onJoinOtherOrg?: () => void;
+  /** When true, the primary CTA goes straight to the questions (skips the
+      match-screen) — set after the user joined an org via the bottom link. */
+  skipToQuestions?: boolean;
 }
 
 export function StoryCTABar({
@@ -23,6 +27,7 @@ export function StoryCTABar({
   orgColor,
   onNewUserContinue,
   onJoinOtherOrg,
+  skipToQuestions = false,
 }: StoryCTABarProps) {
   return (
     <div className="absolute bottom-0 inset-x-0 z-30 pointer-events-none">
@@ -40,12 +45,16 @@ export function StoryCTABar({
           <button
             onClick={(e) => {
               e.stopPropagation();
-              // Jump to the terminal interactive slide if the chain has one:
-              // match-screen (org member), join-prompt (non-member of
-              // ?tenant=X), or discover-org (no-tenant new user). Otherwise go
-              // straight to onboarding.
+              // Already chose an org via the bottom link -> straight to questions.
+              if (skipToQuestions) {
+                onNewUserContinue();
+                return;
+              }
+              // Otherwise jump to the terminal interactive slide if the chain
+              // has one: match-screen (matched member) or join-prompt
+              // (non-member of ?tenant=X). Else go straight to onboarding.
               const targetIdx = steps.findIndex(
-                (s) => s.id === 'match-screen' || s.id === 'join-prompt' || s.id === 'discover-org',
+                (s) => s.id === 'match-screen' || s.id === 'join-prompt',
               );
               if (targetIdx !== -1) {
                 goTo(targetIdx);
@@ -64,16 +73,11 @@ export function StoryCTABar({
           </button>
         </div>
 
-        {/* Secondary: continue with another organization → opens the
-            tenant-join discovery sheet. Plain white text, bottom-right (RTL). */}
+        {/* Secondary: continue with another organization → opens the join
+            picker. Reusable link so the wording matches every other step. */}
         {onJoinOtherOrg && (
-          <div className="flex justify-start mt-2">
-            <button
-              onClick={(e) => { e.stopPropagation(); onJoinOtherOrg(); }}
-              className="text-white/90 text-xs font-medium active:scale-95"
-            >
-              רוצה להמשיך עם ארגון אחר? <span className="underline underline-offset-2">לחץ כאן</span>
-            </button>
+          <div className="mt-2">
+            <StoryJoinOtherLink onClick={onJoinOtherOrg} />
           </div>
         )}
 

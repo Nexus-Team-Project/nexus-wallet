@@ -13,17 +13,18 @@ import { useRegistrationStore } from '../../stores/registrationStore';
 import { getFirstOnboardingSlide, getOnboardingTotalWithComplete } from '../../utils/onboardingNavigation';
 import { useTenantStore } from '../../stores/tenantStore';
 import { useAuth } from '../../contexts/AuthContext';
+import { useLanguage } from '../../i18n/LanguageContext';
 import { fetchPublicTenant } from '../../services/publicTenant.service';
 import { saveWalletProfile } from '../../services/walletProfile.service';
-import { nextPathAfterLogin } from '../../lib/postLogin';
+import { setDefaultTenant } from '../../services/walletTenants.service';
+import { setAffiliation, finishWalletRegistration } from '../../lib/registrationAffiliation';
 import { useImagePreloader } from '../../hooks/useImagePreloader';
 import { SmartInsightsCarousel } from '../InsightsPage';
 import GiftCardsPage from '../GiftCardsPage';
 import WalletCardsPage from '../WalletCardsPage';
 import NearbyMapPage from '../NearbyMapPage';
 import SlideJoinPrompt from '../../components/auth-flow/SlideJoinPrompt';
-import SlideDiscoverOrg from '../../components/auth-flow/SlideDiscoverOrg';
-import TenantDiscoverySheet from '../../components/wallet/TenantDiscoverySheet';
+import TenantDiscoverySheet, { type MemberOrgOption } from '../../components/wallet/TenantDiscoverySheet';
 import { useStoryMemberOrgs } from '../../hooks/useStoryMemberOrgs';
 
 import {
@@ -62,8 +63,10 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
   const { lang = 'he' } = useParams();
   const navigate = useNavigate();
   const [sp] = useSearchParams();
+  const { t } = useLanguage();
   const { me, reload } = useAuth();
   const tenantConfig = useTenantStore((s) => s.config);
+  const clearTenant  = useTenantStore((s) => s.clearTenant);
   const orgMember    = useRegistrationStore((s) => s.orgMember);
   const registrationPath  = useRegistrationStore((s) => s.registrationPath);
 
@@ -110,13 +113,27 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
   //    into one (enterOrg). submitJoin (shared) celebrates an auto-accepted
   //    join or toasts a pending one.
   const [showJoin, setShowJoin] = useState(false);
+  // True once the user has actively chosen an org via the bottom link this
+  // session — then "קליק להמשך" skips the match-screen and goes to questions.
+  const [linkChosen, setLinkChosen] = useState(false);
   const { memberOrgs, enterOrg, submitJoin } = useStoryMemberOrgs();
 
-  // ── Whether this session has an org/tenant context ────────────────────────
-  // True when the registration store / tenant theme carries an org (the
-  // existing invited/pre-provisioned path) OR the URL tenant is one the
-  // logged-in user is a member of.
-  const isOrgFlow = Boolean(orgMember || tenantConfig || membership);
+  // ── Match set (member-role orgs) shown on the match-screen ────────────────
+  // ?tenant=X member -> [that org]; no ?tenant -> all member orgs; else the
+  // invited/pre-provisioned org (so that path keeps its match-screen).
+  const matchOrgs: MemberOrgOption[] = urlTenantId
+    ? (membership
+        ? [{ tenantId: membership.tenantId, tenantName: membership.tenantName, logoUrl: membership.logoUrl }]
+        : [])
+    : memberOrgs.length > 0
+      ? memberOrgs
+      : (orgMember
+          ? [{ tenantId: orgMember.organizationId, tenantName: orgMember.organizationName, logoUrl: tenantConfig?.logo }]
+          : []);
+
+  // ── Whether this session has an org/tenant context (cosmetic: CTA bar
+  //    "powered by", progress bar). True when there is any match or invite. ──
+  const isOrgFlow = Boolean(orgMember || tenantConfig || membership || matchOrgs.length > 0);
 
   // ── Flow label for ?flow= URL param — tracks which onboarding path the user
   //    arrived on. Based on registrationPath at entry time, not mid-flow state.
@@ -141,17 +158,18 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
     : null;
 
   // ── Initial step list ─────────────────────────────────────────────────────
-  // Non-member (?tenant=X, not a member) → append the join-prompt branch.
-  // Org flow (member / pre-provisioned) → append the match-screen.
-  // Ecosystem new user → base steps only (CTA goes straight to onboarding).
+  // Stories ALWAYS play. The terminal step is decided when the user taps
+  // "קליק להמשך": non-member ?tenant=X → join-prompt; ≥1 match → match-screen;
+  // otherwise none (go straight to the questions with no affiliation).
   const baseSteps = flowType === 'new-user' ? newUserSteps : orgUserSteps;
-  const initialSteps = isNonMember
-    ? [...baseSteps, { id: 'join-prompt', interactive: true }]
-    : isOrgFlow
-      ? [...baseSteps, { id: 'match-screen', interactive: true }]
-      // No tenant context → a light "belong to an organization?" nudge before
-      // onboarding, with a "continue to Nexus catalog" skip.
-      : [...baseSteps, { id: 'discover-org', interactive: true }];
+  const terminalStepId: 'join-prompt' | 'match-screen' | null = isNonMember
+    ? 'join-prompt'
+    : matchOrgs.length >= 1
+      ? 'match-screen'
+      : null;
+  const initialSteps = terminalStepId
+    ? [...baseSteps, { id: terminalStepId, interactive: true }]
+    : [...baseSteps];
 
   // ── If user pressed Back from onboarding/membership, restore match-screen ─
   // Also supports direct-linking via ?step=<stepId> so every slide has a URL.
@@ -196,12 +214,26 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
     navigate(`/${lang}/register/onboarding/${firstSlide}`);
   };
 
+  /** Match-screen: continue with an existing membership (no new join). */
+  const handleMatchContinue = (tenantId: string): void => {
+    const org = matchOrgs.find((o) => o.tenantId === tenantId);
+    setAffiliation({ kind: 'member', tenantId, orgName: org?.tenantName });
+    void setDefaultTenant(tenantId).catch(() => { /* non-fatal */ });
+    handleNewUserContinue();
+  };
+
+  /** Match-screen: continue with no organization affiliation (Nexus catalog). */
+  const handleMatchNoAffiliation = (): void => {
+    setAffiliation({ kind: 'none' });
+    clearTenant();
+    handleNewUserContinue();
+  };
+
   /**
-   * Close (X) the stories. Skipping onboarding still counts as "onboarded" so
-   * the user is not treated as new (shown the stories) on the next login. We
-   * stamp completedAt, end the registration session, refresh /api/me, then
-   * route to the post-login default landing (their tenant if a member - e.g.
-   * one they just auto-joined - otherwise the ecosystem catalog).
+   * Close (X) the stories — skip the questions. Skipping still counts as
+   * "onboarded" (we stamp completedAt) so the user is not shown the stories
+   * again. Then route + welcome toast from the affiliation stash (e.g. an org
+   * joined via the bottom link), defaulting to the Nexus catalog with no toast.
    */
   const handleClose = async (): Promise<void> => {
     try {
@@ -210,34 +242,23 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
       console.error('[wallet] mark onboarding complete on close failed (non-fatal):', e);
     }
     useRegistrationStore.getState().completeRegistration();
-    const updated = await reload();
-    const target = updated
-      ? nextPathAfterLogin({ lang, urlTenantId, me: updated })
-      : `/${lang}/store?ecosystem=1`;
-    navigate(target, { replace: true });
+    await reload();
+    finishWalletRegistration({ navigate, lang, t });
   };
 
   // ── Progress bar segment computation ─────────────────────────────────────
   const isMatchScreenActive = steps[current]?.id === 'match-screen';
   let barSegments: Array<{ key: string; isDone: boolean; isActive: boolean }>;
 
-  if (isOrgFlow && isMatchScreenActive) {
+  if (isMatchScreenActive) {
     const onboardingTotal = getOnboardingTotalWithComplete(useRegistrationStore.getState()) + 1;
     barSegments = Array.from({ length: onboardingTotal }, (_, i) => ({
       key: `bar-${i}`,
       isDone:   false,
       isActive: i === 0,
     }));
-  } else if (isOrgFlow) {
-    const barSteps   = steps.filter(s => s.id !== 'match-screen' && s.id !== 'join-prompt');
-    const barCurrent = barSteps.findIndex(s => s.id === steps[current]?.id);
-    barSegments = barSteps.map((step, i) => ({
-      key:      step.id,
-      isDone:   i < barCurrent,
-      isActive: i === barCurrent,
-    }));
   } else {
-    const barSteps   = steps.filter(s => s.id !== 'join-prompt');
+    const barSteps   = steps.filter(s => s.id !== 'match-screen' && s.id !== 'join-prompt');
     const barCurrent = barSteps.findIndex(s => s.id === steps[current]?.id);
     barSegments = barSteps.map((step, i) => ({
       key:      step.id,
@@ -250,7 +271,7 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
   const orgColor = tenantConfig?.primaryColor ?? '#635bff';
 
   // ── Slides that own their own bottom UI (no CTA bar overlay) ─────────────
-  const noCTASlides = ['match-screen', 'join-prompt', 'discover-org'];
+  const noCTASlides = ['match-screen', 'join-prompt'];
 
   // ─────────────────────────────────────────────────────────────────────────
   return (
@@ -307,7 +328,14 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
               {steps[current]?.id === 'story-gift-cards'  && <GiftCardsPage />}
               {steps[current]?.id === 'story-wallet'      && <WalletCardsPage />}
               {steps[current]?.id === 'story-nearby'      && <NearbyMapPage />}
-              {steps[current]?.id === 'match-screen'      && <SlideMatchScreen />}
+              {steps[current]?.id === 'match-screen'      && (
+                <SlideMatchScreen
+                  orgs={matchOrgs}
+                  onContinueWith={handleMatchContinue}
+                  onContinueNoAffiliation={handleMatchNoAffiliation}
+                  onJoinOther={() => setShowJoin(true)}
+                />
+              )}
               {steps[current]?.id === 'join-prompt'       && (
                 <SlideJoinPrompt
                   tenantId={urlTenantId}
@@ -317,9 +345,6 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
                   mode="new"
                   onResolve={() => handleNewUserContinue()}
                 />
-              )}
-              {steps[current]?.id === 'discover-org'       && (
-                <SlideDiscoverOrg onResolve={() => handleNewUserContinue()} />
               )}
             </motion.div>
           )}
@@ -337,6 +362,7 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
             orgColor={orgColor}
             onNewUserContinue={handleNewUserContinue}
             onJoinOtherOrg={() => setShowJoin(true)}
+            skipToQuestions={linkChosen}
           />
         )}
       </div>
@@ -346,9 +372,18 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
       {showJoin && (
         <TenantDiscoverySheet
           onClose={() => setShowJoin(false)}
-          onSubmit={(ids) => { setShowJoin(false); void submitJoin(ids); }}
+          onSubmit={async (ids) => {
+            setShowJoin(false);
+            // Silent join: records the affiliation; on success mark "chosen via
+            // link" so "קליק להמשך" skips the match-screen and goes to questions.
+            const chosen = await submitJoin(ids);
+            if (chosen) setLinkChosen(true);
+          }}
           memberOrgs={memberOrgs}
-          onPickMember={(id) => { void enterOrg(id); }}
+          onPickMember={(id) => {
+            setShowJoin(false);
+            void enterOrg(id).then(() => setLinkChosen(true));
+          }}
         />
       )}
     </div>
