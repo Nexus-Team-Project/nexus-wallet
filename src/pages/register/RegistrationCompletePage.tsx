@@ -19,11 +19,14 @@ import { getOnboardingTotalWithComplete } from '../../utils/onboardingNavigation
 import { PremiumRevealContent } from '../PremiumRevealPage';
 import { saveWalletProfile, saveMarketingConsent, type WalletProfilePatch } from '../../services/walletProfile.service';
 import { useAuth } from '../../contexts/AuthContext';
+import { useLanguage } from '../../i18n/LanguageContext';
 import { consumePostLoginReturn } from '../../lib/postLogin';
+import { finishWalletRegistration } from '../../lib/registrationAffiliation';
 
 export default function RegistrationCompletePage() {
   const { lang = 'he' } = useParams();
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const returnTo             = useRegistrationStore((s) => s.returnTo);
   const completeRegistration = useRegistrationStore((s) => s.completeRegistration);
   const setProfileCompleted  = useAuthStore((s) => s.setProfileCompleted);
@@ -115,10 +118,11 @@ export default function RegistrationCompletePage() {
     }
 
     completeRegistration();
-    // End of new-user onboarding: honor a stashed gated-action return if one
-    // was set when login popped, otherwise land on the ecosystem catalog.
+    // End of new-user onboarding: route + fire the single welcome toast from
+    // the affiliation chosen during the stories (joined / pending / member /
+    // none). A stashed gated-action return still wins for the destination.
     const ret = consumePostLoginReturn();
-    navigate(ret ?? `/${lang}/store?ecosystem=1`, { replace: true });
+    finishWalletRegistration({ navigate, lang, t, overridePath: ret ?? undefined });
   };
 
   return (

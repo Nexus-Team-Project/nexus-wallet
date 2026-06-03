@@ -69,16 +69,20 @@ export function clearAffiliation(): void {
  * - member  -> the chosen org's catalog, no toast (not a new join).
  * - none    -> the Nexus catalog, no toast.
  *
- * @param opts.navigate react-router navigate.
- * @param opts.lang     active language code for the URL.
- * @param opts.t        the active translation bundle (for the toast strings).
+ * @param opts.navigate     react-router navigate.
+ * @param opts.lang         active language code for the URL.
+ * @param opts.t            the active translation bundle (for the toast strings).
+ * @param opts.overridePath when set (e.g. a stashed gated-action return), the
+ *                          user lands here instead of the affiliation default,
+ *                          but the welcome toast still fires.
  */
 export function finishWalletRegistration(opts: {
   navigate: NavigateFunction;
   lang: string;
   t: TranslationKeys;
+  overridePath?: string;
 }): void {
-  const { navigate, lang, t } = opts;
+  const { navigate, lang, t, overridePath } = opts;
   const aff = getAffiliation();
   const name = aff?.orgName ?? '';
 
@@ -96,5 +100,5 @@ export function finishWalletRegistration(opts: {
 
   clearAffiliation();
   if (message) toast.success(message);
-  navigate(path, { replace: true });
+  navigate(overridePath ?? path, { replace: true });
 }

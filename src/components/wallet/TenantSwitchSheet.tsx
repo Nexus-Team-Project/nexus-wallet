@@ -12,14 +12,14 @@
  * the fixed sheet escapes the sticky TopBar stacking context.
  */
 import { motion, AnimatePresence } from 'framer-motion';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { toast } from 'sonner';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { useAuthGate } from '../../hooks/useAuthGate';
-import { createJoinRequests } from '../../services/walletTenants.service';
+import { createJoinRequests, listMyJoinRequests } from '../../services/walletTenants.service';
 import TenantDiscoverySheet from './TenantDiscoverySheet';
 
 interface TenantSwitchSheetProps {
@@ -66,6 +66,27 @@ export default function TenantSwitchSheet({ onClose }: TenantSwitchSheetProps) {
   const memberships = (me?.memberships ?? []).filter((m) => m.isMember);
   const isEcosystem = searchParams.get('ecosystem') === '1';
   const activeTenantId = !isEcosystem ? searchParams.get('tenant') : null;
+
+  // Orgs the user has a PENDING join request for — shown badged + non-clickable
+  // (can't switch into an org you haven't joined yet). Excludes orgs already a
+  // member of (those are in the switchable list).
+  const [pendingOrgs, setPendingOrgs] = useState<Array<{ tenantId: string; tenantName: string }>>([]);
+  useEffect(() => {
+    let active = true;
+    listMyJoinRequests()
+      .then((reqs) => {
+        if (!active) return;
+        const memberIds = new Set(memberships.map((m) => m.tenantId));
+        setPendingOrgs(
+          reqs
+            .filter((r) => r.status === 'pending' && !memberIds.has(r.tenantId))
+            .map((r) => ({ tenantId: r.tenantId, tenantName: r.tenantName ?? r.tenantId })),
+        );
+      })
+      .catch((e) => console.error('[wallet] load pending join requests failed:', e));
+    return () => { active = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Options: each org the user belongs to, plus the Nexus catalog (tenantId null).
   const options: Array<{ key: string; label: string; tenantId: string | null; logoUrl?: string }> = [
@@ -222,6 +243,28 @@ export default function TenantSwitchSheet({ onClose }: TenantSwitchSheetProps) {
                 </motion.button>
               );
             })}
+
+            {/* Pending-approval orgs — non-clickable, badged. */}
+            {pendingOrgs.map((org) => (
+              <div
+                key={`pending-${org.tenantId}`}
+                className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-start sm:gap-4 sm:px-5 sm:py-4"
+                style={{ background: '#fff', border: '2px solid #ebebf0', opacity: 0.75 }}
+              >
+                <div
+                  className="flex h-9 w-9 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg text-xs font-bold text-white sm:h-11 sm:w-11 sm:text-sm"
+                  style={{ background: colorFor(org.tenantName) }}
+                >
+                  {deriveInitials(org.tenantName)}
+                </div>
+                <span className="flex-1 text-sm font-semibold sm:text-base" style={{ color: 'var(--color-text-primary)' }}>
+                  {org.tenantName}
+                </span>
+                <span className="flex-shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
+                  {t.authFlow.pendingApprovalBadge}
+                </span>
+              </div>
+            ))}
           </div>
         </div>
 
