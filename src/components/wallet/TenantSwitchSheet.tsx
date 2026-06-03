@@ -5,9 +5,10 @@
  * avatar (it replaces the old top-left WalletTenantSwitcher pill and the mock
  * TenantSheet).
  *
- * Switching only updates the ?tenant / ?ecosystem URL state - it does not
- * persist a default landing (that is DefaultTenantSheet's job). Styled like the
- * other wallet bottom sheets (DefaultTenantSheet / LoginSheet): mobile =
+ * Switching updates the ?tenant / ?ecosystem URL state AND persists the choice
+ * as the member's default landing context (so the next visit reopens on it) —
+ * this is the single place a default is chosen now; the old DefaultTenantSheet
+ * was removed. Styled like the other wallet bottom sheets (LoginSheet): mobile =
  * bottom-anchored sheet, desktop (lg+) = centered modal. Portaled to <body> so
  * the fixed sheet escapes the sticky TopBar stacking context.
  */
@@ -19,7 +20,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { useAuthGate } from '../../hooks/useAuthGate';
-import { createJoinRequests, listMyJoinRequests } from '../../services/walletTenants.service';
+import { createJoinRequests, listMyJoinRequests, setDefaultTenant } from '../../services/walletTenants.service';
 import TenantDiscoverySheet from './TenantDiscoverySheet';
 
 interface TenantSwitchSheetProps {
@@ -94,7 +95,12 @@ export default function TenantSwitchSheet({ onClose }: TenantSwitchSheetProps) {
     { key: 'ecosystem', label: isHe ? 'קטלוג Nexus' : 'Nexus catalog', tenantId: null },
   ];
 
-  /** Switch the current view. tenantId null -> the Nexus (ecosystem) catalog. */
+  /**
+   * Switch the current view. tenantId null -> the Nexus (ecosystem) catalog.
+   * Picking here also persists the choice as the member's DEFAULT landing
+   * context, so the next visit (with no ?tenant in the URL) reopens on it —
+   * this replaces the removed "default view on login" menu entry.
+   */
   const pick = (tenantId: string | null): void => {
     const next = new URLSearchParams(searchParams);
     if (tenantId) {
@@ -104,6 +110,11 @@ export default function TenantSwitchSheet({ onClose }: TenantSwitchSheetProps) {
       next.set('ecosystem', '1');
       next.delete('tenant');
     }
+    // Persist as the default landing context. Fire-and-forget: a failure here
+    // must not block the view switch (the URL change is the user-visible part).
+    void setDefaultTenant(tenantId).catch((e) =>
+      console.error('[wallet-switch] persist default tenant failed (non-fatal):', e),
+    );
     navigate({ search: next.toString() }, { replace: true });
     onClose();
   };
@@ -141,7 +152,10 @@ export default function TenantSwitchSheet({ onClose }: TenantSwitchSheetProps) {
         const updated = await reload();
         const name = (updated?.memberships ?? []).find((m) => m.tenantId === tid)?.tenantName;
         toast.success(isHe ? `הצטרפת ל${name ?? 'הארגון'}!` : `You joined ${name ?? 'the organization'}!`);
-        // Switch into the joined org (the sheet is already closed via onClose).
+        // Switch into the joined org and make it the default landing context.
+        void setDefaultTenant(tid).catch((e) =>
+          console.error('[wallet-switch] persist default tenant failed (non-fatal):', e),
+        );
         const next = new URLSearchParams(searchParams);
         next.set('tenant', tid);
         next.delete('ecosystem');
