@@ -116,6 +116,9 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
   // True once the user has actively chosen an org via the bottom link this
   // session — then "קליק להמשך" skips the match-screen and goes to questions.
   const [linkChosen, setLinkChosen] = useState(false);
+  // Shows a loading overlay while a join request resolves (network ~1s) so the
+  // user gets feedback between picking an org and the questions appearing.
+  const [joining, setJoining] = useState(false);
   const { memberOrgs, enterOrg, submitJoin } = useStoryMemberOrgs();
 
   // ── Match set (member-role orgs) shown on the match-screen ────────────────
@@ -377,15 +380,25 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
             // Silent join: records the affiliation. Choosing an org via the link
             // is the user's decision -> proceed straight to the questions (works
             // from any slide, incl. the match-screen which has no "קליק להמשך").
+            setJoining(true);
             const chosen = await submitJoin(ids);
+            setJoining(false);
             if (chosen) { setLinkChosen(true); handleNewUserContinue(); }
           }}
           memberOrgs={memberOrgs}
           onPickMember={(id) => {
             setShowJoin(false);
-            void enterOrg(id).then(() => { setLinkChosen(true); handleNewUserContinue(); });
+            setJoining(true);
+            void enterOrg(id).then(() => { setJoining(false); setLinkChosen(true); handleNewUserContinue(); });
           }}
         />
+      )}
+
+      {/* Loading overlay while a join request resolves (network ~1s). */}
+      {joining && (
+        <div className="absolute inset-0 z-[300] flex items-center justify-center bg-black/55 backdrop-blur-sm">
+          <div className="h-10 w-10 rounded-full border-[3px] border-white/30 border-t-white animate-spin" />
+        </div>
       )}
     </div>
   );

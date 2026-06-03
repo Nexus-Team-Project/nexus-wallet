@@ -20,7 +20,7 @@ import { PremiumRevealContent } from '../PremiumRevealPage';
 import { saveWalletProfile, saveMarketingConsent, type WalletProfilePatch } from '../../services/walletProfile.service';
 import { useAuth } from '../../contexts/AuthContext';
 import { useLanguage } from '../../i18n/LanguageContext';
-import { consumePostLoginReturn } from '../../lib/postLogin';
+import { consumePostLoginReturn, isCatalogReturn } from '../../lib/postLogin';
 import { finishWalletRegistration } from '../../lib/registrationAffiliation';
 
 export default function RegistrationCompletePage() {
@@ -120,9 +120,12 @@ export default function RegistrationCompletePage() {
     completeRegistration();
     // End of new-user onboarding: route + fire the single welcome toast from
     // the affiliation chosen during the stories (joined / pending / member /
-    // none). A stashed gated-action return still wins for the destination.
+    // none). A stashed gated-action return wins ONLY when it points at a
+    // specific page; a bare catalog/front-door stash (e.g. the "Log in" front
+    // door) must NOT override landing on the joined org's catalog.
     const ret = consumePostLoginReturn();
-    finishWalletRegistration({ navigate, lang, t, overridePath: ret ?? undefined });
+    const actionableRet = ret && !isCatalogReturn(ret) ? ret : undefined;
+    finishWalletRegistration({ navigate, lang, t, overridePath: actionableRet });
   };
 
   return (
