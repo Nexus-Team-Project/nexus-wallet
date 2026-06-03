@@ -122,8 +122,10 @@ export default function TenantSwitchSheet({ onClose }: TenantSwitchSheetProps) {
    * @param ids selected tenantIds (single-select picker -> length 0 or 1).
    */
   const submitJoin = async (ids: string[]): Promise<void> => {
-    setShowJoin(false);
     if (ids.length === 0) return;
+    // Close the whole sheet immediately so it doesn't flash back to the switch
+    // list between the picker closing and the result. The join runs after.
+    onClose();
     try {
       const result = await createJoinRequests(ids);
 
@@ -134,7 +136,11 @@ export default function TenantSwitchSheet({ onClose }: TenantSwitchSheetProps) {
         const updated = await reload();
         const name = (updated?.memberships ?? []).find((m) => m.tenantId === tid)?.tenantName;
         toast.success(isHe ? `הצטרפת ל${name ?? 'הארגון'}!` : `You joined ${name ?? 'the organization'}!`);
-        pick(tid); // switch into the joined org + close
+        // Switch into the joined org (the sheet is already closed via onClose).
+        const next = new URLSearchParams(searchParams);
+        next.set('tenant', tid);
+        next.delete('ecosystem');
+        navigate({ search: next.toString() }, { replace: true });
         return;
       }
 
