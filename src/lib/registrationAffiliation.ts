@@ -88,17 +88,25 @@ export function finishWalletRegistration(opts: {
 
   let path = `/${lang}/store?ecosystem=1`;
   let message: string | null = null;
+  // An org context (joined / existing member) is the user's destination and
+  // must win over any return-stash override — you just chose/joined it.
+  let orgWins = false;
 
   if (aff?.kind === 'joined' && aff.tenantId) {
     path = `/${lang}/store?tenant=${encodeURIComponent(aff.tenantId)}`;
     message = t.authFlow.welcomeJoinedToast.replace('{{orgName}}', name);
+    orgWins = true;
   } else if (aff?.kind === 'pending') {
     message = t.authFlow.welcomePendingToast.replace('{{orgName}}', name);
   } else if (aff?.kind === 'member' && aff.tenantId) {
     path = `/${lang}/store?tenant=${encodeURIComponent(aff.tenantId)}`;
+    orgWins = true;
   }
 
+  const target = orgWins ? path : (overridePath ?? path);
   clearAffiliation();
+  // Temporary diagnostic — remove once the landing bug is confirmed fixed.
+  console.info('[wallet-finish] affiliation=', aff, 'override=', overridePath, '-> navigate', target);
   if (message) toast.success(message);
-  navigate(overridePath ?? path, { replace: true });
+  navigate(target, { replace: true });
 }
