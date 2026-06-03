@@ -32,6 +32,19 @@ export interface RegistrationAffiliation {
 
 const KEY = 'wallet_registration_affiliation';
 
+// Module-level once-guard for the end-of-registration navigation. `finish()` is
+// wired to both the X button and the reveal's auto-onReveal, and dev StrictMode
+// re-mounts reset component refs — so it can fire several times. The FIRST call
+// consumes the affiliation and navigates; later calls would read an empty stash
+// and clobber the landing with the ecosystem catalog. This survives re-mounts
+// (a ref does not) and is reset when a fresh registration's stories start.
+let registrationFinished = false;
+
+/** Reset the once-guard at the start of a new-user stories flow. */
+export function resetRegistrationFinish(): void {
+  registrationFinished = false;
+}
+
 /** Record the chosen affiliation (overwrites any prior one this session). */
 export function setAffiliation(a: RegistrationAffiliation): void {
   try {
@@ -83,6 +96,14 @@ export function finishWalletRegistration(opts: {
   overridePath?: string;
 }): void {
   const { navigate, lang, t, overridePath } = opts;
+  // Run exactly once per registration — ignore repeat calls (double-fire /
+  // StrictMode re-mount) so they don't re-navigate to the ecosystem catalog.
+  if (registrationFinished) {
+    console.info('[wallet-finish] ignored repeat call');
+    return;
+  }
+  registrationFinished = true;
+
   const aff = getAffiliation();
   const name = aff?.orgName ?? '';
 

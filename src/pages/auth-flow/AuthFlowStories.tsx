@@ -17,7 +17,7 @@ import { useLanguage } from '../../i18n/LanguageContext';
 import { fetchPublicTenant } from '../../services/publicTenant.service';
 import { saveWalletProfile } from '../../services/walletProfile.service';
 import { setDefaultTenant } from '../../services/walletTenants.service';
-import { setAffiliation, finishWalletRegistration } from '../../lib/registrationAffiliation';
+import { setAffiliation, finishWalletRegistration, resetRegistrationFinish } from '../../lib/registrationAffiliation';
 import { useImagePreloader } from '../../hooks/useImagePreloader';
 import { SmartInsightsCarousel } from '../InsightsPage';
 import GiftCardsPage from '../GiftCardsPage';
@@ -72,6 +72,9 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
 
   // ── Image preloader ───────────────────────────────────────────────────────
   const { loaded: imagesLoaded, failed: failedImages } = useImagePreloader(FLOW_IMAGES);
+
+  // Fresh stories run -> allow the end-of-registration navigation to fire once.
+  useEffect(() => { resetRegistrationFinish(); }, []);
 
   // ── URL-driven org context ────────────────────────────────────────────────
   // The org now comes from the URL (?tenant=X) / membership, not a picker.
