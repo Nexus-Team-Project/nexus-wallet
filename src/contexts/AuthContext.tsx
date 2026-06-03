@@ -242,7 +242,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       }
       if (getAccessToken()) {
-        await reload();
+        const meData = await reload();
+        // A NEW user (no profile.completedAt) authenticated via the refresh
+        // cookie — e.g. an invited member opening the wallet from the dashboard
+        // — must still go through the onboarding stories. The Google-code path
+        // above handles this for fresh logins; do the same here. Seed the
+        // registration session and hard-nav to the stories, unless they are
+        // already in the onboarding/registration flow (avoids a loop).
+        const path = window.location.pathname;
+        const inFlow = /\/(auth-flow|register)(\/|$)/.test(path);
+        if (
+          meData &&
+          !meData.profile?.completedAt &&
+          !useRegistrationStore.getState().isRegistering &&
+          !inFlow
+        ) {
+          const lang = path.split('/')[1] || 'he';
+          const sp = new URLSearchParams(window.location.search);
+          const urlTenantId = sp.get('ecosystem') === '1' ? null : sp.get('tenant');
+          const tenantSuffix = urlTenantId ? `?tenant=${encodeURIComponent(urlTenantId)}` : '';
+          const nameParts = (meData.user.name ?? '').trim().split(/\s+/).filter(Boolean);
+          const regStore = useRegistrationStore.getState();
+          regStore.startRegistration({ path: 'new-user', phone: '', missingFields: ['birthday'] });
+          regStore.setProfileData({
+            firstName: nameParts[0] ?? '',
+            lastName: nameParts.slice(1).join(' '),
+            email: meData.user.email,
+          });
+          window.location.replace(`/${lang}/auth-flow/new-user${tenantSuffix}`);
+          return; // page is unloading
+        }
       }
     } finally {
       setLoading(false);

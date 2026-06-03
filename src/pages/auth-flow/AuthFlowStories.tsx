@@ -164,18 +164,18 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
     : null;
 
   // ── Initial step list ─────────────────────────────────────────────────────
-  // Stories ALWAYS play. The terminal step is decided when the user taps
-  // "קליק להמשך": non-member ?tenant=X → join-prompt; ≥1 match → match-screen;
-  // otherwise none (go straight to the questions with no affiliation).
+  // When we MATCH the user to one or more member orgs, the match-screen is the
+  // FIRST (and only) story — they choose their org / no-affiliation up front,
+  // then go to the questions; the promo slides are skipped. Non-member ?tenant=X
+  // still plays the promos then the join-prompt. No match -> just the promos
+  // (CTA goes straight to the questions).
   const baseSteps = flowType === 'new-user' ? newUserSteps : orgUserSteps;
-  const terminalStepId: 'join-prompt' | 'match-screen' | null = isNonMember
-    ? 'join-prompt'
-    : matchOrgs.length >= 1
-      ? 'match-screen'
-      : null;
-  const initialSteps = terminalStepId
-    ? [...baseSteps, { id: terminalStepId, interactive: true }]
-    : [...baseSteps];
+  const hasMatch = !isNonMember && matchOrgs.length >= 1;
+  const initialSteps = hasMatch
+    ? [{ id: 'match-screen', interactive: true }]
+    : isNonMember
+      ? [...baseSteps, { id: 'join-prompt', interactive: true }]
+      : [...baseSteps];
 
   // ── If user pressed Back from onboarding/membership, restore match-screen ─
   // Also supports direct-linking via ?step=<stepId> so every slide has a URL.
