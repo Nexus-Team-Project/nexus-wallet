@@ -14,6 +14,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useLanguage } from '../../i18n/LanguageContext';
 import {
   discoverTenants,
+  listMyJoinRequests,
   type DiscoverableTenant,
 } from '../../services/walletTenants.service';
 
@@ -82,6 +83,27 @@ export default function TenantDiscoverySheet({ onSubmit, onClose, memberOrgs, on
   // different row replaces the selection; tapping the selected row clears it.
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
+  // Tenants the user already has a request for (pending / approved / auto-
+  // accepted) — these must NOT appear as joinable, since you can't request to
+  // join an org you already asked to join.
+  const [requestedIds, setRequestedIds] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    let active = true;
+    listMyJoinRequests()
+      .then((reqs) => {
+        if (!active) return;
+        setRequestedIds(
+          new Set(
+            reqs
+              .filter((r) => r.status === 'pending' || r.status === 'approved' || r.status === 'auto_accepted')
+              .map((r) => r.tenantId),
+          ),
+        );
+      })
+      .catch((e) => console.error('[wallet-discover] load my join requests failed:', e));
+    return () => { active = false; };
+  }, []);
+
   useEffect(() => {
     let active = true;
     setLoading(true);
@@ -118,7 +140,9 @@ export default function TenantDiscoverySheet({ onSubmit, onClose, memberOrgs, on
   const memberMatches = (memberOrgs ?? []).filter((m) =>
     m.tenantName.toLowerCase().includes(query),
   );
-  const discovered = tenants.filter((t) => !memberIds.has(t.tenantId));
+  const discovered = tenants.filter(
+    (t) => !memberIds.has(t.tenantId) && !requestedIds.has(t.tenantId),
+  );
   const showMemberSection = !!onPickMember && memberMatches.length > 0;
   const showMoreHeader = showMemberSection && (discovered.length > 0 || loading);
 
