@@ -8,9 +8,10 @@
  * Hebrew toasts are right-to-left and English toasts stay left-to-right. It
  * must be rendered inside a LanguageProvider.
  *
- * Positioning: top-center (horizontally centered, near the top of the screen),
- * with 16px side gaps on mobile so the toast stays exactly centered and never
- * overflows the left/right edges on a phone.
+ * Positioning: top-center, near the top of the screen. Horizontal centering and
+ * the width cap (so it never overflows the edges, even in RTL) are enforced in
+ * index.css via the `[data-sonner-toaster][data-x-position='center']` rule —
+ * sonner's own offsets mis-centered the toast under `dir="rtl"`.
  */
 import { Toaster } from 'sonner';
 import { useLanguage } from '../i18n/LanguageContext';
@@ -30,7 +31,7 @@ export default function AppToaster() {
       richColors
       dir={direction}
       offset={{ top: TOP_OFFSET }}
-      mobileOffset={{ top: TOP_OFFSET, left: '16px', right: '16px' }}
+      mobileOffset={{ top: TOP_OFFSET }}
     />
   );
 }
