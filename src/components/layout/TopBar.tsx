@@ -6,7 +6,7 @@ import { useAuthStore } from '../../stores/authStore';
 import { useTenantStore } from '../../stores/tenantStore';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { useUser } from '../../hooks/useUser';
-import TenantSheet from './TenantSheet';
+import TenantSwitchSheet from '../wallet/TenantSwitchSheet';
 import UserMenu from './UserMenu';
 import DefaultTenantSheet from '../wallet/DefaultTenantSheet';
 
@@ -16,6 +16,26 @@ function getGreeting(t: { home: { goodMorning: string; goodAfternoon: string; go
   if (hour >= 12 && hour < 17) return t.home.goodAfternoon;
   if (hour >= 17 && hour < 21) return t.home.goodEvening;
   return t.home.goodNight;
+}
+
+/**
+ * Build up-to-two-letter user initials for the avatar. Prefers first+last
+ * initials; falls back to the first two letters of a full name. Returns '?'
+ * when nothing is known.
+ * @param first user's first name (if any)
+ * @param last user's last name (if any)
+ * @param fullName a full display name fallback (if any)
+ * @returns 1-2 uppercase initials.
+ */
+function deriveInitials(first?: string | null, last?: string | null, fullName?: string | null): string {
+  const f = (first ?? '').trim();
+  const l = (last ?? '').trim();
+  if (f || l) return (f.charAt(0) + l.charAt(0)).toUpperCase() || '?';
+  const fn = (fullName ?? '').trim();
+  if (!fn) return '?';
+  const parts = fn.split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) return (parts[0]![0]! + parts[1]![0]!).toUpperCase();
+  return fn.slice(0, 2).toUpperCase();
 }
 
 interface TopBarProps {
@@ -39,7 +59,7 @@ export default function TopBar({ collapsed = false, showBack = false }: TopBarPr
   const { data: user } = useUser();
   const { me } = useAuth();
 
-  // Ecosystem (Nexus-Catalog) is picked via the WalletTenantSwitcher
+  // Ecosystem (Nexus-Catalog) is picked via the TenantSwitchSheet (org chip)
   // by adding ?ecosystem=1 to the URL. While that flag is set, the
   // top bar must reflect "you are browsing the Nexus catalog", not
   // the user's home tenant - otherwise the user thinks they're still
@@ -61,7 +81,12 @@ export default function TopBar({ collapsed = false, showBack = false }: TopBarPr
 
   const hasTenant = isAuthenticated && isOrgMember && !isEcosystem &&
     (!!tenantConfig || !!activeMembership);
-  const logoSrc = hasTenant ? (tenantConfig?.logo ?? '/nexus-logo.png') : '/nexus-logo.png';
+  // Prefer the active membership's real logo (real backend tenants never
+  // round-trip through tenantConfig, so without this the org showed the Nexus
+  // logo). Ecosystem / no-tenant -> Nexus logo.
+  const logoSrc = hasTenant
+    ? (activeMembership?.logoUrl ?? tenantConfig?.logo ?? '/nexus-logo.png')
+    : '/nexus-logo.png';
   const logoAlt = hasTenant
     ? (activeMembership?.tenantName ?? organizationName ?? tenantConfig?.name ?? 'Nexus')
     : 'Nexus';
@@ -70,10 +95,17 @@ export default function TopBar({ collapsed = false, showBack = false }: TopBarPr
   const showGreeting = isAuthenticated && !!displayFirstName;
   const greetingText = getGreeting(t);
 
+  // Initials shown in the profile avatar when logged in (no uploaded photo).
+  const userInitials = deriveInitials(
+    me?.profile?.firstName ?? authFirstName ?? user?.firstName,
+    me?.profile?.lastName,
+    me?.user?.name ?? displayFirstName,
+  );
+
   const notificationCount = 3;
   const chatCount = 1;
 
-  const [tenantSheetOpen, setTenantSheetOpen] = useState(false);
+  const [switchSheetOpen, setSwitchSheetOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [defaultSheetOpen, setDefaultSheetOpen] = useState(false);
 
@@ -170,19 +202,26 @@ export default function TopBar({ collapsed = false, showBack = false }: TopBarPr
                     (e.target as HTMLImageElement).style.display = 'none';
                     const fallback = document.createElement('span');
                     fallback.className = 'text-[11px] font-bold text-primary';
-                    fallback.textContent = hasTenant ? (organizationName?.charAt(0) ?? '?') : 'N';
+                    fallback.textContent = hasTenant
+                      ? ((activeMembership?.tenantName ?? organizationName)?.charAt(0) ?? '?')
+                      : 'N';
                     parent.appendChild(fallback);
                   }
                 }}
               />
             </div>
-            {/* Profile circle */}
+            {/* Profile circle: uploaded photo > user initials (logged in) >
+                generic person icon (anonymous / login affordance). */}
             {avatarUrl ? (
               <img
                 src={avatarUrl}
                 alt="Profile"
                 className="relative z-10 w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm"
               />
+            ) : isAuthenticated ? (
+              <div className="relative z-10 w-10 h-10 rounded-full bg-primary flex items-center justify-center border-2 border-white shadow-sm">
+                <span className="text-sm font-bold text-white leading-none">{userInitials}</span>
+              </div>
             ) : (
               <div className="relative z-10 w-10 h-10 rounded-full bg-surface flex items-center justify-center hover:bg-border">
                 <span className="material-symbols-outlined text-text-primary">person</span>
@@ -243,9 +282,8 @@ export default function TopBar({ collapsed = false, showBack = false }: TopBarPr
         {tenantDisplayName && (
           <div className={`absolute left-1/2 -translate-x-1/2 transition-all duration-300 ease-in-out ${collapsed ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
             <button
-              onClick={() => { if (!isEcosystem) setTenantSheetOpen(true); }}
+              onClick={() => setSwitchSheetOpen(true)}
               className="flex items-center gap-1 active:scale-95"
-              disabled={isEcosystem}
             >
               <span className="text-[11px] font-semibold text-text-secondary truncate max-w-[160px]">
                 {tenantDisplayName}
@@ -263,23 +301,20 @@ export default function TopBar({ collapsed = false, showBack = false }: TopBarPr
       {tenantDisplayName && (
         <div className={`overflow-hidden transition-all duration-300 ease-in-out ${collapsed ? 'max-h-0 opacity-0' : 'max-h-10 opacity-100 mt-2'}`}>
           <button
-            onClick={() => { if (!isEcosystem) setTenantSheetOpen(true); }}
+            onClick={() => setSwitchSheetOpen(true)}
             className="flex items-center gap-1 active:scale-95"
-            disabled={isEcosystem}
           >
             <span className="text-[11px] font-semibold text-text-secondary truncate max-w-[200px]">
               {tenantDisplayName}
             </span>
-            {!isEcosystem && (
-              <span className="material-symbols-outlined text-text-muted" style={{ fontSize: '14px' }}>
-                keyboard_arrow_down
-              </span>
-            )}
+            <span className="material-symbols-outlined text-text-muted" style={{ fontSize: '14px' }}>
+              keyboard_arrow_down
+            </span>
           </button>
         </div>
       )}
 
-      <TenantSheet isOpen={tenantSheetOpen} onClose={() => setTenantSheetOpen(false)} />
+      {switchSheetOpen && <TenantSwitchSheet onClose={() => setSwitchSheetOpen(false)} />}
       {defaultSheetOpen && <DefaultTenantSheet onClose={() => setDefaultSheetOpen(false)} />}
     </header>
   );

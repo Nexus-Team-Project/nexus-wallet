@@ -1,12 +1,9 @@
 import { useEffect } from 'react';
-import { Outlet, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { Outlet, useNavigate, useSearchParams } from 'react-router-dom';
 import { LanguageProvider } from '../i18n/LanguageContext';
 import AppToaster from '../components/AppToaster';
 import LoginSheet from '../components/auth/LoginSheet';
-import WalletTenantSwitcher from '../components/wallet/WalletTenantSwitcher';
-import { useAuth } from '../contexts/AuthContext';
 import { useTenantStore } from '../stores/tenantStore';
-import { useRegistrationStore } from '../stores/registrationStore';
 import { lookupTenant } from '../mock/handlers/tenant.handler';
 import { fetchPublicTenant } from '../services/publicTenant.service';
 import type { TenantConfig } from '../types/tenant.types';
@@ -53,10 +50,7 @@ function darkenColor(hex: string, percent: number): string {
 export default function LanguageRouter() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const location = useLocation();
   const { tenantId, config, setTenant, clearTenant } = useTenantStore();
-  const { me } = useAuth();
-  const isRegistering = useRegistrationStore((s) => s.isRegistering);
 
   // Public-by-default: anonymous visitors may load any route. There is no
   // global redirect here anymore - the route tree (ProtectedRoute on the
@@ -129,17 +123,8 @@ export default function LanguageRouter() {
         {/* Single app-wide toaster, RTL-aware (Hebrew toasts render right-to-left). */}
         <AppToaster />
         <LoginSheet />
-        {/* Real tenant switcher when logged in. Hidden across the entire
-            signup journey - the auth-flow story chain AND the /register
-            onboarding slides, plus any time a registration is in progress
-            (isRegistering) - where the top-left "Pick view" chip would be
-            redundant and confusing while the user is still onboarding. The
-            in-story "continue with another organization" link replaces it. */}
-        {me &&
-          !isRegistering &&
-          !/^\/[a-z]{2}\/(auth-flow|register|profile\/edit)(\/|$)/.test(location.pathname) && (
-            <WalletTenantSwitcher />
-          )}
+        {/* Organization switching now lives in the TopBar org-name chip (opens
+            TenantSwitchSheet); the old top-left switcher pill was removed. */}
       </div>
     </LanguageProvider>
   );
