@@ -9,7 +9,7 @@
  * Instead we mark the profile complete, clear the registration session, and
  * navigate straight back to home.
  */
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useRegistrationStore } from '../../stores/registrationStore';
@@ -37,6 +37,12 @@ export default function RegistrationCompletePage() {
   const [pathOnMount] = useState(
     () => useRegistrationStore.getState().registrationPath,
   );
+
+  // finish() is wired to BOTH the X button and the reveal's onReveal, so it can
+  // fire twice. The first call consumes the affiliation stash and navigates; a
+  // second call would read an empty stash and re-navigate to the ecosystem
+  // catalog, clobbering the joined-org landing. Guard it to run exactly once.
+  const finishedRef = useRef(false);
 
   // Snapshot total ONCE at mount — avoids the bar shrinking when
   // completeRegistration() fires (which clears isOrgFlow/orgMember) right
@@ -92,6 +98,8 @@ export default function RegistrationCompletePage() {
    * Plan #3: replaces the legacy navigate-to-home behavior.
    */
   const finish = async () => {
+    if (finishedRef.current) return;
+    finishedRef.current = true;
     setProfileCompleted(true);
 
     try {
