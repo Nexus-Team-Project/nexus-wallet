@@ -98,10 +98,7 @@ export function finishWalletRegistration(opts: {
   const { navigate, lang, t, overridePath } = opts;
   // Run exactly once per registration — ignore repeat calls (double-fire /
   // StrictMode re-mount) so they don't re-navigate to the ecosystem catalog.
-  if (registrationFinished) {
-    console.info('[wallet-finish] ignored repeat call');
-    return;
-  }
+  if (registrationFinished) return;
   registrationFinished = true;
 
   const aff = getAffiliation();
@@ -126,8 +123,6 @@ export function finishWalletRegistration(opts: {
 
   const target = orgWins ? path : (overridePath ?? path);
   clearAffiliation();
-  // Temporary diagnostic — remove once the landing bug is confirmed fixed.
-  console.info('[wallet-finish] affiliation=', aff, 'override=', overridePath, '-> navigate', target);
   if (message) toast.success(message);
   navigate(target, { replace: true });
 }

@@ -10,6 +10,7 @@
  * navigate straight back to home.
  */
 import { useEffect, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 import { useNavigate, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useRegistrationStore } from '../../stores/registrationStore';
@@ -125,7 +126,6 @@ export default function RegistrationCompletePage() {
       console.error('[registration-complete] profile save failed:', err);
     }
 
-    completeRegistration();
     // End of new-user onboarding: route + fire the single welcome toast from
     // the affiliation chosen during the stories (joined / pending / member /
     // none). A stashed gated-action return wins ONLY when it points at a
@@ -133,7 +133,15 @@ export default function RegistrationCompletePage() {
     // door) must NOT override landing on the joined org's catalog.
     const ret = consumePostLoginReturn();
     const actionableRet = ret && !isCatalogReturn(ret) ? ret : undefined;
-    finishWalletRegistration({ navigate, lang, t, overridePath: actionableRet });
+    // Commit the navigation SYNCHRONOUSLY so we leave /register BEFORE
+    // completeRegistration() flips isRegistering=false. Otherwise
+    // RegistrationGuard (still mounted on /register/complete) renders a
+    // <Navigate to="/:lang"> -> IndexRoute -> /store?ecosystem=1 that fires
+    // afterward and clobbers the joined-org landing.
+    flushSync(() => {
+      finishWalletRegistration({ navigate, lang, t, overridePath: actionableRet });
+    });
+    completeRegistration();
   };
 
   return (
