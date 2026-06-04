@@ -76,38 +76,6 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
   // Fresh stories run -> allow the end-of-registration navigation to fire once.
   useEffect(() => { resetRegistrationFinish(); }, []);
 
-  // ── Survive a tab/browser close mid-signup ────────────────────────────────
-  // Restore the tenant the user was signing into. Runs once on mount: when the
-  // URL lost its ?tenant= (e.g. the browser reopened on an onboarding route, or
-  // the user returned to the bare wallet URL) but a previous affiliation was
-  // stashed, re-apply ?tenant= so the promos, branding, and final landing all
-  // point back at that org instead of the Nexus catalog. An explicit
-  // ?ecosystem=1 is respected and never overridden.
-  useEffect(() => {
-    if (urlTenantId || sp.get('ecosystem') === '1') return;
-    const aff = getAffiliation();
-    if (aff?.tenantId && aff.kind !== 'none') {
-      const next = new URLSearchParams(sp);
-      next.set('tenant', aff.tenantId);
-      navigate({ search: next.toString() }, { replace: true });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Capture the URL tenant into the durable stash as soon as it is known, so a
-  // close BEFORE the user reaches the questions (where commitTarget normally
-  // records it) still remembers the org. Never clobbers a richer choice the
-  // user already made (the !getAffiliation guard), and explicit match-screen
-  // picks below overwrite it.
-  useEffect(() => {
-    if (!urlTenantId || getAffiliation()) return;
-    setAffiliation(
-      membership
-        ? { kind: 'member', tenantId: urlTenantId, orgName: membership.tenantName }
-        : { kind: 'join', tenantId: urlTenantId, orgName: resolvedOrgName ?? undefined },
-    );
-  }, [urlTenantId, membership, resolvedOrgName]);
-
   // ── URL-driven org context ────────────────────────────────────────────────
   // The org now comes from the URL (?tenant=X) / membership, not a picker.
   // ?ecosystem=1 explicitly opts out of any tenant context.
@@ -141,6 +109,38 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
   // ── Org name resolution order: membership → public tenant → store → orgMember.
   const resolvedOrgName =
     membership?.tenantName ?? publicOrgName ?? tenantConfig?.name ?? orgMember?.organizationName ?? null;
+
+  // ── Survive a tab/browser close mid-signup ────────────────────────────────
+  // Restore the tenant the user was signing into. Runs once on mount: when the
+  // URL lost its ?tenant= (e.g. the browser reopened on an onboarding route, or
+  // the user returned to the bare wallet URL) but a previous affiliation was
+  // stashed, re-apply ?tenant= so the promos, branding, and final landing all
+  // point back at that org instead of the Nexus catalog. An explicit
+  // ?ecosystem=1 is respected and never overridden.
+  useEffect(() => {
+    if (urlTenantId || sp.get('ecosystem') === '1') return;
+    const aff = getAffiliation();
+    if (aff?.tenantId && aff.kind !== 'none') {
+      const next = new URLSearchParams(sp);
+      next.set('tenant', aff.tenantId);
+      navigate({ search: next.toString() }, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Capture the URL tenant into the durable stash as soon as it is known, so a
+  // close BEFORE the user reaches the questions (where commitTarget normally
+  // records it) still remembers the org. Never clobbers a richer choice the
+  // user already made (the !getAffiliation guard), and explicit match-screen
+  // picks below overwrite it.
+  useEffect(() => {
+    if (!urlTenantId || getAffiliation()) return;
+    setAffiliation(
+      membership
+        ? { kind: 'member', tenantId: urlTenantId, orgName: membership.tenantName }
+        : { kind: 'join', tenantId: urlTenantId, orgName: resolvedOrgName ?? undefined },
+    );
+  }, [urlTenantId, membership, resolvedOrgName]);
 
   // ── "Continue with another organization" — opens the tenant-join discovery
   //    sheet from inside the stories (the bottom-right white text link). Picking
