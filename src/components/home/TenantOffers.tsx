@@ -38,7 +38,7 @@ function TenantBenefitCard({
   label: string;
   index: number;
   primaryColor: string;
-  logo: string;
+  logo?: string;
   onCta: () => void;
 }) {
   const tint = CARD_TINTS[index % CARD_TINTS.length];
@@ -74,10 +74,12 @@ function TenantBenefitCard({
           {icon}
         </span>
 
-        {/* Tenant logo badge — top-right */}
-        <div className="absolute top-2.5 right-2.5 z-10 w-10 h-10 rounded-full bg-white/90 shadow-sm border border-white/60 flex items-center justify-center overflow-hidden">
-          <img src={logo} alt="" className="w-7 h-7 object-contain" />
-        </div>
+        {/* Tenant logo badge — top-right (shown only when the tenant has a logo). */}
+        {logo && (
+          <div className="absolute top-2.5 right-2.5 z-10 w-10 h-10 rounded-full bg-white/90 shadow-sm border border-white/60 flex items-center justify-center overflow-hidden">
+            <img src={logo} alt="" className="w-7 h-7 object-contain" />
+          </div>
+        )}
       </div>
 
       {/* Bottom info */}
@@ -151,7 +153,7 @@ export default function TenantOffers() {
       {/* Section header */}
       <div className="flex items-center justify-between px-5 mb-3">
         <div className="flex items-center gap-2">
-          <img src={config.logo} alt="" className="w-[18px] h-[18px] object-contain" />
+          {config.logo && <img src={config.logo} alt="" className="w-[18px] h-[18px] object-contain" />}
           <h3 className="text-base font-bold">{sectionTitle}</h3>
         </div>
         <button

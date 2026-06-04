@@ -35,6 +35,8 @@ export interface WalletMeResponse {
     tenantId: string;
     tenantName: string;
     logoUrl?: string;
+    /** Org brand color ("#rrggbb"), when set; the first-login accent. */
+    brandColor?: string;
     role: string;
     isPrivilegedRole: boolean;
     /**

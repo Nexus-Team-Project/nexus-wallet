@@ -2,7 +2,8 @@ export interface TenantConfig {
   id: string;
   name: string;
   nameHe: string;
-  logo: string;
+  /** Logo URL. Optional — a real tenant with no logo shows name initials. */
+  logo?: string;
   backgroundImage?: string;
   primaryColor: string;
   requiresMembershipFee: boolean;

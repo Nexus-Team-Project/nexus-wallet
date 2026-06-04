@@ -55,15 +55,21 @@ function colorFor(name: string): string {
   return PALETTE[Math.abs(h) % PALETTE.length]!;
 }
 
-/** A small org tile (logo or initials). */
+/** A small org tile (logo or initials). Real logos render in their true colors
+ *  on a white tile; orgs with no logo get a colored initials tile. */
 function OrgTile({ org, size = 44 }: { org: MemberOrgOption; size?: number }) {
   return (
     <div
       className="flex flex-shrink-0 items-center justify-center overflow-hidden rounded-xl text-sm font-bold text-white"
-      style={{ width: size, height: size, background: colorFor(org.tenantName) }}
+      style={{
+        width: size,
+        height: size,
+        background: org.logoUrl ? '#fff' : colorFor(org.tenantName),
+        border: org.logoUrl ? '1px solid #e5e7eb' : undefined,
+      }}
     >
       {org.logoUrl ? (
-        <img src={org.logoUrl} alt="" className="object-contain" style={{ width: size * 0.62, height: size * 0.62, filter: 'brightness(0) invert(1)' }} />
+        <img src={org.logoUrl} alt="" className="object-contain" style={{ width: size * 0.78, height: size * 0.78 }} />
       ) : (
         deriveInitials(org.tenantName)
       )}

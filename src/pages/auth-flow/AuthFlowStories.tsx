@@ -129,13 +129,14 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
   //   - { isMember:false}→ a NEW join: send the request when the questions begin.
   // `chosenTarget === undefined` means the user has not overridden the default
   // (the URL tenant for a non-member; otherwise none).
-  type Target = { tenantId: string; orgName: string | null; isMember: boolean } | null;
+  type Target = { tenantId: string; orgName: string | null; isMember: boolean; brandColor?: string } | null;
   const [chosenTarget, setChosenTarget] = useState<Target | undefined>(undefined);
   // Default target: a non-member who arrived via ?tenant=X is, by default, trying
-  // to join that tenant. Everyone else defaults to no affiliation.
+  // to join that tenant. Everyone else defaults to no affiliation. The URL
+  // tenant's color rides on tenantConfig (built from the public endpoint).
   const defaultTarget: Target =
     isNonMember && urlTenantId
-      ? { tenantId: urlTenantId, orgName: resolvedOrgName, isMember: false }
+      ? { tenantId: urlTenantId, orgName: resolvedOrgName, isMember: false, brandColor: tenantConfig?.primaryColor }
       : null;
   const effectiveTarget: Target = chosenTarget !== undefined ? chosenTarget : defaultTarget;
 
@@ -143,8 +144,13 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
   // Brand the promo slides with the target tenant's color. A genuinely themed
   // tenant keeps its own color; tenants on the platform default (every public
   // tenant) get a stable, unique color hashed from their id, so the promos no
-  // longer look identical for everyone. No target -> the Nexus default.
-  const orgColor = resolveTenantColor(tenantConfig?.primaryColor, effectiveTarget?.tenantId);
+  // longer look identical for everyone. The chosen target's own brandColor wins
+  // (so picking org Y on the match-screen shows Y's color, not the URL tenant's);
+  // no target -> the Nexus default.
+  const orgColor = resolveTenantColor(
+    effectiveTarget?.brandColor ?? tenantConfig?.primaryColor,
+    effectiveTarget?.tenantId,
+  );
 
   // ── Match set (member-role orgs) shown on the match-screen as "continue" ──
   // ?tenant=X member -> [that org] (only X, by design); ?tenant=X non-member ->
@@ -152,12 +158,12 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
   // Y); no ?tenant -> all member orgs; else the invited/pre-provisioned org.
   const memberMatchOrgs: MemberOrgOption[] = urlTenantId
     ? (membership
-        ? [{ tenantId: membership.tenantId, tenantName: membership.tenantName, logoUrl: membership.logoUrl }]
+        ? [{ tenantId: membership.tenantId, tenantName: membership.tenantName, logoUrl: membership.logoUrl, brandColor: membership.brandColor }]
         : memberOrgs)
     : memberOrgs.length > 0
       ? memberOrgs
       : (orgMember
-          ? [{ tenantId: orgMember.organizationId, tenantName: orgMember.organizationName, logoUrl: tenantConfig?.logo }]
+          ? [{ tenantId: orgMember.organizationId, tenantName: orgMember.organizationName, logoUrl: tenantConfig?.logo, brandColor: tenantConfig?.primaryColor }]
           : []);
 
   // ── The URL tenant offered as a JOIN option on the match-screen ───────────
@@ -166,7 +172,7 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
   // keeps the plain promos+join flow (no single-row screen).
   const joinTarget: MemberOrgOption | null =
     urlTenantId && !membership && memberMatchOrgs.length > 0
-      ? { tenantId: urlTenantId, tenantName: resolvedOrgName ?? '', logoUrl: tenantConfig?.logo }
+      ? { tenantId: urlTenantId, tenantName: resolvedOrgName ?? '', logoUrl: tenantConfig?.logo, brandColor: tenantConfig?.primaryColor }
       : null;
 
   // ── Whether this session has an org/tenant context (cosmetic: CTA bar
@@ -297,7 +303,7 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
   /** Match-screen: continue with an existing membership (no new join). */
   const handleMatchContinue = (tenantId: string): void => {
     const org = memberMatchOrgs.find((o) => o.tenantId === tenantId);
-    setChosenTarget({ tenantId, orgName: org?.tenantName ?? null, isMember: true });
+    setChosenTarget({ tenantId, orgName: org?.tenantName ?? null, isMember: true, brandColor: org?.brandColor });
     // Make it the default now so the promos brand correctly; commitTarget repeats
     // this on the way to the questions (idempotent).
     void setDefaultTenant(tenantId).catch(() => { /* non-fatal */ });
@@ -314,6 +320,7 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
       tenantId,
       orgName: joinTarget?.tenantName ?? resolvedOrgName ?? null,
       isMember: false,
+      brandColor: joinTarget?.brandColor,
     });
     advanceToPromos();
   };

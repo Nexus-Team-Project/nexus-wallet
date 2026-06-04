@@ -27,14 +27,19 @@ const DEFAULT_PRIMARY_COLOR = '#635bff';
  */
 function buildPublicTenantConfig(
   id: string,
-  info: { organizationName: string; logoUrl?: string },
+  info: { organizationName: string; logoUrl?: string; brandColor?: string },
 ): TenantConfig {
   return {
     id,
     name: info.organizationName,
     nameHe: info.organizationName,
-    logo: info.logoUrl ?? '/nexus-logo.png',
-    primaryColor: DEFAULT_PRIMARY_COLOR,
+    // Real tenants only: no logo -> leave undefined so the UI shows initials.
+    // (The Nexus logo is reserved for the ecosystem catalog, not per-tenant.)
+    logo: info.logoUrl,
+    // The tenant's chosen brand color when set; otherwise the Nexus default,
+    // which resolveTenantColor() treats as "no custom theme" and replaces with
+    // a stable per-tenant hashed color.
+    primaryColor: info.brandColor ?? DEFAULT_PRIMARY_COLOR,
     requiresMembershipFee: false,
   };
 }
@@ -51,7 +56,7 @@ function darkenColor(hex: string, percent: number): string {
 export default function LanguageRouter() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { me } = useAuth();
+  const { me, loading } = useAuth();
   const { tenantId, config, setTenant, clearTenant } = useTenantStore();
 
   // Public-by-default: anonymous visitors may load any route. There is no
@@ -61,6 +66,16 @@ export default function LanguageRouter() {
   useEffect(() => {
     const tenantSlug = searchParams.get('tenant');
     const ecosystemMode = searchParams.get('ecosystem') === '1';
+
+    /** Drop any tenant branding and remove a dead ?tenant= from the URL so the
+     *  app falls back to the Nexus (ecosystem) catalog and the bad link does
+     *  not persist on reload or when shared. */
+    const goToEcosystem = (): void => {
+      clearTenant();
+      const next = new URLSearchParams(searchParams);
+      next.delete('tenant');
+      navigate({ search: next.toString() }, { replace: true });
+    };
 
     if (ecosystemMode) {
       // User explicitly picked Nexus-Catalog: drop any persisted tenant
@@ -84,20 +99,27 @@ export default function LanguageRouter() {
             buildPublicTenantConfig(tenantSlug, {
               organizationName: membership.tenantName,
               logoUrl: membership.logoUrl,
+              brandColor: membership.brandColor,
             }),
           );
+        } else if (loading) {
+          // Auth is still resolving: we cannot yet tell a member of a
+          // non-public tenant from a stranger. Wait for the re-run (me/loading
+          // are in the deps) before deciding, so member branding is not lost.
         } else {
-          // Non-member ?tenant=X (anonymous branding) -> public endpoint.
-          // 404 (no such tenant / catalog not active) -> clear to Nexus.
+          // Logged-out or confirmed non-member: resolve the tenant's public
+          // branding. An unknown tenant (no such tenant / catalog not active)
+          // bounces to the Nexus (ecosystem) catalog and the dead ?tenant= is
+          // stripped from the URL so a bad link does not stick on reload/share.
           fetchPublicTenant(tenantSlug)
             .then((info) => {
               if (info) {
                 setTenant(tenantSlug, buildPublicTenantConfig(tenantSlug, info));
               } else {
-                clearTenant();
+                goToEcosystem();
               }
             })
-            .catch(() => clearTenant());
+            .catch(goToEcosystem);
         }
       }
     } else if (tenantId) {
@@ -133,7 +155,7 @@ export default function LanguageRouter() {
     // `me` is included so the tenant re-resolves once /api/me loads (e.g. a
     // refresh on a ?tenant=X member view) and brands from the membership.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams, setTenant, clearTenant, navigate, me]);
+  }, [searchParams, setTenant, clearTenant, navigate, me, loading]);
 
   // Inject tenant CSS variable overrides
   const tenantStyle = config

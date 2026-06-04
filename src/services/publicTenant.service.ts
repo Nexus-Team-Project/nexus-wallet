@@ -11,6 +11,8 @@ export interface PublicTenantInfo {
   tenantId: string;
   organizationName: string;
   logoUrl?: string;
+  /** Org brand color ("#rrggbb"); the first-login accent for this tenant. */
+  brandColor?: string;
 }
 
 /**

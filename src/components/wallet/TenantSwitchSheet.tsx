@@ -247,12 +247,18 @@ export default function TenantSwitchSheet({ onClose }: TenantSwitchSheetProps) {
                 >
                   <div
                     className="flex h-9 w-9 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg text-xs font-bold text-white sm:h-11 sm:w-11 sm:text-sm"
-                    style={{ background: isNexus ? '#0f172a' : colorFor(opt.label) }}
+                    style={{
+                      // Nexus ecosystem -> dark tile with white Nexus mark.
+                      // Real tenant logo -> white tile so it shows its true colors.
+                      // No logo -> colored tile with initials.
+                      background: isNexus ? '#0f172a' : opt.logoUrl ? '#fff' : colorFor(opt.label),
+                      border: !isNexus && opt.logoUrl ? '1px solid #e5e7eb' : undefined,
+                    }}
                   >
                     {isNexus ? (
                       <img src="/nexus-logo.png" alt="" className="h-6 w-6 object-contain sm:h-8 sm:w-8" style={{ filter: 'brightness(0) invert(1)' }} />
                     ) : opt.logoUrl ? (
-                      <img src={opt.logoUrl} alt="" className="h-6 w-6 object-contain sm:h-8 sm:w-8" style={{ filter: 'brightness(0) invert(1)' }} />
+                      <img src={opt.logoUrl} alt="" className="h-full w-full object-contain p-1" />
                     ) : (
                       deriveInitials(opt.label)
                     )}
