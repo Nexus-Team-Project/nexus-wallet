@@ -4,6 +4,14 @@
  * Spec: docs/superpowers/specs/2026-05-25-nexus-wallet-auth-design.md section 6
  */
 import { api } from '../lib/api';
+import { fetchPublicTenant } from './publicTenant.service';
+
+/** Outcome of sending a single join request at the end of registration. */
+export interface JoinOutcome {
+  kind: 'joined' | 'pending' | 'none';
+  tenantId: string;
+  orgName?: string;
+}
 
 export interface DiscoverableTenant {
   tenantId: string;
@@ -84,4 +92,45 @@ export async function fetchEcosystemOffers(query?: string, limit = 50): Promise<
   if (query?.trim()) params.set('q', query.trim());
   params.set('limit', String(limit));
   return api(`/api/v1/wallet/ecosystem-offers?${params.toString()}`);
+}
+
+/**
+ * Send a single join request and resolve its outcome + the org name for the
+ * welcome/pending toast. Called at the END of registration (so the user's phone
+ * and profile are already saved and travel to the tenant). On auto-accept the
+ * caller's session is refreshed and the org becomes the default landing tenant.
+ *
+ * @param tenantId the org to join.
+ * @param opts.reload refreshes /api/me; used to read the joined org's name.
+ * @returns 'joined' (auto-accepted) / 'pending' (awaiting approval) / 'none'
+ *          (e.g. the tenant's catalog is not active, so nothing was created).
+ */
+export async function sendJoinRequest(
+  tenantId: string,
+  opts: { reload?: () => Promise<{ memberships?: Array<{ tenantId: string; tenantName: string }> } | null> },
+): Promise<JoinOutcome> {
+  const result = await createJoinRequests([tenantId]);
+
+  if (result.autoAccepted.length > 0) {
+    const joinedId = result.autoAccepted[0]!;
+    const updated = await opts.reload?.();
+    const orgName =
+      (updated?.memberships ?? []).find((m) => m.tenantId === joinedId)?.tenantName ??
+      (await fetchPublicTenant(joinedId).catch(() => null))?.organizationName;
+    try {
+      await setDefaultTenant(joinedId);
+    } catch (e) {
+      console.error('[wallet-join] set default on auto-join failed (non-fatal):', e);
+    }
+    return { kind: 'joined', tenantId: joinedId, orgName };
+  }
+
+  const pendingId =
+    result.created[0] ??
+    result.skipped.find((s) => s.reason === 'already_pending')?.tenantId;
+  if (pendingId) {
+    const orgName = (await fetchPublicTenant(pendingId).catch(() => null))?.organizationName;
+    return { kind: 'pending', tenantId: pendingId, orgName };
+  }
+  return { kind: 'none', tenantId };
 }

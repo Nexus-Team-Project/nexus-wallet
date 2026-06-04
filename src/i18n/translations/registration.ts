@@ -52,6 +52,11 @@ export const registrationTranslations = {
     // VerifyPhone slide
     verifyPhoneTitle: 'Add your phone number',
     verifyPhoneSubtitle: "We need your phone number so we can send you a verification code by SMS.",
+    verifyPhoneTestContinue: 'Continue (test)',
+    verifyPhoneFormat: 'Number must start with 05 and be 10 digits.',
+    verifyPhoneIsraelOnly: 'We currently support Israeli numbers only.',
+    verifyPhoneInUse: 'This phone number is already registered.',
+    verifyPhoneSmsUnavailable: 'SMS service is currently unavailable.',
     // VerifyEmail slide
     verifyEmailTitle: 'Add your email',
     verifyEmailSubtitle: "We'll use it for deal alerts and account recovery",
@@ -196,6 +201,11 @@ export const registrationTranslations = {
     // VerifyPhone slide
     verifyPhoneTitle: 'הוסף מספר טלפון',
     verifyPhoneSubtitle: 'אנחנו צריכים את מספר הטלפון שלך, כדי שנוכל לשלוח לך קוד אימות בהודעה.',
+    verifyPhoneTestContinue: 'המשך כבדיקה',
+    verifyPhoneFormat: 'המספר חייב להתחיל ב-05 ולכלול 10 ספרות.',
+    verifyPhoneIsraelOnly: 'כרגע אנו תומכים במספרים ישראליים בלבד.',
+    verifyPhoneInUse: 'מספר הטלפון כבר רשום במערכת.',
+    verifyPhoneSmsUnavailable: 'שירות ה-SMS אינו זמין כעת.',
     // VerifyEmail slide
     verifyEmailTitle: 'הוסף כתובת אימייל',
     verifyEmailSubtitle: 'נשתמש בה להתראות על מבצעים ולשחזור חשבון',

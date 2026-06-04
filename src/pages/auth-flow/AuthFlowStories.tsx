@@ -119,7 +119,7 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
   // Shows a loading overlay while a join request resolves (network ~1s) so the
   // user gets feedback between proceeding and the questions appearing.
   const [joining, setJoining] = useState(false);
-  const { memberOrgs, submitJoin } = useStoryMemberOrgs();
+  const { memberOrgs } = useStoryMemberOrgs();
 
   // ── The org the user will affiliate with ─────────────────────────────────
   // A single "target" drives both the promo branding and the join that fires
@@ -256,11 +256,11 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
   // ── Slide callbacks ───────────────────────────────────────────────────────
 
   /**
-   * Commit the chosen affiliation. A matched member org needs NO request — it is
-   * already a membership, so we just record it and make it the default. A new
-   * join sends the request now and records 'joined' (auto-accept) or 'pending'.
-   * No target = no affiliation. Called when the questions start (so the final
-   * landing is instant) and when the stories are closed.
+   * Record the chosen affiliation as an INTENT (no network here). A matched
+   * member org records 'member' + makes it the default; a new join records the
+   * 'join' intent that finishWalletRegistration sends at the very end (so the
+   * phone + profile collected in the questions travel to the tenant). No target
+   * = no affiliation. Called when the questions start and on close.
    * @param target the org to affiliate with, or null for no affiliation.
    */
   const commitTarget = async (target: Target): Promise<void> => {
@@ -273,26 +273,17 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
       try { await setDefaultTenant(target.tenantId); } catch { /* non-fatal */ }
       return;
     }
-    // New join — submitJoin records 'joined'/'pending'. On failure fall back to
-    // no affiliation so the user still lands on the Nexus catalog.
-    const ok = await submitJoin([target.tenantId]);
-    if (!ok) setAffiliation({ kind: 'none' });
+    // New join — recorded now, sent at completion.
+    setAffiliation({ kind: 'join', tenantId: target.tenantId, orgName: target.orgName ?? undefined });
   };
 
   /**
-   * Leave the promos for the onboarding questions. The join (if the target is a
-   * new join) is sent up front — with a brief loading overlay — so the
-   * end-of-questions transition to the org's catalog is instant.
+   * Leave the promos for the onboarding questions. The affiliation is only
+   * RECORDED here; the join request (if any) is sent at registration complete.
    * @param target the org to affiliate with (defaults to the effective target).
    */
   const proceedToQuestions = async (target: Target): Promise<void> => {
-    const needsNetwork = !!target && !target.isMember;
-    if (needsNetwork) setJoining(true);
-    try {
-      await commitTarget(target);
-    } finally {
-      if (needsNetwork) setJoining(false);
-    }
+    await commitTarget(target);
     const firstSlide = getFirstOnboardingSlide(useRegistrationStore.getState());
     navigate(`/${lang}/register/onboarding/${firstSlide}`);
   };
@@ -316,7 +307,7 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
   /**
    * Match-screen: join the URL tenant the user is NOT yet a member of. Records a
    * NEW-JOIN target (no setDefaultTenant — not a member yet); the actual request
-   * fires when the questions start (commitTarget -> submitJoin).
+   * fires at registration complete, carrying the collected phone + profile.
    */
   const handleMatchJoin = (tenantId: string): void => {
     setChosenTarget({
@@ -335,24 +326,32 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
   };
 
   /**
-   * Close (X) the stories — skip the questions. Skipping still counts as
-   * "onboarded" (we stamp completedAt) so the user is not shown the stories
-   * again. We still commit the chosen affiliation (send the join if the target
-   * is a new one), then route + fire the single welcome/pending toast.
+   * Close (X) the stories. Phone is mandatory for Google sign-ups, so if it is
+   * still required, closing routes the user INTO the phone screen rather than
+   * completing — the phone cannot be bypassed. Otherwise skipping counts as
+   * "onboarded" (we stamp completedAt): commit the affiliation, send the join at
+   * completion, route + fire the single welcome/pending toast.
    */
   const handleClose = async (): Promise<void> => {
+    const regState = useRegistrationStore.getState();
+    const phoneStillNeeded =
+      regState.missingFields.includes('phone') && !regState.phone && !me?.phone;
+    if (phoneStillNeeded) {
+      await commitTarget(effectiveTarget);
+      navigate(`/${lang}/register/onboarding/${getFirstOnboardingSlide(regState)}`);
+      return;
+    }
+
     setJoining(true);
     try {
       await commitTarget(effectiveTarget);
       await saveWalletProfile({ complete: true });
     } catch (e) {
       console.error('[wallet] finalize on close failed (non-fatal):', e);
-    } finally {
-      setJoining(false);
     }
     useRegistrationStore.getState().completeRegistration();
     await reload();
-    finishWalletRegistration({ navigate, lang, t });
+    await finishWalletRegistration({ navigate, lang, t, reload });
   };
 
   // ── Progress bar segment computation ─────────────────────────────────────

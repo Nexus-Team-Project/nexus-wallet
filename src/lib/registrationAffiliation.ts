@@ -14,12 +14,16 @@
 import type { NavigateFunction } from 'react-router-dom';
 import { toast } from 'sonner';
 import type { TranslationKeys } from '../i18n/types';
+import { sendJoinRequest } from '../services/walletTenants.service';
 
 /** What the user ended up affiliated with by the end of the stories. */
-export type AffiliationKind = 'joined' | 'pending' | 'member' | 'none';
+export type AffiliationKind = 'join' | 'joined' | 'pending' | 'member' | 'none';
 
 export interface RegistrationAffiliation {
   /**
+   * - join    : a NEW join the user CHOSE but that is sent at completion (so the
+   *             collected phone + profile travel to the tenant). Resolved to
+   *             joined/pending by finishWalletRegistration.
    * - joined  : a NEW join that auto-accepted (now a member).
    * - pending : a NEW join awaiting admin approval (not a member yet).
    * - member  : an EXISTING membership chosen on the match-screen.
@@ -107,21 +111,36 @@ export function clearAffiliation(): void {
  *                          user lands here instead of the affiliation default,
  *                          but the welcome toast still fires.
  */
-export function finishWalletRegistration(opts: {
+export async function finishWalletRegistration(opts: {
   navigate: NavigateFunction;
   lang: string;
   t: TranslationKeys;
   overridePath?: string;
-}): void {
-  const { navigate, lang, t, overridePath } = opts;
+  /** Refreshes /api/me — needed to read a freshly-joined org's name. */
+  reload?: () => Promise<{ memberships?: Array<{ tenantId: string; tenantName: string }> } | null>;
+}): Promise<void> {
+  const { navigate, lang, t, overridePath, reload } = opts;
   // Run exactly once per registration — ignore repeat calls (double-fire /
   // StrictMode re-mount) so they don't re-navigate to the ecosystem catalog.
   if (registrationFinished) return;
   registrationFinished = true;
 
-  const aff = getAffiliation();
-  const name = aff?.orgName ?? '';
+  let aff = getAffiliation();
 
+  // A 'join' intent is sent NOW (end of registration) so the phone + profile are
+  // already saved and travel to the tenant. Resolve it to joined / pending /
+  // none, then fall through to the shared routing below.
+  if (aff?.kind === 'join' && aff.tenantId) {
+    try {
+      const outcome = await sendJoinRequest(aff.tenantId, { reload });
+      aff = { kind: outcome.kind, tenantId: outcome.tenantId, orgName: outcome.orgName ?? aff.orgName };
+    } catch (e) {
+      console.error('[wallet-finish] join request failed (non-fatal):', e);
+      aff = { kind: 'none' };
+    }
+  }
+
+  const name = aff?.orgName ?? '';
   let path = `/${lang}/store?ecosystem=1`;
   let message: string | null = null;
   // An org context (joined / existing member) is the user's destination and

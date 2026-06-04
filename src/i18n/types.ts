@@ -214,6 +214,10 @@ export interface TranslationKeys {
     lastName: string;
     email: string;
     phone: string;
+    phoneNotSet: string;
+    phoneAdd: string;
+    phoneUpdate: string;
+    phoneSheetTitle: string;
     organization: string;
     language: string;
     notifications: string;
@@ -348,6 +352,11 @@ export interface TranslationKeys {
     // VerifyPhone slide
     verifyPhoneTitle: string;
     verifyPhoneSubtitle: string;
+    verifyPhoneTestContinue: string;
+    verifyPhoneFormat: string;
+    verifyPhoneIsraelOnly: string;
+    verifyPhoneInUse: string;
+    verifyPhoneSmsUnavailable: string;
     // VerifyEmail slide
     verifyEmailTitle: string;
     verifyEmailSubtitle: string;

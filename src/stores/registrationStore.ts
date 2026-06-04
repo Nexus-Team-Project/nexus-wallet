@@ -15,6 +15,11 @@ import type { RegistrationPath } from '../types/registration.types';
 
 const ORG_FLOW_SESSION_KEY  = 'nexus_is_org_flow';
 const IS_REGISTERING_KEY    = 'nexus_is_registering';
+// missingFields gates the conditional onboarding slides (verify-phone, etc.).
+// It must survive a full-page reload — the Google login does a hard
+// window.location.replace into the stories, which would otherwise reset it to
+// [] in memory and silently drop the phone slide.
+const MISSING_FIELDS_KEY    = 'nexus_missing_fields';
 
 function loadIsOrgFlow(): boolean {
   try { return sessionStorage.getItem(ORG_FLOW_SESSION_KEY) === '1'; }
@@ -37,6 +42,21 @@ function persistIsRegistering(value: boolean) {
   try {
     if (value) sessionStorage.setItem(IS_REGISTERING_KEY, '1');
     else        sessionStorage.removeItem(IS_REGISTERING_KEY);
+  } catch { /* silently fail */ }
+}
+
+function loadMissingFields(): string[] {
+  try {
+    const raw = sessionStorage.getItem(MISSING_FIELDS_KEY);
+    const parsed = raw ? JSON.parse(raw) : null;
+    return Array.isArray(parsed) ? parsed.filter((x): x is string => typeof x === 'string') : [];
+  } catch { return []; }
+}
+
+function persistMissingFields(value: string[]) {
+  try {
+    if (value.length > 0) sessionStorage.setItem(MISSING_FIELDS_KEY, JSON.stringify(value));
+    else                   sessionStorage.removeItem(MISSING_FIELDS_KEY);
   } catch { /* silently fail */ }
 }
 
@@ -123,7 +143,7 @@ export const useRegistrationStore = create<RegistrationState>((set) => ({
   isOrgFlow: loadIsOrgFlow(),
   phone: null,
   orgMember: null,
-  missingFields: [],
+  missingFields: loadMissingFields(),
   profileData: DEFAULT_PROFILE_DATA,
   preferences: null,
   membershipFeePaid: false,
@@ -137,6 +157,7 @@ export const useRegistrationStore = create<RegistrationState>((set) => ({
     const isOrgFlow = !!(orgMember);
     persistIsOrgFlow(isOrgFlow);
     persistIsRegistering(true);
+    persistMissingFields(missingFields ?? []);
     set({
       isRegistering: true,
       registrationPath: path,
@@ -183,6 +204,7 @@ export const useRegistrationStore = create<RegistrationState>((set) => ({
   completeRegistration: () => {
     persistIsOrgFlow(false);
     persistIsRegistering(false);
+    persistMissingFields([]);
     set({
       isRegistering: false,
       registrationPath: null,
@@ -202,6 +224,7 @@ export const useRegistrationStore = create<RegistrationState>((set) => ({
   resetRegistration: () => {
     persistIsOrgFlow(false);
     persistIsRegistering(false);
+    persistMissingFields([]);
     set({
       isRegistering: false,
       registrationPath: null,

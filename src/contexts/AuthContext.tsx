@@ -46,6 +46,10 @@ export interface WalletMeResponse {
   }>;
   isPlatformAdmin?: boolean;
   canOpenDashboard?: boolean;
+  /** Canonical phone on the identity (05XXXXXXXX), or null when unset. */
+  phone?: string | null;
+  /** ISO timestamp the phone was OTP-verified; null for a test-attached number. */
+  phoneVerifiedAt?: string | null;
   /**
    * Effective default landing context for a returning member: a tenantId to
    * land on that tenant's catalog, or null for the Nexus (ecosystem) catalog.
@@ -204,10 +208,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               const firstName = nameParts[0] ?? '';
               const lastName = nameParts.slice(1).join(' ');
               const regStore = useRegistrationStore.getState();
+              // Google sign-ups usually have no phone — collect + verify one as the
+              // FIRST onboarding question (verify-phone is first in the slide order).
+              // Skip ONLY when the identity already has a phone the user VERIFIED
+              // (e.g. an earlier SMS login). A tenant-entered contact phone lives on
+              // the contact row (not the identity), and a test-attached number is
+              // unverified — neither suppresses the slide.
+              const needsPhone = !me.phoneVerifiedAt;
               regStore.startRegistration({
                 path: 'new-user',
                 phone: '',
-                missingFields: ['birthday'],
+                missingFields: needsPhone ? ['phone', 'birthday'] : ['birthday'],
               });
               regStore.setProfileData({
                 firstName,
@@ -246,18 +257,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (getAccessToken()) {
         const meData = await reload();
         // A NEW user (no profile.completedAt) authenticated via the refresh
-        // cookie — e.g. an invited member opening the wallet from the dashboard
-        // — must still go through the onboarding stories. The Google-code path
-        // above handles this for fresh logins; do the same here. Seed the
-        // registration session and hard-nav to the stories, unless they are
-        // already in the onboarding/registration flow (avoids a loop).
+        // cookie — e.g. an invited member opening the wallet, or someone who
+        // closed the browser mid-onboarding (which wipes the sessionStorage
+        // flags) and reopened a deep onboarding URL — must be sent back through
+        // the stories. We re-seed for ANY logged-in incomplete user whose
+        // registration session is gone. No `inFlow` skip is needed: after the
+        // re-seed below `isRegistering` is persisted true, so the next bootstrap
+        // (post hard-nav) short-circuits here and there is no redirect loop.
         const path = window.location.pathname;
-        const inFlow = /\/(auth-flow|register)(\/|$)/.test(path);
         if (
           meData &&
           !meData.profile?.completedAt &&
-          !useRegistrationStore.getState().isRegistering &&
-          !inFlow
+          !useRegistrationStore.getState().isRegistering
         ) {
           const lang = path.split('/')[1] || 'he';
           const sp = new URLSearchParams(window.location.search);
@@ -265,7 +276,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const tenantSuffix = urlTenantId ? `?tenant=${encodeURIComponent(urlTenantId)}` : '';
           const nameParts = (meData.user.name ?? '').trim().split(/\s+/).filter(Boolean);
           const regStore = useRegistrationStore.getState();
-          regStore.startRegistration({ path: 'new-user', phone: '', missingFields: ['birthday'] });
+          // Same phone gate as the fresh-login branch: an incomplete user with no
+          // VERIFIED phone (e.g. someone who closed the browser mid-onboarding and
+          // returns via the refresh cookie) must still get the phone slide first.
+          const needsPhone = !meData.phoneVerifiedAt;
+          regStore.startRegistration({
+            path: 'new-user',
+            phone: '',
+            missingFields: needsPhone ? ['phone', 'birthday'] : ['birthday'],
+          });
           regStore.setProfileData({
             firstName: nameParts[0] ?? '',
             lastName: nameParts.slice(1).join(' '),

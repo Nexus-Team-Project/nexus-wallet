@@ -15,7 +15,7 @@ export const ONBOARDING_SLIDE_ORDER = [
   // 'benefit-categories' (choose 3 businesses) was removed - the slide
   // forced users to make a curation decision before they saw any catalog
   // content, and the data was not used by any downstream service.
-  'invite-friends',      // optional — referral/invite step at end of onboarding
+  // 'invite-friends' removed from the flow for now (route + slide kept).
 ] as const;
 
 export type OnboardingSlideId = typeof ONBOARDING_SLIDE_ORDER[number];

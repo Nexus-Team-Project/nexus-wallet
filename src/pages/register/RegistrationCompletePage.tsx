@@ -137,7 +137,7 @@ export default function RegistrationCompletePage() {
     // while the transition to the joined org's catalog is still committing.
     setRegistrationCompleting(true);
     completeRegistration();
-    finishWalletRegistration({ navigate, lang, t, overridePath: actionableRet });
+    await finishWalletRegistration({ navigate, lang, t, overridePath: actionableRet, reload });
   };
 
   return (
