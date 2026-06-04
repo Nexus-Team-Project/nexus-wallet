@@ -23,6 +23,8 @@ export interface MemberOrgOption {
   tenantId: string;
   tenantName: string;
   logoUrl?: string;
+  /** Org brand color ("#rrggbb"), when set; the first-login accent. */
+  brandColor?: string;
 }
 
 interface TenantDiscoverySheetProps {
@@ -40,6 +42,12 @@ interface TenantDiscoverySheetProps {
   memberOrgs?: MemberOrgOption[];
   /** Called with the tenantId when the user taps one of their member orgs. */
   onPickMember?: (tenantId: string) => void;
+  /**
+   * A tenant to hide from the joinable list - typically the org whose promos
+   * the user is currently viewing. Without this, a non-member who arrived via
+   * a tenant link would see that same org listed under "find another org".
+   */
+  excludeTenantId?: string;
 }
 
 /** Two-letter initials fallback when a tenant has no logo. */
@@ -68,7 +76,7 @@ function colorFor(name: string): string {
  * @param onClose closes the sheet without submitting.
  * @returns the animated bottom-sheet / modal element.
  */
-export default function TenantDiscoverySheet({ onSubmit, onClose, memberOrgs, onPickMember }: TenantDiscoverySheetProps) {
+export default function TenantDiscoverySheet({ onSubmit, onClose, memberOrgs, onPickMember, excludeTenantId }: TenantDiscoverySheetProps) {
   const { language } = useLanguage();
   const isHe = language === 'he';
 
@@ -150,7 +158,7 @@ export default function TenantDiscoverySheet({ onSubmit, onClose, memberOrgs, on
   // already sorts alphabetically and JS sort is stable, so names stay ordered
   // within each group.
   const discovered = tenants
-    .filter((t) => !memberIds.has(t.tenantId) && !requestedIds.has(t.tenantId))
+    .filter((t) => !memberIds.has(t.tenantId) && !requestedIds.has(t.tenantId) && t.tenantId !== excludeTenantId)
     .sort((a, b) => Number(b.catalogActive) - Number(a.catalogActive));
   const showMemberSection = !!onPickMember && memberMatches.length > 0;
   const showMoreHeader = showMemberSection && (discovered.length > 0 || loading);
@@ -233,14 +241,18 @@ export default function TenantDiscoverySheet({ onSubmit, onClose, memberOrgs, on
                   >
                     <div
                       className="flex h-9 w-9 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg text-xs font-bold text-white sm:h-11 sm:w-11 sm:text-sm"
-                      style={{ background: colorFor(m.tenantName) }}
+                      style={{
+                        // Real logo -> white tile so it shows in its true colors.
+                        // No logo -> colored tile with initials.
+                        background: m.logoUrl ? '#fff' : colorFor(m.tenantName),
+                        border: m.logoUrl ? '1px solid #e5e7eb' : undefined,
+                      }}
                     >
                       {m.logoUrl ? (
                         <img
                           src={m.logoUrl}
                           alt=""
-                          className="h-6 w-6 object-contain sm:h-8 sm:w-8"
-                          style={{ filter: 'brightness(0) invert(1)' }}
+                          className="h-full w-full object-contain p-1"
                         />
                       ) : (
                         deriveInitials(m.tenantName)
@@ -317,19 +329,19 @@ export default function TenantDiscoverySheet({ onSubmit, onClose, memberOrgs, on
                     <div
                       className="flex h-9 w-9 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg text-xs font-bold text-white sm:h-11 sm:w-11 sm:text-sm"
                       style={{
-                        background: isSoon ? '#cbd5e1' : colorFor(t.tenantName),
+                        // Real logo -> white tile so it shows in its true colors
+                        // (greyed a touch when the org is "soon"). No logo ->
+                        // colored tile (or grey when soon) with initials.
+                        background: t.logoUrl ? '#fff' : (isSoon ? '#cbd5e1' : colorFor(t.tenantName)),
+                        border: t.logoUrl ? '1px solid #e5e7eb' : undefined,
                       }}
                     >
                       {t.logoUrl ? (
                         <img
                           src={t.logoUrl}
                           alt=""
-                          className="h-6 w-6 object-contain sm:h-8 sm:w-8"
-                          style={{
-                            filter: isSoon
-                              ? 'grayscale(1) brightness(0) invert(1) opacity(0.85)'
-                              : 'brightness(0) invert(1)',
-                          }}
+                          className="h-full w-full object-contain p-1"
+                          style={isSoon ? { filter: 'grayscale(1)', opacity: 0.7 } : undefined}
                         />
                       ) : (
                         deriveInitials(t.tenantName)

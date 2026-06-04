@@ -52,7 +52,7 @@ export function useStoryMemberOrgs(): UseStoryMemberOrgs {
   // wallet catalogs, so they are excluded here.
   const memberOrgs: MemberOrgOption[] = (me?.memberships ?? [])
     .filter((m) => m.isMember)
-    .map((m) => ({ tenantId: m.tenantId, tenantName: m.tenantName, logoUrl: m.logoUrl }));
+    .map((m) => ({ tenantId: m.tenantId, tenantName: m.tenantName, logoUrl: m.logoUrl, brandColor: m.brandColor }));
 
   const enterOrg = useCallback(
     async (tenantId: string): Promise<void> => {

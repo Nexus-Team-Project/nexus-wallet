@@ -70,7 +70,9 @@ export default function TenantAvatar({
         src={logoUrl}
         alt=""
         style={{ width: size, height: size }}
-        className={`rounded-full object-cover flex-shrink-0 ${className}`}
+        // object-contain (not cover) so a non-square logo uploaded with the
+        // "use full image" option shows in full instead of being cropped.
+        className={`rounded-full bg-white object-contain flex-shrink-0 ${className}`}
       />
     );
   }

@@ -17,6 +17,7 @@ import { useAuthStore } from '../stores/authStore';
 import { useRegistrationStore } from '../stores/registrationStore';
 import { exchangeGoogleCode, consumeGoogleReturnContext } from '../services/auth.service';
 import { nextPathAfterLogin } from '../lib/postLogin';
+import { clearAffiliation } from '../lib/registrationAffiliation';
 
 /**
  * Subset of /api/me the wallet reads. Mirrors the backend MeResponse
@@ -35,6 +36,8 @@ export interface WalletMeResponse {
     tenantId: string;
     tenantName: string;
     logoUrl?: string;
+    /** Org brand color ("#rrggbb"), when set; the first-login accent. */
+    brandColor?: string;
     role: string;
     isPrivilegedRole: boolean;
     /**
@@ -318,6 +321,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     setAccessToken(null);
     setMe(null);
+    // Drop any in-progress signup affiliation so a logged-out / next user does
+    // not inherit a stale org pointer on this browser.
+    clearAffiliation();
     // Also clear the legacy authStore so the wallet UI (TopBar, login
     // prompts) drops back to unauthenticated state immediately.
     useAuthStore.getState().logout();

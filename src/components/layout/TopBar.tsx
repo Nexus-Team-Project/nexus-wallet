@@ -6,6 +6,7 @@ import { useAuthStore } from '../../stores/authStore';
 import { useTenantStore } from '../../stores/tenantStore';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { useUser } from '../../hooks/useUser';
+import { tenantColor } from '../../lib/tenantColor';
 import TenantSwitchSheet from '../wallet/TenantSwitchSheet';
 import UserMenu from './UserMenu';
 
@@ -83,12 +84,16 @@ export default function TopBar({ collapsed = false, showBack = false }: TopBarPr
   // Prefer the active membership's real logo (real backend tenants never
   // round-trip through tenantConfig, so without this the org showed the Nexus
   // logo). Ecosystem / no-tenant -> Nexus logo.
-  const logoSrc = hasTenant
-    ? (activeMembership?.logoUrl ?? tenantConfig?.logo ?? '/nexus-logo.png')
-    : '/nexus-logo.png';
+  // Real tenant logo (membership or themed config), or null. The Nexus logo is
+  // reserved for the ecosystem catalog; a real tenant with no logo shows its
+  // name initials instead.
+  const tenantLogoUrl = hasTenant ? (activeMembership?.logoUrl ?? tenantConfig?.logo ?? null) : null;
+  const logoSrc = hasTenant ? (tenantLogoUrl ?? '/nexus-logo.png') : '/nexus-logo.png';
   const logoAlt = hasTenant
     ? (activeMembership?.tenantName ?? organizationName ?? tenantConfig?.name ?? 'Nexus')
     : 'Nexus';
+  const showTenantInitials = hasTenant && !tenantLogoUrl;
+  const tenantInitials = deriveInitials(undefined, undefined, logoAlt);
 
   const displayFirstName = authFirstName ?? user?.firstName;
   const showGreeting = isAuthenticated && !!displayFirstName;
@@ -190,6 +195,14 @@ export default function TopBar({ collapsed = false, showBack = false }: TopBarPr
               className="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-sm border border-border/60 -me-3 z-0"
               title={logoAlt}
             >
+              {showTenantInitials ? (
+                <div
+                  className="w-7 h-7 rounded-full flex items-center justify-center text-white font-bold text-[11px] leading-none"
+                  style={{ background: tenantColor(logoAlt) }}
+                >
+                  {tenantInitials}
+                </div>
+              ) : (
               <img
                 src={logoSrc}
                 alt={logoAlt}
@@ -207,6 +220,7 @@ export default function TopBar({ collapsed = false, showBack = false }: TopBarPr
                   }
                 }}
               />
+              )}
             </div>
             {/* Profile circle: uploaded photo > user initials (logged in) >
                 generic person icon (anonymous / login affordance). */}
