@@ -8,8 +8,12 @@
  * decide the landing page and the single welcome toast, then clears it (so the
  * toast never repeats on later logins).
  *
- * Stored in sessionStorage so it survives the in-app navigations of the
- * onboarding chain but not a new session.
+ * Stored in localStorage so the chosen org survives a tab/browser close in the
+ * middle of signup. The registration itself resumes from the server, but the
+ * tenant pointer would otherwise be lost (sessionStorage is wiped on close),
+ * dropping the user on the Nexus catalog instead of the org they were joining.
+ * Cleared when registration finishes, when the user explicitly picks the Nexus
+ * catalog, and on logout, so a stale org never re-attaches to a later session.
  */
 import type { NavigateFunction } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -70,7 +74,7 @@ export function isRegistrationCompleting(): boolean {
 /** Record the chosen affiliation (overwrites any prior one this session). */
 export function setAffiliation(a: RegistrationAffiliation): void {
   try {
-    sessionStorage.setItem(KEY, JSON.stringify(a));
+    localStorage.setItem(KEY, JSON.stringify(a));
   } catch {
     /* storage disabled — non-fatal */
   }
@@ -79,17 +83,17 @@ export function setAffiliation(a: RegistrationAffiliation): void {
 /** Read the stashed affiliation, or null if none. */
 export function getAffiliation(): RegistrationAffiliation | null {
   try {
-    const v = sessionStorage.getItem(KEY);
+    const v = localStorage.getItem(KEY);
     return v ? (JSON.parse(v) as RegistrationAffiliation) : null;
   } catch {
     return null;
   }
 }
 
-/** Clear the stash (called after the welcome toast fires). */
+/** Clear the stash (called on finish, explicit ecosystem pick, and logout). */
 export function clearAffiliation(): void {
   try {
-    sessionStorage.removeItem(KEY);
+    localStorage.removeItem(KEY);
   } catch {
     /* non-fatal */
   }

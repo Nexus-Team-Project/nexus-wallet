@@ -17,7 +17,7 @@ import { useLanguage } from '../../i18n/LanguageContext';
 import { fetchPublicTenant } from '../../services/publicTenant.service';
 import { saveWalletProfile } from '../../services/walletProfile.service';
 import { setDefaultTenant } from '../../services/walletTenants.service';
-import { setAffiliation, finishWalletRegistration, resetRegistrationFinish } from '../../lib/registrationAffiliation';
+import { setAffiliation, getAffiliation, finishWalletRegistration, resetRegistrationFinish } from '../../lib/registrationAffiliation';
 import { resolveTenantColor } from '../../lib/tenantColor';
 import { useImagePreloader } from '../../hooks/useImagePreloader';
 import { SmartInsightsCarousel } from '../InsightsPage';
@@ -75,6 +75,38 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
 
   // Fresh stories run -> allow the end-of-registration navigation to fire once.
   useEffect(() => { resetRegistrationFinish(); }, []);
+
+  // ── Survive a tab/browser close mid-signup ────────────────────────────────
+  // Restore the tenant the user was signing into. Runs once on mount: when the
+  // URL lost its ?tenant= (e.g. the browser reopened on an onboarding route, or
+  // the user returned to the bare wallet URL) but a previous affiliation was
+  // stashed, re-apply ?tenant= so the promos, branding, and final landing all
+  // point back at that org instead of the Nexus catalog. An explicit
+  // ?ecosystem=1 is respected and never overridden.
+  useEffect(() => {
+    if (urlTenantId || sp.get('ecosystem') === '1') return;
+    const aff = getAffiliation();
+    if (aff?.tenantId && aff.kind !== 'none') {
+      const next = new URLSearchParams(sp);
+      next.set('tenant', aff.tenantId);
+      navigate({ search: next.toString() }, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Capture the URL tenant into the durable stash as soon as it is known, so a
+  // close BEFORE the user reaches the questions (where commitTarget normally
+  // records it) still remembers the org. Never clobbers a richer choice the
+  // user already made (the !getAffiliation guard), and explicit match-screen
+  // picks below overwrite it.
+  useEffect(() => {
+    if (!urlTenantId || getAffiliation()) return;
+    setAffiliation(
+      membership
+        ? { kind: 'member', tenantId: urlTenantId, orgName: membership.tenantName }
+        : { kind: 'join', tenantId: urlTenantId, orgName: resolvedOrgName ?? undefined },
+    );
+  }, [urlTenantId, membership, resolvedOrgName]);
 
   // ── URL-driven org context ────────────────────────────────────────────────
   // The org now comes from the URL (?tenant=X) / membership, not a picker.
@@ -291,7 +323,10 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
   const proceedToQuestions = async (target: Target): Promise<void> => {
     await commitTarget(target);
     const firstSlide = getFirstOnboardingSlide(useRegistrationStore.getState());
-    navigate(`/${lang}/register/onboarding/${firstSlide}`);
+    // Carry the org in the URL through the questions so a tab/browser restore
+    // lands back on the same org instead of the Nexus catalog.
+    const tq = target?.tenantId ? `?tenant=${encodeURIComponent(target.tenantId)}` : '';
+    navigate(`/${lang}/register/onboarding/${firstSlide}${tq}`);
   };
 
   /** Advance from the match-screen (step 0) to the first promo slide. */
@@ -304,6 +339,8 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
   const handleMatchContinue = (tenantId: string): void => {
     const org = memberMatchOrgs.find((o) => o.tenantId === tenantId);
     setChosenTarget({ tenantId, orgName: org?.tenantName ?? null, isMember: true, brandColor: org?.brandColor });
+    // Persist the pick now so a close before the questions restores THIS org.
+    setAffiliation({ kind: 'member', tenantId, orgName: org?.tenantName ?? undefined });
     // Make it the default now so the promos brand correctly; commitTarget repeats
     // this on the way to the questions (idempotent).
     void setDefaultTenant(tenantId).catch(() => { /* non-fatal */ });
@@ -316,18 +353,23 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
    * fires at registration complete, carrying the collected phone + profile.
    */
   const handleMatchJoin = (tenantId: string): void => {
+    const orgName = joinTarget?.tenantName ?? resolvedOrgName ?? null;
     setChosenTarget({
       tenantId,
-      orgName: joinTarget?.tenantName ?? resolvedOrgName ?? null,
+      orgName,
       isMember: false,
       brandColor: joinTarget?.brandColor,
     });
+    // Persist the pick now so a close before the questions restores THIS org.
+    setAffiliation({ kind: 'join', tenantId, orgName: orgName ?? undefined });
     advanceToPromos();
   };
 
   /** Match-screen: continue with no organization affiliation (Nexus catalog). */
   const handleMatchNoAffiliation = (): void => {
     setChosenTarget(null);
+    // Explicit opt-out: drop any stashed org so a return does not re-attach one.
+    setAffiliation({ kind: 'none' });
     clearTenant();
     advanceToPromos();
   };
@@ -345,7 +387,10 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
       regState.missingFields.includes('phone') && !regState.phone && !me?.phone;
     if (phoneStillNeeded) {
       await commitTarget(effectiveTarget);
-      navigate(`/${lang}/register/onboarding/${getFirstOnboardingSlide(regState)}`);
+      // Keep the org in the URL so a tab/browser restore on the phone screen
+      // resumes on the same org rather than the Nexus catalog.
+      const tq = effectiveTarget?.tenantId ? `?tenant=${encodeURIComponent(effectiveTarget.tenantId)}` : '';
+      navigate(`/${lang}/register/onboarding/${getFirstOnboardingSlide(regState)}${tq}`);
       return;
     }
 
@@ -478,6 +523,9 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
       {showJoin && (
         <TenantDiscoverySheet
           onClose={() => setShowJoin(false)}
+          // Hide the org whose promos are showing - the user is already here, so
+          // it must not appear under "find another organization".
+          excludeTenantId={effectiveTarget?.tenantId ?? urlTenantId ?? undefined}
           onSubmit={(ids) => {
             setShowJoin(false);
             // Picking another org via the link skips the rest of the promos and

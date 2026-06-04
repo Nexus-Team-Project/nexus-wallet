@@ -42,6 +42,12 @@ interface TenantDiscoverySheetProps {
   memberOrgs?: MemberOrgOption[];
   /** Called with the tenantId when the user taps one of their member orgs. */
   onPickMember?: (tenantId: string) => void;
+  /**
+   * A tenant to hide from the joinable list - typically the org whose promos
+   * the user is currently viewing. Without this, a non-member who arrived via
+   * a tenant link would see that same org listed under "find another org".
+   */
+  excludeTenantId?: string;
 }
 
 /** Two-letter initials fallback when a tenant has no logo. */
@@ -70,7 +76,7 @@ function colorFor(name: string): string {
  * @param onClose closes the sheet without submitting.
  * @returns the animated bottom-sheet / modal element.
  */
-export default function TenantDiscoverySheet({ onSubmit, onClose, memberOrgs, onPickMember }: TenantDiscoverySheetProps) {
+export default function TenantDiscoverySheet({ onSubmit, onClose, memberOrgs, onPickMember, excludeTenantId }: TenantDiscoverySheetProps) {
   const { language } = useLanguage();
   const isHe = language === 'he';
 
@@ -152,7 +158,7 @@ export default function TenantDiscoverySheet({ onSubmit, onClose, memberOrgs, on
   // already sorts alphabetically and JS sort is stable, so names stay ordered
   // within each group.
   const discovered = tenants
-    .filter((t) => !memberIds.has(t.tenantId) && !requestedIds.has(t.tenantId))
+    .filter((t) => !memberIds.has(t.tenantId) && !requestedIds.has(t.tenantId) && t.tenantId !== excludeTenantId)
     .sort((a, b) => Number(b.catalogActive) - Number(a.catalogActive));
   const showMemberSection = !!onPickMember && memberMatches.length > 0;
   const showMoreHeader = showMemberSection && (discovered.length > 0 || loading);
