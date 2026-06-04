@@ -43,9 +43,22 @@ export async function fetchWalletProfile(): Promise<WalletProfileView | null> {
 
 /** PATCH any subset of profile fields. */
 export async function saveWalletProfile(patch: WalletProfilePatch): Promise<WalletProfileView> {
+  const body: WalletProfilePatch = { ...patch };
+  // Normalize to the API contract so a valid onboarding/profile save never 400s:
+  // - birthday: date inputs produce 'YYYY-MM-DD' but the API wants a full ISO
+  //   datetime (idempotent for values already in ISO; dropped if unparseable).
+  if (body.birthday) {
+    const d = new Date(body.birthday);
+    if (Number.isNaN(d.getTime())) delete body.birthday;
+    else body.birthday = d.toISOString();
+  }
+  // - gender: the onboarding slide uses the legacy id 'prefer-not'; the API
+  //   enum is 'prefer_not_to_say'.
+  if ((body.gender as string) === 'prefer-not') body.gender = 'prefer_not_to_say';
+
   const r = await api<{ profile: WalletProfileView }>('/api/v1/wallet/profile', {
     method: 'PATCH',
-    body: patch,
+    body,
   });
   return r.profile;
 }

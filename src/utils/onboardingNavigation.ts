@@ -12,10 +12,8 @@ export const ONBOARDING_SLIDE_ORDER = [
   'life-stage',          // optional — user can skip
   'birthday',            // optional — user can skip
   'gender',              // optional — user can skip
-  // 'benefit-categories' (choose 3 businesses) was removed - the slide
-  // forced users to make a curation decision before they saw any catalog
-  // content, and the data was not used by any downstream service.
   // 'invite-friends' removed from the flow for now (route + slide kept).
+  'benefit-categories',  // LAST step — mock "coming soon" businesses teaser.
 ] as const;
 
 export type OnboardingSlideId = typeof ONBOARDING_SLIDE_ORDER[number];

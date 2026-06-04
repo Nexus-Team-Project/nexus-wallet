@@ -54,6 +54,7 @@ const LifeStageSlide         = lazy(() => import('../pages/register/onboarding/L
 const BirthdaySlide          = lazy(() => import('../pages/register/onboarding/BirthdaySlide'));
 const GenderSlide            = lazy(() => import('../pages/register/onboarding/GenderSlide'));
 const InviteFriendsSlide     = lazy(() => import('../pages/register/onboarding/InviteFriendsSlide'));
+const BenefitCategoriesSlide = lazy(() => import('../pages/register/onboarding/BenefitCategoriesSlide'));
 
 // Card issuance onboarding flow
 const CardIssuanceStoriesPage = lazy(() => import('../pages/CardIssuanceStoriesPage'));
@@ -193,6 +194,7 @@ export const router = createBrowserRouter([
           { path: 'onboarding/birthday',           element: <S><BirthdaySlide /></S> },
           { path: 'onboarding/gender',             element: <S><GenderSlide /></S> },
           { path: 'onboarding/invite-friends',     element: <S><InviteFriendsSlide /></S> },
+          { path: 'onboarding/benefit-categories', element: <S><BenefitCategoriesSlide /></S> },
           { path: 'complete',    element: <S><RegistrationCompletePage /></S> },
         ],
       },
