@@ -499,6 +499,11 @@ export interface TranslationKeys {
     welcomeJoinedToast: string;
     welcomePendingToast: string;
     pendingApprovalBadge: string;
+    matchTitleChoose: string;
+    matchYourOrgs: string;
+    matchArrivedVia: string;
+    matchJoinRowLabel: string;
+    matchJoinWithOrg: string;
   };
   category: {
     location: string;

@@ -54,6 +54,13 @@ export const authFlowTranslations = {
     welcomeJoinedToast: 'Welcome! You successfully joined {{orgName}}. Feel free to explore the benefits available to you here!',
     welcomePendingToast: "Welcome! Your request was sent to {{orgName}}; we'll email you soon. Meanwhile you're connected without an organization.",
     pendingApprovalBadge: 'Pending approval',
+    // Match-screen with a join option (arrived via a tenant link you're not a
+    // member of, while belonging to other orgs).
+    matchTitleChoose: 'Where would you like to continue?',
+    matchYourOrgs: 'Your organizations',
+    matchArrivedVia: 'You arrived through',
+    matchJoinRowLabel: 'Join',
+    matchJoinWithOrg: 'Join {{orgName}}',
   },
   he: {
     welcomeBackTitle: 'טוב שחזרת 👋',
@@ -110,5 +117,12 @@ export const authFlowTranslations = {
     welcomeJoinedToast: 'ברוך הבא! הצטרפת לארגון {{orgName}} בהצלחה. מוזמן להתרשם מההטבות המוצעות לך כאן!',
     welcomePendingToast: 'ברוך הבא! בקשתך הועברה לארגון {{orgName}}, נעדכן אותך במייל בקרוב. בינתיים הינך מחובר ללא שיוך ארגוני',
     pendingApprovalBadge: 'ממתין לאישור',
+    // מסך התאמה עם אפשרות הצטרפות (הגעת דרך קישור של ארגון שאינך חבר בו, בעודך
+    // חבר בארגונים אחרים).
+    matchTitleChoose: 'איפה תרצה להמשיך?',
+    matchYourOrgs: 'הארגונים שלך',
+    matchArrivedVia: 'הגעת דרך',
+    matchJoinRowLabel: 'הצטרפות',
+    matchJoinWithOrg: 'הצטרפו ל{{orgName}}',
   },
 };
