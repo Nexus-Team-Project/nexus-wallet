@@ -3,15 +3,20 @@ import { motion } from 'framer-motion';
 import { useAuthStore } from '../../stores/authStore';
 import { useRegistrationStore } from '../../stores/registrationStore';
 import { walletCards, PUSH_IMAGES } from './constants';
+import { heroGradient } from '../../lib/tenantColor';
 
 interface SlideNexusHeroProps {
   failedImages: Set<string>;
   /** Organization the user is logging in through (tenant URL), if any.
       When set, the welcome headline names it. */
   orgName?: string | null;
+  /** The tenant's resolved brand color. When set, the hero gradient is built
+      from it so each tenant's promo reads with its own color; otherwise the
+      default Nexus purple gradient is used. */
+  accentColor?: string;
 }
 
-export function SlideNexusHero({ failedImages, orgName }: SlideNexusHeroProps) {
+export function SlideNexusHero({ failedImages, orgName, accentColor }: SlideNexusHeroProps) {
   const [pushIdx, setPushIdx] = useState(0);
   const authFirstName = useAuthStore((s) => s.firstName);
   const authAvatarUrl = useAuthStore((s) => s.avatarUrl);
@@ -34,7 +39,11 @@ export function SlideNexusHero({ failedImages, orgName }: SlideNexusHeroProps) {
   return (
     <div
       className="absolute inset-0 flex flex-col overflow-hidden rounded-t-2xl"
-      style={{ background: 'linear-gradient(135deg, #4c45d4 0%, #635bff 45%, #7c6fff 100%)' }}
+      style={{
+        background: accentColor
+          ? heroGradient(accentColor)
+          : 'linear-gradient(135deg, #4c45d4 0%, #635bff 45%, #7c6fff 100%)',
+      }}
     >
       {/* Blobs */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden rounded-t-2xl">

@@ -18,6 +18,7 @@ import { fetchPublicTenant } from '../../services/publicTenant.service';
 import { saveWalletProfile } from '../../services/walletProfile.service';
 import { setDefaultTenant } from '../../services/walletTenants.service';
 import { setAffiliation, finishWalletRegistration, resetRegistrationFinish } from '../../lib/registrationAffiliation';
+import { resolveTenantColor } from '../../lib/tenantColor';
 import { useImagePreloader } from '../../hooks/useImagePreloader';
 import { SmartInsightsCarousel } from '../InsightsPage';
 import GiftCardsPage from '../GiftCardsPage';
@@ -138,6 +139,13 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
       : null;
   const effectiveTarget: Target = chosenTarget !== undefined ? chosenTarget : defaultTarget;
 
+  // ── Per-tenant promo color ────────────────────────────────────────────────
+  // Brand the promo slides with the target tenant's color. A genuinely themed
+  // tenant keeps its own color; tenants on the platform default (every public
+  // tenant) get a stable, unique color hashed from their id, so the promos no
+  // longer look identical for everyone. No target -> the Nexus default.
+  const orgColor = resolveTenantColor(tenantConfig?.primaryColor, effectiveTarget?.tenantId);
+
   // ── Match set (member-role orgs) shown on the match-screen ────────────────
   // ?tenant=X member -> [that org]; no ?tenant -> all member orgs; else the
   // invited/pre-provisioned org (so that path keeps its match-screen).
@@ -176,7 +184,7 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
         id: urlTenantId ?? membership?.tenantId ?? 'org',
         name: promoOrgName,
         initials: promoOrgName.slice(0, 2).toUpperCase(),
-        color: tenantConfig?.primaryColor ?? '#635bff',
+        color: orgColor,
         available: true,
         tenantId: urlTenantId ?? membership?.tenantId,
         logo: tenantConfig?.logo,
@@ -341,9 +349,6 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
     }));
   }
 
-  // ── Org accent colour for CTA bar ─────────────────────────────────────────
-  const orgColor = tenantConfig?.primaryColor ?? '#635bff';
-
   // ── Slides that own their own bottom UI (no CTA bar overlay) ─────────────
   const noCTASlides = ['match-screen'];
 
@@ -392,7 +397,7 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
               transition={{ duration: 0.3, ease: [0.25, 0.46, 0.45, 0.94] }}
               className="absolute inset-0"
             >
-              {steps[current]?.id === 'nexus-hero'  && <SlideNexusHero failedImages={failedImages} orgName={promoOrgName} />}
+              {steps[current]?.id === 'nexus-hero'  && <SlideNexusHero failedImages={failedImages} orgName={promoOrgName} accentColor={orgColor} />}
               {steps[current]?.id === 'welcome-org' && <SlideWelcomeOrg org={resolvedOrgInfo} />}
               {steps[current]?.id === 'story-insights'    && (
                 <div className="w-full h-full flex flex-col items-center justify-center px-6 relative overflow-hidden" style={{ backgroundColor: 'var(--color-surface)' }} dir="rtl">
