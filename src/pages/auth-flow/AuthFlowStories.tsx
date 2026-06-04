@@ -146,22 +146,32 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
   // longer look identical for everyone. No target -> the Nexus default.
   const orgColor = resolveTenantColor(tenantConfig?.primaryColor, effectiveTarget?.tenantId);
 
-  // ── Match set (member-role orgs) shown on the match-screen ────────────────
-  // ?tenant=X member -> [that org]; no ?tenant -> all member orgs; else the
-  // invited/pre-provisioned org (so that path keeps its match-screen).
-  const matchOrgs: MemberOrgOption[] = urlTenantId
+  // ── Match set (member-role orgs) shown on the match-screen as "continue" ──
+  // ?tenant=X member -> [that org] (only X, by design); ?tenant=X non-member ->
+  // his OTHER member orgs (so a user who came via X but belongs to Y can pick
+  // Y); no ?tenant -> all member orgs; else the invited/pre-provisioned org.
+  const memberMatchOrgs: MemberOrgOption[] = urlTenantId
     ? (membership
         ? [{ tenantId: membership.tenantId, tenantName: membership.tenantName, logoUrl: membership.logoUrl }]
-        : [])
+        : memberOrgs)
     : memberOrgs.length > 0
       ? memberOrgs
       : (orgMember
           ? [{ tenantId: orgMember.organizationId, tenantName: orgMember.organizationName, logoUrl: tenantConfig?.logo }]
           : []);
 
+  // ── The URL tenant offered as a JOIN option on the match-screen ───────────
+  // Only when the user arrived via ?tenant=X, is NOT a member of X, AND has at
+  // least one other membership to choose between. A brand-new user with only X
+  // keeps the plain promos+join flow (no single-row screen).
+  const joinTarget: MemberOrgOption | null =
+    urlTenantId && !membership && memberMatchOrgs.length > 0
+      ? { tenantId: urlTenantId, tenantName: resolvedOrgName ?? '', logoUrl: tenantConfig?.logo }
+      : null;
+
   // ── Whether this session has an org/tenant context (cosmetic: CTA bar
   //    "powered by", progress bar). True when there is any match or invite. ──
-  const isOrgFlow = Boolean(orgMember || tenantConfig || membership || matchOrgs.length > 0);
+  const isOrgFlow = Boolean(orgMember || tenantConfig || membership || memberMatchOrgs.length > 0);
 
   // ── Flow label for ?flow= URL param — tracks which onboarding path the user
   //    arrived on. Based on registrationPath at entry time, not mid-flow state.
@@ -199,7 +209,10 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
   // the promos — branded with the target org — and the CTA goes to the
   // questions, where the join (if any) is sent. There is no join-prompt screen.
   const baseSteps = flowType === 'new-user' ? newUserSteps : orgUserSteps;
-  const hasMatch = !isNonMember && matchOrgs.length >= 1;
+  // Show the match-screen whenever there is at least one member org to offer as
+  // a "continue" choice. The join target (X) only ever exists alongside member
+  // orgs, so it never produces a screen on its own.
+  const hasMatch = memberMatchOrgs.length >= 1;
   const initialSteps = hasMatch
     ? [{ id: 'match-screen', interactive: true }, ...baseSteps]
     : [...baseSteps];
@@ -292,11 +305,25 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
 
   /** Match-screen: continue with an existing membership (no new join). */
   const handleMatchContinue = (tenantId: string): void => {
-    const org = matchOrgs.find((o) => o.tenantId === tenantId);
+    const org = memberMatchOrgs.find((o) => o.tenantId === tenantId);
     setChosenTarget({ tenantId, orgName: org?.tenantName ?? null, isMember: true });
     // Make it the default now so the promos brand correctly; commitTarget repeats
     // this on the way to the questions (idempotent).
     void setDefaultTenant(tenantId).catch(() => { /* non-fatal */ });
+    advanceToPromos();
+  };
+
+  /**
+   * Match-screen: join the URL tenant the user is NOT yet a member of. Records a
+   * NEW-JOIN target (no setDefaultTenant — not a member yet); the actual request
+   * fires when the questions start (commitTarget -> submitJoin).
+   */
+  const handleMatchJoin = (tenantId: string): void => {
+    setChosenTarget({
+      tenantId,
+      orgName: joinTarget?.tenantName ?? resolvedOrgName ?? null,
+      isMember: false,
+    });
     advanceToPromos();
   };
 
@@ -409,8 +436,10 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
               {steps[current]?.id === 'story-nearby'      && <NearbyMapPage />}
               {steps[current]?.id === 'match-screen'      && (
                 <SlideMatchScreen
-                  orgs={matchOrgs}
+                  orgs={memberMatchOrgs}
+                  joinTarget={joinTarget}
                   onContinueWith={handleMatchContinue}
+                  onContinueJoin={handleMatchJoin}
                   onContinueNoAffiliation={handleMatchNoAffiliation}
                   onJoinOther={() => setShowJoin(true)}
                 />
