@@ -22,6 +22,7 @@ import SettingsHeader from '../components/layout/SettingsHeader';
 import PurposeSection from '../components/profile/edit/PurposeSection';
 import DeleteAccountCard from '../components/profile/edit/DeleteAccountCard';
 import InviteFriendsCard from '../components/profile/edit/InviteFriendsCard';
+import PhoneSection from '../components/profile/edit/PhoneSection';
 import {
   type GenderValue,
   normaliseGender,
@@ -175,6 +176,12 @@ export default function EditProfilePage() {
             />
           </div>
         </div>
+      </section>
+
+      {/* Phone — add/update with OTP; propagates to the user's tenant rows. */}
+      <section className={CARD_CLASS}>
+        <h2 className={SECTION_LABEL_CLASS}>{t.profile.phone}</h2>
+        <PhoneSection />
       </section>
 
       {/* 2. Birthday */}

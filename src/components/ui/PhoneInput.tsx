@@ -6,11 +6,11 @@
  *
  * Country picker opens as a bottom sheet (slides up from bottom of screen).
  */
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useLanguage } from '../../i18n/LanguageContext';
 
-interface Country {
+export interface Country {
   flag: string;
   name: string;
   nameHe: string;
@@ -19,7 +19,7 @@ interface Country {
   maxDigits: number;
 }
 
-const COUNTRIES: Country[] = [
+export const COUNTRIES: Country[] = [
   // ── Israel first ────────────────────────────────────────────────────────────
   { flag: '🇮🇱', name: 'Israel',                       nameHe: 'ישראל',                    dial: '+972', code: 'IL', maxDigits: 10 },
   // ── Rest alphabetically by English name ─────────────────────────────────────
@@ -246,6 +246,9 @@ interface PhoneInputProps {
   autoFocus?: boolean;
   inputRef?: React.RefObject<HTMLInputElement | null>;
   isLoading?: boolean;
+  /** Notified with the selected country on mount and whenever it changes — lets
+   *  the parent enforce country rules (e.g. Israel-only acceptance). */
+  onCountryChange?: (country: Country) => void;
 }
 
 export default function PhoneInput({
@@ -257,11 +260,26 @@ export default function PhoneInput({
   autoFocus = false,
   inputRef,
   isLoading = false,
+  onCountryChange,
 }: PhoneInputProps) {
   const { language } = useLanguage();
   const isHe = language === 'he';
 
   const [country, setCountry] = useState<Country>(COUNTRIES[0]);
+
+  // Tell the parent the initial country (Israel) once, so its country-rule
+  // checks have a value before the user opens the picker.
+  useEffect(() => {
+    onCountryChange?.(country);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Placeholder follows the selected country: Israel keeps the design's
+  // 050-000-0000; others show a dashed zero pattern of the right length.
+  const effectivePlaceholder =
+    country.code === 'IL'
+      ? placeholder
+      : formatPhoneNumber('0'.repeat(country.maxDigits), country.maxDigits);
   // mounted = portal exists in DOM; visible = sheet is slid into view
   const [mounted, setMounted] = useState(false);
   const [visible, setVisible] = useState(false);
@@ -288,6 +306,7 @@ export default function PhoneInput({
 
   const handleSelect = (c: Country) => {
     setCountry(c);
+    onCountryChange?.(c);
     closeSheet();
     onChange('');
   };
@@ -321,7 +340,7 @@ export default function PhoneInput({
         onChange={(e) => onChange(formatPhoneNumber(e.target.value, country.maxDigits))}
         onKeyDown={onKeyDown}
         autoComplete="tel-national"
-        placeholder={placeholder}
+        placeholder={effectivePlaceholder}
         className="flex-1 bg-transparent border-none outline-none text-sm text-text-primary placeholder:text-text-muted min-w-0"
         dir="ltr"
         autoFocus={autoFocus}

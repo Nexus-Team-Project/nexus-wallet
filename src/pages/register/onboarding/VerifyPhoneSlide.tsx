@@ -1,58 +1,77 @@
 /**
- * VerifyPhoneSlide — mandatory slide for users who authenticated via Google/Apple
- * and don't yet have a phone number in their account.
+ * VerifyPhoneSlide — the FIRST onboarding question for users who signed up with
+ * Google and have no phone yet. Two steps in one slide:
+ *   1. phone   — add an Israeli number (matches the "הוסף מספר טלפון" design).
+ *   2. otp     — enter the InforU SMS code (real flow only).
  *
- * Security (client-side layer):
- *   - Max 5 verification attempts → locked, forced back to phone step
- *   - Escalating resend: attempt 1 → 60s cooldown; attempt 2+ → WhatsApp option
- *   - OTP expiry hint: "הקוד בתוקף ל-5 דקות" shown below the boxes
- *   - Generic error message ("קוד שגוי, נסה שוב") — no info leakage
- *   - Backend (Firebase) handles: CSPRNG, hashed storage, true single-use, rate limiting
+ * The number is attached to the NexusIdentity server-side (and mirrored onto the
+ * user's tenant rows). The slide CANNOT be skipped: there is no skip/back, and
+ * until InforU env is configured the real "המשך" is disabled — the only way
+ * forward is "המשך כבדיקה", which saves the number (unverified) and proceeds.
+ *
+ * Israel-only: a non-Israeli country selection is blocked here and by the
+ * backend; InforU is an Israeli SMS provider.
  */
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useLanguage } from '../../../i18n/LanguageContext';
 import { useRegistrationStore } from '../../../stores/registrationStore';
-
-// WebOTP API type — not in standard lib
-interface OTPCredential extends Credential { code: string }
 import OnboardingSlideLayout from '../../../components/register/OnboardingSlideLayout';
-import PhoneInput from '../../../components/ui/PhoneInput';
+import PhoneInput, { type Country } from '../../../components/ui/PhoneInput';
 import {
   getNextOnboardingSlide,
   getOnboardingProgress,
 } from '../../../utils/onboardingNavigation';
+import {
+  startPhoneOtp,
+  verifyPhoneOtp,
+  attachPhoneTest,
+  PHONE_OTP_ENABLED,
+} from '../../../services/walletPhone.service';
 
 type OtpStep = 'phone' | 'otp';
-
+const MAX_ATTEMPTS = 5;
+const OTP_VALID_MINS = 5;
 const COOLDOWN_SECONDS = 60;
-const MAX_ATTEMPTS     = 5;
-const OTP_VALID_MINS   = 5;
 
 export default function VerifyPhoneSlide() {
   const { lang = 'he' } = useParams();
   const navigate = useNavigate();
   const { t } = useLanguage();
 
-  const [step, setStep]           = useState<OtpStep>('phone');
-  const [phone, setPhone]         = useState('');
-  const [otp, setOtp]             = useState('');
+  const [step, setStep] = useState<OtpStep>('phone');
+  const [phone, setPhone] = useState('');
+  const [country, setCountry] = useState<Country | null>(null);
+  const [otp, setOtp] = useState('');
+  const [challengeId, setChallengeId] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError]         = useState('');
-
-  // Escalation & attempt tracking
-  const [resendCount, setResendCount]   = useState(0);  // times user clicked resend
-  const [failCount, setFailCount]       = useState(0);  // wrong-code attempts for current OTP
-  const [cooldown, setCooldown]         = useState(0);  // seconds remaining in resend cooldown
-  const [locked, setLocked]            = useState(false); // true = max attempts reached
+  const [error, setError] = useState('');
+  const [failCount, setFailCount] = useState(0);
+  const [locked, setLocked] = useState(false);
+  const [cooldown, setCooldown] = useState(0);
 
   const phoneInputRef = useRef<HTMLInputElement>(null);
-  const otpRef        = useRef<HTMLInputElement>(null);
-  const cooldownRef   = useRef<ReturnType<typeof setInterval> | null>(null);
+  const otpRef = useRef<HTMLInputElement>(null);
+  const cooldownRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const canSendOtp = phone.replace(/\D/g, '').length >= 7;
+  const isIsrael = country?.code === 'IL';
+  const canSend = phone.replace(/\D/g, '').length >= 9 && isIsrael;
 
-  // ── Cooldown ticker ─────────────────────────────────────────────────────────
+  // Map a backend error code to a localized message.
+  const mapError = useCallback(
+    (e: unknown): string => {
+      const code = e instanceof Error ? e.message : '';
+      if (code === 'phone_in_use') return t.registration.verifyPhoneInUse;
+      if (code === 'phone_not_israeli') return t.registration.verifyPhoneIsraelOnly;
+      if (code === 'sms_unavailable') return t.registration.verifyPhoneSmsUnavailable;
+      if (code === 'otp_invalid') return t.auth.wrongCode;
+      if (code === 'otp_locked') return t.auth.otpTooManyAttempts;
+      return t.auth.wrongCode;
+    },
+    [t],
+  );
+
+  // ── Cooldown ticker ──────────────────────────────────────────────────────
   useEffect(() => {
     if (cooldown <= 0) return;
     cooldownRef.current = setInterval(() => {
@@ -64,86 +83,79 @@ export default function VerifyPhoneSlide() {
     return () => clearInterval(cooldownRef.current!);
   }, [cooldown]);
 
-  // ── WebOTP API (Android) ─────────────────────────────────────────────────────
-  useEffect(() => {
-    if (step !== 'otp') return;
-    if (!('OTPCredential' in window)) return;
-    const ac = new AbortController();
-    navigator.credentials
-      .get({ otp: { transport: ['sms'] }, signal: ac.signal } as CredentialRequestOptions)
-      .then((credential) => {
-        if (!credential) return;
-        const code = (credential as OTPCredential).code;
-        if (/^\d{4}$/.test(code)) { setOtp(code); handleVerify(code); }
-      })
-      .catch(() => {/* dismissed or unsupported — ignore */});
-    return () => ac.abort();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step]);
-
   const storeState = useRegistrationStore.getState();
   const { current, total } = getOnboardingProgress('verify-phone', storeState);
 
   const goNext = () => {
+    useRegistrationStore.setState({ phone });
     const next = getNextOnboardingSlide('verify-phone', storeState);
-    if (next) {
-      navigate(`/${lang}/register/onboarding/${next}`, { replace: true });
-    } else {
-      navigate(`/${lang}/register/complete`, { replace: true });
-    }
+    navigate(
+      next ? `/${lang}/register/onboarding/${next}` : `/${lang}/register/complete`,
+      { replace: true },
+    );
   };
 
-  // ── Reset to phone step ──────────────────────────────────────────────────────
-  const resetToPhone = () => {
-    setStep('phone');
-    setOtp('');
-    setError('');
-    setFailCount(0);
-    setLocked(false);
-  };
-
-  // ── Send OTP (SMS) ───────────────────────────────────────────────────────────
+  // ── Real flow: send InforU OTP ─────────────────────────────────────────────
   const handleSendOtp = useCallback(async () => {
-    if (!canSendOtp) return;
+    if (!canSend || isLoading) return;
     setError('');
     setIsLoading(true);
     try {
-      // TODO: Replace with real Firebase signInWithPhoneNumber
-      await new Promise((r) => setTimeout(r, 800));
+      const { challengeId: id } = await startPhoneOtp(phone);
+      setChallengeId(id);
       setFailCount(0);
       setLocked(false);
+      setOtp('');
       setStep('otp');
+      setCooldown(COOLDOWN_SECONDS);
       setTimeout(() => otpRef.current?.focus(), 100);
-    } catch {
-      setError(t.auth.wrongCode);
+    } catch (e) {
+      setError(mapError(e));
     } finally {
       setIsLoading(false);
     }
-  }, [canSendOtp, t.auth.wrongCode]);
+  }, [canSend, isLoading, phone, mapError]);
 
-  // ── Resend (with escalation) ─────────────────────────────────────────────────
-  const handleResend = async () => {
-    if (cooldown > 0 || isLoading) return;
-    setOtp('');
+  // ── Test flow: attach without OTP (saves to DB), then proceed ──────────────
+  const handleTestAttach = useCallback(async () => {
+    if (!canSend || isLoading) return;
     setError('');
+    setIsLoading(true);
+    try {
+      await attachPhoneTest(phone);
+      goNext();
+    } catch (e) {
+      setError(mapError(e));
+    } finally {
+      setIsLoading(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canSend, isLoading, phone, mapError]);
 
-    const nextCount = resendCount + 1;
-    setResendCount(nextCount);
-
-    // First resend → start cooldown; subsequent resends → no extra cooldown
-    if (nextCount === 1) setCooldown(COOLDOWN_SECONDS);
-
-    await handleSendOtp();
+  // ── Verify OTP ─────────────────────────────────────────────────────────────
+  const handleVerify = async (code: string) => {
+    if (code.length < 4 || locked || isLoading) return;
+    setIsLoading(true);
+    setError('');
+    try {
+      await verifyPhoneOtp(challengeId, code);
+      goNext();
+    } catch (e) {
+      const nextFail = failCount + 1;
+      setFailCount(nextFail);
+      setOtp('');
+      if (nextFail >= MAX_ATTEMPTS || (e instanceof Error && e.message === 'otp_locked')) {
+        setLocked(true);
+        setError(t.auth.otpTooManyAttempts);
+      } else {
+        setError(mapError(e));
+        otpRef.current?.focus();
+      }
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  // ── Send via WhatsApp ────────────────────────────────────────────────────────
-  const handleWhatsApp = () => {
-    // TODO: trigger WhatsApp OTP flow via backend
-    const stripped = phone.replace(/\D/g, '');
-    window.open(`https://wa.me/${stripped}`, '_blank');
-  };
-
-  // ── OTP input change ─────────────────────────────────────────────────────────
   const handleOtpChange = (value: string) => {
     if (locked) return;
     const digits = value.replace(/\D/g, '').slice(0, 4);
@@ -152,85 +164,29 @@ export default function VerifyPhoneSlide() {
     if (digits.length === 4) handleVerify(digits);
   };
 
-  // ── Verify OTP ───────────────────────────────────────────────────────────────
-  const handleVerify = async (code: string) => {
-    if (code.length < 4 || locked) return;
-    setIsLoading(true);
-    setError('');
-    try {
-      // TODO: Replace with real Firebase confirmation
-      await new Promise((r) => setTimeout(r, 600));
-      if (code !== '1111' && code !== '9999') throw new Error('wrong');
-      const normalizedPhone = `050-${phone.slice(-7)}`;
-      useRegistrationStore.setState({ phone: normalizedPhone });
-      goNext();
-    } catch {
-      const nextFail = failCount + 1;
-      setFailCount(nextFail);
-      setOtp('');
-
-      if (nextFail >= MAX_ATTEMPTS) {
-        // Lock — too many wrong attempts
-        setLocked(true);
-        setError(t.auth.otpTooManyAttempts);
-      } else {
-        setError(t.auth.wrongCode);
-        otpRef.current?.focus();
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // ── Resend / WhatsApp footer ─────────────────────────────────────────────────
-  const resendFooter = (
-    <div className="flex flex-col items-center gap-2 pt-1">
-      {/* Resend SMS — hidden when locked (user must request new code via back button) */}
-      {!locked && (
-        <button
-          onClick={handleResend}
-          disabled={cooldown > 0 || isLoading}
-          className="w-full text-center text-sm text-primary font-medium py-2 disabled:opacity-50 transition-opacity"
-        >
-          {cooldown > 0
-            ? t.auth.resendCodeWait.replace('{seconds}', String(cooldown))
-            : t.auth.resendCode}
-        </button>
-      )}
-
-      {/* WhatsApp option — only after 2nd resend attempt */}
-      {resendCount >= 2 && !locked && (
-        <button
-          onClick={handleWhatsApp}
-          disabled={isLoading}
-          className="flex items-center justify-center gap-2 w-full text-sm font-medium py-2 rounded-2xl border border-border text-text-primary active:bg-surface transition-colors disabled:opacity-50"
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
-            <path
-              d="M12 2C6.477 2 2 6.477 2 12c0 1.89.525 3.66 1.438 5.168L2 22l4.979-1.303A9.955 9.955 0 0012 22c5.523 0 10-4.477 10-10S17.523 2 12 2z"
-              fill="#25D366"
-            />
-            <path
-              d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"
-              fill="white"
-            />
-          </svg>
-          {t.auth.resendViaWhatsApp}
-        </button>
-      )}
-    </div>
-  );
-
-  // ── Phone step ───────────────────────────────────────────────────────────────
+  // ── Phone step ─────────────────────────────────────────────────────────────
   if (step === 'phone') {
+    const note = !isIsrael && country ? t.registration.verifyPhoneIsraelOnly : error || undefined;
     return (
       <OnboardingSlideLayout
         totalSlides={total}
         currentSlideIndex={current}
         canSkip={false}
-        canContinue={canSendOtp && !isLoading}
+        canContinue={PHONE_OTP_ENABLED && canSend && !isLoading}
         onContinue={handleSendOtp}
-        footerNote={error || undefined}
+        footerNote={note}
+        footerExtra={
+          !PHONE_OTP_ENABLED ? (
+            <button
+              type="button"
+              onClick={handleTestAttach}
+              disabled={!canSend || isLoading}
+              className="w-full text-center text-sm font-semibold text-primary py-2 disabled:opacity-40 transition-opacity"
+            >
+              {t.registration.verifyPhoneTestContinue}
+            </button>
+          ) : undefined
+        }
       >
         <div className="pt-6 pb-2">
           <h1 className="text-2xl font-semibold leading-tight mb-2" style={{ color: 'var(--color-primary)' }}>
@@ -243,10 +199,12 @@ export default function VerifyPhoneSlide() {
           <PhoneInput
             value={phone}
             onChange={(v) => { setPhone(v); setError(''); }}
-            onKeyDown={(e) => { if (e.key === 'Enter' && canSendOtp) handleSendOtp(); }}
-            placeholder={t.auth.phonePlaceholder}
+            onCountryChange={setCountry}
+            onKeyDown={(e) => { if (e.key === 'Enter' && PHONE_OTP_ENABLED && canSend) handleSendOtp(); }}
+            placeholder="050-000-0000"
             autoFocus
             inputRef={phoneInputRef}
+            error={!!error}
             isLoading={isLoading}
           />
         </div>
@@ -254,14 +212,30 @@ export default function VerifyPhoneSlide() {
     );
   }
 
-  // ── OTP step ─────────────────────────────────────────────────────────────────
+  // ── OTP step ───────────────────────────────────────────────────────────────
+  const resendFooter = (
+    <div className="flex flex-col items-center gap-2 pt-1">
+      {!locked && (
+        <button
+          onClick={() => { if (cooldown === 0 && !isLoading) void handleSendOtp(); }}
+          disabled={cooldown > 0 || isLoading}
+          className="w-full text-center text-sm text-primary font-medium py-2 disabled:opacity-50 transition-opacity"
+        >
+          {cooldown > 0
+            ? t.auth.resendCodeWait.replace('{seconds}', String(cooldown))
+            : t.auth.resendCode}
+        </button>
+      )}
+    </div>
+  );
+
   return (
     <OnboardingSlideLayout
       totalSlides={total}
       currentSlideIndex={current}
       canSkip={false}
       canContinue={otp.length === 4 && !isLoading && !locked}
-      onBack={resetToPhone}
+      onBack={() => { setStep('phone'); setOtp(''); setError(''); setFailCount(0); setLocked(false); }}
       onContinue={() => handleVerify(otp)}
       footerNote={error || undefined}
       footerExtra={resendFooter}
@@ -275,9 +249,7 @@ export default function VerifyPhoneSlide() {
           <span className="font-semibold text-text-secondary ms-1" dir="ltr">{phone}</span>
         </p>
 
-        {/* Single OTP input — iOS QuickType + Android WebOTP both work */}
         <div className="relative mb-3" dir="ltr">
-          {/* Visual 4-box overlay */}
           <div className="flex gap-3 justify-center pointer-events-none select-none" aria-hidden>
             {[0, 1, 2, 3].map((i) => (
               <div
@@ -287,19 +259,15 @@ export default function VerifyPhoneSlide() {
                     ? 'border-border text-text-muted opacity-40'
                     : error
                       ? 'border-error text-error'
-                      : otp[i]
+                      : otp[i] || i === otp.length
                         ? 'border-primary text-text-primary'
-                        : i === otp.length
-                          ? 'border-primary text-text-primary'
-                          : 'border-border text-text-muted'
+                        : 'border-border text-text-muted'
                 }`}
               >
                 {otp[i] ?? ''}
               </div>
             ))}
           </div>
-
-          {/* Real input — transparent, sits over the visual boxes */}
           <input
             ref={otpRef}
             type="text"
@@ -314,19 +282,10 @@ export default function VerifyPhoneSlide() {
           />
         </div>
 
-        {/* OTP expiry hint — shown when not locked */}
         {!locked && (
           <p className="text-center text-xs mb-4" style={{ color: 'var(--color-text-muted)' }}>
             {t.auth.otpExpiry.replace('{minutes}', String(OTP_VALID_MINS))}
           </p>
-        )}
-
-        {isLoading && (
-          <div className="flex justify-center py-2">
-            <span className="material-symbols-outlined text-primary animate-spin" style={{ fontSize: '22px' }}>
-              progress_activity
-            </span>
-          </div>
         )}
       </div>
     </OnboardingSlideLayout>

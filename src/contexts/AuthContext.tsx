@@ -46,6 +46,10 @@ export interface WalletMeResponse {
   }>;
   isPlatformAdmin?: boolean;
   canOpenDashboard?: boolean;
+  /** Canonical phone on the identity (05XXXXXXXX), or null when unset. */
+  phone?: string | null;
+  /** ISO timestamp the phone was OTP-verified; null for a test-attached number. */
+  phoneVerifiedAt?: string | null;
   /**
    * Effective default landing context for a returning member: a tenantId to
    * land on that tenant's catalog, or null for the Nexus (ecosystem) catalog.
@@ -204,10 +208,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               const firstName = nameParts[0] ?? '';
               const lastName = nameParts.slice(1).join(' ');
               const regStore = useRegistrationStore.getState();
+              // Google sign-ups usually have no phone — collect + verify one as the
+              // FIRST onboarding question (verify-phone is first in the slide order).
+              // BUT if the identity already carries a phone (e.g. the same person
+              // verified it via SMS earlier), skip it — don't re-ask. A tenant's
+              // manually-entered contact phone lives on the contact row, not the
+              // identity, so it does NOT suppress the slide.
+              const needsPhone = !me.phone;
               regStore.startRegistration({
                 path: 'new-user',
                 phone: '',
-                missingFields: ['birthday'],
+                missingFields: needsPhone ? ['phone', 'birthday'] : ['birthday'],
               });
               regStore.setProfileData({
                 firstName,
