@@ -353,6 +353,7 @@ export interface TranslationKeys {
     verifyPhoneTitle: string;
     verifyPhoneSubtitle: string;
     verifyPhoneTestContinue: string;
+    verifyPhoneFormat: string;
     verifyPhoneIsraelOnly: string;
     verifyPhoneInUse: string;
     verifyPhoneSmsUnavailable: string;

@@ -36,7 +36,10 @@ export default function PhoneUpdateSheet({ onClose, onUpdated }: Props) {
   const [error, setError] = useState('');
 
   const isIsrael = country?.code === 'IL';
-  const canSend = phone.replace(/\D/g, '').length >= 9 && isIsrael;
+  // Israeli mobile: exactly 10 digits starting with 05.
+  const phoneDigits = phone.replace(/\D/g, '');
+  const isValidIsraeliPhone = phoneDigits.length === 10 && phoneDigits.startsWith('05');
+  const canSend = isIsrael && isValidIsraeliPhone;
 
   const mapErr = (e: unknown): string => {
     const c = e instanceof Error ? e.message : '';
@@ -71,7 +74,13 @@ export default function PhoneUpdateSheet({ onClose, onUpdated }: Props) {
     catch (e) { setError(mapErr(e)); setOtp(''); } finally { setBusy(false); }
   };
 
-  const showError = !isIsrael && country ? t.registration.verifyPhoneIsraelOnly : error || null;
+  const formatHint =
+    isIsrael && phoneDigits.length > 0 && !isValidIsraeliPhone
+      ? t.registration.verifyPhoneFormat
+      : null;
+  const showError = !isIsrael && country
+    ? t.registration.verifyPhoneIsraelOnly
+    : error || formatHint || null;
 
   return createPortal(
     <div dir={isHe ? 'rtl' : 'ltr'}>

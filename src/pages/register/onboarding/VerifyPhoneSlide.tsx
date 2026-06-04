@@ -55,7 +55,11 @@ export default function VerifyPhoneSlide() {
   const cooldownRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const isIsrael = country?.code === 'IL';
-  const canSend = phone.replace(/\D/g, '').length >= 9 && isIsrael;
+  // Israeli mobile: exactly 10 digits starting with 05. Both the real "המשך"
+  // and the "המשך כבדיקה" buttons stay disabled until this holds.
+  const phoneDigits = phone.replace(/\D/g, '');
+  const isValidIsraeliPhone = phoneDigits.length === 10 && phoneDigits.startsWith('05');
+  const canSend = isIsrael && isValidIsraeliPhone;
 
   // Map a backend error code to a localized message.
   const mapError = useCallback(
@@ -166,7 +170,13 @@ export default function VerifyPhoneSlide() {
 
   // ── Phone step ─────────────────────────────────────────────────────────────
   if (step === 'phone') {
-    const note = !isIsrael && country ? t.registration.verifyPhoneIsraelOnly : error || undefined;
+    const formatHint =
+      isIsrael && phoneDigits.length > 0 && !isValidIsraeliPhone
+        ? t.registration.verifyPhoneFormat
+        : undefined;
+    const note = !isIsrael && country
+      ? t.registration.verifyPhoneIsraelOnly
+      : error || formatHint || undefined;
     return (
       <OnboardingSlideLayout
         totalSlides={total}

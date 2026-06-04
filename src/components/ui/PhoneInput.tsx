@@ -237,6 +237,27 @@ export function formatPhoneNumber(value: string, maxDigits = 10): string {
   return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
 }
 
+// Windows fonts don't render flag emoji (they show the "IL"/"AF" letter pair),
+// so flags come from flagcdn as small PNGs keyed by the ISO country code.
+const flagSrc = (code: string): string => `https://flagcdn.com/24x18/${code.toLowerCase()}.png`;
+const flagSrc2x = (code: string): string => `https://flagcdn.com/48x36/${code.toLowerCase()}.png`;
+
+/** A small rounded flag image. Falls back to hiding itself if the PNG is missing. */
+function FlagImg({ code, w, h }: { code: string; w: number; h: number }) {
+  return (
+    <img
+      src={flagSrc(code)}
+      srcSet={`${flagSrc2x(code)} 2x`}
+      width={w}
+      height={h}
+      alt={code}
+      loading="lazy"
+      className="flex-shrink-0 rounded-[3px] object-cover"
+      onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = 'hidden'; }}
+    />
+  );
+}
+
 interface PhoneInputProps {
   value: string;
   onChange: (value: string) => void;
@@ -321,7 +342,7 @@ export default function PhoneInput({
       onClick={openSheet}
       className={`${countryFieldCls} border-border active:scale-95 transition-transform`}
     >
-      <span className="w-6 h-6 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center" style={{ fontSize: '18px', lineHeight: 1 }}>{country.flag}</span>
+      <FlagImg code={country.code} w={22} h={16} />
       <span className="text-xs font-semibold text-text-primary" dir="ltr">{country.dial}</span>
       <span className="material-symbols-outlined text-text-muted" style={{ fontSize: '14px' }}>
         keyboard_arrow_down
@@ -428,7 +449,7 @@ export default function PhoneInput({
                     c.code === country.code ? 'bg-primary/5' : ''
                   }`}
                 >
-                  <span className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center" style={{ fontSize: '24px', lineHeight: 1 }}>{c.flag}</span>
+                  <FlagImg code={c.code} w={28} h={20} />
                   <span className={`flex-1 text-start font-medium ${c.code === country.code ? 'text-primary' : 'text-text-primary'}`}>
                     {isHe ? c.nameHe : c.name}
                   </span>
