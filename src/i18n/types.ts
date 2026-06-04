@@ -352,6 +352,9 @@ export interface TranslationKeys {
     // VerifyPhone slide
     verifyPhoneTitle: string;
     verifyPhoneSubtitle: string;
+    benefitCategoriesTitle: string;
+    benefitCategoriesSubtitle: string;
+    benefitCategoriesComingSoon: string;
     verifyPhoneTestContinue: string;
     verifyPhoneFormat: string;
     verifyPhoneIsraelOnly: string;
