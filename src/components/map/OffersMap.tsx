@@ -44,6 +44,9 @@ export interface OffersMapProps {
   /** Whether to render a default popup when a pin is selected. Off when the
    *  parent renders its own detail sheet. */
   showPopup?: boolean;
+  /** Fires once the base map style + tiles have finished loading. Lets the
+   *  parent fade out its own loading skeleton. */
+  onLoad?: () => void;
 }
 
 export default function OffersMap({
@@ -59,6 +62,7 @@ export default function OffersMap({
   userLocation = null,
   flyTo = null,
   showPopup = true,
+  onLoad,
 }: OffersMapProps) {
   // The popup's selected pin is store-driven so child controls can manage
   // it, but the parent can also drive it via the `selectedPinId` prop.
@@ -177,6 +181,7 @@ export default function OffersMap({
         onMove={handleMove}
         onMoveEnd={handleMoveEnd}
         onClick={handleMapClick}
+        onLoad={onLoad ? () => onLoad() : undefined}
         style={{ width: '100%', height: '100%' }}
         // We render our own NavigationControl-like buttons in MapControls,
         // but we still mount a hidden NavigationControl for accessibility

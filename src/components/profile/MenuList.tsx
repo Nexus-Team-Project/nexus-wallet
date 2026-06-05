@@ -10,6 +10,7 @@ import {
   Smartphone,
   Image as ImageIcon,
   LayoutGrid,
+  ShoppingBag,
   LogOut,
   ChevronRight,
   ChevronLeft,
@@ -111,6 +112,11 @@ export default function MenuList() {
     {
       title: t.profile.settingsControlCenter,
       rows: [
+        {
+          Icon: ShoppingBag,
+          label: language === 'he' ? 'ההזמנות שלי' : 'My orders',
+          onClick: () => {},
+        },
         {
           Icon: User,
           label: t.profile.settingsAccountInfo,

@@ -8,6 +8,7 @@ import { useUser } from '../../hooks/useUser';
 import { useUnreadNotificationCount } from '../../hooks/useNotifications';
 import { useNotificationToastStore } from '../../stores/notificationToastStore';
 import TenantSheet from './TenantSheet';
+import { useTopBarBadgeStore } from '../../stores/topBarBadgeStore';
 
 function getGreeting(t: { home: { goodMorning: string; goodAfternoon: string; goodEvening: string; goodNight: string } }) {
   const hour = new Date().getHours();
@@ -64,6 +65,7 @@ export default function TopBar({ collapsed = false, showBack = false, hideGreeti
   }, [bellPulseCount]);
 
   const [tenantSheetOpen, setTenantSheetOpen] = useState(false);
+  const badge = useTopBarBadgeStore((s) => s.badge);
 
   const tenantDisplayName = hasTenant
     ? (language === 'he' ? tenantConfig?.nameHe : tenantConfig?.name)
@@ -108,10 +110,26 @@ export default function TopBar({ collapsed = false, showBack = false, hideGreeti
               </span>
             </button>
           )}
+          {/* Page badge — sits between back button and avatar cluster */}
+          {badge && (
+            <div className="relative z-20 w-9 h-9 rounded-xl bg-white flex items-center justify-center border-2 border-white shadow-sm overflow-hidden flex-shrink-0">
+              {badge.src ? (
+                <img
+                  src={badge.src}
+                  alt={badge.alt}
+                  className="w-6 h-6 object-contain"
+                  style={badge.filter ? { filter: badge.filter } : undefined}
+                />
+              ) : (
+                <span className="text-xs font-bold text-black">{badge.alt.charAt(0)}</span>
+              )}
+            </div>
+          )}
           {/* Avatar cluster */}
           <button
             onClick={handleProfile}
             className={`relative flex items-center transition-transform duration-300 ease-in-out origin-left ${collapsed ? 'scale-[0.65]' : 'scale-100'}`}
+            style={badge ? { marginInlineStart: '-10px', zIndex: 10 } : undefined}
             aria-label="Profile"
           >
             {/* Logo circle */}
