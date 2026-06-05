@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, useMotionValue, useTransform, animate, type PanInfo } from 'framer-motion';
 import { useLanguage } from '../../i18n/LanguageContext';
@@ -6,6 +6,9 @@ import type { Business, Product, Service } from '../../types/search.types';
 import type { Branch } from '../../types/branch.types';
 import type { Voucher } from '../../types/voucher.types';
 import type { Review } from '../../mock/data/reviews.mock';
+import OffersMap from '../map/OffersMap';
+import RatingBars from '../ui/RatingBars';
+import type { OfferPin, OfferCategory } from '../../types/map';
 
 /* ─── Stories Row Section ─────────────────────────────────────────── */
 
@@ -381,130 +384,231 @@ interface MapSectionProps {
   business: Business;
 }
 
+// Map a business category string to one of OffersMap's 5 buckets. Branches
+// render with the brand logo on the pin anyway, so this only drives the
+// fallback tint behind the logo.
+function businessToOfferCategory(category: string): OfferCategory {
+  const c = (category || '').toLowerCase();
+  if (/(food|restaurant|cafe|coffee|burger|אוכל|מסעד|קפה|המבורגר)/.test(c)) return 'food';
+  if (/(retail|shop|fashion|store|קני|אופנ|חנות)/.test(c)) return 'retail';
+  if (/(health|wellness|spa|beauty|בריאות|יופי|ספא)/.test(c)) return 'wellness';
+  if (/(entertain|cinema|movie|fun|בידור|קולנוע)/.test(c)) return 'entertainment';
+  return 'services';
+}
+
 export function BuyInStoreSection({ branches, business }: MapSectionProps) {
   const { t, language } = useLanguage();
+  const navigate = useNavigate();
   const isHe = language === 'he';
-  const [mapLoaded, setMapLoaded] = useState(false);
-  const mapRef = useRef<HTMLDivElement>(null);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [mapReady, setMapReady] = useState(false);
+  const [flyTarget, setFlyTarget] = useState<{ lng: number; lat: number; zoom?: number } | null>(null);
+  const carouselRef = useRef<HTMLDivElement>(null);
+  const activeIndexRef = useRef(0);
+  // Suppress the scroll-spy while we programmatically center a card, so the
+  // smooth-scroll doesn't echo back and fight the selection.
+  const programmaticScroll = useRef(false);
 
+  // Branches → OffersMap pins. Each pin keeps the branch id so clicks map back.
+  const pins = useMemo<OfferPin[]>(
+    () =>
+      branches.map((b) => ({
+        id: b.id,
+        name: isHe ? b.nameHe : b.name,
+        category: businessToOfferCategory(business.category),
+        lng: b.lng,
+        lat: b.lat,
+        tenantId: business.id,
+        brandLogo: business.logoUrl,
+      })),
+    [branches, business.category, business.id, business.logoUrl, isHe],
+  );
+
+  // Select a branch: highlight its pin + fly the map to it.
+  const focusBranch = useCallback(
+    (index: number) => {
+      const branch = branches[index];
+      if (!branch) return;
+      activeIndexRef.current = index;
+      setActiveIndex(index);
+      setFlyTarget({ lng: branch.lng, lat: branch.lat, zoom: 15 });
+    },
+    [branches],
+  );
+
+  // flyTo fires on reference change — clear it shortly after so re-selecting
+  // the same branch still triggers a fresh fly.
   useEffect(() => {
-    if (branches.length === 0) return;
+    if (!flyTarget) return;
+    const id = setTimeout(() => setFlyTarget(null), 750);
+    return () => clearTimeout(id);
+  }, [flyTarget]);
 
-    let map: any;
-    const loadMap = async () => {
-      const L = (await import('leaflet')).default;
-      await import('leaflet/dist/leaflet.css');
+  // Center on the first branch once on mount.
+  useEffect(() => {
+    if (branches.length > 0) {
+      setFlyTarget({ lng: branches[0].lng, lat: branches[0].lat, zoom: 14 });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [branches.length]);
 
-      if (!mapRef.current) return;
+  // Scroll-spy: whichever card is centered becomes the active branch.
+  const onCarouselScroll = useCallback(() => {
+    if (programmaticScroll.current) return;
+    const el = carouselRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const center = rect.left + rect.width / 2;
+    let closest = 0;
+    let min = Infinity;
+    Array.from(el.children).forEach((child, i) => {
+      const r = (child as HTMLElement).getBoundingClientRect();
+      const c = r.left + r.width / 2;
+      const d = Math.abs(center - c);
+      if (d < min) { min = d; closest = i; }
+    });
+    if (closest !== activeIndexRef.current) focusBranch(closest);
+  }, [focusBranch]);
 
-      const avgLat = branches.reduce((s, b) => s + b.lat, 0) / branches.length;
-      const avgLng = branches.reduce((s, b) => s + b.lng, 0) / branches.length;
+  // Center a card in the carousel (used when a pin is tapped on the map).
+  const scrollCardIntoView = useCallback((index: number) => {
+    const el = carouselRef.current;
+    const child = el?.children[index] as HTMLElement | undefined;
+    if (!el || !child) return;
+    programmaticScroll.current = true;
+    child.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+    setTimeout(() => { programmaticScroll.current = false; }, 450);
+  }, []);
 
-      map = L.map(mapRef.current, {
-        center: [avgLat, avgLng],
-        zoom: 13,
-        zoomControl: false,
-        attributionControl: false,
-        dragging: false,
-        scrollWheelZoom: false,
-        touchZoom: false,
-      });
-
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-        maxZoom: 19,
-      }).addTo(map);
-
-      const logoSrc = business.logoUrl || '';
-      const logoHtml = logoSrc
-        ? `<img src="${logoSrc}" style="width:22px;height:22px;object-fit:contain;border-radius:50%;" />`
-        : `<svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>`;
-
-      branches.forEach((branch) => {
-        const icon = L.divIcon({
-          className: '',
-          html: `<div style="width:36px;height:36px;background:white;border:3px solid #635bff;border-radius:50%;box-shadow:0 2px 8px rgba(99,91,255,0.4);display:flex;align-items:center;justify-content:center;overflow:hidden;">
-            ${logoHtml}
-          </div>`,
-          iconSize: [36, 36],
-          iconAnchor: [18, 18],
-        });
-
-        L.marker([branch.lat, branch.lng], { icon }).addTo(map);
-      });
-
-      setMapLoaded(true);
-    };
-
-    loadMap();
-    return () => { map?.remove(); };
-  }, [branches, business.logoUrl]);
+  const handlePinClick = useCallback(
+    (pin: OfferPin) => {
+      const idx = branches.findIndex((b) => b.id === pin.id);
+      if (idx >= 0) {
+        focusBranch(idx);
+        scrollCardIntoView(idx);
+      }
+    },
+    [branches, focusBranch, scrollCardIntoView],
+  );
 
   if (branches.length === 0) return null;
 
   return (
-    <div className="px-6 pb-6">
-      <h2 className="text-2xl font-bold text-text-primary mb-1">{t.business.buyInStore}</h2>
-      <p className="text-sm text-text-secondary mb-4">
-        {branches.length} {t.business.branches}
-      </p>
+    <div className="pb-6">
+      <div className="px-6">
+        <h2 className="text-2xl font-bold text-text-primary mb-1">{t.business.buyInStore}</h2>
+        <p className="text-sm text-text-secondary mb-4">
+          {branches.length} {t.business.branches}
+        </p>
 
-      {/* Map container */}
-      <div className="rounded-2xl overflow-hidden mb-4 border border-border/30">
-        <div
-          ref={mapRef}
-          className="w-full h-[200px] bg-surface"
-          style={{ opacity: mapLoaded ? 1 : 0.5, transition: 'opacity 0.3s' }}
-        />
+        {/* Map — MapLibre OffersMap. Recenters on the active branch. */}
+        <div className="relative rounded-2xl overflow-hidden mb-4 border border-border/30 h-[220px]">
+          <OffersMap
+            pins={pins}
+            initialCenter={[branches[0].lng, branches[0].lat]}
+            initialZoom={14}
+            selectedPinId={branches[activeIndex]?.id ?? null}
+            flyTo={flyTarget}
+            onPinClick={handlePinClick}
+            onLoad={() => setMapReady(true)}
+            showControls={false}
+            showPopup={false}
+            rtl={isHe}
+            className="w-full h-full"
+          />
+
+          {/* Plain gray loading box with a sweeping glow — no map symbols.
+              Fades out once the interactive GL map has loaded. */}
+          <div
+            aria-hidden
+            className="absolute inset-0 z-[5] pointer-events-none overflow-hidden bg-[#e9eaef] transition-opacity duration-500"
+            style={{ opacity: mapReady ? 0 : 1 }}
+          >
+            <div
+              className="absolute inset-y-0 w-2/3"
+              style={{
+                background:
+                  'linear-gradient(100deg, transparent 0%, rgba(255,255,255,0.7) 50%, transparent 100%)',
+                animation: 'map-shimmer 1.4s ease-in-out infinite',
+              }}
+            />
+          </div>
+        </div>
       </div>
 
-      {/* Branch list — branded card design */}
-      <div className="space-y-3">
-        {branches.slice(0, 3).map((branch) => (
-          <div
-            key={branch.id}
-            className="bg-surface rounded-2xl overflow-hidden"
-          >
-            {/* Top row: brand logo + branch name */}
-            <div className="flex items-center gap-3 p-3.5 pb-2">
-              <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shrink-0 shadow-sm overflow-hidden border border-border/30">
-                {business.logoUrl ? (
-                  <img src={business.logoUrl} alt="" className={business.id === 'biz_007' ? 'w-full h-full object-cover' : 'w-7 h-7 object-contain'} />
-                ) : (
-                  <span className="text-lg">{business.logo}</span>
-                )}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-bold text-text-primary truncate">
-                  {isHe ? branch.nameHe : branch.name}
-                </p>
-                <p className="text-[11px] text-text-muted">
-                  {isHe ? business.categoryHe : business.category}
-                </p>
-              </div>
-            </div>
-            {/* Bottom row: address + hours + navigate */}
-            <div className="flex items-center gap-3 px-3.5 pb-3.5">
-              <div className="flex-1 min-w-0 ps-[52px]">
-                <p className="text-xs text-text-secondary line-clamp-1">
-                  {isHe ? branch.addressHe : branch.address}
-                </p>
-                {branch.openHour !== undefined && (
-                  <p className="text-[11px] text-text-muted mt-0.5" dir="ltr">
-                    {branch.openHour}:00 – {branch.closeHour}:00
+      {/* Branch carousel — scroll a card to center it; the map flies to it. */}
+      <div
+        ref={carouselRef}
+        onScroll={onCarouselScroll}
+        className="flex overflow-x-auto scrollbar-hide gap-3 snap-x snap-mandatory px-6 scroll-px-6 pb-1"
+      >
+        {branches.map((branch, i) => {
+          const active = i === activeIndex;
+          return (
+            <button
+              key={branch.id}
+              onClick={() => { focusBranch(i); scrollCardIntoView(i); }}
+              className={`flex-none w-[82%] snap-center text-start bg-white rounded-2xl overflow-hidden border-2 transition-colors active:scale-[0.99] ${
+                active ? 'border-primary shadow-md' : 'border-border/40 shadow-sm'
+              }`}
+            >
+              {/* Top row: brand logo + branch name */}
+              <div className="flex items-center gap-3 p-3.5 pb-2">
+                <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shrink-0 shadow-sm overflow-hidden border border-border/30">
+                  {business.logoUrl ? (
+                    <img src={business.logoUrl} alt="" className={business.id === 'biz_007' ? 'w-full h-full object-cover' : 'w-7 h-7 object-contain'} />
+                  ) : (
+                    <span className="text-lg">{business.logo}</span>
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold text-text-primary truncate">
+                    {isHe ? branch.nameHe : branch.name}
                   </p>
-                )}
+                  <p className="text-[11px] text-text-muted">
+                    {isHe ? business.categoryHe : business.category}
+                  </p>
+                </div>
               </div>
-              <button
-                onClick={() => window.open(`https://waze.com/ul?ll=${branch.lat},${branch.lng}&navigate=yes`)}
-                className="w-9 h-9 bg-primary/10 rounded-xl flex items-center justify-center shrink-0 active:scale-95 transition-transform"
-              >
-                <span className="material-symbols-outlined text-primary" style={{ fontSize: 18 }}>
-                  navigation
+              {/* Bottom row: address + hours + navigate */}
+              <div className="flex items-center gap-3 px-3.5 pb-3.5">
+                <div className="flex-1 min-w-0 ps-[52px]">
+                  <p className="text-xs text-text-secondary line-clamp-1">
+                    {isHe ? branch.addressHe : branch.address}
+                  </p>
+                  {branch.openHour !== undefined && (
+                    <p className="text-[11px] text-text-muted mt-0.5" dir="ltr">
+                      {branch.openHour}:00 – {branch.closeHour}:00
+                    </p>
+                  )}
+                </div>
+                <span
+                  role="button"
+                  tabIndex={-1}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    window.open(`https://waze.com/ul?ll=${branch.lat},${branch.lng}&navigate=yes`);
+                  }}
+                  className="w-9 h-9 bg-primary/10 rounded-xl flex items-center justify-center shrink-0 active:scale-95 transition-transform"
+                >
+                  <span className="material-symbols-outlined text-primary" style={{ fontSize: 18 }}>
+                    navigation
+                  </span>
                 </span>
-              </button>
-            </div>
-          </div>
-        ))}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* View all locations — same gray pill as the reviews "view all". */}
+      <div className="px-6">
+        <button
+          onClick={() => navigate(`/${language}/near-you-map`)}
+          className="w-full bg-surface text-text-primary font-bold py-3.5 rounded-2xl text-sm mt-4 active:opacity-70 transition-opacity"
+        >
+          {isHe ? 'כל המיקומים' : 'View all locations'}
+        </button>
       </div>
     </div>
   );
@@ -518,118 +622,76 @@ interface ReviewsSectionProps {
 }
 
 export function ReviewsSection({ reviews, business }: ReviewsSectionProps) {
-  const { t, language } = useLanguage();
+  const { language } = useLanguage();
   const isHe = language === 'he';
   const [showAll, setShowAll] = useState(false);
   const displayReviews = showAll ? reviews : reviews.slice(0, 3);
 
   if (reviews.length === 0) return null;
 
-  // Rating distribution
+  // Rating distribution → percentages (5★ … 1★), matching the product page.
   const ratingCounts = [0, 0, 0, 0, 0];
   reviews.forEach((r) => { ratingCounts[r.rating - 1]++; });
-  const maxCount = Math.max(...ratingCounts);
+  const ratingBars = [5, 4, 3, 2, 1].map((star) => ({
+    label: String(star),
+    pct: reviews.length ? Math.round((ratingCounts[star - 1] / reviews.length) * 100) : 0,
+  }));
 
   return (
-    <div className="px-6 pb-8">
-      <h2 className="text-2xl font-bold text-text-primary mb-4">{t.business.reviews}</h2>
+    <section className="px-6 pt-2 pb-8">
+      <h2 className="text-xl font-bold text-text-primary mb-5">
+        {isHe ? 'דירוגים וביקורות' : 'Ratings & reviews'}
+      </h2>
 
-      {/* Rating summary */}
-      <div className="flex items-start gap-6 mb-6">
-        {/* Big rating */}
-        <div className="text-center">
-          <div className="text-5xl font-bold text-text-primary">{business.rating}</div>
-          <div className="flex items-center justify-center gap-0.5 mt-1">
-            {[1, 2, 3, 4, 5].map((star) => (
-              <span
-                key={star}
-                className={star <= Math.round(business.rating) ? 'text-amber-400' : 'text-gray-200'}
-                style={{ fontSize: 16 }}
-              >
-                ★
-              </span>
-            ))}
+      {/* Summary row: big number + bar chart */}
+      <div className="flex items-start gap-8 mb-6">
+        <div>
+          <div className="flex items-center gap-1.5">
+            <span className="text-5xl font-extrabold tracking-tighter text-text-primary">
+              {business.rating.toFixed(1)}
+            </span>
+            <span className="material-symbols-rounded text-black" style={{ fontSize: 28, fontVariationSettings: "'FILL' 1" }}>star</span>
           </div>
-          <p className="text-xs text-text-muted mt-1">
-            {business.reviewCount >= 1000
-              ? `${(business.reviewCount / 1000).toFixed(1)}k`
-              : business.reviewCount}
+          <p className="text-sm text-text-muted mt-1">
+            {business.reviewCount.toLocaleString()} {isHe ? 'דירוגים' : 'ratings'}
           </p>
         </div>
-
-        {/* Rating bars */}
-        <div className="flex-1 space-y-1.5">
-          {[5, 4, 3, 2, 1].map((star) => (
-            <div key={star} className="flex items-center gap-2">
-              <span className="text-xs text-text-muted w-3 text-end">{star}</span>
-              <div className="flex-1 h-2 bg-surface rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-amber-400 rounded-full transition-all duration-500"
-                  style={{ width: maxCount ? `${(ratingCounts[star - 1] / maxCount) * 100}%` : '0%' }}
-                />
-              </div>
-            </div>
-          ))}
-        </div>
+        <RatingBars bars={ratingBars} />
       </div>
 
-      {/* Individual reviews */}
-      <div className="space-y-4">
+      {/* Horizontal review cards */}
+      <div className="flex overflow-x-auto gap-4 scrollbar-hide pb-2 -mx-6 px-6">
         {displayReviews.map((review) => (
-          <div key={review.id} className="bg-surface rounded-2xl p-4">
-            <div className="flex items-center gap-3 mb-2">
-              <img
-                src={review.userAvatar}
-                alt={review.userName}
-                className="w-9 h-9 rounded-full"
-              />
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-text-primary">{review.userName}</p>
-                <div className="flex items-center gap-1">
-                  {[1, 2, 3, 4, 5].map((star) => (
-                    <span
-                      key={star}
-                      className={star <= review.rating ? 'text-amber-400' : 'text-gray-200'}
-                      style={{ fontSize: 12 }}
-                    >
-                      ★
-                    </span>
-                  ))}
-                  <span className="text-[10px] text-text-muted ms-1">
-                    {new Date(review.date).toLocaleDateString(isHe ? 'he-IL' : 'en-US', {
-                      month: 'short', day: 'numeric',
-                    })}
-                  </span>
-                </div>
-              </div>
-            </div>
-            <p className="text-sm text-text-secondary leading-relaxed">
+          <div key={review.id} className="min-w-[260px] flex-shrink-0 bg-white border border-border/60 rounded-2xl p-4 shadow-sm">
+            <p className="text-sm font-bold text-text-primary mb-1">{review.userName}</p>
+            <p className="text-sm text-text-secondary leading-snug line-clamp-2 mb-3">
               {isHe ? review.textHe : review.text}
             </p>
-            {review.helpful > 0 && (
-              <div className="flex items-center gap-1 mt-2">
-                <span className="material-symbols-outlined text-text-muted" style={{ fontSize: 14 }}>
-                  thumb_up
-                </span>
-                <span className="text-[10px] text-text-muted">
-                  {review.helpful} {t.business.helpful}
-                </span>
-              </div>
-            )}
+            <div className="flex items-center gap-0.5 mb-2">
+              {[1, 2, 3, 4, 5].map((s) => (
+                <span
+                  key={s}
+                  className={`material-symbols-rounded ${s <= review.rating ? 'text-black' : 'text-gray-200'}`}
+                  style={{ fontSize: 12, fontVariationSettings: s <= review.rating ? "'FILL' 1" : "'FILL' 0" }}
+                >star</span>
+              ))}
+            </div>
+            <p className="text-xs text-text-muted">
+              {new Date(review.date).toLocaleDateString(isHe ? 'he-IL' : 'en-US', {
+                month: 'short', day: 'numeric',
+              })}
+            </p>
           </div>
         ))}
       </div>
 
-      {/* Show all button */}
-      {reviews.length > 3 && !showAll && (
-        <button
-          onClick={() => setShowAll(true)}
-          className="w-full mt-4 py-3 bg-surface rounded-2xl text-sm font-semibold text-primary active:scale-[0.98] transition-transform"
-        >
-          {t.business.showAllReviews} ({reviews.length})
-        </button>
-      )}
-    </div>
+      <button
+        onClick={() => setShowAll(true)}
+        className="w-full bg-surface text-text-primary font-bold py-3.5 rounded-2xl text-sm mt-5 active:opacity-70 transition-opacity"
+      >
+        {isHe ? 'כל הביקורות' : 'View all reviews'}
+      </button>
+    </section>
   );
 }
 

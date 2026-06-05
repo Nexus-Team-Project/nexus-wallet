@@ -67,7 +67,24 @@ export default function BusinessStorePage() {
   ];
 
   return (
-    <div className="bg-white min-h-screen" dir={isHe ? 'rtl' : 'ltr'}>
+    <div className="relative isolate bg-white min-h-screen" dir={isHe ? 'rtl' : 'ltr'}>
+      {/* Soft brand glow at the top — mirrors the home (Wallet) page gradient. */}
+      <div aria-hidden className="pointer-events-none absolute top-0 inset-x-0 h-[280px] -z-10">
+        <div
+          className="w-full h-full opacity-[0.12]"
+          style={{
+            background:
+              'linear-gradient(135deg, #ffb74d 0%, #ff91b8 35%, #9c88ff 65%, #80deea 100%)',
+          }}
+        />
+        <div
+          className="absolute inset-0"
+          style={{
+            background:
+              'linear-gradient(to bottom, rgba(255,255,255,0) 0%, rgba(255,255,255,0) 60%, #ffffff 100%)',
+          }}
+        />
+      </div>
       {/* ── Compact sticky header — the logo drops into a framed box and the
             brand row slides in once the big header scrolls away (Rhode-style). ── */}
       <div
@@ -126,7 +143,7 @@ export default function BusinessStorePage() {
       </div>
 
       {/* ── Clean logo header — no hero image ── */}
-      <section className="relative bg-white pt-2 pb-10">
+      <section className="relative pt-2 pb-10">
         {/* Back row */}
         <div className="px-2">
           <button

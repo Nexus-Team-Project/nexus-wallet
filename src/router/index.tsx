@@ -35,7 +35,12 @@ const PremiumRevealPage  = lazy(() => import('../pages/PremiumRevealPage'));
 const CategoryPage       = lazy(() => import('../pages/CategoryPage'));
 const BusinessPage       = lazy(() => import('../pages/BusinessPage'));
 const BusinessStorePage  = lazy(() => import('../pages/BusinessStorePage'));
-const BusinessProductPage = lazy(() => import('../pages/BusinessProductPage'));
+const BusinessProductPage  = lazy(() => import('../pages/BusinessProductPage'));
+const BusinessReviewsPage  = lazy(() => import('../pages/BusinessReviewsPage'));
+const BusinessCheckoutPage = lazy(() => import('../pages/BusinessCheckoutPage'));
+const GiftDetailsPage      = lazy(() => import('../pages/GiftDetailsPage'));
+const SplitBillPage        = lazy(() => import('../pages/SplitBillPage'));
+const OrderConfirmationPage = lazy(() => import('../pages/OrderConfirmationPage'));
 const VoucherPurchasePage = lazy(() => import('../pages/VoucherPurchasePage'));
 const NotificationsPage  = lazy(() => import('../pages/NotificationsPage'));
 
@@ -130,6 +135,11 @@ export const router = createBrowserRouter([
           { path: 'business/:businessId', element: <S><BusinessPage /></S> },
           { path: 'business/:businessId/store', element: <S><BusinessStorePage /></S> },
           { path: 'business/:businessId/product/:productId', element: <S><BusinessProductPage /></S> },
+          { path: 'business/:businessId/product/:productId/reviews', element: <S><BusinessReviewsPage /></S> },
+          { path: 'business/:businessId/product/:productId/checkout', element: <S><BusinessCheckoutPage /></S> },
+          { path: 'business/:businessId/product/:productId/gift', element: <S><GiftDetailsPage /></S> },
+          { path: 'business/:businessId/product/:productId/split', element: <S><SplitBillPage /></S> },
+          { path: 'business/:businessId/product/:productId/order-confirmed', element: <S><OrderConfirmationPage /></S> },
           { path: 'business/:businessId/voucher/:voucherId', element: <S><VoucherPurchasePage /></S> },
           { path: 'wallet/add-money',          element: <S><AddMoneyPage /></S> },
           { path: 'wallet/add-money/source',   element: <S><AddMoneySourcePage /></S> },

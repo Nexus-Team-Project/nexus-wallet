@@ -8,6 +8,7 @@ import SupportChatButton from '../SupportChatButton';
 import { useChatStore } from '../../stores/chatStore';
 import { useVouchers } from '../../hooks/useVouchers';
 import { useWallpaperStore } from '../../stores/wallpaperStore';
+import { useUIStore } from '../../stores/uiStore';
 
 const COLLAPSE_THRESHOLD = 40;
 
@@ -39,6 +40,10 @@ export default function AppLayout() {
   // fixed bottom action bar (add to cart / buy now), so the global overlay
   // TopBar and the bottom search strip are both suppressed here.
   const isBusinessProduct = /^\/[a-z]{2}\/business\/[^/]+\/product\/[^/]+\/?$/.test(pathname);
+  const isBusinessReviews = /^\/[a-z]{2}\/business\/[^/]+\/product\/[^/]+\/reviews\/?$/.test(pathname);
+  // Checkout + order-confirmation own their own header / fixed action bar, so
+  // the global TopBar, bottom search strip and chat FABs are all suppressed.
+  const isBusinessCheckout = /^\/[a-z]{2}\/business\/[^/]+\/product\/[^/]+\/(checkout|order-confirmed|gift|split)\/?$/.test(pathname);
   // Referral page is a self-owned full-screen flow that pins its own fixed
   // "Share" CTA to the bottom. The global search/home/wallet strip would
   // float over it (it sits in a sibling stacking context above the page's
@@ -58,6 +63,9 @@ export default function AppLayout() {
   const { isLoading: vouchersLoading } = useVouchers();
   // User-picked wallpaper override for the home-gradient backdrop.
   const wallpaperBg = useWallpaperStore((s) => s.selectedBackground);
+  // When the product page is lifted for Quick Buy, hide the global TopBar
+  // overlay so the lifted card covers the top strip (user icon / support / bell).
+  const isProductLifted = useUIStore((s) => s.isProductLifted);
   // User-picked wallpaper shows on every non-full-screen-form route so
   // it reads as the user's chosen "personal theme" across the entire
   // app. The default rainbow stays opt-in (showHomeGradient pages only).
@@ -145,11 +153,16 @@ export default function AppLayout() {
               <CategoryRow collapsed={collapsed} loading={vouchersLoading} />
             </div>
           </div>
-        ) : isWallet || isFullScreenForm || isBusinessStore || isReferral ? (
+        ) : isWallet || isFullScreenForm || isBusinessStore || isReferral || isProductLifted || isBusinessCheckout ? (
           /* Wallet + full-screen forms + business store + referral: page
              renders its own header inline (the referral page pins its own
              fixed user-icon strip outside its scroll area). */
           null
+        ) : isBusinessReviews ? (
+          /* Reviews page: sticky TopBar, no shadow so it blends with the sub-header */
+          <div className="sticky top-0 z-50 bg-bg-light/80 backdrop-blur-md">
+            <TopBar collapsed={false} showBack />
+          </div>
         ) : (
           /* Other pages: transparent overlay, does not scroll */
           <div className="relative z-50 h-0 overflow-visible">
@@ -162,10 +175,10 @@ export default function AppLayout() {
         </main>
         {/* Bottom search/home/wallet strip — hidden on the wallpaper
             picker so the picker grid + CTA own the screen. */}
-        {!isFullScreenForm && !isWallpaper && !isReferral && !isBusinessProduct && <FloatingActions />}
+        {!isFullScreenForm && !isWallpaper && !isReferral && !isBusinessProduct && !isBusinessReviews && !isBusinessCheckout && <FloatingActions />}
         {/* AI assistant FAB — always available (suppressed on wallet
             page, which renders its own chat affordance inline). */}
-        {!isWallet && !isFullScreenForm && !isBusinessProduct && (
+        {!isWallet && !isFullScreenForm && !isBusinessProduct && !isBusinessReviews && !isBusinessCheckout && (
           <SupportChatButton
             variant="ai"
             isTyping={aiTyping}

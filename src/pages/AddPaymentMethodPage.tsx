@@ -620,7 +620,7 @@ export default function AddPaymentMethodPage() {
                   placeholder={t.wallet.monthPlaceholder}
                   value={expiryMonth}
                   onChange={handleMonthChange}
-                  className="w-full px-3 py-3 h-12 border border-border rounded-2xl bg-surface text-text-primary text-center focus:outline-none focus:border-primary transition-colors"
+                  className="w-full px-3 py-3 h-12 border border-border rounded-2xl bg-white text-text-primary text-center focus:outline-none focus:border-primary transition-colors"
                 />
                 <input
                   name="cc-exp-year"
@@ -630,7 +630,7 @@ export default function AddPaymentMethodPage() {
                   placeholder={t.wallet.yearPlaceholder}
                   value={expiryYear}
                   onChange={handleYearChange}
-                  className="w-full px-3 py-3 h-12 border border-border rounded-2xl bg-surface text-text-primary text-center focus:outline-none focus:border-primary transition-colors"
+                  className="w-full px-3 py-3 h-12 border border-border rounded-2xl bg-white text-text-primary text-center focus:outline-none focus:border-primary transition-colors"
                 />
               </div>
             </div>
@@ -651,7 +651,7 @@ export default function AddPaymentMethodPage() {
                   value={cvv}
                   onChange={handleCvvChange}
                   style={{ WebkitTextSecurity: 'disc' } as React.CSSProperties}
-                  className={`block w-full px-3 py-3 h-12 border border-border rounded-2xl bg-surface text-text-primary text-center tracking-[0.3em] focus:outline-none focus:border-primary transition-colors ${
+                  className={`block w-full px-3 py-3 h-12 border border-border rounded-2xl bg-white text-text-primary text-center tracking-[0.3em] focus:outline-none focus:border-primary transition-colors ${
                     isRTL ? 'pl-10' : 'pr-10'
                   }`}
                 />
@@ -697,7 +697,7 @@ export default function AddPaymentMethodPage() {
               placeholder={t.wallet.nameOnCardPlaceholder}
               value={cardholderName}
               onChange={handleNameChange}
-              className={`block w-full px-3 py-3 h-12 border border-border rounded-2xl bg-surface text-text-primary focus:outline-none focus:border-primary transition-colors ${
+              className={`block w-full px-3 py-3 h-12 border border-border rounded-2xl bg-white text-text-primary focus:outline-none focus:border-primary transition-colors ${
                 isRTL ? 'text-right' : 'text-left'
               }`}
             />
@@ -719,7 +719,7 @@ export default function AddPaymentMethodPage() {
               value={idNumber}
               onChange={handleIdChange}
               aria-invalid={idNumber.length === 9 && !idChecksumOk}
-              className={`block w-full px-3 py-3 h-12 border rounded-2xl bg-surface text-text-primary tracking-widest focus:outline-none transition-colors ${
+              className={`block w-full px-3 py-3 h-12 border rounded-2xl bg-white text-text-primary tracking-widest focus:outline-none transition-colors ${
                 idNumber.length === 9 && !idChecksumOk
                   ? 'border-error/70 focus:border-error'
                   : 'border-border focus:border-primary'
