@@ -41,7 +41,7 @@ export const walletTranslations = {
     includesStacking: 'Includes deal stacking',
     excludesStacking: 'Excludes deal stacking',
     moreInfo: 'More info',
-    stackingExplanation: 'The cashback rate differs depending on whether deals are stacked. We leave the choice in your hands.',
+    stackingExplanation: 'Your cashback rate depends on deal stacking: with stacking you earn less cashback, without stacking you earn more. We leave the choice in your hands, based on the discounts offered in store.',
     maximizeCashback: 'Get up to 60% cashback to your wallet',
     howItWorks: 'How does it work?',
     // Pay how-it-works intro page (Klarna-style)
@@ -197,7 +197,7 @@ export const walletTranslations = {
     includesStacking: 'כולל כפל מבצעים',
     excludesStacking: 'לא כולל כפל מבצעים',
     moreInfo: 'מידע נוסף',
-    stackingExplanation: 'גובה הקאשבק משתנה בהתאם לכפל מבצעים. אנחנו משאירים את הבחירה בידיים שלך.',
+    stackingExplanation: 'גובה הקאשבק משתנה בהתאם לכפל מבצעים. עם כפל מבצעים פחות קאשבק, ללא כפל מבצעים יותר קאשבק. אנחנו משאירים את הבחירה בידיים שלך בהתאם להנחות הניתנות בחנות.',
     maximizeCashback: 'וקבל עד 60% קאשבק לארנק',
     howItWorks: 'איך זה עובד?',
     // Pay how-it-works intro page (Klarna-style)

@@ -28,3 +28,6 @@ dist-ssr
 # Firebase service account key (sensitive)
 serviceAccountKey.json
 scripts/serviceAccountKey.json
+
+# Python bytecode cache
+__pycache__/

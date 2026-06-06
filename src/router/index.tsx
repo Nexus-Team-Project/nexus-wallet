@@ -54,6 +54,8 @@ const WalletHistoryPage = lazy(() => import('../pages/WalletHistoryPage'));
 const WallpaperPage = lazy(() => import('../pages/WallpaperPage'));
 const WalletCustomizePage = lazy(() => import('../pages/WalletCustomizePage'));
 const WalletActionsPage = lazy(() => import('../pages/WalletActionsPage'));
+const CardDetailPage = lazy(() => import('../pages/CardDetailPage'));
+const BalanceDetailPage = lazy(() => import('../pages/BalanceDetailPage'));
 const VoucherDetailPage  = lazy(() => import('../pages/VoucherDetailPage'));
 const PaymentIntroPage   = lazy(() => import('../pages/PaymentIntroPage'));
 
@@ -150,6 +152,8 @@ export const router = createBrowserRouter([
           { path: 'wallpaper',                 element: <S><WallpaperPage /></S> },
           { path: 'wallet/customize',          element: <S><WalletCustomizePage /></S> },
           { path: 'wallet/actions',            element: <S><WalletActionsPage /></S> },
+          { path: 'wallet/card',               element: <S><CardDetailPage /></S> },
+          { path: 'wallet/balance',            element: <S><BalanceDetailPage /></S> },
           {
             path: 'wallet/history',
             element: (

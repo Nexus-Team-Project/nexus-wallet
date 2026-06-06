@@ -30,7 +30,7 @@ export default function AppLayout() {
   // Pages that opt into the "full-bleed form" treatment — global TopBar,
   // bottom-nav padding, and chat FABs are all suppressed so the page can
   // own its own header / fixed CTA / chrome.
-  const isFullScreenForm = /^\/[a-z]{2}\/wallet\/(add-payment-method|pay-intro)\/?$/.test(pathname);
+  const isFullScreenForm = /^\/[a-z]{2}\/wallet\/(add-payment-method|pay-intro|card|balance)\/?$/.test(pathname);
   // Business store page owns its own collapsing header (big hero → compact
   // sticky bar) with its own back button, so the global overlay TopBar is
   // suppressed here. The bottom nav + chat FABs stay so it still reads as a
