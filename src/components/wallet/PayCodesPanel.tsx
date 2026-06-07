@@ -123,16 +123,16 @@ export default function PayCodesPanel({ compact = false }: { compact?: boolean }
 
         {/* Code + text inside a soft grey layout box stretched full-width */}
         <div className="flex-1 flex items-center justify-center min-h-0">
-          <div className="w-full bg-surface rounded-2xl px-4 py-4 flex flex-col items-center gap-2.5">
+          <div className="w-full max-w-full overflow-hidden bg-surface rounded-2xl px-4 py-4 flex flex-col items-center gap-2.5">
             {/* Stacking state label — above the barcode */}
-            <span className="text-xs font-bold text-text-primary">
+            <span className="text-xs font-bold text-text-primary text-center">
               {includesStacking ? t.wallet.includesStacking : t.wallet.excludesStacking}
             </span>
             {codeView === 'qr' ? qr(132, 'w-9 h-9') : (
-              <img src="/barcode.png" alt="Barcode" width={224} height={60} style={{ display: 'block' }} />
+              <img src="/barcode.png" alt="Barcode" className="w-full max-w-[220px] h-auto" />
             )}
-            <div className="flex items-center justify-center gap-2">
-              <p className="text-lg font-bold text-text-primary tracking-[0.18em]">{PAYMENT_CODE}</p>
+            <div className="flex items-center justify-center gap-2 max-w-full">
+              <p className="text-lg font-bold text-text-primary tracking-[0.12em] truncate">{PAYMENT_CODE}</p>
               <button
                 onClick={handleCopy}
                 className="p-2 rounded-lg hover:bg-white active:scale-95 transition-all"

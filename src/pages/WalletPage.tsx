@@ -473,7 +473,10 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
                   filter: isCenter ? 'none' : 'brightness(0.78)',
                   pointerEvents: isCenter ? 'auto' : 'none',
                   cursor: isCenter ? 'grab' : 'default',
-                  touchAction: 'pan-y',
+                  // The active card owns the whole touch gesture so a sideways
+                  // drag stays horizontal instead of letting the page scroll
+                  // it down on touch devices.
+                  touchAction: isCenter ? 'none' : 'pan-y',
                 }}
                 initial={false}
                 animate={pose}
@@ -488,27 +491,14 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
                 onDragEnd={
                   isCenter
                     ? (e, info) => {
-                        // Classify the gesture: a near-stationary release is a
-                        // tap that drifted a few px (framer turns it into a
-                        // drag, so onTap never fired); a long/fast move is a
-                        // real swipe; anything in between just snaps back.
-                        const isTap =
-                          Math.abs(info.offset.x) < 12 && Math.abs(info.velocity.x) < 220;
+                        // A drag NEVER triggers a press — only switches cards
+                        // (or closes the pay side). Presses are handled solely
+                        // by onTap, keeping scroll/drag and tap cleanly apart.
                         const swiped =
                           Math.abs(info.offset.x) > 80 || Math.abs(info.velocity.x) > 450;
-                        if (cardId === 'balance') {
-                          if (showPaySheet) {
-                            // Flipped: a real swipe closes the pay side.
-                            if (swiped) closePay();
-                            return;
-                          }
-                          // Not flipped: a real swipe switches cards; a tap
-                          // flips to the pay side; a mid-size drag does nothing.
-                          if (isTap) {
-                            openPay();
-                            return;
-                          }
-                          if (!swiped) return;
+                        if (cardId === 'balance' && showPaySheet) {
+                          if (swiped) closePay();
+                          return;
                         }
                         onCardDragEnd(e, info);
                       }
