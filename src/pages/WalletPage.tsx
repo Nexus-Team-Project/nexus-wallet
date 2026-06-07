@@ -214,7 +214,14 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
               balance={wallet?.balance ?? 0}
               logoCorner
               className="flip-face w-full"
-              style={{ aspectRatio: '1.586 / 1', pointerEvents: showPaySheet ? 'none' : 'auto' }}
+              style={{
+                aspectRatio: '1.586 / 1',
+                // Floor the height so the (taller) pay side always fits on
+                // narrow phones — otherwise the back content + grey box bleed
+                // out below the card.
+                minHeight: 264,
+                pointerEvents: showPaySheet ? 'none' : 'auto',
+              }}
             />
 
             {/* BACK — pay barcodes panel filling the card, with the session

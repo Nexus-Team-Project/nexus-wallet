@@ -115,7 +115,7 @@ export default function PayCodesPanel({ compact = false }: { compact?: boolean }
   if (compact) {
     return (
       <div
-        className="relative h-full bg-white rounded-[22px] border border-border shadow-[0_8px_30px_rgb(0,0,0,0.06)] px-3 pt-12 pb-12 flex flex-col"
+        className="relative h-full overflow-hidden bg-white rounded-[22px] border border-border shadow-[0_8px_30px_rgb(0,0,0,0.06)] px-3 pt-12 pb-12 flex flex-col"
         dir={lang === 'he' ? 'rtl' : 'ltr'}
       >
         {/* Switcher — top-right corner */}
