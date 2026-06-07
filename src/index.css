@@ -338,10 +338,12 @@ html {
   scroll-behavior: smooth;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  /* Disable the browser's pull-to-refresh and rubber-band overscroll —
-     framer-motion drag gestures on cards were leaking into the
-     browser's vertical overscroll and triggering a page reload. */
-  overscroll-behavior: none;
+  /* Keep horizontal overscroll contained (no rubber-band / back-swipe),
+     but allow vertical overscroll so the browser's native pull-to-refresh
+     works. Card drags no longer leak into overscroll — the active deck
+     card owns its touch gesture (touch-action: none). */
+  overscroll-behavior-x: none;
+  overscroll-behavior-y: auto;
   overflow-x: hidden; /* clip would create a containing block and break position:fixed */
 }
 
@@ -349,7 +351,8 @@ body {
   font-family: var(--font-display);
   background-color: var(--color-bg-light);
   color: var(--color-text-primary);
-  overscroll-behavior: none;
+  overscroll-behavior-x: none;
+  overscroll-behavior-y: auto;
   min-height: max(884px, 100dvh);
   /* `clip` (not `hidden`) prevents horizontal overflow WITHOUT making body a
      scroll container. `hidden` forces overflow-y to compute to `auto`, turning
