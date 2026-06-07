@@ -204,7 +204,9 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
       return (
         /* ── BALANCE CARD — flips to reveal the pay barcodes on the back ── */
         <div className="flip-perspective w-full">
-          <div className={`flip-inner ${showPaySheet ? 'is-flipped' : ''}`}>
+          {/* Only show the flipped pay side while the balance card is the
+              centre card — never on the side peek. */}
+          <div className={`flip-inner ${showPaySheet && activeCard === 0 ? 'is-flipped' : ''}`}>
             {/* FRONT — balance, Nexus logo in the corner. In-flow, so it
                 drives the card height; ignores pointers while flipped so
                 the back's controls stay clickable. */}
@@ -486,14 +488,27 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
                 onDragEnd={
                   isCenter
                     ? (e, info) => {
-                        if (cardId === 'balance' && showPaySheet) {
-                          // Only a deliberate swipe closes — a tiny jitter /
-                          // scroll attempt snaps back. A clean tap closes via
-                          // onTap instead.
-                          if (Math.abs(info.offset.x) > 80 || Math.abs(info.velocity.x) > 450) {
-                            closePay();
+                        // Classify the gesture: a near-stationary release is a
+                        // tap that drifted a few px (framer turns it into a
+                        // drag, so onTap never fired); a long/fast move is a
+                        // real swipe; anything in between just snaps back.
+                        const isTap =
+                          Math.abs(info.offset.x) < 12 && Math.abs(info.velocity.x) < 220;
+                        const swiped =
+                          Math.abs(info.offset.x) > 80 || Math.abs(info.velocity.x) > 450;
+                        if (cardId === 'balance') {
+                          if (showPaySheet) {
+                            // Flipped: a real swipe closes the pay side.
+                            if (swiped) closePay();
+                            return;
                           }
-                          return;
+                          // Not flipped: a real swipe switches cards; a tap
+                          // flips to the pay side; a mid-size drag does nothing.
+                          if (isTap) {
+                            openPay();
+                            return;
+                          }
+                          if (!swiped) return;
                         }
                         onCardDragEnd(e, info);
                       }
