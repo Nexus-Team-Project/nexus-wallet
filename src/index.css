@@ -338,10 +338,9 @@ html {
   scroll-behavior: smooth;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  /* Keep horizontal overscroll contained (no rubber-band / back-swipe),
-     but allow vertical overscroll so the browser's native pull-to-refresh
-     works. Card drags no longer leak into overscroll — the active deck
-     card owns its touch gesture (touch-action: none). */
+  /* Allow vertical overscroll so native pull-to-refresh works; keep
+     horizontal contained (no rubber-band / back-swipe). The deck cards no
+     longer leak into overscroll — the active card has touch-action:none. */
   overscroll-behavior-x: none;
   overscroll-behavior-y: auto;
   overflow-x: hidden; /* clip would create a containing block and break position:fixed */
@@ -376,6 +375,12 @@ body {
 
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* Active deck card owns its whole touch gesture. `!important` beats the
+   inline `touch-action: pan-y` framer-motion forces for an x-drag, so a
+   sideways drag never leaks into vertical page scroll / overscroll (which
+   was dropping the card below the slider line on phones). */
+.deck-card-drag { touch-action: none !important; }
 
 /* MapLibre OffersMap custom theming — applies only to the canvas so it
    doesn't desaturate the HTML markers/popups sitting on top.

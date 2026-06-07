@@ -4,19 +4,19 @@ import { GripVertical, Eye, EyeOff } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useLanguage } from '../i18n/LanguageContext';
 import { useWallet } from '../hooks/useWallet';
+import { useMyVouchers } from '../hooks/useMyVouchers';
 import { usePaySession, PAY_SESSION_SECONDS } from '../hooks/usePaySession';
-import WalletTabs from '../components/wallet/WalletTabs';
 import WalletPageSkeleton from '../components/wallet/WalletPageSkeleton';
 import PayCodesPanel from '../components/wallet/PayCodesPanel';
 import WalletOffersSlider from '../components/wallet/WalletOffersSlider';
 import WidgetsGallery from '../components/wallet/WidgetsGallery';
 import BalanceCard from '../components/wallet/BalanceCard';
 import DigitalCard from '../components/wallet/DigitalCard';
+import VoucherCard from '../components/wallet/VoucherCard';
 import TopBar from '../components/layout/TopBar';
 import { useTenantStore } from '../stores/tenantStore';
 import { useWallpaperStore } from '../stores/wallpaperStore';
 import { useWalletLayoutStore, type WalletWidgetId } from '../stores/walletLayoutStore';
-import type { UserVoucher } from '../types/voucher.types';
 
 interface WalletPageProps {
   // When embedded (e.g. inside the chat "pay in store" sheet) the dark
@@ -57,12 +57,9 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
   // the section (collapse chevron, buttons inside) stay independent.
   const widgetsDragControls = useDragControls();
   const offersDragControls = useDragControls();
-  const vouchersDragControls = useDragControls();
-  const [activeTab, setActiveTab] = useState<UserVoucher['status']>('active');
 
   // Collapsible section states
   const [widgetsOpen, setWidgetsOpen] = useState(true);
-  const [vouchersOpen, setVouchersOpen] = useState(true);
   const [noCardBannerOpen, setNoCardBannerOpen] = useState(false);
   const [editBannerOpen, setEditBannerOpen] = useState(false);
 
@@ -71,8 +68,31 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
   // active card is on top, the next card peeks out from behind it.
   // Dragging the top card sideways past a threshold shuffles it to the
   // back and brings the next card forward.
-  const deckCards = ['balance', 'card'] as const;
+  // The carousel: the balance sits in the MIDDLE — the digital card on one
+  // side, the active vouchers on the other (chronological).
+  const { data: myVouchers } = useMyVouchers();
+  const activeVouchers = (myVouchers ?? [])
+    .filter((v) => v.status === 'active')
+    .sort((a, b) => new Date(a.purchasedAt).getTime() - new Date(b.purchasedAt).getTime());
+  const deckCards: string[] = [
+    ...activeVouchers.map((v) => `voucher:${v.id}`),
+    'balance',
+    'card',
+    // Trailing "manage payment methods" stop: the final drag past the
+    // digital card parks it to the side (its dimmed peek form) and anchors
+    // the stripes circle beside it.
+    'add',
+  ];
+  // Balance sits right after the vouchers; its index shifts as vouchers
+  // load async, so keep the deck centred on it until the user swipes.
+  const balanceIndex = activeVouchers.length;
   const [activeCard, setActiveCard] = useState(0);
+  const userMovedDeck = useRef(false);
+  useLayoutEffect(() => {
+    if (!userMovedDeck.current) setActiveCard(balanceIndex);
+  }, [balanceIndex]);
+  // Which voucher card is flipped to its redemption side (null = none).
+  const [flippedVoucherId, setFlippedVoucherId] = useState<string | null>(null);
   // Commit a swap only once the drag travels far / fast enough; otherwise
   // dragSnapToOrigin springs the card back. The deck does NOT loop, so at
   // an edge nothing happens. You fling the centre card toward where it
@@ -92,6 +112,8 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
           ? activeCard + 1
           : activeCard - 1;
       if (target < 0 || target >= deckCards.length) return; // at the edge
+      userMovedDeck.current = true; // respect the user's navigation from here
+      setFlippedVoucherId(null); // never leave a voucher flipped off-centre
       setActiveCard(target);
     },
     [isRTL, activeCard, deckCards.length],
@@ -112,6 +134,10 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
   // Position is stored as a percentage of the card box so it stays
   // correct under the deck's scale transform.
   const rippleSeq = useRef(0);
+  // Pointer-down position of the current gesture on a deck card. Used to
+  // tell a real tap (barely moved) from a drag that framer mis-reports as
+  // a tap on touch — so a drag never triggers the press/open.
+  const pressStart = useRef<{ x: number; y: number } | null>(null);
   const [ripple, setRipple] = useState<{
     cardId: string;
     xPct: number;
@@ -196,7 +222,18 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
   // Renders the inner box for a deck card. Used for both the crisp active
   // card on top and the faded side-peek copies behind it, so the markup
   // lives in one place.
-  const renderDeckCard = (cardId: (typeof deckCards)[number]) => {
+  const renderDeckCard = (cardId: string) => {
+    if (cardId.startsWith('voucher:')) {
+      const uv = activeVouchers.find((v) => `voucher:${v.id}` === cardId);
+      if (!uv) return null;
+      return (
+        <VoucherCard
+          userVoucher={uv}
+          flipped={flippedVoucherId === cardId}
+          onExpire={() => setFlippedVoucherId(null)}
+        />
+      );
+    }
     if (cardId === 'balance') {
       // Filling progress ring — empties→fills as the 30s session elapses.
       const ringC = 2 * Math.PI * 16;
@@ -206,23 +243,27 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
         <div className="flip-perspective w-full">
           {/* Only show the flipped pay side while the balance card is the
               centre card — never on the side peek. */}
-          <div className={`flip-inner ${showPaySheet && activeCard === 0 ? 'is-flipped' : ''}`}>
+          <div className={`flip-inner ${showPaySheet && deckCards[activeCard] === 'balance' ? 'is-flipped' : ''}`}>
             {/* FRONT — balance, Nexus logo in the corner. In-flow, so it
                 drives the card height; ignores pointers while flipped so
                 the back's controls stay clickable. */}
-            <BalanceCard
-              balance={wallet?.balance ?? 0}
-              logoCorner
-              className="flip-face w-full"
+            <div
+              className="flip-face w-full flex items-center justify-center"
               style={{
-                aspectRatio: '1.586 / 1',
-                // Floor the height so the (taller) pay side always fits on
-                // narrow phones — otherwise the back content + grey box bleed
-                // out below the card.
+                // The box floors the height so the pay side fits; the card
+                // itself keeps the image aspect and floats centred inside,
+                // with transparent space around it (no frame).
                 minHeight: 264,
                 pointerEvents: showPaySheet ? 'none' : 'auto',
               }}
-            />
+            >
+              <BalanceCard
+                balance={wallet?.balance ?? 0}
+                logoCorner
+                className="w-full"
+                style={{ aspectRatio: '1510 / 952' }}
+              />
+            </div>
 
             {/* BACK — pay barcodes panel filling the card, with the session
                 clock + actions tucked into the corners. Pointers flow to the
@@ -259,6 +300,26 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
               </div>
             </div>
           </div>
+        </div>
+      );
+    }
+    if (cardId === 'add') {
+      // ── Manage-payment-methods stop. The digital card ('card') is the
+      //    previous neighbour, so it auto-parks to one side in its dimmed
+      //    peek form; the stripes circle is anchored on the OPPOSITE side so
+      //    the two sit together. Tapping the circle → payment-methods page. ──
+      return (
+        <div className="relative w-full" style={{ minHeight: deckHeight || 264 }}>
+          <button
+            onClick={() => navigate(`/${lang}/wallet/payment-methods`)}
+            aria-label={language === 'he' ? 'ניהול אמצעי תשלום' : 'Manage payment methods'}
+            className="absolute top-1/2 -translate-y-1/2 z-10 w-16 h-16 rounded-full shadow-md flex flex-col items-center justify-center gap-1.5 active:scale-95 transition-transform"
+            style={{ ...(isRTL ? { left: '-2%' } : { right: '-2%' }), backgroundColor: '#0a2540' }}
+          >
+            <span className="block w-7 h-0.5 rounded-full bg-white" />
+            <span className="block w-7 h-0.5 rounded-full bg-white" />
+            <span className="block w-7 h-0.5 rounded-full bg-white" />
+          </button>
         </div>
       );
     }
@@ -450,7 +511,7 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
             The wrapper is also the positioning context for the issue-card
             button. ── */}
         <div className="relative">
-        <div className="relative" style={{ height: deckHeight ? deckHeight * 0.82 : undefined }}>
+        <div className="relative" style={{ height: deckHeight ? deckHeight * 0.9 : undefined }}>
           {deckCards.map((cardId, i) => {
             const rel = i - activeCard;
             const isCenter = rel === 0;
@@ -459,84 +520,122 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
             // sits on the left in RTL / right in LTR; the previous card
             // (rel < 0) is mirrored.
             const side = isCenter ? 0 : rel > 0 ? (isRTL ? -1 : 1) : isRTL ? 1 : -1;
+            // NOTE: y (vertical centring) is a CONSTANT style below — never
+            // part of the animated pose — so framer can't recompute/reset it
+            // on re-render (flip, drag, etc.) and drop the card.
             const pose = isCenter
-              ? { x: '0%', y: '-50%', scale: 0.82, opacity: 1 }
+              ? { x: '0%', scale: 0.9, opacity: 1 }
               : isNeighbour
-                ? { x: `${side * 16}%`, y: '-50%', scale: 0.72, opacity: 1 }
-                : { x: `${side * 40}%`, y: '-50%', scale: 0.6, opacity: 0 };
+                ? { x: `${side * 16}%`, scale: 0.74, opacity: 1 }
+                : { x: `${side * 40}%`, scale: 0.6, opacity: 0 };
             return (
               <motion.div
                 key={cardId}
-                ref={(el) => {
-                  cardWrapRefs.current[cardId] = el;
-                }}
                 aria-hidden={!isCenter}
                 className="absolute inset-x-0 top-1/2 select-none"
                 style={{
+                  // Vertical centring as a fixed transform — kept OUT of the
+                  // animated pose so it never moves.
+                  y: '-50%',
                   transformOrigin: 'center center',
                   // The centre card always owns the top z-index, so the
                   // neighbour rolling in climbs over the outgoing one.
                   zIndex: isCenter ? 30 : 10,
                   filter: isCenter ? 'none' : 'brightness(0.78)',
                   pointerEvents: isCenter ? 'auto' : 'none',
-                  cursor: isCenter ? 'grab' : 'default',
-                  // The active card owns the whole touch gesture so a sideways
-                  // drag stays horizontal instead of letting the page scroll
-                  // it down on touch devices.
-                  touchAction: isCenter ? 'none' : 'pan-y',
                 }}
                 initial={false}
                 animate={pose}
                 transition={{ type: 'spring', stiffness: 320, damping: 32 }}
-                // Drag: normally switches cards. While the balance card is
-                // flipped to its pay side, a swipe instead closes it back to
-                // the balance (handled in onDragEnd).
-                drag={isCenter ? 'x' : false}
-                dragElastic={0.5}
-                dragSnapToOrigin
-                whileDrag={{ cursor: 'grabbing' }}
-                onDragEnd={
-                  isCenter
-                    ? (e, info) => {
-                        // A drag NEVER triggers a press — only switches cards
-                        // (or closes the pay side). Presses are handled solely
-                        // by onTap, keeping scroll/drag and tap cleanly apart.
-                        const swiped =
-                          Math.abs(info.offset.x) > 80 || Math.abs(info.velocity.x) > 450;
-                        if (cardId === 'balance' && showPaySheet) {
-                          if (swiped) closePay();
-                          return;
-                        }
-                        onCardDragEnd(e, info);
-                      }
-                    : undefined
-                }
-                // Tapping the active centre card: the balance card flips to
-                // its pay side and starts the session; tapping the flipped
-                // card (anywhere but its buttons) closes it back. The digital
-                // card ripples and routes to its detail page. Framer fires
-                // onTap only for taps that didn't become a drag.
-                onTap={
-                  isCenter
-                    ? (e, info) => {
-                        if (cardId !== 'balance') {
-                          handleCardTap(cardId, e, info);
-                          return;
-                        }
-                        if (!showPaySheet) {
-                          openPay();
-                          return;
-                        }
-                        // Flipped: ignore taps that land on a control so the
-                        // back-side buttons keep working; otherwise close.
-                        const target = e.target as HTMLElement | null;
-                        if (target && target.closest('button')) return;
-                        closePay();
-                      }
-                    : undefined
-                }
               >
-                {renderDeckCard(cardId)}
+                {/* Inner drag layer — kept SEPARATE from the carousel
+                    transform above. Dragging here only moves x (px) and never
+                    touches the outer's y:-50% centring, so the card can no
+                    longer drop below the slider line on drag. */}
+                <motion.div
+                  ref={(el) => {
+                    cardWrapRefs.current[cardId] = el;
+                  }}
+                  // deck-card-drag forces touch-action:none (with !important)
+                  // so the sideways drag can't leak into vertical page scroll.
+                  className={`w-full ${isCenter ? 'deck-card-drag' : ''}`}
+                  style={{ cursor: isCenter ? 'grab' : 'default' }}
+                  drag={isCenter ? 'x' : false}
+                  dragElastic={0.5}
+                  dragSnapToOrigin
+                  whileDrag={{ cursor: 'grabbing' }}
+                  onPointerDown={(e) => {
+                    pressStart.current = { x: e.clientX, y: e.clientY };
+                  }}
+                  onDragEnd={
+                    isCenter
+                      ? (e, info) => {
+                          // A drag NEVER triggers a press — only switches cards
+                          // (or closes the pay side). Presses are handled solely
+                          // by onTap, keeping scroll/drag and tap cleanly apart.
+                          const swiped =
+                            Math.abs(info.offset.x) > 80 || Math.abs(info.velocity.x) > 450;
+                          if (cardId === 'balance' && showPaySheet) {
+                            if (swiped) closePay();
+                            return;
+                          }
+                          onCardDragEnd(e, info);
+                        }
+                      : undefined
+                  }
+                  // Tapping the active centre card: the balance card flips to
+                  // its pay side and starts the session; tapping the flipped
+                  // card (anywhere but its buttons) closes it back. The digital
+                  // card ripples and routes to its detail page. Framer fires
+                  // onTap only for taps that didn't become a drag.
+                  onTap={
+                    isCenter
+                      ? (e, info) => {
+                          // Strict tap gate: framer fires onTap for medium
+                          // touch-drags it didn't treat as a drag. If the
+                          // finger moved more than a hair, it's a drag — do
+                          // NOT open/press. Use the native event's viewport
+                          // coords on both ends so they're comparable.
+                          const start = pressStart.current;
+                          pressStart.current = null;
+                          const pe = e as PointerEvent;
+                          if (
+                            start &&
+                            typeof pe.clientX === 'number' &&
+                            Math.hypot(pe.clientX - start.x, pe.clientY - start.y) > 10
+                          ) {
+                            return;
+                          }
+                          // Voucher: flip to its redemption side (tap again,
+                          // off a button, to flip back).
+                          if (cardId.startsWith('voucher:')) {
+                            const onBtn = (e.target as HTMLElement | null)?.closest('button');
+                            if (flippedVoucherId === cardId && onBtn) return;
+                            setFlippedVoucherId((prev) => (prev === cardId ? null : cardId));
+                            return;
+                          }
+                          // Manage-methods stop: the circle button owns the
+                          // tap; ignore taps elsewhere on the slot.
+                          if (cardId === 'add') return;
+                          if (cardId !== 'balance') {
+                            handleCardTap(cardId, e, info);
+                            return;
+                          }
+                          if (!showPaySheet) {
+                            openPay();
+                            return;
+                          }
+                          // Flipped: ignore taps that land on a control so the
+                          // back-side buttons keep working; otherwise close.
+                          const target = e.target as HTMLElement | null;
+                          if (target && target.closest('button')) return;
+                          closePay();
+                        }
+                      : undefined
+                  }
+                >
+                  {renderDeckCard(cardId)}
+                </motion.div>
               </motion.div>
             );
           })}
@@ -544,7 +643,7 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
 
         {/* Issue-card action — only when the digital card is on top,
             hanging below the stack so it visibly protrudes. */}
-        {activeCard === 1 && (
+        {deckCards[activeCard] === 'card' && (
           <div className="absolute inset-x-0 -bottom-8 flex justify-center z-40">
             <button
               onClick={() => navigate(`/${lang}/card-issuance`)}
@@ -557,7 +656,7 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
 
         {/* More-actions — hangs below the flipped balance card (same
             placement + styling as the issue-card button). */}
-        {activeCard === 0 && showPaySheet && (
+        {deckCards[activeCard] === 'balance' && showPaySheet && (
           <div className="absolute inset-x-0 -bottom-8 flex justify-center z-40">
             <button
               onClick={() => navigate(`/${lang}/wallet/balance`)}
@@ -567,30 +666,58 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
             </button>
           </div>
         )}
+
+        {/* More-actions for a flipped voucher → that voucher's page. */}
+        {flippedVoucherId && deckCards[activeCard] === flippedVoucherId && (
+          <div className="absolute inset-x-0 -bottom-8 flex justify-center z-40">
+            <button
+              onClick={() =>
+                navigate(`/${lang}/wallet/voucher/${flippedVoucherId.slice('voucher:'.length)}`)
+              }
+              className="px-6 py-3 rounded-full bg-bg-dark text-white font-bold text-sm active:scale-95 transition-transform shadow-md"
+            >
+              {language === 'he' ? 'פעולות נוספות' : 'More actions'}
+            </button>
+          </div>
+        )}
         </div>{/* /deck wrapper */}
 
-        {/* Tap-to-pay CTA — shown under the balance card (front side only) */}
-        {activeCard === 0 && (
-          <p
-            className={`text-center text-sm font-semibold text-text-secondary mt-4 transition-opacity duration-300 ${
-              showPaySheet ? 'opacity-0' : 'opacity-100'
-            }`}
+        {/* Tap-to-pay CTA — under every card EXCEPT the digital card and the
+            manage-methods stop (which navigate); fades while flipped. */}
+        {deckCards[activeCard] !== 'card' && deckCards[activeCard] !== 'add' && (
+        <div
+          className={`flex items-center justify-center gap-2 mt-4 transition-opacity duration-300 ${
+            (deckCards[activeCard] === 'balance' && showPaySheet) ||
+            flippedVoucherId === deckCards[activeCard]
+              ? 'opacity-0'
+              : 'opacity-100'
+          }`}
+        >
+          {/* Contactless (NFC) beacon — the SAME Material glyph everywhere,
+              revealed left→right once (key remount replays it on card change).
+              On the Nexus balance card (the default payment method) it's the
+              FILLED variant; vouchers keep the outline. Same grey colour in
+              both cases — only the fill differs. */}
+          <motion.span
+            key={`cta-${activeCard}`}
+            aria-hidden
+            className="material-symbols-outlined text-text-secondary shrink-0 leading-none"
+            style={{
+              fontSize: '20px',
+              fontVariationSettings: deckCards[activeCard] === 'balance' ? "'FILL' 1" : "'FILL' 0",
+            }}
+            initial={{ clipPath: 'inset(0 100% 0 0)' }}
+            animate={{ clipPath: 'inset(0 0 0 0)' }}
+            transition={{ duration: 0.6, ease: 'easeOut' }}
           >
+            contactless
+          </motion.span>
+          <span className="text-sm font-normal text-text-secondary">
             {language === 'he' ? 'לתשלום לחץ והצג בקופה' : 'Tap to pay and show at checkout'}
-          </p>
+          </span>
+        </div>
         )}
 
-        {/* Carousel dots */}
-        <div className="flex justify-center gap-1.5 mt-4">
-          {[0, 1].map((i) => (
-            <span
-              key={i}
-              className={`h-1.5 rounded-full transition-all duration-300 ${
-                activeCard === i ? 'w-5 bg-[#0a2540]' : 'w-1.5 bg-text-muted/40'
-              }`}
-            />
-          ))}
-        </div>
       </section>
 
       {/* ══════ REORDERABLE SECTIONS — Framer-motion Reorder.Group on
@@ -714,58 +841,9 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
           return null;
         }
         if (sectionId === 'vouchers') {
-          return (
-      <Reorder.Item
-        key="vouchers"
-        value="vouchers"
-        dragListener={false}
-        dragControls={vouchersDragControls}
-        className={`px-5 space-y-4 mb-6 transition-opacity ${isHidden ? 'opacity-40' : ''}`}
-      >
-        <div className="flex items-center justify-between">
-          <button
-            onClick={() => setVouchersOpen(!vouchersOpen)}
-            className="flex items-center gap-1 active:opacity-70 transition-opacity"
-          >
-            <h2 className="text-lg font-bold text-text-primary">{t.wallet.myVouchers}</h2>
-            <span
-              className={`material-symbols-outlined text-text-muted transition-transform duration-300 ${vouchersOpen ? 'rotate-180' : ''}`}
-              style={{ fontSize: '20px' }}
-            >
-              expand_more
-            </span>
-          </button>
-          <div className="flex items-center gap-2">
-            <button className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-surface text-text-secondary text-xs font-medium active:scale-95 transition-transform">
-              <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>tune</span>
-              {t.wallet.filterVouchers}
-            </button>
-            {editEnabled && (
-              <>
-                <button
-                  type="button"
-                  onClick={() => toggleHidden('vouchers')}
-                  className="text-text-muted p-1 -m-1 active:opacity-60"
-                  aria-label={isHidden ? 'Show section' : 'Hide section'}
-                >
-                  {isHidden ? <EyeOff size={18} /> : <Eye size={18} />}
-                </button>
-                <span
-                  onPointerDown={(e) => vouchersDragControls.start(e)}
-                  className="touch-none cursor-grab active:cursor-grabbing text-text-muted p-1 -m-1"
-                  aria-label="Reorder section"
-                >
-                  <GripVertical size={18} />
-                </span>
-              </>
-            )}
-          </div>
-        </div>
-        <div className={`overflow-hidden transition-all duration-300 ease-in-out ${vouchersOpen ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'}`}>
-          <WalletTabs activeTab={activeTab} onTabChange={setActiveTab} />
-        </div>
-      </Reorder.Item>
-          );
+          // Vouchers now live in the card carousel above, so this section
+          // no longer renders anything.
+          return null;
         }
         return null;
       })}
