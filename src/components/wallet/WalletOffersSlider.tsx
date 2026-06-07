@@ -2,10 +2,8 @@ import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Eye, EyeOff, GripVertical } from 'lucide-react';
 import { useLanguage } from '../../i18n/LanguageContext';
-import { useVouchers } from '../../hooks/useVouchers';
-import { SliderCard } from '../store/StoreSliders';
-import VoucherDetail from '../store/VoucherDetail';
-import type { Voucher } from '../../types/voucher.types';
+import { mockBusinesses } from '../../mock/data/businesses.mock';
+import { brandBgColors, FULL_BLEED_LOGOS } from '../../utils/brandColors';
 
 interface WalletOffersSliderProps {
   /** When the wallet is in "Customize" mode, the section header shows an
@@ -18,11 +16,9 @@ interface WalletOffersSliderProps {
 }
 
 /**
- * WalletOffersSlider — "הטבות במיוחד בשבילך" row shown below the wallet
- * widgets. The card row reuses the home page slider design (gradient
- * vertical label + horizontal voucher cards), but the section HEADER is
- * styled to match the other wallet sections (bold title + collapse
- * chevron) rather than the home slider's small header.
+ * WalletOffersSlider — the wallet "קאשבק" (Cashback) section. It shows a
+ * horizontal row of round business logos (the same treatment as the home
+ * "Our Brands" slider), under a wallet-style collapsible section header.
  */
 export default function WalletOffersSlider({
   editEnabled = false,
@@ -30,29 +26,19 @@ export default function WalletOffersSlider({
   onToggleHidden,
   onReorderPointerDown,
 }: WalletOffersSliderProps = {}) {
-  const { t, language } = useLanguage();
+  const { language } = useLanguage();
   const { lang = 'he' } = useParams();
   const navigate = useNavigate();
   const isHe = language === 'he';
-  const { data: allVouchers } = useVouchers();
-  const [selectedVoucher, setSelectedVoucher] = useState<Voucher | null>(null);
   const [open, setOpen] = useState(true);
 
   const title = isHe ? 'קאשבק' : 'Cashback';
-
-  // Personalized-feel subset: highest-discount, in-stock, not coming soon.
-  // Require a real photo (imageUrl) AND a real brand logo so every card
-  // renders realistically — no emoji placeholders or broken logo images.
-  const vouchers = [...(allVouchers ?? [])]
-    .filter((v) => !v.comingSoon && v.inStock && !!v.imageUrl && !!v.brandLogo)
-    .sort((a, b) => b.discountPercent - a.discountPercent)
-    .slice(0, 8);
 
   const goToStore = () => navigate(`/${lang}/store`, { state: { filter: 'recommended' } });
   // The "עוד" button on the Cashback section sends the user to the home page.
   const goHome = () => navigate(`/${lang}`);
 
-  if (!vouchers.length) return null;
+  if (!mockBusinesses.length) return null;
 
   return (
     <section className="mb-6">
@@ -99,33 +85,35 @@ export default function WalletOffersSlider({
         </div>
       </div>
 
-      {/* Collapsible card row */}
+      {/* Collapsible logos row — round business logos, like "Our Brands" */}
       <div
-        className={`overflow-hidden transition-all duration-300 ease-in-out ${open ? 'max-h-[700px] opacity-100' : 'max-h-0 opacity-0'}`}
+        className={`overflow-hidden transition-all duration-300 ease-in-out ${open ? 'max-h-[260px] opacity-100' : 'max-h-0 opacity-0'}`}
       >
-        <div className="flex overflow-x-auto hide-scrollbar gap-3 px-5 snap-x snap-mandatory items-stretch">
-          {/* Gradient label rectangle — matches home slider pattern */}
-          <div
-            className="flex-none w-[90px] rounded-lg flex items-center justify-center flex-shrink-0"
-            style={{ background: 'linear-gradient(to bottom, #ec4899, #a855f7)', minHeight: '20vh' }}
-          >
-            <span
-              className="text-white text-sm font-bold whitespace-nowrap"
-              style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}
+        <div className="flex overflow-x-auto hide-scrollbar gap-4 px-5 items-center">
+          {mockBusinesses.map((biz) => (
+            <button
+              key={biz.id}
+              onClick={() => navigate(`/${lang}/business/${biz.id}`)}
+              className="flex flex-col items-center gap-1.5 shrink-0 active:scale-95 transition-transform duration-100"
             >
-              {title}
-            </span>
-          </div>
-
-          {vouchers.map((v) => (
-            <SliderCard
-              key={v.id}
-              voucher={v}
-              isHe={isHe}
-              onSelect={setSelectedVoucher}
-              comingSoonLabel={t.store.comingSoon}
-              outOfStockLabel={t.store.outOfStock}
-            />
+              <div
+                className="w-[60px] h-[60px] rounded-full overflow-hidden shadow-sm flex items-center justify-center"
+                style={{ backgroundColor: brandBgColors[biz.id] || '#FFFFFF' }}
+              >
+                {biz.logoUrl ? (
+                  <img
+                    src={biz.logoUrl}
+                    alt={isHe ? biz.nameHe : biz.name}
+                    className={FULL_BLEED_LOGOS.has(biz.id) ? 'w-full h-full object-cover' : 'w-[85%] h-[85%] object-contain'}
+                  />
+                ) : (
+                  <span className="text-2xl">{biz.logo}</span>
+                )}
+              </div>
+              <span className="text-[10px] font-semibold text-text-primary leading-tight text-center max-w-[60px] line-clamp-1">
+                {isHe ? biz.nameHe : biz.name}
+              </span>
+            </button>
           ))}
 
           {/* Arrow bubble — sky-blue, matches home slider */}
@@ -141,10 +129,6 @@ export default function WalletOffersSlider({
           </div>
         </div>
       </div>
-
-      {selectedVoucher && (
-        <VoucherDetail voucher={selectedVoucher} onClose={() => setSelectedVoucher(null)} />
-      )}
     </section>
   );
 }

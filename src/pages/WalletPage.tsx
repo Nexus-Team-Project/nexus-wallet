@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useLayoutEffect } from 'react';
+import { useState, useRef, useCallback, useLayoutEffect, useEffect } from 'react';
 import { motion, Reorder, useDragControls, type PanInfo } from 'framer-motion';
 import { GripVertical, Eye, EyeOff } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -332,7 +332,31 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
     );
   };
 
-  if (walletLoading) {
+  // Hold the skeleton until the deck's card artwork has actually loaded, so
+  // the wallet never flashes in with blank/half-painted cards.
+  const [cardImagesReady, setCardImagesReady] = useState(false);
+  useEffect(() => {
+    const srcs = ['/cards/nexus-balance-card.png', '/cards/isracard-corporate.png'];
+    let cancelled = false;
+    Promise.all(
+      srcs.map(
+        (src) =>
+          new Promise<void>((resolve) => {
+            const img = new Image();
+            img.onload = () => resolve();
+            img.onerror = () => resolve(); // never hang on a missing image
+            img.src = src;
+          }),
+      ),
+    ).then(() => {
+      if (!cancelled) setCardImagesReady(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (walletLoading || !cardImagesReady) {
     return <WalletPageSkeleton />;
   }
 
