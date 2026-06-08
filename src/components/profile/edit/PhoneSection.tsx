@@ -33,7 +33,11 @@ export default function PhoneSection() {
         </button>
       </div>
       {open && (
-        <PhoneUpdateSheet onClose={() => setOpen(false)} onUpdated={() => { void reload(); }} />
+        <PhoneUpdateSheet
+          currentPhone={phone}
+          onClose={() => setOpen(false)}
+          onUpdated={() => { void reload(); }}
+        />
       )}
     </div>
   );

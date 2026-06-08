@@ -5,12 +5,13 @@
  *
  * Spec: docs/superpowers/specs/2026-05-25-nexus-wallet-auth-design.md section 8
  */
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams, useParams } from 'react-router-dom';
-import { walletVerifyEmailOtp } from '../../services/auth.service';
+import { walletVerifyEmailOtp, walletStartEmailOtp } from '../../services/auth.service';
 import { useAuth } from '../../contexts/AuthContext';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { nextPathAfterLogin } from '../../lib/postLogin';
+import { useCountdown, formatMmSs } from '../../hooks/useCountdown';
 
 export default function EmailOtpPage() {
   const navigate = useNavigate();
@@ -22,10 +23,42 @@ export default function EmailOtpPage() {
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
+  // Resend throttle. The first code was just sent from EmailRequiredPage, so we
+  // start in cooldown; 30s mirrors the backend's 1-per-30s email-OTP send limit.
+  const [cooldown, setCooldown] = useState(30);
+  const [resending, setResending] = useState(false);
+  // Live code-validity countdown (mirrors the 10-min backend expiry).
+  const { remaining: otpRemaining, reset: resetOtpExpiry } = useCountdown(600);
+
+  const email = params.get('email') ?? '';
+
+  // Cooldown ticker.
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const id = setInterval(() => setCooldown((s) => (s <= 1 ? 0 : s - 1)), 1000);
+    return () => clearInterval(id);
+  }, [cooldown]);
+
+  /** Request a fresh code for the same email, then restart the cooldown. */
+  async function onResend(): Promise<void> {
+    if (cooldown > 0 || resending) return;
+    setResending(true);
+    setErr('');
+    try {
+      await walletStartEmailOtp(email.toLowerCase());
+      setCode('');
+      setCooldown(30);
+      resetOtpExpiry();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'unknown');
+    } finally {
+      setResending(false);
+    }
+  }
 
   async function onSubmit(e: React.FormEvent): Promise<void> {
     e.preventDefault();
-    if (!/^\d{6}$/.test(code)) return;
+    if (!/^\d{6}$/.test(code) || otpRemaining === 0) return;
     setBusy(true);
     setErr('');
     try {
@@ -47,7 +80,6 @@ export default function EmailOtpPage() {
     }
   }
 
-  const email = params.get('email') ?? '';
   return (
     <div className="min-h-dvh bg-white flex items-start justify-center pt-12">
       <div className="w-full max-w-sm px-6">
@@ -68,8 +100,18 @@ export default function EmailOtpPage() {
             required
             autoFocus
             dir="ltr"
-            className="w-full border-2 border-border focus:border-primary outline-none rounded-2xl px-4 py-3 text-center text-2xl tracking-widest"
+            disabled={otpRemaining === 0}
+            className="w-full border-2 border-border focus:border-primary outline-none rounded-2xl px-4 py-3 text-center text-2xl tracking-widest disabled:opacity-50"
           />
+          <p className={`text-xs ${otpRemaining === 0 ? 'text-error' : 'text-text-muted'}`}>
+            {otpRemaining > 0
+              ? isHe
+                ? `הקוד בתוקף עוד ${formatMmSs(otpRemaining)}`
+                : `Code expires in ${formatMmSs(otpRemaining)}`
+              : isHe
+                ? 'הקוד פג תוקף. בקשו קוד חדש.'
+                : 'Code expired. Request a new one.'}
+          </p>
           {err && (
             <p className="text-sm text-error">
               {err === 'otp_invalid'
@@ -87,12 +129,31 @@ export default function EmailOtpPage() {
           )}
           <button
             type="submit"
-            disabled={busy || code.length !== 6}
+            disabled={busy || code.length !== 6 || otpRemaining === 0}
             className="w-full py-3 rounded-2xl bg-primary text-white font-semibold disabled:opacity-40"
           >
             {busy ? (isHe ? 'בודק...' : 'Verifying...') : isHe ? 'אמת' : 'Verify'}
           </button>
         </form>
+
+        <button
+          type="button"
+          onClick={onResend}
+          disabled={cooldown > 0 || resending}
+          className="mt-3 w-full py-2 text-center text-sm font-medium text-primary disabled:opacity-50"
+        >
+          {cooldown > 0
+            ? isHe
+              ? `שליחת קוד חדש בעוד ${cooldown} שניות`
+              : `Resend code in ${cooldown}s`
+            : resending
+              ? isHe
+                ? 'שולח...'
+                : 'Sending...'
+              : isHe
+                ? 'שלח קוד חדש'
+                : 'Resend code'}
+        </button>
       </div>
     </div>
   );

@@ -16,6 +16,7 @@ import {
 import { saveMarketingConsent } from '../../services/walletProfile.service';
 import { lookupTenantByOrg } from '../../mock/handlers/tenant.handler';
 import { useAuth } from '../../contexts/AuthContext';
+import { useCountdown, formatMmSs } from '../../hooks/useCountdown';
 
 export default function LoginSheet() {
   const { lang = 'he' } = useParams();
@@ -38,7 +39,7 @@ export default function LoginSheet() {
 
   // ── Local state ──
   const [phone, setPhone] = useState('');
-  const [otp, setOtp] = useState(['', '', '', '']);
+  const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [isLoading, setIsLoading] = useState(false);
   const [isRouting, setIsRouting] = useState(false);
   const [error, setError] = useState('');
@@ -61,14 +62,20 @@ export default function LoginSheet() {
     useRef<HTMLInputElement>(null),
     useRef<HTMLInputElement>(null),
     useRef<HTMLInputElement>(null),
+    useRef<HTMLInputElement>(null),
+    useRef<HTMLInputElement>(null),
   ];
   const phoneInputRef = useRef<HTMLInputElement>(null);
+  // Live code-validity countdown (mirrors the 10-min backend expiry).
+  const { remaining: otpRemaining, reset: resetOtpExpiry } = useCountdown(600);
+  // Resend throttle (mirrors the backend 1-per-30s send limit).
+  const { remaining: resendCooldown, reset: resetResendCooldown } = useCountdown(30);
 
   // ── Reset when closed ──
   useEffect(() => {
     if (!isOpen) {
       setPhone('');
-      setOtp(['', '', '', '']);
+      setOtp(['', '', '', '', '', '']);
       setError('');
       setIsLoading(false);
       setIsClosing(false);
@@ -178,6 +185,15 @@ export default function LoginSheet() {
     return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
   };
 
+  /** Maps a backend send-OTP error code to a localized message. */
+  const smsSendErrorMessage = (e: unknown): string => {
+    const code = e instanceof Error ? e.message : '';
+    if (code === 'sms_unavailable') return t.registration.verifyPhoneSmsUnavailable;
+    if (code.startsWith('rate_limited')) return t.auth.otpTooManyAttempts;
+    if (code === 'invalid_phone') return t.registration.verifyPhoneIsraelOnly;
+    return t.registration.verifyPhoneSmsUnavailable;
+  };
+
   const handleSendOtp = async () => {
     const digits = phone.replace(/\D/g, '');
     if (digits.length < 9) return;
@@ -186,6 +202,12 @@ export default function LoginSheet() {
     try {
       await firebaseSendOtp(phone);
       setStep('otp');
+      resetOtpExpiry();
+      resetResendCooldown();
+    } catch (e) {
+      // Surface the failure (e.g. sms_unavailable when InforU rejects) instead of
+      // silently stalling on the phone step.
+      setError(smsSendErrorMessage(e));
     } finally {
       setIsLoading(false);
     }
@@ -194,13 +216,13 @@ export default function LoginSheet() {
   // ── OTP helpers ──
   const handleOtpChange = (index: number, value: string) => {
     if (value.length > 1) {
-      const digits = value.replace(/\D/g, '').slice(0, 4);
+      const digits = value.replace(/\D/g, '').slice(0, 6);
       const newOtp = [...otp];
       digits.split('').forEach((d, i) => {
-        if (i + index < 4) newOtp[i + index] = d;
+        if (i + index < 6) newOtp[i + index] = d;
       });
       setOtp(newOtp);
-      const nextIdx = Math.min(index + digits.length, 3);
+      const nextIdx = Math.min(index + digits.length, 5);
       otpRefs[nextIdx].current?.focus();
       setError('');
       if (newOtp.every((d) => d !== '')) verifyOtp(newOtp.join(''));
@@ -211,7 +233,7 @@ export default function LoginSheet() {
     newOtp[index] = digit;
     setOtp(newOtp);
     setError('');
-    if (digit && index < 3) otpRefs[index + 1].current?.focus();
+    if (digit && index < 5) otpRefs[index + 1].current?.focus();
     if (digit && newOtp.every((d) => d !== '')) verifyOtp(newOtp.join(''));
   };
 
@@ -226,6 +248,7 @@ export default function LoginSheet() {
 
   // ── Post-OTP branching logic ──
   const verifyOtp = async (code: string) => {
+    if (otpRemaining === 0) { setError(t.auth.otpExpired); return; }
     setIsLoading(true);
     setError('');
     try {
@@ -244,7 +267,7 @@ export default function LoginSheet() {
 
       if (!result.success || !result.session) {
         setError(t.auth.wrongCode);
-        setOtp(['', '', '', '']);
+        setOtp(['', '', '', '', '', '']);
         otpRefs[0].current?.focus();
         return;
       }
@@ -699,6 +722,9 @@ export default function LoginSheet() {
                       )}
                     </button>
                   </div>
+                  {error && (
+                    <p className="mt-1 text-center text-xs text-error" role="alert">{error}</p>
+                  )}
                 </div>
               )}
 
@@ -739,7 +765,7 @@ export default function LoginSheet() {
               <button
                 onClick={() => {
                   setStep('welcome');
-                  setOtp(['', '', '', '']);
+                  setOtp(['', '', '', '', '', '']);
                   setError('');
                 }}
                 className="w-8 h-8 rounded-full bg-surface flex items-center justify-center mb-4"
@@ -764,18 +790,19 @@ export default function LoginSheet() {
               </p>
 
               {/* OTP inputs */}
-              <div className="flex gap-3 justify-center mb-4" dir="ltr">
+              <div className="flex gap-2 justify-center mb-4" dir="ltr">
                 {otp.map((digit, idx) => (
                   <input
                     key={idx}
                     ref={otpRefs[idx]}
                     type="text"
                     inputMode="numeric"
-                    maxLength={idx === 0 ? 4 : 1}
+                    maxLength={idx === 0 ? 6 : 1}
                     value={digit}
                     onChange={(e) => handleOtpChange(idx, e.target.value)}
                     onKeyDown={(e) => handleOtpKeyDown(idx, e)}
-                    className={`w-14 h-14 text-center text-xl font-bold rounded-2xl border-2 outline-none transition-all ${
+                    disabled={otpRemaining === 0}
+                    className={`w-11 h-12 text-center text-lg font-bold rounded-2xl border-2 outline-none transition-all disabled:opacity-50 ${
                       error
                         ? 'border-error text-error'
                         : digit
@@ -785,6 +812,12 @@ export default function LoginSheet() {
                   />
                 ))}
               </div>
+
+              <p className={`text-xs text-center mb-3 ${otpRemaining === 0 ? 'text-error' : 'text-text-muted'}`}>
+                {otpRemaining > 0
+                  ? t.auth.otpExpiresIn.replace('{time}', formatMmSs(otpRemaining))
+                  : t.auth.otpExpired}
+              </p>
 
               {error && (
                 <p className="text-xs text-error text-center mb-3 animate-fade-in">
@@ -805,15 +838,24 @@ export default function LoginSheet() {
 
               <button
                 onClick={async () => {
-                  setOtp(['', '', '', '']);
+                  if (resendCooldown > 0 || isLoading) return;
+                  setOtp(['', '', '', '', '', '']);
                   setError('');
-                  await firebaseSendOtp(phone);
-                  otpRefs[0].current?.focus();
+                  try {
+                    await firebaseSendOtp(phone);
+                    resetOtpExpiry();
+                    resetResendCooldown();
+                    otpRefs[0].current?.focus();
+                  } catch (e) {
+                    setError(smsSendErrorMessage(e));
+                  }
                 }}
-                disabled={isLoading}
+                disabled={isLoading || resendCooldown > 0}
                 className="w-full text-center text-sm text-primary font-medium py-2 hover:underline disabled:opacity-50"
               >
-                {t.auth.resendCode}
+                {resendCooldown > 0
+                  ? t.auth.resendCodeWait.replace('{seconds}', String(resendCooldown))
+                  : t.auth.resendCode}
               </button>
 
             </div>
