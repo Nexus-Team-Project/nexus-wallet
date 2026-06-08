@@ -280,6 +280,8 @@ export interface TranslationKeys {
     resendViaWhatsApp: string;
     wrongCode: string;
     otpExpiry: string;
+    otpExpiresIn: string;
+    otpExpired: string;
     otpTooManyAttempts: string;
     consentTitle: string;
     consentSubtitle: string;
@@ -355,7 +357,6 @@ export interface TranslationKeys {
     benefitCategoriesTitle: string;
     benefitCategoriesSubtitle: string;
     benefitCategoriesComingSoon: string;
-    verifyPhoneTestContinue: string;
     verifyPhoneFormat: string;
     verifyPhoneIsraelOnly: string;
     verifyPhoneInUse: string;

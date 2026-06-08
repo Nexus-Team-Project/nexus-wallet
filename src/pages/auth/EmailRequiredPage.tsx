@@ -22,12 +22,20 @@ export default function EmailRequiredPage() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
 
+  // Client-side format gate (UX only; the backend validates authoritatively).
+  // Basic shape check: non-empty local part, single @, a dotted domain.
+  const trimmedEmail = email.trim();
+  const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail);
+  // Only nudge once the user has typed something that isn't yet a valid address.
+  const showFormatHint = trimmedEmail.length > 0 && !isValidEmail;
+
   async function onSubmit(e: React.FormEvent): Promise<void> {
     e.preventDefault();
+    if (!isValidEmail || busy) return;
     setBusy(true);
     setErr('');
     try {
-      await walletStartEmailOtp(email.trim().toLowerCase());
+      await walletStartEmailOtp(trimmedEmail.toLowerCase());
       // Carry the originating ?tenant=X through so the post-login routing on the
       // OTP page can land the new user in that org's stories (not the ecosystem).
       const tenant = params.get('tenant');
@@ -63,6 +71,11 @@ export default function EmailRequiredPage() {
             dir="ltr"
             className="w-full border-2 border-border focus:border-primary outline-none rounded-2xl px-4 py-3 text-sm"
           />
+          {showFormatHint && (
+            <p className="text-sm text-error">
+              {isHe ? 'נא להזין כתובת אימייל תקינה.' : 'Please enter a valid email address.'}
+            </p>
+          )}
           {err && (
             <p className="text-sm text-error">
               {isHe ? 'שליחת קוד נכשלה. נסה שוב.' : 'Failed to send code. Please try again.'}
@@ -70,7 +83,7 @@ export default function EmailRequiredPage() {
           )}
           <button
             type="submit"
-            disabled={busy || !email}
+            disabled={busy || !isValidEmail}
             className="w-full py-3 rounded-2xl bg-primary text-white font-semibold disabled:opacity-40"
           >
             {busy

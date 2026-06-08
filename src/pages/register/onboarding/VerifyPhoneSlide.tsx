@@ -25,13 +25,12 @@ import {
 import {
   startPhoneOtp,
   verifyPhoneOtp,
-  attachPhoneTest,
-  PHONE_OTP_ENABLED,
 } from '../../../services/walletPhone.service';
+import { useCountdown, formatMmSs } from '../../../hooks/useCountdown';
 
 type OtpStep = 'phone' | 'otp';
 const MAX_ATTEMPTS = 5;
-const OTP_VALID_MINS = 5;
+const OTP_TTL_SECONDS = 600; // 10 minutes - mirrors the backend code expiry.
 const COOLDOWN_SECONDS = 60;
 
 export default function VerifyPhoneSlide() {
@@ -49,14 +48,16 @@ export default function VerifyPhoneSlide() {
   const [failCount, setFailCount] = useState(0);
   const [locked, setLocked] = useState(false);
   const [cooldown, setCooldown] = useState(0);
+  // Live code-validity countdown (mirrors the 10-min backend expiry).
+  const { remaining: otpRemaining, reset: resetOtpExpiry } = useCountdown(OTP_TTL_SECONDS);
 
   const phoneInputRef = useRef<HTMLInputElement>(null);
   const otpRef = useRef<HTMLInputElement>(null);
   const cooldownRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const isIsrael = country?.code === 'IL';
-  // Israeli mobile: exactly 10 digits starting with 05. Both the real "המשך"
-  // and the "המשך כבדיקה" buttons stay disabled until this holds.
+  // Israeli mobile: exactly 10 digits starting with 05. The "המשך" button stays
+  // disabled until this holds.
   const phoneDigits = phone.replace(/\D/g, '');
   const isValidIsraeliPhone = phoneDigits.length === 10 && phoneDigits.startsWith('05');
   const canSend = isIsrael && isValidIsraeliPhone;
@@ -112,33 +113,18 @@ export default function VerifyPhoneSlide() {
       setOtp('');
       setStep('otp');
       setCooldown(COOLDOWN_SECONDS);
+      resetOtpExpiry();
       setTimeout(() => otpRef.current?.focus(), 100);
     } catch (e) {
       setError(mapError(e));
     } finally {
       setIsLoading(false);
     }
-  }, [canSend, isLoading, phone, mapError]);
-
-  // ── Test flow: attach without OTP (saves to DB), then proceed ──────────────
-  const handleTestAttach = useCallback(async () => {
-    if (!canSend || isLoading) return;
-    setError('');
-    setIsLoading(true);
-    try {
-      await attachPhoneTest(phone);
-      goNext();
-    } catch (e) {
-      setError(mapError(e));
-    } finally {
-      setIsLoading(false);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canSend, isLoading, phone, mapError]);
+  }, [canSend, isLoading, phone, mapError, resetOtpExpiry]);
 
   // ── Verify OTP ─────────────────────────────────────────────────────────────
   const handleVerify = async (code: string) => {
-    if (code.length < 4 || locked || isLoading) return;
+    if (code.length < 6 || locked || isLoading || otpRemaining === 0) return;
     setIsLoading(true);
     setError('');
     try {
@@ -162,10 +148,10 @@ export default function VerifyPhoneSlide() {
 
   const handleOtpChange = (value: string) => {
     if (locked) return;
-    const digits = value.replace(/\D/g, '').slice(0, 4);
+    const digits = value.replace(/\D/g, '').slice(0, 6);
     setOtp(digits);
     setError('');
-    if (digits.length === 4) handleVerify(digits);
+    if (digits.length === 6) handleVerify(digits);
   };
 
   // ── Phone step ─────────────────────────────────────────────────────────────
@@ -182,21 +168,9 @@ export default function VerifyPhoneSlide() {
         totalSlides={total}
         currentSlideIndex={current}
         canSkip={false}
-        canContinue={PHONE_OTP_ENABLED && canSend && !isLoading}
+        canContinue={canSend && !isLoading}
         onContinue={handleSendOtp}
         footerNote={note}
-        footerExtra={
-          !PHONE_OTP_ENABLED ? (
-            <button
-              type="button"
-              onClick={handleTestAttach}
-              disabled={!canSend || isLoading}
-              className="w-full text-center text-sm font-semibold text-primary py-2 disabled:opacity-40 transition-opacity"
-            >
-              {t.registration.verifyPhoneTestContinue}
-            </button>
-          ) : undefined
-        }
       >
         <div className="pt-6 pb-2">
           <h1 className="text-2xl font-semibold leading-tight mb-2" style={{ color: 'var(--color-primary)' }}>
@@ -210,7 +184,7 @@ export default function VerifyPhoneSlide() {
             value={phone}
             onChange={(v) => { setPhone(v); setError(''); }}
             onCountryChange={setCountry}
-            onKeyDown={(e) => { if (e.key === 'Enter' && PHONE_OTP_ENABLED && canSend) handleSendOtp(); }}
+            onKeyDown={(e) => { if (e.key === 'Enter' && canSend) handleSendOtp(); }}
             placeholder="050-000-0000"
             autoFocus
             inputRef={phoneInputRef}
@@ -244,7 +218,7 @@ export default function VerifyPhoneSlide() {
       totalSlides={total}
       currentSlideIndex={current}
       canSkip={false}
-      canContinue={otp.length === 4 && !isLoading && !locked}
+      canContinue={otp.length === 6 && !isLoading && !locked && otpRemaining > 0}
       onBack={() => { setStep('phone'); setOtp(''); setError(''); setFailCount(0); setLocked(false); }}
       onContinue={() => handleVerify(otp)}
       footerNote={error || undefined}
@@ -260,11 +234,11 @@ export default function VerifyPhoneSlide() {
         </p>
 
         <div className="relative mb-3" dir="ltr">
-          <div className="flex gap-3 justify-center pointer-events-none select-none" aria-hidden>
-            {[0, 1, 2, 3].map((i) => (
+          <div className="flex gap-2 justify-center pointer-events-none select-none" aria-hidden>
+            {[0, 1, 2, 3, 4, 5].map((i) => (
               <div
                 key={i}
-                className={`w-14 h-14 flex items-center justify-center rounded-2xl border-2 text-xl font-bold transition-all ${
+                className={`w-11 h-12 flex items-center justify-center rounded-2xl border-2 text-lg font-bold transition-all ${
                   locked
                     ? 'border-border text-text-muted opacity-40'
                     : error
@@ -283,18 +257,23 @@ export default function VerifyPhoneSlide() {
             type="text"
             inputMode="numeric"
             autoComplete="one-time-code"
-            maxLength={4}
+            maxLength={6}
             value={otp}
             onChange={(e) => handleOtpChange(e.target.value)}
-            disabled={locked}
+            disabled={locked || otpRemaining === 0}
             autoFocus
             className="absolute inset-0 w-full h-full opacity-0 cursor-text disabled:cursor-not-allowed"
           />
         </div>
 
         {!locked && (
-          <p className="text-center text-xs mb-4" style={{ color: 'var(--color-text-muted)' }}>
-            {t.auth.otpExpiry.replace('{minutes}', String(OTP_VALID_MINS))}
+          <p
+            className="text-center text-xs mb-4"
+            style={{ color: otpRemaining === 0 ? 'var(--color-error)' : 'var(--color-text-muted)' }}
+          >
+            {otpRemaining > 0
+              ? t.auth.otpExpiresIn.replace('{time}', formatMmSs(otpRemaining))
+              : t.auth.otpExpired}
           </p>
         )}
       </div>
