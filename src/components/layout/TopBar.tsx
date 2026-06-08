@@ -51,7 +51,6 @@ export default function TopBar({ collapsed = false, showBack = false }: TopBarPr
   const [searchParams] = useSearchParams();
   const { t, language } = useLanguage();
   const { isAuthenticated, requireAuth } = useAuthGate();
-  const isOrgMember = useAuthStore((s) => s.isOrgMember);
   const organizationName = useAuthStore((s) => s.organizationName);
   const avatarUrl = useAuthStore((s) => s.avatarUrl);
   const authFirstName = useAuthStore((s) => s.firstName);
@@ -79,8 +78,14 @@ export default function TopBar({ collapsed = false, showBack = false }: TopBarPr
     ? me?.memberships?.find((m) => m.tenantId === urlTenantId)
     : undefined;
 
-  const hasTenant = isAuthenticated && isOrgMember && !isEcosystem &&
-    (!!tenantConfig || !!activeMembership);
+  // Show tenant branding whenever a real tenant context exists, regardless of
+  // auth or membership. LanguageRouter resolves ?tenant=<id> into tenantConfig
+  // (via fetchPublicTenant) for anonymous visitors and logged-in non-members
+  // alike, and bounces unknown tenants to ecosystem + clears the store - so a
+  // present tenantConfig/activeMembership always means a legit tenant. Without
+  // this, an anonymous or non-member visitor on a tenant link saw the Nexus
+  // logo instead of the org's. Ecosystem / no-tenant -> Nexus logo.
+  const hasTenant = !isEcosystem && (!!tenantConfig || !!activeMembership);
   // Prefer the active membership's real logo (real backend tenants never
   // round-trip through tenantConfig, so without this the org showed the Nexus
   // logo). Ecosystem / no-tenant -> Nexus logo.
@@ -179,12 +184,13 @@ export default function TopBar({ collapsed = false, showBack = false }: TopBarPr
               </span>
             </button>
           )}
-          {/* Avatar cluster — shown for everyone. Anonymous visitors see the
-              default Nexus logo + person avatar and the "Nexus-Catalog"
-              context label, exactly like a logged-in ecosystem view; tapping
-              the avatar opens the LoginSheet via the auth gate (handleProfile
-              calls requireAuth when not authenticated) so they can sign in to
-              buy / redeem. */}
+          {/* Avatar cluster — shown for everyone. The logo circle reflects the
+              tenant context: on a ?tenant=X link it shows that org's logo (or
+              name initials) for anonymous visitors and logged-in non-members
+              alike; on the ecosystem catalog / plain home it shows the Nexus
+              logo. The person avatar is the login affordance — tapping it opens
+              the LoginSheet via the auth gate (handleProfile calls requireAuth
+              when not authenticated) so they can sign in to buy / redeem. */}
           <button
             onClick={handleProfile}
             className={`relative flex items-center transition-transform duration-300 ease-in-out origin-left ${collapsed ? 'scale-[0.65]' : 'scale-100'}`}
