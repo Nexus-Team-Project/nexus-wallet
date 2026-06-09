@@ -68,9 +68,11 @@ export default function ConsentToggleCard({
         </span>
       </div>
 
-      {/* Toggle pill */}
+      {/* Toggle pill. dir="ltr" so the thumb's translate-x stays inside the track
+          on RTL pages (without it, translate-x-6 pushes the thumb outside). */}
       <button
         type="button"
+        dir="ltr"
         onClick={() => !disabled && onChange(!checked)}
         disabled={disabled}
         className={`flex-shrink-0 mt-1 relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 focus:outline-none ${

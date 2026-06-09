@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams, useLocation } from 'react-router-dom';
 import { useAuthGate } from '../../hooks/useAuthGate';
 import { useAuth } from '../../contexts/AuthContext';
 import { useAuthStore } from '../../stores/authStore';
@@ -8,7 +8,6 @@ import { useLanguage } from '../../i18n/LanguageContext';
 import { useUser } from '../../hooks/useUser';
 import { tenantColor } from '../../lib/tenantColor';
 import TenantSwitchSheet from '../wallet/TenantSwitchSheet';
-import UserMenu from './UserMenu';
 import { useUnreadNotificationCount } from '../../hooks/useNotifications';
 import { useNotificationToastStore } from '../../stores/notificationToastStore';
 
@@ -52,6 +51,7 @@ export default function TopBar({ collapsed = false, showBack = false, hideGreeti
 
   const { lang = 'he' } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
   const { t, language } = useLanguage();
   const { isAuthenticated, requireAuth } = useAuthGate();
@@ -137,7 +137,6 @@ export default function TopBar({ collapsed = false, showBack = false, hideGreeti
   }, [bellPulseCount]);
 
   const [switchSheetOpen, setSwitchSheetOpen] = useState(false);
-  const [userMenuOpen, setUserMenuOpen] = useState(false);
 
   // Display name for the top-bar context chip. Order of preference:
   //  1. Ecosystem mode -> "Nexus-Catalog" (the view label, not a tenant).
@@ -159,13 +158,22 @@ export default function TopBar({ collapsed = false, showBack = false, hideGreeti
       ?? organizationName;
 
   const handleProfile = async () => {
+    // Already on the profile page: do nothing. Navigating to /profile again
+    // would push a duplicate history entry, so Back would then need two presses
+    // to leave. (Sub-routes like /profile/edit are NOT the profile page, so
+    // tapping the avatar there still navigates back to /profile.)
+    if (location.pathname === `/${lang}/profile`) return;
+    // Carry the current tenant/ecosystem context onto /profile so the page
+    // stays on the same org (without ?tenant it would fall back to the Nexus
+    // catalog and the header would "change" tenant on entry).
+    const qs = searchParams.toString();
+    const dest = `/${lang}/profile${qs ? `?${qs}` : ''}`;
     if (isAuthenticated) {
-      // Authenticated -> open the inline UserMenu dropdown (not /profile).
-      setUserMenuOpen((v) => !v);
+      navigate(dest);
       return;
     }
     const authed = await requireAuth({ promptMessage: t.auth.genericPrompt });
-    if (authed) setUserMenuOpen(true);
+    if (authed) navigate(dest);
   };
 
   const handleNotifications = () => {
@@ -193,11 +201,11 @@ export default function TopBar({ collapsed = false, showBack = false, hideGreeti
           {showBack && (
             <button
               onClick={() => navigate(-1)}
-              className="w-9 h-9 rounded-full bg-white/80 backdrop-blur-sm flex items-center justify-center shadow-sm active:scale-95 transition-transform"
+              className="w-9 h-9 rounded-full bg-white flex items-center justify-center shadow-[0_6px_16px_rgba(0,0,0,0.14)] active:scale-95 transition-transform"
               aria-label={t.common?.back ?? 'Back'}
             >
-              <span className="material-symbols-outlined text-text-primary" style={{ fontSize: 20 }}>
-                arrow_forward
+              <span className="material-symbols-outlined text-text-primary" style={{ fontSize: 24 }}>
+                {language === 'he' ? 'chevron_right' : 'chevron_left'}
               </span>
             </button>
           )}
@@ -215,7 +223,7 @@ export default function TopBar({ collapsed = false, showBack = false, hideGreeti
           >
             {/* Logo circle */}
             <div
-              className="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-sm border border-border/60 -me-3 z-0"
+              className="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-[0_6px_16px_rgba(0,0,0,0.14)] -me-3 z-0"
               title={logoAlt}
             >
               {showTenantInitials ? (
@@ -251,15 +259,15 @@ export default function TopBar({ collapsed = false, showBack = false, hideGreeti
               <img
                 src={avatarUrl}
                 alt="Profile"
-                className="relative z-10 w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm"
+                className="relative z-10 w-10 h-10 rounded-full object-cover border-2 border-white shadow-[0_6px_16px_rgba(0,0,0,0.14)]"
               />
             ) : isAuthenticated ? (
               <div className="relative z-10 w-10 h-10 rounded-full bg-primary flex items-center justify-center border-2 border-white shadow-sm">
                 <span className="text-sm font-bold text-white leading-none">{userInitials}</span>
               </div>
             ) : (
-              <div className="relative z-10 w-10 h-10 rounded-full bg-surface flex items-center justify-center hover:bg-border">
-                <span className="material-symbols-outlined text-text-primary">person</span>
+              <div className="relative z-10 w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-[0_6px_16px_rgba(0,0,0,0.14)]">
+                <span style={{ fontSize: '22px', lineHeight: 1 }}>👤</span>
               </div>
             )}
           </button>
@@ -272,11 +280,6 @@ export default function TopBar({ collapsed = false, showBack = false, hideGreeti
             </div>
           )}
 
-          {/* UserMenu dropdown — anchored under the avatar (start edge). */}
-          <UserMenu
-            isOpen={userMenuOpen}
-            onClose={() => setUserMenuOpen(false)}
-          />
         </div>
 
         {/* Center: tenant name — fades in on collapse. Shown for anonymous
@@ -297,17 +300,17 @@ export default function TopBar({ collapsed = false, showBack = false, hideGreeti
           </div>
         )}
 
-        {/* Action buttons (chat + notifications) — pinned to the far end of the
-            bar (ms-auto) so they never collide with the centered tenant chip
-            when the header collapses. Member-only; hidden for anonymous. */}
+        {/* Action buttons (chat + notifications) — main's white/shadow + emoji
+            design, but pinned to the far end of the bar (ms-auto) so they never
+            collide with the centered tenant chip on collapse. Member-only. */}
         {isAuthenticated && (
           <div className="relative z-10 flex items-center gap-1.5 ms-auto">
             <button
               onClick={() => navigate(`/${lang}/chat`)}
-              className={`relative rounded-full bg-surface flex items-center justify-center hover:bg-border transition-all duration-300 ease-in-out ${btnSize}`}
+              className={`relative rounded-full bg-white flex items-center justify-center shadow-[0_6px_16px_rgba(0,0,0,0.14)] transition-all duration-300 ease-in-out ${btnSize}`}
               aria-label="Chat"
             >
-              <span className={`material-symbols-outlined text-text-primary transition-transform duration-300 ${iconScale}`}>chat_bubble_outline</span>
+              <span className={`transition-transform duration-300 ${iconScale}`} style={{ fontSize: '22px', lineHeight: 1 }}>💬</span>
               {chatCount > 0 && (
                 <span className="absolute -top-0.5 -left-0.5 w-[18px] h-[18px] bg-error rounded-full border-2 border-white flex items-center justify-center">
                   <span className="text-[10px] font-bold text-white leading-none">{chatCount > 9 ? '9+' : chatCount}</span>
@@ -318,11 +321,11 @@ export default function TopBar({ collapsed = false, showBack = false, hideGreeti
             <button
               onClick={handleNotifications}
               data-notif-bell
-              className={`relative rounded-full bg-surface flex items-center justify-center hover:bg-border transition-all duration-300 ease-in-out ${btnSize} ${bellShaking ? 'animate-bell-shake' : ''}`}
+              className={`relative rounded-full bg-white flex items-center justify-center shadow-[0_6px_16px_rgba(0,0,0,0.14)] transition-all duration-300 ease-in-out ${btnSize} ${bellShaking ? 'animate-bell-shake' : ''}`}
               style={{ transformOrigin: 'top center' }}
               aria-label="Notifications"
             >
-              <span className={`material-symbols-outlined text-text-primary transition-transform duration-300 ${iconScale}`}>notifications</span>
+              <span className={`transition-transform duration-300 ${iconScale}`} style={{ fontSize: '22px', lineHeight: 1 }}>🔔</span>
               {notificationCount > 0 && (
                 <span className="absolute -top-0.5 -left-0.5 w-[18px] h-[18px] bg-error rounded-full border-2 border-white flex items-center justify-center">
                   <span className="text-[10px] font-bold text-white leading-none">{notificationCount > 9 ? '9+' : notificationCount}</span>
@@ -331,7 +334,6 @@ export default function TopBar({ collapsed = false, showBack = false, hideGreeti
             </button>
           </div>
         )}
-
       </div>
 
       {/* Tenant row below — slides out on collapse. Shown for anonymous too. */}

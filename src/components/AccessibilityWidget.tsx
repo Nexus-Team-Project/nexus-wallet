@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useAccessibilityStore } from '../stores/accessibilityStore';
 import {
   X,
   Type,
@@ -13,6 +14,50 @@ import {
   Mail,
   Palette,
 } from 'lucide-react';
+
+// ─── Route-awareness hook (outside router) ────────────────────────────────────
+
+/**
+ * Track the current pathname from OUTSIDE the router. react-router uses
+ * history.pushState/replaceState (no popstate), so we patch both to emit a
+ * same-tab event and also listen to popstate for browser back/forward.
+ * Returns the live pathname; re-renders the consumer on every navigation.
+ */
+function useLivePathname(): string {
+  const [pathname, setPathname] = useState<string>(() => window.location.pathname);
+  useEffect(() => {
+    const update = () => setPathname(window.location.pathname);
+    const emit = () => window.dispatchEvent(new Event('nexus:locationchange'));
+
+    const origPush = window.history.pushState.bind(window.history);
+    const origReplace = window.history.replaceState.bind(window.history);
+    window.history.pushState = (...args: Parameters<typeof window.history.pushState>) => {
+      const result = origPush(...args);
+      emit();
+      return result;
+    };
+    window.history.replaceState = (...args: Parameters<typeof window.history.replaceState>) => {
+      const result = origReplace(...args);
+      emit();
+      return result;
+    };
+
+    window.addEventListener('popstate', update);
+    window.addEventListener('nexus:locationchange', update);
+    // Sync once in case the path changed between initial state and effect.
+    update();
+    return () => {
+      window.history.pushState = origPush;
+      window.history.replaceState = origReplace;
+      window.removeEventListener('popstate', update);
+      window.removeEventListener('nexus:locationchange', update);
+    };
+  }, []);
+  return pathname;
+}
+
+/** True when the path is part of the first-time signup journey (FAB hidden there). */
+const SIGNUP_ROUTE_RE = /^\/[a-z]{2}\/(auth-flow|register|auth\/email-required|auth\/email-otp)\b/;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -43,11 +88,6 @@ const DEFAULT_SETTINGS: A11ySettings = {
 };
 
 const STORAGE_KEY = 'nexus-a11y-settings';
-// Bumped to v2 to invalidate any pre-existing dismiss flags from
-// testing the drag-to-trash interaction. The widget shows again on
-// next load; future dismisses write to the v2 key, the old key is
-// inert and can be removed later.
-const DISMISS_KEY = 'nexus-a11y-dismissed-v2';
 const BTN_SIZE = 52;
 // Drag-to-dismiss trash target dimensions / placement. Sized to fit
 // *underneath* the FAB visually — when the user drags the widget over
@@ -191,13 +231,14 @@ export default function AccessibilityWidget() {
   // within hit range. Both reset on pointer-up.
   const [dragging, setDragging] = useState(false);
   const [overTrash, setOverTrash] = useState(false);
-  const [dismissed, setDismissed] = useState(() => {
-    try {
-      return localStorage.getItem(DISMISS_KEY) === 'true';
-    } catch {
-      return false;
-    }
-  });
+  // Opt-in visibility lives in a shared store so the home-page prompt card
+  // can reveal the widget the moment the user adds it.
+  const enabled = useAccessibilityStore((s) => s.enabled);
+  const disableWidget = useAccessibilityStore((s) => s.disableWidget);
+  // Route gate: hide the FAB on signup screens. Must be called unconditionally
+  // (before any early return) because it is a hook.
+  const pathname = useLivePathname();
+  const hiddenForSignup = SIGNUP_ROUTE_RE.test(pathname);
   const [settings, setSettings] = useState<A11ySettings>(() => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
@@ -331,12 +372,7 @@ export default function AccessibilityWidget() {
     // click-to-open flow so the user doesn't see the panel open on the
     // way to deleting the widget.
     if (wasOverTrash) {
-      setDismissed(true);
-      try {
-        localStorage.setItem(DISMISS_KEY, 'true');
-      } catch {
-        // ignore
-      }
+      disableWidget();
       return;
     }
 
@@ -348,17 +384,12 @@ export default function AccessibilityWidget() {
         return 'idle'; // panelOpen → idle
       });
     }
-  }, [overTrash]);
+  }, [overTrash, disableWidget]);
 
   const handleDismiss = useCallback(() => {
-    setDismissed(true);
+    disableWidget();
     setWidgetState('idle');
-    try {
-      localStorage.setItem(DISMISS_KEY, 'true');
-    } catch {
-      // ignore
-    }
-  }, []);
+  }, [disableWidget]);
 
   const modified = isModified(settings);
   const panelOpen = widgetState === 'panelOpen';
@@ -371,7 +402,7 @@ export default function AccessibilityWidget() {
   const containerBottom = pos ? window.innerHeight - pos.y - BTN_SIZE : 24;
   const containerLeft = pos?.x ?? 24;
 
-  if (dismissed) return null;
+  if (!enabled || hiddenForSignup) return null;
 
   return (
     <>

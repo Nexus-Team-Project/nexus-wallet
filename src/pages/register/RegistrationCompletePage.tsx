@@ -22,6 +22,8 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { consumePostLoginReturn, isCatalogReturn } from '../../lib/postLogin';
 import { finishWalletRegistration, setRegistrationCompleting } from '../../lib/registrationAffiliation';
+import HomePageSkeleton from '../../components/home/HomePageSkeleton';
+import Skeleton from '../../components/ui/Skeleton';
 
 export default function RegistrationCompletePage() {
   const { lang = 'he' } = useParams();
@@ -43,6 +45,12 @@ export default function RegistrationCompletePage() {
   // second call would read an empty stash and re-navigate to the ecosystem
   // catalog, clobbering the joined-org landing. Guard it to run exactly once.
   const finishedRef = useRef(false);
+
+  // Once X (or the reveal) fires, swap the page for a store-shaped skeleton for
+  // the WHOLE finish() duration (profile save + /api/me reload + navigation), so
+  // the user never sees a frozen reveal while the APIs run. The store page then
+  // continues the skeleton via its own Suspense fallback + per-section loaders.
+  const [completing, setCompleting] = useState(false);
 
   // Snapshot total ONCE at mount — avoids the bar shrinking when
   // completeRegistration() fires (which clears isOrgFlow/orgMember) right
@@ -100,6 +108,7 @@ export default function RegistrationCompletePage() {
   const finish = async () => {
     if (finishedRef.current) return;
     finishedRef.current = true;
+    setCompleting(true); // immediately show the loading skeleton
     setProfileCompleted(true);
 
     try {
@@ -139,6 +148,25 @@ export default function RegistrationCompletePage() {
     completeRegistration();
     await finishWalletRegistration({ navigate, lang, t, overridePath: actionableRet, reload });
   };
+
+  // While finish() runs (and until the navigation unmounts this page), show a
+  // store-shaped skeleton instead of the frozen reveal. Mirrors the store header
+  // (avatar + greeting) above the shared HomePageSkeleton so the hand-off to the
+  // store page reads as one continuous load.
+  if (completing) {
+    return (
+      <div className="fixed inset-0 max-w-md mx-auto z-[100] bg-white overflow-hidden">
+        <div className="flex items-center gap-3 px-5 pt-6 pb-3">
+          <Skeleton variant="circular" width="40px" height="40px" />
+          <div className="flex flex-col gap-1.5">
+            <Skeleton className="h-3 w-14" />
+            <Skeleton className="h-4 w-24" />
+          </div>
+        </div>
+        <HomePageSkeleton />
+      </div>
+    );
+  }
 
   return (
     <motion.div

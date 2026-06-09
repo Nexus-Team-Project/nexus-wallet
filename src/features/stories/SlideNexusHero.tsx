@@ -14,9 +14,23 @@ interface SlideNexusHeroProps {
       from it so each tenant's promo reads with its own color; otherwise the
       default Nexus purple gradient is used. */
   accentColor?: string;
+  /**
+   * Personalized first name to show in the greeting.
+   * Priority: me.profile.firstName > Google store > registration profileData.
+   * When non-empty, renders "היי ${greetingName}" (Hebrew) / "Hi ${greetingName}" (English).
+   * When null or empty string, renders the current generic greeting unchanged.
+   */
+  greetingName?: string | null;
+  /**
+   * Avatar image URL to display next to the Nexus logo.
+   * When a non-empty string is provided, renders a small round avatar with an
+   * onError handler that hides it on load failure.
+   * When null or empty string, no avatar element is rendered at all.
+   */
+  avatarUrl?: string | null;
 }
 
-export function SlideNexusHero({ failedImages, orgName, accentColor }: SlideNexusHeroProps) {
+export function SlideNexusHero({ failedImages, orgName, accentColor, greetingName, avatarUrl }: SlideNexusHeroProps) {
   const [pushIdx, setPushIdx] = useState(0);
   const authFirstName = useAuthStore((s) => s.firstName);
   const authAvatarUrl = useAuthStore((s) => s.avatarUrl);
@@ -24,11 +38,31 @@ export function SlideNexusHero({ failedImages, orgName, accentColor }: SlideNexu
 
   const firstName = authFirstName ?? orgMember?.firstName ?? null;
 
-  // First headline line. When the user arrived through an organization's
-  // link, welcome them to that org by name; otherwise a plain welcome.
-  const welcomeLine = orgName
-    ? (firstName ? `${firstName}, טוב שבאת ל${orgName},` : `טוב שבאת ל${orgName},`)
-    : (firstName ? `${firstName}, טוב שבאת,` : 'טוב שבאת,');
+  // Resolved first name: prefer the injected prop (which carries the
+  // me.profile.firstName > Google > registration priority from the parent),
+  // then fall back to the store-based value for standalone usage.
+  const resolvedName = (greetingName && greetingName.trim()) ? greetingName.trim() : firstName;
+
+  // First headline line. When greetingName is supplied we use the short
+  // "היי ${name}" / "Hi ${name}" format. Without a name we fall back to the
+  // generic org-aware "טוב שבאת" copy unchanged.
+  const welcomeLine = (greetingName && greetingName.trim())
+    ? `היי ${greetingName.trim()}`
+    : orgName
+      ? (resolvedName ? `${resolvedName}, טוב שבאת ל${orgName},` : `טוב שבאת ל${orgName},`)
+      : (resolvedName ? `${resolvedName}, טוב שבאת,` : 'טוב שבאת,');
+
+  // Resolved avatar URL: use the injected prop when present; otherwise fall
+  // back to the authStore value so the component works in isolation too.
+  // An explicit null/empty from the parent means "show no avatar".
+  const resolvedAvatarUrl: string | null = (() => {
+    if (avatarUrl !== undefined) {
+      // Caller explicitly passed the prop — honour null/empty as "no avatar".
+      return (avatarUrl && avatarUrl.trim()) ? avatarUrl.trim() : null;
+    }
+    // Prop not passed — fall back to the store.
+    return authAvatarUrl;
+  })();
 
   // Push animation fires once after 1.2 s
   useEffect(() => {
@@ -75,20 +109,23 @@ export function SlideNexusHero({ failedImages, orgName, accentColor }: SlideNexu
           />
         )}
 
-        {/* User avatar — only when available */}
-        {authAvatarUrl && (
+        {/* User avatar — rendered only when a valid URL is resolved.
+            onError hides the element if the image fails to load so no
+            broken-image placeholder ever shows in the hero. */}
+        {resolvedAvatarUrl && (
           <motion.img
-            src={authAvatarUrl}
-            alt={firstName ?? ''}
+            src={resolvedAvatarUrl}
+            alt={resolvedName ?? ''}
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.4, delay: 0.3, ease: 'easeOut' }}
-            className="rounded-2xl object-cover flex-shrink-0"
+            className="rounded-full object-cover flex-shrink-0"
             style={{
-              width: 52, height: 52,
+              width: 48, height: 48,
               border: '1.5px solid rgba(255,255,255,0.4)',
               boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
             }}
+            onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
           />
         )}
       </div>

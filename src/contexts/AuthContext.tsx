@@ -17,6 +17,7 @@ import { useAuthStore } from '../stores/authStore';
 import { useRegistrationStore } from '../stores/registrationStore';
 import { exchangeGoogleCode, consumeGoogleReturnContext } from '../services/auth.service';
 import { nextPathAfterLogin } from '../lib/postLogin';
+import { onboardingEntryPath } from '../utils/onboardingNavigation';
 import { clearAffiliation } from '../lib/registrationAffiliation';
 
 /**
@@ -25,7 +26,7 @@ import { clearAffiliation } from '../lib/registrationAffiliation';
  * here on purpose - this context is only the auth surface.
  */
 export interface WalletMeResponse {
-  user: { id: string; email: string; name: string };
+  user: { id: string; email: string; name: string; avatarUrl?: string | null };
   context: {
     isTenant: boolean;
     tenantId: string | null;
@@ -53,6 +54,8 @@ export interface WalletMeResponse {
   phone?: string | null;
   /** ISO timestamp the phone was OTP-verified; null for a test-attached number. */
   phoneVerifiedAt?: string | null;
+  /** Whether the member opted in to marketing (drives the profile toggle state). */
+  marketingConsent?: boolean;
   /**
    * Effective default landing context for a returning member: a tenantId to
    * land on that tenant's catalog, or null for the Nexus (ecosystem) catalog.
@@ -79,6 +82,8 @@ export interface WalletMeResponse {
     purpose?: string[];
     inviteFriendsSent?: number;
     completedAt?: string;
+    /** First time the user entered onboarding; drives resume-on-return. */
+    onboardingStartedAt?: string;
     updatedAt?: string;
   } | null;
 }
@@ -165,6 +170,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isOrgMember: memberships.length > 0,
       firstName,
       organizationName: firstMember?.tenantName,
+      // Hydrate the Google profile photo so the authenticated TopBar avatar
+      // shows it on refresh-cookie-restored sessions (not just the fresh
+      // Google-login action). login() keeps the prior value when undefined.
+      avatarUrl: data.user.avatarUrl ?? undefined,
     });
     if (data.profile?.completedAt) {
       useAuthStore.getState().setProfileCompleted(true);
@@ -221,14 +230,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               regStore.startRegistration({
                 path: 'new-user',
                 phone: '',
-                missingFields: needsPhone ? ['phone', 'birthday'] : ['birthday'],
+                missingFields: needsPhone ? ['phone', 'firstName', 'lastName', 'birthday'] : ['firstName', 'lastName', 'birthday'],
               });
               regStore.setProfileData({
                 firstName,
                 lastName,
                 email: me.user.email,
               });
-              destination = `/${lang}/auth-flow/new-user${tenantSuffix}`;
+              // Persist the Google photo NOW (authStore is localStorage-backed) so
+              // the auth-flow hero shows it the instant it mounts after the hard-nav
+              // reload below — before the next bootstrap's /api/me re-resolves `me`.
+              useAuthStore.getState().setAvatarUrl(me.user.avatarUrl ?? null);
+              // Resume at the questions (skip stories) if they already started.
+              destination = onboardingEntryPath({
+                lang,
+                state: useRegistrationStore.getState(),
+                onboardingStarted: !!me.profile?.onboardingStartedAt,
+                tenantSuffix,
+              });
             } else {
               destination = nextPathAfterLogin({ lang, urlTenantId, me });
             }
@@ -286,14 +305,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           regStore.startRegistration({
             path: 'new-user',
             phone: '',
-            missingFields: needsPhone ? ['phone', 'birthday'] : ['birthday'],
+            missingFields: needsPhone ? ['phone', 'firstName', 'lastName', 'birthday'] : ['firstName', 'lastName', 'birthday'],
           });
           regStore.setProfileData({
             firstName: nameParts[0] ?? '',
             lastName: nameParts.slice(1).join(' '),
             email: meData.user.email,
           });
-          window.location.replace(`/${lang}/auth-flow/new-user${tenantSuffix}`);
+          // Persist the Google photo so the hero shows it immediately after reload.
+          useAuthStore.getState().setAvatarUrl(meData.user.avatarUrl ?? null);
+          // Resume at the questions (skip stories) if onboarding was already started.
+          window.location.replace(onboardingEntryPath({
+            lang,
+            state: useRegistrationStore.getState(),
+            onboardingStarted: !!meData.profile?.onboardingStartedAt,
+            tenantSuffix,
+          }));
           return; // page is unloading
         }
       }

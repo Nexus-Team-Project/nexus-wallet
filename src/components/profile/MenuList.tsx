@@ -20,6 +20,7 @@ import { useLanguage } from '../../i18n/LanguageContext';
 import { useAuthStore } from '../../stores/authStore';
 import { useWalletLayoutStore } from '../../stores/walletLayoutStore';
 import { cn } from '../../utils/cn';
+import ComingSoonBadge from '../ui/ComingSoonBadge';
 
 interface MenuRow {
   /** Lucide icon component — thin-stroke, Klarna-style line icons. */
@@ -37,6 +38,8 @@ interface MenuRow {
   /** When set, renders an iOS-style toggle instead of a chevron. The
    *  row's `onClick` should flip the value. */
   toggle?: { value: boolean };
+  /** Not wired up yet — renders greyed + a "coming soon" badge, non-clickable. */
+  comingSoon?: boolean;
 }
 
 interface MenuSection {
@@ -82,9 +85,8 @@ export default function MenuList() {
         {
           Icon: Globe,
           label: t.profile.interests,
-          detail: t.profile.settingsAdd,
-          detailIntent: 'accent',
           onClick: () => {},
+          comingSoon: true,
         },
         {
           Icon: ImageIcon,
@@ -106,6 +108,7 @@ export default function MenuList() {
           Icon: HelpCircle,
           label: t.profile.settingsCustomerService,
           onClick: () => {},
+          comingSoon: true,
         },
       ],
     },
@@ -116,16 +119,19 @@ export default function MenuList() {
           Icon: ShoppingBag,
           label: language === 'he' ? 'ההזמנות שלי' : 'My orders',
           onClick: () => {},
+          comingSoon: true,
         },
         {
           Icon: User,
           label: t.profile.settingsAccountInfo,
           onClick: () => {},
+          comingSoon: true,
         },
         {
           Icon: Lock,
           label: t.profile.settingsSecurityPrivacy,
           onClick: () => {},
+          comingSoon: true,
         },
         {
           Icon: Languages,
@@ -142,6 +148,7 @@ export default function MenuList() {
           Icon: Smartphone,
           label: t.profile.settingsAppPrefs,
           onClick: () => {},
+          comingSoon: true,
         },
         // Logout — kept at the end of the control center, marked danger.
         {
@@ -166,16 +173,20 @@ export default function MenuList() {
           <ul className="divide-y divide-border/60">
             {section.rows.map((row) => {
               const isDanger = row.intent === 'danger';
+              const isComingSoon = !!row.comingSoon;
               return (
                 <li key={row.label}>
                   <button
                     type="button"
                     onClick={row.onClick}
+                    disabled={isComingSoon}
                     className={cn(
                       'w-full flex items-center justify-between gap-4 py-4 text-start transition-colors',
-                      isDanger
-                        ? 'hover:bg-error/5 active:bg-error/10'
-                        : 'hover:bg-surface/60 active:bg-border/30',
+                      isComingSoon
+                        ? 'cursor-default opacity-60'
+                        : isDanger
+                          ? 'hover:bg-error/5 active:bg-error/10'
+                          : 'hover:bg-surface/60 active:bg-border/30',
                     )}
                   >
                     <div className="flex items-center gap-4 min-w-0">
@@ -184,22 +195,25 @@ export default function MenuList() {
                         strokeWidth={1.5}
                         className={cn(
                           'flex-shrink-0',
-                          isDanger ? 'text-error' : 'text-text-primary',
+                          isComingSoon ? 'text-text-muted' : isDanger ? 'text-error' : 'text-text-primary',
                         )}
                       />
                       <span
                         className={cn(
                           'text-[17px] truncate',
-                          isDanger
-                            ? 'text-error font-semibold'
-                            : 'text-text-primary',
+                          isComingSoon
+                            ? 'text-text-muted'
+                            : isDanger
+                              ? 'text-error font-semibold'
+                              : 'text-text-primary',
                         )}
                       >
                         {row.label}
                       </span>
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
-                      {row.chips && row.chips.length > 0 && (
+                      {isComingSoon && <ComingSoonBadge />}
+                      {!isComingSoon && row.chips && row.chips.length > 0 && (
                         <div className="flex -space-x-1 items-center">
                           {row.chips.map((chip, idx) => (
                             <span
@@ -211,7 +225,7 @@ export default function MenuList() {
                           ))}
                         </div>
                       )}
-                      {row.detail && (
+                      {!isComingSoon && row.detail && (
                         <span
                           className={cn(
                             'text-[15px] font-medium',
@@ -223,7 +237,7 @@ export default function MenuList() {
                           {row.detail}
                         </span>
                       )}
-                      {row.toggle ? (
+                      {!isComingSoon && (row.toggle ? (
                         <span
                           aria-hidden
                           className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors flex-shrink-0 ${
@@ -250,7 +264,7 @@ export default function MenuList() {
                             className="text-text-muted flex-shrink-0"
                           />
                         )
-                      )}
+                      ))}
                     </div>
                   </button>
                 </li>

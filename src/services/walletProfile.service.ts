@@ -33,6 +33,10 @@ export interface WalletProfilePatch {
   inviteFriendsSent?: number;
   /** Set true on the last slide to stamp completedAt. */
   complete?: boolean;
+  /** Set true on first entry to onboarding (stories/questions) to stamp
+   *  onboardingStartedAt once, so a returning incomplete user resumes the
+   *  questions instead of the catalog. */
+  onboardingStarted?: boolean;
 }
 
 /** GET the current wallet profile. Returns null when slides haven't been completed. */
@@ -61,6 +65,18 @@ export async function saveWalletProfile(patch: WalletProfilePatch): Promise<Wall
     body,
   });
   return r.profile;
+}
+
+/**
+ * Fire-and-forget: stamp onboardingStartedAt the first time an authenticated
+ * user enters the flow (stories or questions). The backend sets it only once.
+ * Failures are swallowed - this must never block the onboarding UI. Callers
+ * should only invoke this when a session exists and it is not already stamped.
+ */
+export function markOnboardingStarted(): void {
+  void saveWalletProfile({ onboardingStarted: true }).catch((e) =>
+    console.error('[wallet] mark onboarding started failed (non-fatal):', e),
+  );
 }
 
 /**

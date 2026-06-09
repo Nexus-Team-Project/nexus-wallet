@@ -25,9 +25,11 @@ function buildActiveSlides(state: RegistrationState): OnboardingSlideId[] {
       return state.missingFields.includes('phone');
     }
     if (slide === 'first-name') {
+      // Shown whenever the name is requested. Do NOT skip when pre-filled: the Google
+      // signup path seeds the name and still needs the user to see/confirm/edit it.
       return (
-        (state.missingFields.includes('firstName') && !state.profileData.firstName.trim()) ||
-        (state.missingFields.includes('lastName')  && !state.profileData.lastName.trim())
+        state.missingFields.includes('firstName') ||
+        state.missingFields.includes('lastName')
       );
     }
     if (slide === 'verify-email') {
@@ -49,6 +51,30 @@ function buildActiveSlides(state: RegistrationState): OnboardingSlideId[] {
 export function getFirstOnboardingSlide(state: RegistrationState): OnboardingSlideId {
   const slides = buildActiveSlides(state);
   return slides[0] ?? 'consents';
+}
+
+/**
+ * Decide where to send an incomplete user on login/return. A user who has
+ * already entered the flow (onboardingStarted) resumes at the FIRST question,
+ * skipping the promo stories; a brand-new user starts at the stories.
+ *
+ * @param args.lang current language segment.
+ * @param args.state the (already-seeded) registration store state.
+ * @param args.onboardingStarted whether me.profile.onboardingStartedAt is set.
+ * @param args.tenantSuffix optional "?tenant=X" to preserve org context.
+ * @returns an absolute in-app path.
+ */
+export function onboardingEntryPath(args: {
+  lang: string;
+  state: RegistrationState;
+  onboardingStarted: boolean;
+  tenantSuffix?: string;
+}): string {
+  const suffix = args.tenantSuffix ?? '';
+  if (args.onboardingStarted) {
+    return `/${args.lang}/register/onboarding/${getFirstOnboardingSlide(args.state)}${suffix}`;
+  }
+  return `/${args.lang}/auth-flow/new-user${suffix}`;
 }
 
 /**

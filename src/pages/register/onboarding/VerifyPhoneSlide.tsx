@@ -5,9 +5,9 @@
  *   2. otp     — enter the InforU SMS code (real flow only).
  *
  * The number is attached to the NexusIdentity server-side (and mirrored onto the
- * user's tenant rows). The slide CANNOT be skipped: there is no skip/back, and
- * until InforU env is configured the real "המשך" is disabled — the only way
- * forward is "המשך כבדיקה", which saves the number (unverified) and proceeds.
+ * user's tenant rows). The slide CAN be skipped via the secondary "skip for now"
+ * action, which advances without attaching a number — the user can add + verify a
+ * phone later from Profile -> Edit profile. Verifying requires a real InforU code.
  *
  * Israel-only: a non-Israeli country selection is blocked here and by the
  * backend; InforU is an Israeli SMS provider.
@@ -100,6 +100,17 @@ export default function VerifyPhoneSlide() {
     );
   };
 
+  // Skip the phone question entirely (Google first-time signups): advance to the
+  // next slide WITHOUT attaching a number. Nothing is saved server-side, so the
+  // user can add + verify a phone later from Profile -> Edit profile.
+  const handleSkip = () => {
+    const next = getNextOnboardingSlide('verify-phone', storeState);
+    navigate(
+      next ? `/${lang}/register/onboarding/${next}` : `/${lang}/register/complete`,
+      { replace: true },
+    );
+  };
+
   // ── Real flow: send InforU OTP ─────────────────────────────────────────────
   const handleSendOtp = useCallback(async () => {
     if (!canSend || isLoading) return;
@@ -171,6 +182,12 @@ export default function VerifyPhoneSlide() {
         canContinue={canSend && !isLoading}
         onContinue={handleSendOtp}
         footerNote={note}
+        secondaryCta={{ label: t.registration.verifyPhoneSkip, onClick: handleSkip }}
+        footerExtra={
+          <p className="text-center text-xs text-text-muted px-2">
+            {t.registration.verifyPhoneSkipNote}
+          </p>
+        }
       >
         <div className="pt-6 pb-2">
           <h1 className="text-2xl font-semibold leading-tight mb-2" style={{ color: 'var(--color-primary)' }}>

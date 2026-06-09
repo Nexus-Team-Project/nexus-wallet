@@ -21,6 +21,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { useAuthGate } from '../../hooks/useAuthGate';
 import { createJoinRequests, listMyJoinRequests, setDefaultTenant } from '../../services/walletTenants.service';
+import { useActiveContextStore } from '../../stores/activeContextStore';
 import TenantDiscoverySheet from './TenantDiscoverySheet';
 
 interface TenantSwitchSheetProps {
@@ -122,6 +123,11 @@ export default function TenantSwitchSheet({ onClose }: TenantSwitchSheetProps) {
       next.set('ecosystem', '1');
       next.delete('tenant');
     }
+    // Record the pick as the durable active context so it survives back/forward
+    // navigation (the LanguageRouter reconciles the URL to it on POP).
+    useActiveContextStore.getState().setContext(
+      tenantId ? { kind: 'tenant', tenantId } : { kind: 'ecosystem' },
+    );
     // Persist as the default landing context. Fire-and-forget: a failure here
     // must not block the view switch (the URL change is the user-visible part).
     void setDefaultTenant(tenantId).catch((e) =>
@@ -177,6 +183,7 @@ export default function TenantSwitchSheet({ onClose }: TenantSwitchSheetProps) {
           },
         );
         // Switch into the joined org and make it the default landing context.
+        useActiveContextStore.getState().setContext({ kind: 'tenant', tenantId: tid });
         void setDefaultTenant(tid).catch((e) =>
           console.error('[wallet-switch] persist default tenant failed (non-fatal):', e),
         );
@@ -234,7 +241,7 @@ export default function TenantSwitchSheet({ onClose }: TenantSwitchSheetProps) {
       <motion.div
         key="sheet"
         dir={isHe ? 'rtl' : 'ltr'}
-        className="fixed bottom-0 left-0 right-0 z-[210] mx-auto flex w-full max-w-xl flex-col rounded-t-3xl bg-white shadow-2xl sm:max-w-xl lg:bottom-auto lg:left-1/2 lg:top-1/2 lg:max-w-md lg:-translate-x-1/2 lg:-translate-y-1/2 lg:rounded-3xl"
+        className="fixed bottom-4 inset-x-3 z-[210] mx-auto flex max-w-xl flex-col rounded-3xl bg-white shadow-2xl sm:max-w-xl lg:inset-x-auto lg:bottom-auto lg:left-1/2 lg:top-1/2 lg:max-w-md lg:-translate-x-1/2 lg:-translate-y-1/2 lg:rounded-3xl"
         style={{ maxHeight: '82vh' }}
         initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
         transition={{ type: 'spring', damping: 28, stiffness: 300 }}

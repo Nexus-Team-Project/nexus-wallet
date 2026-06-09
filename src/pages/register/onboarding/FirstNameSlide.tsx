@@ -1,11 +1,18 @@
 /**
  * FirstNameSlide — collects both first name and last name in one slide.
  * Shown when missingFields includes 'firstName' or 'lastName'.
+ *
+ * Google logins perform a hard window.location.replace before arriving here,
+ * which clears the in-memory registration store. This slide recovers the
+ * Google-provided name from /api/me (already loaded by AuthContext) so the
+ * fields arrive pre-filled and editable. Priority: in-session edits
+ * (registrationStore) > me.profile name > parsed me.user.name.
  */
 import { useState, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useLanguage } from '../../../i18n/LanguageContext';
 import { useRegistrationStore } from '../../../stores/registrationStore';
+import { useAuth } from '../../../contexts/AuthContext';
 import OnboardingSlideLayout from '../../../components/register/OnboardingSlideLayout';
 import {
   getNextOnboardingSlide,
@@ -17,9 +24,26 @@ export default function FirstNameSlide() {
   const navigate = useNavigate();
   const { t } = useLanguage();
   const reg = useRegistrationStore();
+  const { me } = useAuth();
 
-  const [firstName, setFirstName] = useState(reg.profileData.firstName ?? '');
-  const [lastName, setLastName]   = useState(reg.profileData.lastName  ?? '');
+  // The Google login hard-reloads, which clears the in-memory registration store
+  // (profileData is not persisted). Recover the pre-fill from /api/me so the Google
+  // first+last name shows pre-filled and editable. Priority: in-session edits
+  // (registration store) > me.profile name > parsed me.user.name.
+  const meNameParts = (me?.user?.name ?? '').trim().split(/\s+/).filter(Boolean);
+  const seedFirst =
+    reg.profileData.firstName?.trim() ||
+    me?.profile?.firstName?.trim() ||
+    meNameParts[0] ||
+    '';
+  const seedLast =
+    reg.profileData.lastName?.trim() ||
+    me?.profile?.lastName?.trim() ||
+    meNameParts.slice(1).join(' ') ||
+    '';
+
+  const [firstName, setFirstName] = useState(seedFirst);
+  const [lastName, setLastName]   = useState(seedLast);
   const lastNameRef = useRef<HTMLInputElement>(null);
 
   const storeState = useRegistrationStore.getState();

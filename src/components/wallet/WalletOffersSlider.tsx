@@ -2,10 +2,20 @@ import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Eye, EyeOff, GripVertical } from 'lucide-react';
 import { useLanguage } from '../../i18n/LanguageContext';
-import { useVouchers } from '../../hooks/useVouchers';
-import { SliderCard } from '../store/StoreSliders';
-import VoucherDetail from '../store/VoucherDetail';
-import type { Voucher } from '../../types/voucher.types';
+import { useTenantStore } from '../../stores/tenantStore';
+import { mockBusinesses } from '../../mock/data/businesses.mock';
+import { brandBgColors, FULL_BLEED_LOGOS } from '../../utils/brandColors';
+
+/**
+ * Cashback percentage per business. There's no field in the mock data, so we
+ * derive a stable value from the id (clean 5–30% steps) for a consistent look.
+ */
+function cashbackPct(id: string): number {
+  let sum = 0;
+  for (let i = 0; i < id.length; i++) sum += id.charCodeAt(i);
+  const steps = [5, 8, 10, 12, 15, 20, 25, 30];
+  return steps[sum % steps.length];
+}
 
 interface WalletOffersSliderProps {
   /** When the wallet is in "Customize" mode, the section header shows an
@@ -18,11 +28,9 @@ interface WalletOffersSliderProps {
 }
 
 /**
- * WalletOffersSlider — "הטבות במיוחד בשבילך" row shown below the wallet
- * widgets. The card row reuses the home page slider design (gradient
- * vertical label + horizontal voucher cards), but the section HEADER is
- * styled to match the other wallet sections (bold title + collapse
- * chevron) rather than the home slider's small header.
+ * WalletOffersSlider — the wallet "קאשבק" (Cashback) section. It shows a
+ * horizontal row of round business logos (the same treatment as the home
+ * "Our Brands" slider), under a wallet-style collapsible section header.
  */
 export default function WalletOffersSlider({
   editEnabled = false,
@@ -30,29 +38,82 @@ export default function WalletOffersSlider({
   onToggleHidden,
   onReorderPointerDown,
 }: WalletOffersSliderProps = {}) {
-  const { t, language } = useLanguage();
+  const { language } = useLanguage();
   const { lang = 'he' } = useParams();
   const navigate = useNavigate();
   const isHe = language === 'he';
-  const { data: allVouchers } = useVouchers();
-  const [selectedVoucher, setSelectedVoucher] = useState<Voucher | null>(null);
   const [open, setOpen] = useState(true);
+  // Active tenant — its logo is overlaid on a few of the cashback brands.
+  const tenant = useTenantStore((s) => s.config);
 
   const title = isHe ? 'קאשבק' : 'Cashback';
 
-  // Personalized-feel subset: highest-discount, in-stock, not coming soon.
-  // Require a real photo (imageUrl) AND a real brand logo so every card
-  // renders realistically — no emoji placeholders or broken logo images.
-  const vouchers = [...(allVouchers ?? [])]
-    .filter((v) => !v.comingSoon && v.inStock && !!v.imageUrl && !!v.brandLogo)
-    .sort((a, b) => b.discountPercent - a.discountPercent)
-    .slice(0, 8);
+  // Three (stable, pseudo-random) brands get the tenant-logo overlay badge.
+  const badgedIds = new Set(
+    [...mockBusinesses]
+      .sort(
+        (a, b) =>
+          [...a.id].reduce((s, c) => s + c.charCodeAt(0), 0) -
+          [...b.id].reduce((s, c) => s + c.charCodeAt(0), 0),
+      )
+      .slice(0, 3)
+      .map((b) => b.id),
+  );
 
-  const goToStore = () => navigate(`/${lang}/store`, { state: { filter: 'recommended' } });
   // The "עוד" button on the Cashback section sends the user to the home page.
   const goHome = () => navigate(`/${lang}`);
 
-  if (!vouchers.length) return null;
+  if (!mockBusinesses.length) return null;
+
+  // Two horizontally-scrollable rows.
+  const half = Math.ceil(mockBusinesses.length / 2);
+  const rows = [mockBusinesses.slice(0, half), mockBusinesses.slice(half)];
+
+  const renderCard = (biz: (typeof mockBusinesses)[number]) => (
+    <button
+      key={biz.id}
+      onClick={() => navigate(`/${lang}/business/${biz.id}`)}
+      className="rounded-[20px] p-3 flex flex-col justify-between min-h-[116px] w-[112px] shrink-0 text-start active:scale-95 transition-transform duration-100"
+      style={{ backgroundColor: '#f1f1f3' }}
+    >
+      {/* Logo — soft drop shadow so the circle appears to float */}
+      <div className="relative w-12 h-12 mb-3">
+        <div
+          className="w-full h-full rounded-full overflow-hidden flex items-center justify-center"
+          style={{
+            backgroundColor: brandBgColors[biz.id] || '#FFFFFF',
+            boxShadow: '0 7px 14px -3px rgba(0,0,0,0.28)',
+          }}
+        >
+          {biz.logoUrl ? (
+            <img
+              src={biz.logoUrl}
+              alt={isHe ? biz.nameHe : biz.name}
+              className={FULL_BLEED_LOGOS.has(biz.id) ? 'w-full h-full object-cover' : 'w-[82%] h-[82%] object-contain'}
+            />
+          ) : (
+            <span className="text-xl">{biz.logo}</span>
+          )}
+        </div>
+        {/* Tenant-logo overlay badge — top-right, on a few brands only */}
+        {tenant && badgedIds.has(biz.id) && (
+          <div className="absolute -top-0.5 -right-0.5 w-[18px] h-[18px] rounded-full overflow-hidden border-[1.5px] border-white bg-white shadow-sm flex items-center justify-center">
+            <img src={tenant.logo} alt="" className="w-full h-full object-contain p-px" />
+          </div>
+        )}
+      </div>
+
+      {/* Name + cashback line */}
+      <div>
+        <p className="text-[13px] font-bold text-text-primary leading-tight line-clamp-1">
+          {isHe ? biz.nameHe : biz.name}
+        </p>
+        <p className="text-[11px] font-normal text-emerald-600 mt-0.5">
+          {cashbackPct(biz.id)}% {isHe ? 'קאשבק' : 'cashback'}
+        </p>
+      </div>
+    </button>
+  );
 
   return (
     <section className="mb-6">
@@ -99,52 +160,19 @@ export default function WalletOffersSlider({
         </div>
       </div>
 
-      {/* Collapsible card row */}
+      {/* Collapsible — two horizontally-scrollable rows of cashback cards
+          (grey rounded boxes: round logo + store name + cashback % in green). */}
       <div
-        className={`overflow-hidden transition-all duration-300 ease-in-out ${open ? 'max-h-[700px] opacity-100' : 'max-h-0 opacity-0'}`}
+        className={`overflow-hidden transition-all duration-300 ease-in-out ${open ? 'max-h-[320px] opacity-100' : 'max-h-0 opacity-0'}`}
       >
-        <div className="flex overflow-x-auto hide-scrollbar gap-3 px-5 snap-x snap-mandatory items-stretch">
-          {/* Gradient label rectangle — matches home slider pattern */}
-          <div
-            className="flex-none w-[90px] rounded-lg flex items-center justify-center flex-shrink-0"
-            style={{ background: 'linear-gradient(to bottom, #ec4899, #a855f7)', minHeight: '20vh' }}
-          >
-            <span
-              className="text-white text-sm font-bold whitespace-nowrap"
-              style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}
-            >
-              {title}
-            </span>
-          </div>
-
-          {vouchers.map((v) => (
-            <SliderCard
-              key={v.id}
-              voucher={v}
-              isHe={isHe}
-              onSelect={setSelectedVoucher}
-              comingSoonLabel={t.store.comingSoon}
-              outOfStockLabel={t.store.outOfStock}
-            />
+        <div className="flex flex-col gap-3 py-1">
+          {rows.map((row, i) => (
+            <div key={i} className="flex gap-3 overflow-x-auto hide-scrollbar px-5">
+              {row.map(renderCard)}
+            </div>
           ))}
-
-          {/* Arrow bubble — sky-blue, matches home slider */}
-          <div className="flex-none flex items-center justify-center px-1">
-            <button
-              onClick={goToStore}
-              className="w-10 h-10 bg-sky-100 flex items-center justify-center active:scale-90 transition-transform rounded-full"
-            >
-              <span className="material-symbols-outlined text-sky-600" style={{ fontSize: '20px' }}>
-                chevron_left
-              </span>
-            </button>
-          </div>
         </div>
       </div>
-
-      {selectedVoucher && (
-        <VoucherDetail voucher={selectedVoucher} onClose={() => setSelectedVoucher(null)} />
-      )}
     </section>
   );
 }

@@ -20,6 +20,11 @@ const IS_REGISTERING_KEY    = 'nexus_is_registering';
 // window.location.replace into the stories, which would otherwise reset it to
 // [] in memory and silently drop the phone slide.
 const MISSING_FIELDS_KEY    = 'nexus_missing_fields';
+// Marks that a brand-new phone number has verified OTP but has not yet
+// provided an email address or minted a session. Used by later tasks to:
+//   (a) run promo stories before the email step
+//   (b) route email-OTP to the questionnaire slide chain
+const PENDING_EMAIL_SIGNUP_KEY = 'nexus_pending_email_signup';
 
 function loadIsOrgFlow(): boolean {
   try { return sessionStorage.getItem(ORG_FLOW_SESSION_KEY) === '1'; }
@@ -57,6 +62,25 @@ function persistMissingFields(value: string[]) {
   try {
     if (value.length > 0) sessionStorage.setItem(MISSING_FIELDS_KEY, JSON.stringify(value));
     else                   sessionStorage.removeItem(MISSING_FIELDS_KEY);
+  } catch { /* silently fail */ }
+}
+
+/**
+ * Reads the pendingEmailSignup flag from sessionStorage.
+ * Returns true only when the stored value is the sentinel string '1'.
+ */
+function loadPendingEmailSignup(): boolean {
+  try { return sessionStorage.getItem(PENDING_EMAIL_SIGNUP_KEY) === '1'; } catch { return false; }
+}
+
+/**
+ * Persists or clears the pendingEmailSignup flag in sessionStorage.
+ * @param value - true to set the flag, false to remove it
+ */
+function persistPendingEmailSignup(value: boolean) {
+  try {
+    if (value) sessionStorage.setItem(PENDING_EMAIL_SIGNUP_KEY, '1');
+    else        sessionStorage.removeItem(PENDING_EMAIL_SIGNUP_KEY);
   } catch { /* silently fail */ }
 }
 
@@ -117,6 +141,11 @@ interface RegistrationState {
   // Consent choices (collected in ConsentsSlide — mandatory step)
   consents: ConsentData | null;
 
+  // True after a new phone verifies OTP but before the user provides an email
+  // or receives a session. Persisted so a hard refresh (e.g. Google bounce)
+  // does not lose the "we are mid-signup" signal.
+  pendingEmailSignup: boolean;
+
   // Actions
   startRegistration: (params: {
     path: RegistrationPath;
@@ -130,6 +159,7 @@ interface RegistrationState {
   setMembershipFeePaid: (paid: boolean) => void;
   setOnboardingData: (data: Partial<OnboardingData>) => void;
   setConsents: (consents: ConsentData) => void;
+  setPendingEmailSignup: (v: boolean) => void;
   completeRegistration: () => void;
   resetRegistration: () => void;
 }
@@ -144,6 +174,7 @@ export const useRegistrationStore = create<RegistrationState>((set) => ({
   phone: null,
   orgMember: null,
   missingFields: loadMissingFields(),
+  pendingEmailSignup: loadPendingEmailSignup(),
   profileData: DEFAULT_PROFILE_DATA,
   preferences: null,
   membershipFeePaid: false,
@@ -201,10 +232,17 @@ export const useRegistrationStore = create<RegistrationState>((set) => ({
 
   setConsents: (consents) => set({ consents }),
 
+  /**
+   * Sets the pendingEmailSignup flag and persists it to sessionStorage.
+   * @param v - true to mark mid-signup (phone verified, no email yet), false to clear
+   */
+  setPendingEmailSignup: (v) => { persistPendingEmailSignup(v); set({ pendingEmailSignup: v }); },
+
   completeRegistration: () => {
     persistIsOrgFlow(false);
     persistIsRegistering(false);
     persistMissingFields([]);
+    persistPendingEmailSignup(false);
     set({
       isRegistering: false,
       registrationPath: null,
@@ -213,6 +251,7 @@ export const useRegistrationStore = create<RegistrationState>((set) => ({
       phone: null,
       orgMember: null,
       missingFields: [],
+      pendingEmailSignup: false,
       profileData: DEFAULT_PROFILE_DATA,
       preferences: null,
       membershipFeePaid: false,
@@ -225,6 +264,7 @@ export const useRegistrationStore = create<RegistrationState>((set) => ({
     persistIsOrgFlow(false);
     persistIsRegistering(false);
     persistMissingFields([]);
+    persistPendingEmailSignup(false);
     set({
       isRegistering: false,
       registrationPath: null,
@@ -233,6 +273,7 @@ export const useRegistrationStore = create<RegistrationState>((set) => ({
       phone: null,
       orgMember: null,
       missingFields: [],
+      pendingEmailSignup: false,
       profileData: DEFAULT_PROFILE_DATA,
       preferences: null,
       membershipFeePaid: false,

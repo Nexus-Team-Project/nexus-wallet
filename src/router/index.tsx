@@ -11,7 +11,7 @@ import RegistrationGuard from '../components/registration/RegistrationGuard';
 import AppLayout from '../components/layout/AppLayout';
 import NotFoundPage from '../pages/NotFoundPage';
 // HomePageSkeleton / WalletPageSkeleton are eager so they can be shown
-// immediately as the Suspense fallback for their respective routes —
+// immediately as the Suspense fallback for the store + wallet routes —
 // avoids the blank white flash on first load.
 import HomePageSkeleton from '../components/home/HomePageSkeleton';
 import WalletPageSkeleton from '../components/wallet/WalletPageSkeleton';
@@ -19,7 +19,6 @@ import WalletHistorySkeleton from '../components/wallet/WalletHistorySkeleton';
 
 // ── Lazy chunks ──────────────────────────────────────────────────────────────
 // Main app tabs — loaded right after initial render
-const HomePage           = lazy(() => import('../pages/HomePage'));
 const StorePage          = lazy(() => import('../pages/StorePage'));
 const WalletPage         = lazy(() => import('../pages/WalletPage'));
 const ActivityPage       = lazy(() => import('../pages/ActivityPage'));
@@ -44,6 +43,7 @@ const BusinessCheckoutPage = lazy(() => import('../pages/BusinessCheckoutPage'))
 const GiftDetailsPage      = lazy(() => import('../pages/GiftDetailsPage'));
 const SplitBillPage        = lazy(() => import('../pages/SplitBillPage'));
 const OrderConfirmationPage = lazy(() => import('../pages/OrderConfirmationPage'));
+const ReceiptPage = lazy(() => import('../pages/ReceiptPage'));
 const VoucherPurchasePage = lazy(() => import('../pages/VoucherPurchasePage'));
 const NotificationsPage  = lazy(() => import('../pages/NotificationsPage'));
 
@@ -57,6 +57,8 @@ const WalletHistoryPage = lazy(() => import('../pages/WalletHistoryPage'));
 const WallpaperPage = lazy(() => import('../pages/WallpaperPage'));
 const WalletCustomizePage = lazy(() => import('../pages/WalletCustomizePage'));
 const WalletActionsPage = lazy(() => import('../pages/WalletActionsPage'));
+const CardDetailPage = lazy(() => import('../pages/CardDetailPage'));
+const BalanceDetailPage = lazy(() => import('../pages/BalanceDetailPage'));
 const VoucherDetailPage  = lazy(() => import('../pages/VoucherDetailPage'));
 const PaymentIntroPage   = lazy(() => import('../pages/PaymentIntroPage'));
 
@@ -131,7 +133,14 @@ function StoreRoute() {
   if (!hasContext) {
     return <Navigate to={`/${lang}/store?ecosystem=1`} replace />;
   }
-  return (<S><StorePage /></S>);
+  // Skeleton (not the blank PageFallback) so arriving from /register/complete —
+  // or any first hit on /store — shows a loading skeleton during the chunk load,
+  // continuing the skeleton the complete page started.
+  return (
+    <Suspense fallback={<HomePageSkeleton />}>
+      <StorePage />
+    </Suspense>
+  );
 }
 
 /**
@@ -171,14 +180,9 @@ export const router = createBrowserRouter([
           // anonymous and logged-in users both land on StorePage.
           // See IndexRoute + StoreRoute above.
           { index: true,      element: <IndexRoute /> },
-          {
-            path: 'home',
-            element: (
-              <Suspense fallback={<HomePageSkeleton />}>
-                <HomePage />
-              </Suspense>
-            ),
-          },
+          // The real home page IS /store. There is intentionally NO /home route:
+          // a hit on /:lang/home falls through to the catch-all below and
+          // redirects to /store.
           { path: 'store',    element: <StoreRoute /> },
           { path: 'chat',             element: <S><AiChatPage /></S> },
           { path: 'search',           element: <S><AiChatPage /></S> },
@@ -198,6 +202,7 @@ export const router = createBrowserRouter([
           { path: 'business/:businessId/product/:productId/gift', element: <S><GiftDetailsPage /></S> },
           { path: 'business/:businessId/product/:productId/split', element: <S><SplitBillPage /></S> },
           { path: 'business/:businessId/product/:productId/order-confirmed', element: <S><OrderConfirmationPage /></S> },
+          { path: 'business/:businessId/product/:productId/receipt', element: <S><ReceiptPage /></S> },
           { path: 'business/:businessId/voucher/:voucherId', element: <S><VoucherPurchasePage /></S> },
 
           // === PROTECTED routes ===
@@ -224,6 +229,8 @@ export const router = createBrowserRouter([
               { path: 'wallet/pay-intro',          element: <S><PaymentIntroPage /></S> },
               { path: 'wallet/customize',          element: <S><WalletCustomizePage /></S> },
               { path: 'wallet/actions',            element: <S><WalletActionsPage /></S> },
+              { path: 'wallet/card',               element: <S><CardDetailPage /></S> },
+              { path: 'wallet/balance',            element: <S><BalanceDetailPage /></S> },
               {
                 path: 'wallet/history',
                 element: (
