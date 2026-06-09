@@ -8,7 +8,6 @@ import { useLanguage } from '../../i18n/LanguageContext';
 import { useUser } from '../../hooks/useUser';
 import { tenantColor } from '../../lib/tenantColor';
 import TenantSwitchSheet from '../wallet/TenantSwitchSheet';
-import UserMenu from './UserMenu';
 import { useUnreadNotificationCount } from '../../hooks/useNotifications';
 import { useNotificationToastStore } from '../../stores/notificationToastStore';
 
@@ -137,7 +136,6 @@ export default function TopBar({ collapsed = false, showBack = false, hideGreeti
   }, [bellPulseCount]);
 
   const [switchSheetOpen, setSwitchSheetOpen] = useState(false);
-  const [userMenuOpen, setUserMenuOpen] = useState(false);
 
   // Display name for the top-bar context chip. Order of preference:
   //  1. Ecosystem mode -> "Nexus-Catalog" (the view label, not a tenant).
@@ -159,13 +157,17 @@ export default function TopBar({ collapsed = false, showBack = false, hideGreeti
       ?? organizationName;
 
   const handleProfile = async () => {
+    // Carry the current tenant/ecosystem context onto /profile so the page
+    // stays on the same org (without ?tenant it would fall back to the Nexus
+    // catalog and the header would "change" tenant on entry).
+    const qs = searchParams.toString();
+    const dest = `/${lang}/profile${qs ? `?${qs}` : ''}`;
     if (isAuthenticated) {
-      // Authenticated -> open the inline UserMenu dropdown (not /profile).
-      setUserMenuOpen((v) => !v);
+      navigate(dest);
       return;
     }
     const authed = await requireAuth({ promptMessage: t.auth.genericPrompt });
-    if (authed) setUserMenuOpen(true);
+    if (authed) navigate(dest);
   };
 
   const handleNotifications = () => {
@@ -272,11 +274,6 @@ export default function TopBar({ collapsed = false, showBack = false, hideGreeti
             </div>
           )}
 
-          {/* UserMenu dropdown — anchored under the avatar (start edge). */}
-          <UserMenu
-            isOpen={userMenuOpen}
-            onClose={() => setUserMenuOpen(false)}
-          />
         </div>
 
         {/* Center: tenant name — fades in on collapse. Shown for anonymous
