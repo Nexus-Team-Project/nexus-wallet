@@ -16,6 +16,7 @@ import { useNavigate } from 'react-router-dom';
 import { appToast } from '../lib/appToast';
 import { useLanguage } from '../i18n/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
+import { useAccessibilityStore } from '../stores/accessibilityStore';
 import SelectionCard from '../components/ui/SelectionCard';
 import ConsentToggleCard from '../components/ui/ConsentToggleCard';
 import SettingsHeader from '../components/layout/SettingsHeader';
@@ -74,6 +75,12 @@ export default function EditProfilePage() {
   // question); it is only re-persisted when the user actively toggles it here.
   const [consent, setConsent] = useState(me?.marketingConsent ?? false);
   const [consentTouched, setConsentTouched] = useState(false);
+  // Accessibility widget visibility — same store the store-feed card uses.
+  // Toggling here applies instantly (not part of the Save flow), so the user
+  // can always turn the floating button back on even after dismissing its card.
+  const a11yEnabled = useAccessibilityStore((s) => s.enabled);
+  const enableA11y = useAccessibilityStore((s) => s.enableWidget);
+  const disableA11y = useAccessibilityStore((s) => s.disableWidget);
   const [saving, setSaving] = useState(false);
 
   const genderOptions: Array<{ value: GenderValue; emoji: string; label: string }> = [
@@ -260,6 +267,24 @@ export default function EditProfilePage() {
         />
         <p className="text-xs text-text-muted mt-2 leading-relaxed">
           {t.profile.editConsentNote}
+        </p>
+      </section>
+
+      {/* 5b. Accessibility widget — toggles the floating button instantly via the
+          shared accessibilityStore (NOT part of Save). Mirrors the store-feed
+          card's enable/disable so the widget can be re-enabled even after its
+          card was dismissed there. */}
+      <section className={CARD_CLASS}>
+        <h2 className={SECTION_LABEL_CLASS}>{t.profile.editSectionAccessibility}</h2>
+        <ConsentToggleCard
+          icon="accessibility_new"
+          title={t.profile.editAccessibilityTitle}
+          description={t.profile.editAccessibilityDesc}
+          checked={a11yEnabled}
+          onChange={(val) => { if (val) enableA11y(); else disableA11y(); }}
+        />
+        <p className="text-xs text-text-muted mt-2 leading-relaxed">
+          {t.profile.editAccessibilityNote}
         </p>
       </section>
 
