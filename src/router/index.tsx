@@ -44,6 +44,7 @@ const BusinessCheckoutPage = lazy(() => import('../pages/BusinessCheckoutPage'))
 const GiftDetailsPage      = lazy(() => import('../pages/GiftDetailsPage'));
 const SplitBillPage        = lazy(() => import('../pages/SplitBillPage'));
 const OrderConfirmationPage = lazy(() => import('../pages/OrderConfirmationPage'));
+const ReceiptPage = lazy(() => import('../pages/ReceiptPage'));
 const VoucherPurchasePage = lazy(() => import('../pages/VoucherPurchasePage'));
 const NotificationsPage  = lazy(() => import('../pages/NotificationsPage'));
 
@@ -57,6 +58,8 @@ const WalletHistoryPage = lazy(() => import('../pages/WalletHistoryPage'));
 const WallpaperPage = lazy(() => import('../pages/WallpaperPage'));
 const WalletCustomizePage = lazy(() => import('../pages/WalletCustomizePage'));
 const WalletActionsPage = lazy(() => import('../pages/WalletActionsPage'));
+const CardDetailPage = lazy(() => import('../pages/CardDetailPage'));
+const BalanceDetailPage = lazy(() => import('../pages/BalanceDetailPage'));
 const VoucherDetailPage  = lazy(() => import('../pages/VoucherDetailPage'));
 const PaymentIntroPage   = lazy(() => import('../pages/PaymentIntroPage'));
 
@@ -198,6 +201,7 @@ export const router = createBrowserRouter([
           { path: 'business/:businessId/product/:productId/gift', element: <S><GiftDetailsPage /></S> },
           { path: 'business/:businessId/product/:productId/split', element: <S><SplitBillPage /></S> },
           { path: 'business/:businessId/product/:productId/order-confirmed', element: <S><OrderConfirmationPage /></S> },
+          { path: 'business/:businessId/product/:productId/receipt', element: <S><ReceiptPage /></S> },
           { path: 'business/:businessId/voucher/:voucherId', element: <S><VoucherPurchasePage /></S> },
 
           // === PROTECTED routes ===
@@ -224,6 +228,8 @@ export const router = createBrowserRouter([
               { path: 'wallet/pay-intro',          element: <S><PaymentIntroPage /></S> },
               { path: 'wallet/customize',          element: <S><WalletCustomizePage /></S> },
               { path: 'wallet/actions',            element: <S><WalletActionsPage /></S> },
+              { path: 'wallet/card',               element: <S><CardDetailPage /></S> },
+              { path: 'wallet/balance',            element: <S><BalanceDetailPage /></S> },
               {
                 path: 'wallet/history',
                 element: (

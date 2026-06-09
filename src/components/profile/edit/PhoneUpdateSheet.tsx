@@ -90,7 +90,7 @@ export default function PhoneUpdateSheet({ onClose, currentPhone, onUpdated }: P
   return createPortal(
     <div dir={isHe ? 'rtl' : 'ltr'}>
       <div className="fixed inset-0 z-[200] bg-black/40" onClick={onClose} />
-      <div className="fixed bottom-0 inset-x-0 z-[210] mx-auto w-full max-w-md rounded-t-3xl bg-white p-5 pb-8 shadow-2xl">
+      <div className="fixed bottom-4 inset-x-4 z-[210] mx-auto max-w-md rounded-3xl bg-white p-5 pb-8 shadow-2xl">
         <div className="flex justify-center pb-3"><div className="h-1 w-10 rounded-full bg-border" /></div>
         <h2 className="text-lg font-bold mb-1" style={{ color: 'var(--color-primary)' }}>
           {t.profile.phoneSheetTitle}

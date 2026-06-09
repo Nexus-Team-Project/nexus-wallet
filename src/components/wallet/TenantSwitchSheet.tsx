@@ -234,7 +234,7 @@ export default function TenantSwitchSheet({ onClose }: TenantSwitchSheetProps) {
       <motion.div
         key="sheet"
         dir={isHe ? 'rtl' : 'ltr'}
-        className="fixed bottom-0 left-0 right-0 z-[210] mx-auto flex w-full max-w-xl flex-col rounded-t-3xl bg-white shadow-2xl sm:max-w-xl lg:bottom-auto lg:left-1/2 lg:top-1/2 lg:max-w-md lg:-translate-x-1/2 lg:-translate-y-1/2 lg:rounded-3xl"
+        className="fixed bottom-4 inset-x-3 z-[210] mx-auto flex max-w-xl flex-col rounded-3xl bg-white shadow-2xl sm:max-w-xl lg:inset-x-auto lg:bottom-auto lg:left-1/2 lg:top-1/2 lg:max-w-md lg:-translate-x-1/2 lg:-translate-y-1/2 lg:rounded-3xl"
         style={{ maxHeight: '82vh' }}
         initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
         transition={{ type: 'spring', damping: 28, stiffness: 300 }}

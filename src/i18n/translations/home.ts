@@ -71,6 +71,10 @@ export const homeTranslations = {
     addToHomeScreenSubtitle: 'Get quick access to {app} right from your Home screen.',
     addToHomeScreenCta: 'Add',
     addToHomeScreenCancel: 'Cancel',
+    addAccessibility: 'Add the accessibility widget?',
+    addAccessibilitySubtitle: 'Adjust the app to your needs — text size, contrast, readable font and more.',
+    addAccessibilityCta: 'Add',
+    addAccessibilityCancel: 'Cancel',
   },
   he: {
     greeting: 'שלום',
@@ -144,5 +148,9 @@ export const homeTranslations = {
     addToHomeScreenSubtitle: 'גישה מהירה ל{app} ישירות מהמסך הראשי.',
     addToHomeScreenCta: 'הוספה',
     addToHomeScreenCancel: 'ביטול',
+    addAccessibility: 'להוסיף את יישומון הנגישות?',
+    addAccessibilitySubtitle: 'התאמת האפליקציה לצרכים שלך — גודל טקסט, ניגודיות, פונט קריא ועוד.',
+    addAccessibilityCta: 'הוספה',
+    addAccessibilityCancel: 'ביטול',
   },
 };
