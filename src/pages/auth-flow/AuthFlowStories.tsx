@@ -10,6 +10,7 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useRegistrationStore } from '../../stores/registrationStore';
+import { useAuthStore } from '../../stores/authStore';
 import { getFirstOnboardingSlide, getOnboardingTotalWithComplete } from '../../utils/onboardingNavigation';
 import { useTenantStore } from '../../stores/tenantStore';
 import { useAuth } from '../../contexts/AuthContext';
@@ -67,6 +68,20 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
   const orgMember    = useRegistrationStore((s) => s.orgMember);
   const registrationPath  = useRegistrationStore((s) => s.registrationPath);
   const pendingEmailSignup = useRegistrationStore((s) => s.pendingEmailSignup);
+
+  // ── Personalization for the nexus-hero slide ──────────────────────────────
+  // Priority: server profile (most trusted) → Google store / registration data
+  // → authStore snapshot. A new phone-OTP user with no data resolves to null,
+  // which keeps the generic "טוב שבאת" greeting.
+  const authFirstName = useAuthStore((s) => s.firstName);
+  const storeAvatarUrl = useAuthStore((s) => s.avatarUrl);
+  const regProfile = useRegistrationStore((s) => s.profileData);
+  const greetingName =
+    me?.profile?.firstName?.trim() ||
+    regProfile.firstName.trim() ||
+    authFirstName?.trim() ||
+    null;
+  const heroAvatarUrl = storeAvatarUrl ?? null;
 
   // ── Image preloader ───────────────────────────────────────────────────────
   const { loaded: imagesLoaded, failed: failedImages } = useImagePreloader(FLOW_IMAGES);
@@ -465,7 +480,7 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
               transition={{ duration: 0.3, ease: [0.25, 0.46, 0.45, 0.94] }}
               className="absolute inset-0"
             >
-              {steps[current]?.id === 'nexus-hero'  && <SlideNexusHero failedImages={failedImages} orgName={promoOrgName} accentColor={orgColor} />}
+              {steps[current]?.id === 'nexus-hero'  && <SlideNexusHero failedImages={failedImages} orgName={promoOrgName} accentColor={orgColor} greetingName={greetingName} avatarUrl={heroAvatarUrl} />}
               {steps[current]?.id === 'welcome-org' && <SlideWelcomeOrg org={resolvedOrgInfo} />}
               {steps[current]?.id === 'story-insights'    && (
                 <div className="w-full h-full flex flex-col items-center justify-center px-6 relative overflow-hidden" style={{ backgroundColor: 'var(--color-surface)' }} dir="rtl">
