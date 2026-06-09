@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams, useLocation } from 'react-router-dom';
 import { useAuthGate } from '../../hooks/useAuthGate';
 import { useAuth } from '../../contexts/AuthContext';
 import { useAuthStore } from '../../stores/authStore';
@@ -51,6 +51,7 @@ export default function TopBar({ collapsed = false, showBack = false, hideGreeti
 
   const { lang = 'he' } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
   const { t, language } = useLanguage();
   const { isAuthenticated, requireAuth } = useAuthGate();
@@ -157,6 +158,11 @@ export default function TopBar({ collapsed = false, showBack = false, hideGreeti
       ?? organizationName;
 
   const handleProfile = async () => {
+    // Already on the profile page: do nothing. Navigating to /profile again
+    // would push a duplicate history entry, so Back would then need two presses
+    // to leave. (Sub-routes like /profile/edit are NOT the profile page, so
+    // tapping the avatar there still navigates back to /profile.)
+    if (location.pathname === `/${lang}/profile`) return;
     // Carry the current tenant/ecosystem context onto /profile so the page
     // stays on the same org (without ?tenant it would fall back to the Nexus
     // catalog and the header would "change" tenant on entry).
