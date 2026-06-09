@@ -81,7 +81,10 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
     regProfile.firstName.trim() ||
     authFirstName?.trim() ||
     null;
-  const heroAvatarUrl = storeAvatarUrl ?? null;
+  // Prefer the Google photo from /api/me (the authoritative source, populated on
+  // every login path including the redirect-based Google flow that never runs
+  // LoginSheet's login({avatarUrl})). Fall back to the persisted authStore value.
+  const heroAvatarUrl = me?.user?.avatarUrl ?? storeAvatarUrl ?? null;
 
   // ── Image preloader ───────────────────────────────────────────────────────
   const { loaded: imagesLoaded, failed: failedImages } = useImagePreloader(FLOW_IMAGES);
