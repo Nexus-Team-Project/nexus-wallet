@@ -16,6 +16,7 @@ import { useTenantStore } from '../../stores/tenantStore';
 import { useAuth } from '../../contexts/AuthContext';
 import { fetchPublicTenant } from '../../services/publicTenant.service';
 import { setDefaultTenant } from '../../services/walletTenants.service';
+import { markOnboardingStarted } from '../../services/walletProfile.service';
 import { setAffiliation, getAffiliation, resetRegistrationFinish } from '../../lib/registrationAffiliation';
 import { resolveTenantColor } from '../../lib/tenantColor';
 import { useImagePreloader } from '../../hooks/useImagePreloader';
@@ -91,6 +92,15 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
 
   // Fresh stories run -> allow the end-of-registration navigation to fire once.
   useEffect(() => { resetRegistrationFinish(); }, []);
+
+  // Stamp "onboarding started" the first time an authenticated user reaches the
+  // stories, so quitting during the promos still resumes at the questions on the
+  // next login (not the catalog). Needs a session: SMS users have none until the
+  // email step, so for them this fires later (at the questions) instead.
+  useEffect(() => {
+    if (me && !me.profile?.onboardingStartedAt) markOnboardingStarted();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [me]);
 
   // ── URL-driven org context ────────────────────────────────────────────────
   // The org now comes from the URL (?tenant=X) / membership, not a picker.

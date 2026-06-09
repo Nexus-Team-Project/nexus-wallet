@@ -17,6 +17,7 @@ import { useAuthStore } from '../stores/authStore';
 import { useRegistrationStore } from '../stores/registrationStore';
 import { exchangeGoogleCode, consumeGoogleReturnContext } from '../services/auth.service';
 import { nextPathAfterLogin } from '../lib/postLogin';
+import { onboardingEntryPath } from '../utils/onboardingNavigation';
 import { clearAffiliation } from '../lib/registrationAffiliation';
 
 /**
@@ -81,6 +82,8 @@ export interface WalletMeResponse {
     purpose?: string[];
     inviteFriendsSent?: number;
     completedAt?: string;
+    /** First time the user entered onboarding; drives resume-on-return. */
+    onboardingStartedAt?: string;
     updatedAt?: string;
   } | null;
 }
@@ -238,7 +241,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               // the auth-flow hero shows it the instant it mounts after the hard-nav
               // reload below — before the next bootstrap's /api/me re-resolves `me`.
               useAuthStore.getState().setAvatarUrl(me.user.avatarUrl ?? null);
-              destination = `/${lang}/auth-flow/new-user${tenantSuffix}`;
+              // Resume at the questions (skip stories) if they already started.
+              destination = onboardingEntryPath({
+                lang,
+                state: useRegistrationStore.getState(),
+                onboardingStarted: !!me.profile?.onboardingStartedAt,
+                tenantSuffix,
+              });
             } else {
               destination = nextPathAfterLogin({ lang, urlTenantId, me });
             }
@@ -305,7 +314,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           });
           // Persist the Google photo so the hero shows it immediately after reload.
           useAuthStore.getState().setAvatarUrl(meData.user.avatarUrl ?? null);
-          window.location.replace(`/${lang}/auth-flow/new-user${tenantSuffix}`);
+          // Resume at the questions (skip stories) if onboarding was already started.
+          window.location.replace(onboardingEntryPath({
+            lang,
+            state: useRegistrationStore.getState(),
+            onboardingStarted: !!meData.profile?.onboardingStartedAt,
+            tenantSuffix,
+          }));
           return; // page is unloading
         }
       }

@@ -4,6 +4,8 @@ import type { ReactNode } from 'react';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { useRegistrationStore } from '../../stores/registrationStore';
 import { useTenantStore } from '../../stores/tenantStore';
+import { useAuth } from '../../contexts/AuthContext';
+import { markOnboardingStarted } from '../../services/walletProfile.service';
 
 interface OnboardingSlideLayoutProps {
   totalSlides: number;
@@ -60,6 +62,15 @@ export default function OnboardingSlideLayout({
 }: OnboardingSlideLayoutProps) {
   const { t, language } = useLanguage();
   const isHe = language === 'he';
+  const { me } = useAuth();
+
+  // Stamp "onboarding started" once the user is in the question chain. Covers the
+  // SMS path (no session during the earlier stories) so a quit mid-questions
+  // resumes here on the next login instead of the catalog.
+  useEffect(() => {
+    if (me && !me.profile?.onboardingStartedAt) markOnboardingStarted();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [me]);
 
   // Org/tenant users: prepend one filled segment for match-screen (already completed).
   //   isOrgFlow  — persisted to sessionStorage, survives page refreshes for

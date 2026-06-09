@@ -54,6 +54,30 @@ export function getFirstOnboardingSlide(state: RegistrationState): OnboardingSli
 }
 
 /**
+ * Decide where to send an incomplete user on login/return. A user who has
+ * already entered the flow (onboardingStarted) resumes at the FIRST question,
+ * skipping the promo stories; a brand-new user starts at the stories.
+ *
+ * @param args.lang current language segment.
+ * @param args.state the (already-seeded) registration store state.
+ * @param args.onboardingStarted whether me.profile.onboardingStartedAt is set.
+ * @param args.tenantSuffix optional "?tenant=X" to preserve org context.
+ * @returns an absolute in-app path.
+ */
+export function onboardingEntryPath(args: {
+  lang: string;
+  state: RegistrationState;
+  onboardingStarted: boolean;
+  tenantSuffix?: string;
+}): string {
+  const suffix = args.tenantSuffix ?? '';
+  if (args.onboardingStarted) {
+    return `/${args.lang}/register/onboarding/${getFirstOnboardingSlide(args.state)}${suffix}`;
+  }
+  return `/${args.lang}/auth-flow/new-user${suffix}`;
+}
+
+/**
  * Returns the ID of the next onboarding slide after `currentSlide`.
  * Returns null when the flow is complete (last slide reached).
  */
