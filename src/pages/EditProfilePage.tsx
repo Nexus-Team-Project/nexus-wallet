@@ -70,9 +70,9 @@ export default function EditProfilePage() {
   const [gender, setGender] = useState<GenderValue | null>(initial.gender);
   const [lifeStage, setLifeStage] = useState<string | null>(initial.lifeStage);
   const [purpose, setPurpose] = useState<string[]>(initial.purpose);
-  // Marketing consent is not exposed by /api/me, so it defaults OFF and is only
-  // persisted when the user actively toggles it.
-  const [consent, setConsent] = useState(false);
+  // Marketing consent reflects the stored value from /api/me (set in the auth-flow
+  // question); it is only re-persisted when the user actively toggles it here.
+  const [consent, setConsent] = useState(me?.marketingConsent ?? false);
   const [consentTouched, setConsentTouched] = useState(false);
   const [saving, setSaving] = useState(false);
 

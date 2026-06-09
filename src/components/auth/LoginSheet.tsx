@@ -11,9 +11,7 @@ import {
   firebaseVerifyOtp,
   firebaseGoogleSignIn,
   firebaseAppleSignIn,
-  firebaseSaveConsent,
 } from '../../services/auth.service';
-import { saveMarketingConsent } from '../../services/walletProfile.service';
 import { lookupTenantByOrg } from '../../mock/handlers/tenant.handler';
 import { useAuth } from '../../contexts/AuthContext';
 import { useCountdown, formatMmSs } from '../../hooks/useCountdown';
@@ -31,7 +29,6 @@ export default function LoginSheet() {
   const { isOpen, step, close, setStep, completeLogin } =
     useLoginSheetStore();
   const login = useAuthStore((s) => s.login);
-  const setMarketingConsent = useAuthStore((s) => s.setMarketingConsent);
   const { onLoginSucceeded } = useAuth();
   const tenantConfig = useTenantStore((s) => s.config);
   const setTenant = useTenantStore((s) => s.setTenant);
@@ -44,7 +41,6 @@ export default function LoginSheet() {
   const [isRouting, setIsRouting] = useState(false);
   const [error, setError] = useState('');
   const [, setIsClosing] = useState(false);
-  const [marketingOptIn, setMarketingOptIn] = useState(true);
   const [successOrgName, setSuccessOrgName] = useState('');
   const [phoneExpanded, setPhoneExpanded] = useState(false);
   // Reveals the secondary providers (Apple + WhatsApp) under "more methods".
@@ -81,7 +77,6 @@ export default function LoginSheet() {
       setError('');
       setIsLoading(false);
       setIsClosing(false);
-      setMarketingOptIn(true);
       setSuccessOrgName('');
       setPhoneExpanded(false);
       setShowMore(false);
@@ -304,13 +299,7 @@ export default function LoginSheet() {
       if (profileComplete) {
         useAuthStore.getState().setProfileCompleted(true);
       }
-      void firebaseSaveConsent(session.userId, marketingOptIn);
-      // Plan #3: real consent save against backend (audit-trail object).
-      // Best-effort: don't fail the login if this call hiccups.
-      saveMarketingConsent(marketingOptIn, 'wallet_signup').catch((e) =>
-        console.error('[wallet-auth] marketing-consent save failed (non-fatal):', e),
-      );
-      setMarketingConsent(marketingOptIn);
+      // Marketing consent is collected in the auth-flow ConsentsSlide, not here.
 
       // Load tenant config for org members (so TopBar can show the logo).
       // Only when no URL-tenant is active — tenant URL wins branding conflicts.
@@ -413,12 +402,7 @@ export default function LoginSheet() {
 
         // Plan #2: hydrate AuthContext so /api/me + post-login routing work.
         const me = await onLoginSucceeded(result.session.token);
-        void firebaseSaveConsent(result.session.userId, marketingOptIn);
-        // Plan #3: real consent save against backend (audit-trail object).
-        saveMarketingConsent(marketingOptIn, 'wallet_signup').catch((e) =>
-          console.error('[wallet-auth] marketing-consent save failed (non-fatal):', e),
-        );
-        setMarketingConsent(marketingOptIn);
+        // Marketing consent is collected in the auth-flow ConsentsSlide, not here.
         // Plan #3: returning user (profile already completed once) ->
         // skip slide chain, go to the resolved post-login path.
         if (me?.profile?.completedAt) {
@@ -760,18 +744,9 @@ export default function LoginSheet() {
                 </div>
               )}
 
-              {/* Marketing opt-in checkbox */}
-              <label className="flex items-center gap-2 mt-3.5 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={marketingOptIn}
-                  onChange={(e) => setMarketingOptIn(e.target.checked)}
-                  className="w-3.5 h-3.5 rounded border-border text-primary accent-primary flex-shrink-0"
-                />
-                <span className="text-[10px] text-text-muted leading-snug">
-                  {t.auth.consentSubtitle}
-                </span>
-              </label>
+              {/* Marketing consent is no longer collected here — it is asked as a
+                  dedicated question in the new-user auth-flow (ConsentsSlide) and
+                  editable later from Profile. */}
 
               {/* Terms */}
               <p className="text-[9px] text-text-muted/60 text-center mt-3 leading-relaxed">

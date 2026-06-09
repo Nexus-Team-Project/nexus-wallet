@@ -53,6 +53,8 @@ export interface WalletMeResponse {
   phone?: string | null;
   /** ISO timestamp the phone was OTP-verified; null for a test-attached number. */
   phoneVerifiedAt?: string | null;
+  /** Whether the member opted in to marketing (drives the profile toggle state). */
+  marketingConsent?: boolean;
   /**
    * Effective default landing context for a returning member: a tenantId to
    * land on that tenant's catalog, or null for the Nexus (ecosystem) catalog.
