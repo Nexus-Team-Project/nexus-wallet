@@ -13,7 +13,7 @@
  */
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { toast } from 'sonner';
+import { appToast } from '../lib/appToast';
 import { useLanguage } from '../i18n/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
 import SelectionCard from '../components/ui/SelectionCard';
@@ -128,11 +128,11 @@ export default function EditProfilePage() {
         await saveMarketingConsent(consent, 'wallet_settings');
       }
       await reload();
-      toast.success(t.profile.editSavedToast);
+      appToast.success(t.profile.editSavedToast);
       navigate(-1);
     } catch (err) {
       console.error('[edit-profile] save failed:', err);
-      toast.error(t.profile.editFailedToast);
+      appToast.error(t.profile.editFailedToast);
       setSaving(false);
     }
   };

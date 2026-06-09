@@ -189,8 +189,8 @@ export function getWelcomeMessage(isHe: boolean): ChatMessage {
     id: 'welcome',
     role: 'assistant',
     content: isHe
-      ? 'היי! 👋 אני גלי — אני כאן לעזור לך למצוא את ההטבה המושלמת. ספר לי מה אתה מחפש, או בחר מההצעות למטה:'
-      : "Hi! 👋 I'm Gali — I'm here to help you find the perfect deal. Tell me what you're looking for, or pick from the suggestions below:",
+      ? 'היי! 👋 אני Nexus — אני כאן לעזור לך למצוא את ההטבה המושלמת. ספר לי מה אתה מחפש, או בחר מההצעות למטה:'
+      : "Hi! 👋 I'm Nexus — I'm here to help you find the perfect deal. Tell me what you're looking for, or pick from the suggestions below:",
     suggestions: isHe
       ? ['מתנה ליום הולדת', 'בילוי זוגי', 'ההנחה הכי שווה', 'קפה טוב']
       : ['Birthday gift', 'Date night', 'Best discount', 'Good coffee'],

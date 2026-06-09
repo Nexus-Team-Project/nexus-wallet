@@ -15,15 +15,48 @@ export default function FloatingActions() {
   const activeCount = activeVouchers?.length || 0;
   const [showFilter, setShowFilter] = useState(false);
 
-  const isHome = location.pathname === `/${lang}` || location.pathname === `/${lang}/`;
+  // "Home" covers the index, the store front door (the index redirects there,
+  // so it's the page the Home FAB actually lands on), and the legacy /home
+  // route. The Home FAB hides on all of these so it never points at the page
+  // the user is already on.
+  const isHome =
+    location.pathname === `/${lang}` ||
+    location.pathname === `/${lang}/` ||
+    /^\/[a-z]{2}\/store\/?$/.test(location.pathname) ||
+    /^\/[a-z]{2}\/home\/?$/.test(location.pathname);
   const isWallet = location.pathname.includes('/wallet');
   const isBusiness = /\/business\/[^/]+/.test(location.pathname);
   const isVoucherPurchase = /\/business\/[^/]+\/voucher\//.test(location.pathname);
   // The edit-profile page has its own sticky Save bar at the bottom; the FABs
   // would overlap it, so hide them there.
   const isProfileEdit = /\/profile\/edit\/?$/.test(location.pathname);
+  // The add-money flow owns its own fixed continue button at the bottom;
+  // the floating search + home pills would collide with it.
+  const isAddMoney = location.pathname.includes('/wallet/add-money');
+  // On the chat / search pages, the recommendations sheet (with full-bleed
+  // map) sits at the bottom — the white gradient backdrop would obscure the
+  // map's bottom edge. Hide it there; the buttons still float on top.
+  const isChatOrSearch = /\/(chat|search)/.test(location.pathname);
+  // The search button always lands the user on the dedicated discount-finder
+  // path. On a category page it also pre-selects that category in the finder.
+  const categoryMatch = location.pathname.match(/\/category\/([^/?]+)/);
+  const categoryId = categoryMatch?.[1];
 
-  if (isBusiness || isVoucherPurchase || isProfileEdit) return null;
+  // Search-pill click → open the discount finder at /search. On a category
+  // page, carry the category as ?finder=<categoryId> so the finder opens
+  // pre-selected; elsewhere it opens empty.
+  const handleSearchClick = () => {
+    if (categoryId) {
+      // Preserve existing query params (e.g. tenant) and add finder=<categoryId>.
+      const params = new URLSearchParams(location.search);
+      params.set('finder', categoryId);
+      navigate(`/${lang}/search?${params.toString()}`);
+    } else {
+      navigate(`/${lang}/search${location.search}`);
+    }
+  };
+
+  if (isBusiness || isVoucherPurchase || isProfileEdit || isAddMoney) return null;
 
   const handleWallet = async () => {
     if (isAuthenticated) {
@@ -36,6 +69,21 @@ export default function FloatingActions() {
 
   return (
     <>
+      {/* White fade backdrop behind floating actions. Skipped on the chat
+          page so the recommendations sheet's full-bleed map stays visible
+          all the way down. */}
+      {!isChatOrSearch && (
+        <div className="fixed bottom-0 inset-x-0 h-8 z-40 pointer-events-none flex justify-center">
+          <div
+            className="w-full max-w-md h-full"
+            style={{
+              background:
+                'linear-gradient(to top, rgba(255,255,255,0.8) 20%, rgba(255,255,255,0.4) 60%, transparent)',
+            }}
+          />
+        </div>
+      )}
+
       {/* Search pill stays centered; wallet + home absolutely positioned beside it */}
       <div className="fixed bottom-6 inset-x-0 z-50 flex items-center justify-center">
         {/* Search pill wrapper — relative so wallet + home can anchor to it */}
@@ -85,9 +133,10 @@ export default function FloatingActions() {
 
           {/* Search + Filter pill bar — centered */}
           <div className="flex items-center bg-bg-dark rounded-full shadow-lg shadow-bg-dark/30 overflow-hidden">
-            {/* Search zone → opens search page */}
+            {/* Search zone → opens the in-page filter sheet on a category page,
+                otherwise the global chat search */}
             <button
-              onClick={() => navigate(`/${lang}/search`)}
+              onClick={handleSearchClick}
               className="flex items-center gap-2.5 pl-4 pr-2.5 rtl:pl-2.5 rtl:pr-4 py-3 hover:bg-white/5 active:bg-white/10 transition-colors"
             >
               <span

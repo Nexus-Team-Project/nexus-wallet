@@ -4,7 +4,7 @@
  * just shows a "Soon" toast. Lives in its own file so the placeholder is easy
  * to replace with the real flow later.
  */
-import { toast } from 'sonner';
+import { appToast } from '../../../lib/appToast';
 import { useLanguage } from '../../../i18n/LanguageContext';
 import { CARD_CLASS, SECTION_LABEL_CLASS } from './editProfile.constants';
 
@@ -20,7 +20,7 @@ export default function InviteFriendsCard() {
       <h2 className={SECTION_LABEL_CLASS}>{t.profile.editSectionInvite}</h2>
       <button
         type="button"
-        onClick={() => toast(t.profile.editSoonBadge)}
+        onClick={() => appToast.info(t.profile.editSoonBadge)}
         className="flex w-full items-center gap-3 rounded-2xl border border-border bg-surface/60 p-3 text-start opacity-90"
       >
         <span className="flex-shrink-0 w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">

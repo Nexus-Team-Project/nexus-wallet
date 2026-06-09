@@ -1,21 +1,33 @@
 import { useRef, useCallback, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useLanguage } from '../../i18n/LanguageContext';
+import { usePaymentMethods } from '../../hooks/usePaymentMethods';
 
 interface MoreActionsSheetProps {
   onClose: () => void;
 }
 
-const actions = [
-  { key: 'addPaymentMethod', icon: 'add_card' },
-  { key: 'walletHistory', icon: 'history' },
-  { key: 'moreActions', icon: 'more_horiz' },
-] as const;
-
 export default function MoreActionsSheet({ onClose }: MoreActionsSheetProps) {
   const { t } = useLanguage();
   const { lang = 'he' } = useParams();
+  const navigate = useNavigate();
+  const { hasAny: hasPaymentMethod } = usePaymentMethods();
+
+  // First row toggles between "Payment method" (when a card exists →
+  // jump to the manage screen) and "Add payment method" (when none →
+  // jump straight to the add-card form).
+  const actions = [
+    {
+      key: hasPaymentMethod ? 'paymentMethod' : 'addPaymentMethod',
+      icon: 'add_card',
+      route: hasPaymentMethod
+        ? 'wallet/payment-methods'
+        : 'wallet/add-payment-method',
+    },
+    { key: 'walletHistory', icon: 'history', route: 'wallet/history' },
+    { key: 'moreActions', icon: 'more_horiz', route: null },
+  ] as const;
 
   const sheetRef = useRef<HTMLDivElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
@@ -26,7 +38,7 @@ export default function MoreActionsSheet({ onClose }: MoreActionsSheetProps) {
   const dismiss = useCallback(() => {
     if (sheetRef.current) {
       sheetRef.current.style.transition = 'transform 0.3s ease-out';
-      sheetRef.current.style.transform = 'translateY(100%)';
+      sheetRef.current.style.transform = 'translateY(120%)';
     }
     if (overlayRef.current) {
       overlayRef.current.style.transition = 'opacity 0.3s ease-out';
@@ -39,23 +51,23 @@ export default function MoreActionsSheet({ onClose }: MoreActionsSheetProps) {
     const headerEl = document.getElementById('more-sheet-header');
     if (!headerEl) return;
 
-    const onTouchStart = (e: TouchEvent) => {
-      dragStartY.current = e.touches[0].clientY;
+    const onDown = (e: PointerEvent) => {
+      dragStartY.current = e.clientY;
       isDragging.current = true;
       currentTranslateY.current = 0;
       if (sheetRef.current) sheetRef.current.style.transition = 'none';
+      try { headerEl.setPointerCapture(e.pointerId); } catch { /* noop */ }
     };
-    const onTouchMove = (e: TouchEvent) => {
+    const onMove = (e: PointerEvent) => {
       if (!isDragging.current) return;
-      const deltaY = e.touches[0].clientY - dragStartY.current;
+      const deltaY = e.clientY - dragStartY.current;
       if (deltaY > 0) {
-        e.preventDefault();
         currentTranslateY.current = deltaY;
         if (sheetRef.current) sheetRef.current.style.transform = `translateY(${deltaY}px)`;
         if (overlayRef.current) overlayRef.current.style.opacity = String(Math.max(0, 1 - deltaY / 400));
       }
     };
-    const onTouchEnd = () => {
+    const onUp = () => {
       if (!isDragging.current) return;
       isDragging.current = false;
       if (currentTranslateY.current > 80) {
@@ -73,20 +85,24 @@ export default function MoreActionsSheet({ onClose }: MoreActionsSheetProps) {
       currentTranslateY.current = 0;
     };
 
-    headerEl.addEventListener('touchstart', onTouchStart, { passive: true });
-    headerEl.addEventListener('touchmove', onTouchMove, { passive: false });
-    headerEl.addEventListener('touchend', onTouchEnd, { passive: true });
+    headerEl.addEventListener('pointerdown', onDown);
+    headerEl.addEventListener('pointermove', onMove);
+    headerEl.addEventListener('pointerup', onUp);
+    headerEl.addEventListener('pointercancel', onUp);
     return () => {
-      headerEl.removeEventListener('touchstart', onTouchStart);
-      headerEl.removeEventListener('touchmove', onTouchMove);
-      headerEl.removeEventListener('touchend', onTouchEnd);
+      headerEl.removeEventListener('pointerdown', onDown);
+      headerEl.removeEventListener('pointermove', onMove);
+      headerEl.removeEventListener('pointerup', onUp);
+      headerEl.removeEventListener('pointercancel', onUp);
     };
   }, [dismiss]);
 
   return createPortal(
     <>
       <div ref={overlayRef} className="fixed inset-0 z-[99] bg-black/40 animate-fade-in" onClick={dismiss} />
-      <div ref={sheetRef} className="fixed bottom-0 left-0 right-0 z-[100] bg-white rounded-t-3xl animate-slide-up">
+      {/* Floating bottom sheet — margin from screen edges, all corners rounded */}
+      <div className="fixed inset-x-0 bottom-0 z-[100] max-w-md mx-auto px-4 pb-6 pointer-events-none">
+      <div ref={sheetRef} className="pointer-events-auto bg-white rounded-[28px] shadow-2xl overflow-hidden animate-slide-up">
         {/* Drag header */}
         <div id="more-sheet-header" className="flex-shrink-0 select-none" style={{ touchAction: 'none' }}>
           <div className="flex justify-center pt-3 pb-1">
@@ -99,9 +115,15 @@ export default function MoreActionsSheet({ onClose }: MoreActionsSheetProps) {
 
         {/* Actions list */}
         <div className="px-5 pb-10 space-y-1">
-          {actions.map(({ key, icon }) => (
+          {actions.map(({ key, icon, route }) => (
             <button
               key={key}
+              onClick={() => {
+                if (route) {
+                  navigate(`/${lang}/${route}`);
+                }
+                dismiss();
+              }}
               className="w-full flex items-center gap-4 p-4 rounded-2xl hover:bg-surface active:scale-[0.98] transition-all"
             >
               <div className="w-11 h-11 rounded-xl bg-surface flex items-center justify-center">
@@ -114,6 +136,7 @@ export default function MoreActionsSheet({ onClose }: MoreActionsSheetProps) {
           ))}
         </div>
         </div>
+      </div>
       </div>
     </>,
     document.body

@@ -393,26 +393,29 @@ export default function PhoneInput({
             onClick={closeSheet}
           />
 
-          {/* Sheet */}
+          {/* Sheet — a floating card constrained to the app frame (max-w-md,
+              centred, with side + bottom gaps), matching the app's other bottom
+              sheets (AddressSheet, filter sheets). */}
           <div
-            className="fixed inset-x-0 bottom-0 z-[201] bg-white rounded-t-3xl shadow-2xl transition-transform duration-300"
+            className="fixed inset-x-0 bottom-0 z-[201] max-w-md mx-auto px-4 pb-6 pointer-events-none transition-transform duration-300"
             style={{ transform: visible ? 'translateY(0)' : 'translateY(100%)' }}
             onTransitionEnd={handleTransitionEnd}
           >
+            <div className="pointer-events-auto bg-white rounded-[28px] shadow-2xl max-h-[82vh] flex flex-col overflow-hidden">
             {/* Handle bar */}
-            <div className="flex justify-center pt-3 pb-1">
+            <div className="flex-shrink-0 flex justify-center pt-3 pb-1">
               <div className="w-10 h-1 rounded-full bg-border" />
             </div>
 
             {/* Title */}
-            <div className="px-5 py-3 border-b border-border">
+            <div className="flex-shrink-0 px-5 py-3 border-b border-border">
               <p className="text-sm font-bold text-text-primary">
                 {isHe ? 'בחר מדינה' : 'Select country'}
               </p>
             </div>
 
             {/* Search */}
-            <div className="px-4 py-3 border-b border-border">
+            <div className="flex-shrink-0 px-4 py-3 border-b border-border">
               <div className="flex items-center gap-2 bg-surface rounded-2xl px-3 h-10">
                 <span className="material-symbols-outlined text-text-muted flex-shrink-0" style={{ fontSize: '18px' }}>
                   search
@@ -436,7 +439,7 @@ export default function PhoneInput({
             </div>
 
             {/* Country list */}
-            <div className="overflow-y-auto" style={{ maxHeight: '45vh' }}>
+            <div className="flex-1 min-h-0 overflow-y-auto pb-2 scrollbar-thin">
               {COUNTRIES.filter((c) => {
                 const q = search.toLowerCase();
                 return !q || c.name.toLowerCase().includes(q) || c.nameHe.includes(q) || c.dial.includes(q);
@@ -472,9 +475,7 @@ export default function PhoneInput({
                 </p>
               )}
             </div>
-
-            {/* Safe area bottom padding */}
-            <div className="h-8" />
+            </div>
           </div>
         </div>,
         document.body

@@ -1,12 +1,23 @@
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
-import { useContactsStore } from '../../stores/contactsStore';
 import { useLanguage } from '../../i18n/LanguageContext';
+
+// Same face-cropped Unsplash portraits used on the ReferralStoriesPage, so the
+// banner reads as a preview of that page. Mix of women and men.
+const AV = (id: string) =>
+  `https://images.unsplash.com/photo-${id}?w=120&h=120&fit=crop&crop=faces&q=80`;
+const BANNER_AVATARS = [
+  AV('1494790108377-be9c29b29330'), // woman
+  AV('1500648767791-00dcc994a43e'), // man
+  AV('1534528741775-53994a69daeb'), // woman
+];
 
 /**
  * ReferralBanner — compact home-page trigger card.
  *
- * Opens the fullscreen ReferralStoriesPage on tap.
+ * Opens the fullscreen ReferralStoriesPage on tap. Styled to match that page:
+ * navy (#0a2540) card, sky-blue (#7dd3fc) accents, large rounded corners, and
+ * the same overlapping friend-avatar cluster.
  * Shows referral progress (X/2 friends) and a brief CTA.
  */
 export default function ReferralBanner() {
@@ -14,13 +25,8 @@ export default function ReferralBanner() {
   const navigate = useNavigate();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const userId = useAuthStore((s) => s.userId);
-  const { t, language } = useLanguage();
+  const { language } = useLanguage();
   const isHe = language === 'he';
-
-  // Progress state
-  const friendsOnNexus = useContactsStore((s) => s.friendsOnNexus);
-  const referralCount = Math.min(friendsOnNexus.length, 2);
-  const goalReached = referralCount >= 2;
 
   // Early return AFTER all hooks
   if (!isAuthenticated || !userId) return null;
@@ -29,76 +35,49 @@ export default function ReferralBanner() {
     <section className="px-5 mb-6" dir={isHe ? 'rtl' : 'ltr'}>
       <button
         onClick={() => navigate(`/${lang}/referral-stories`)}
-        className="w-full relative overflow-hidden rounded-2xl p-4 text-start active:scale-[0.98] transition-transform"
-        style={{
-          background: 'linear-gradient(135deg, #635bff 0%, #9c88ff 60%, #00d4ff 100%)',
-        }}
+        className="w-full relative overflow-hidden rounded-[28px] p-4 text-start active:scale-[0.98] transition-transform bg-[#0a2540]"
       >
-        {/* Decorative blob */}
-        <div
-          className="absolute top-0 left-0 w-32 h-32 rounded-full pointer-events-none"
-          style={{
-            background: 'rgba(255,255,255,0.12)',
-            filter: 'blur(24px)',
-            transform: 'translate(-30%, -30%)',
-          }}
-        />
-
-        {/* Content */}
-        <div className="relative z-10 flex items-center gap-3">
-          {/* Gift icon */}
-          <div
-            className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0"
-            style={{ background: 'rgba(255,255,255,0.2)' }}
-          >
-            <span className="material-symbols-outlined text-white" style={{ fontSize: '26px' }}>
-              card_giftcard
+        {/* Content — text on one side (centred horizontally within its space,
+            two lines) and the avatar cluster + arrow on the other. */}
+        <div className="relative z-10 flex items-center gap-2">
+          {/* Text — two lines, centred horizontally; page font + sky-blue,
+              rectangular Nexus logo chip in place of the word "נקסוס". */}
+          <p className="flex-1 text-center text-[#7dd3fc] font-black tracking-tighter text-lg leading-snug">
+            <span className="inline-flex items-center gap-1.5 align-middle">
+              <span>שתפו את</span>
+              <span className="inline-flex items-center bg-sky-300 rounded-lg px-2 py-0.5 overflow-hidden">
+                <img
+                  src="/nexus-logo-black.png"
+                  alt="נקסוס"
+                  className="h-6 w-auto object-contain"
+                  style={{ transform: 'scale(1.4)' }}
+                />
+              </span>
             </span>
-          </div>
+            <br />
+            <span>וקבלו 100 ש"ח</span>
+          </p>
 
-          {/* Text */}
-          <div className="flex-1 min-w-0">
-            <p className="text-white font-extrabold text-sm leading-tight">
-              {t.registration.inviteBannerTitle}
-            </p>
-            <p className="text-white/70 text-xs mt-0.5 leading-snug">
-              {t.registration.inviteBannerSubtitle}
-            </p>
-          </div>
-
-          {/* Right side: progress or arrow */}
-          <div className="flex-shrink-0 flex items-center gap-2">
-            {/* Progress circles */}
-            <div className="flex items-center gap-1">
-              <div className={`w-5 h-5 rounded-full flex items-center justify-center ${referralCount >= 1 ? 'bg-white' : 'bg-white/30'}`}>
-                {referralCount >= 1 ? (
-                  <span className="material-symbols-outlined text-[#635bff]" style={{ fontSize: '12px', fontVariationSettings: "'FILL' 1" }}>check</span>
-                ) : (
-                  <span className="material-symbols-outlined text-white/60" style={{ fontSize: '12px' }}>person</span>
-                )}
-              </div>
-              <div className={`w-5 h-5 rounded-full flex items-center justify-center ${referralCount >= 2 ? 'bg-white' : 'bg-white/30'}`}>
-                {referralCount >= 2 ? (
-                  <span className="material-symbols-outlined text-[#635bff]" style={{ fontSize: '12px', fontVariationSettings: "'FILL' 1" }}>check</span>
-                ) : (
-                  <span className="material-symbols-outlined text-white/60" style={{ fontSize: '12px' }}>person</span>
-                )}
+          {/* Avatar cluster + arrow — nudged inward toward the centre */}
+          <div className="flex-shrink-0 flex items-center gap-2 me-3">
+            <div className="flex -space-x-3">
+              {BANNER_AVATARS.map((src, i) => (
+                <img
+                  key={i}
+                  src={src}
+                  alt={`Friend ${i + 1}`}
+                  className="w-11 h-11 rounded-full object-cover border-2 border-[#0a2540]"
+                />
+              ))}
+              <div className="w-6 h-6 rounded-full bg-[#7dd3fc] border-2 border-[#0a2540] flex items-center justify-center self-end -ms-1">
+                <span className="material-symbols-outlined text-[#0a2540]" style={{ fontSize: '14px', fontVariationSettings: "'FILL' 1" }}>add</span>
               </div>
             </div>
-
-            {/* Arrow */}
-            <span className="material-symbols-outlined text-white/80" style={{ fontSize: '20px' }}>
+            <span className="material-symbols-outlined text-[#7dd3fc]" style={{ fontSize: '20px' }}>
               {isHe ? 'chevron_left' : 'chevron_right'}
             </span>
           </div>
         </div>
-
-        {/* Goal complete message */}
-        {goalReached && (
-          <div className="relative z-10 mt-2 bg-white/15 rounded-lg px-3 py-1.5">
-            <p className="text-white text-xs font-bold text-center">{t.registration.inviteGoalComplete}</p>
-          </div>
-        )}
       </button>
     </section>
   );

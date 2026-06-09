@@ -2,20 +2,7 @@ import { useRef, useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { mockBusinesses } from '../../mock/data/businesses.mock';
-
-/** Circle background colors that match each brand's logo image background */
-const brandBgColors: Record<string, string> = {
-  biz_001: '#FFFFFF', // McDonald's – transparent
-  biz_002: '#000000', // Castro – black
-  biz_003: '#FFFFFF', // Cinema City – transparent
-  biz_004: '#000000', // Aroma – black
-  biz_005: '#274968', // Isrotel – dark blue
-  biz_006: '#FFFFFF', // Superpharm – white
-  biz_007: '#3478BE', // KSP – blue
-  biz_008: '#C44530', // Holmes Place – red
-  biz_009: '#FFFFFF', // Shufersal – white
-  biz_010: '#FFFFFF', // H&M – transparent
-};
+import { brandBgColors, FULL_BLEED_LOGOS } from '../../utils/brandColors';
 
 function ArrowBubble({ onNavigate }: { onNavigate: () => void }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -88,7 +75,7 @@ export default function BrandSlider() {
               style={{ backgroundColor: brandBgColors[biz.id] || '#FFFFFF' }}
             >
               {biz.logoUrl ? (
-                <img src={biz.logoUrl} alt={biz.name} className={biz.id === 'biz_007' ? 'w-full h-full object-cover' : 'w-[85%] h-[85%] object-contain'} />
+                <img src={biz.logoUrl} alt={biz.name} className={FULL_BLEED_LOGOS.has(biz.id) ? 'w-full h-full object-cover' : 'w-[85%] h-[85%] object-contain'} />
               ) : (
                 <span className="text-2xl">{biz.logo}</span>
               )}

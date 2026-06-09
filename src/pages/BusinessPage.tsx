@@ -6,7 +6,6 @@ import { mockVouchers } from '../mock/data/vouchers.mock';
 import { mockReviews } from '../mock/data/reviews.mock';
 import { useLanguage } from '../i18n/LanguageContext';
 import BusinessHero from '../components/business/BusinessHero';
-import BusinessActionBar from '../components/business/BusinessActionBar';
 import {
   StoriesRow,
   OffersSlider,
@@ -57,19 +56,6 @@ export default function BusinessPage() {
           className="relative z-20 bg-white"
           style={{ marginTop: -30, borderTopLeftRadius: 30, borderTopRightRadius: 30 }}
         >
-          {/* Drag handle */}
-          <div className="flex justify-center pt-2.5 pb-1">
-            <div className="w-10 h-1 rounded-full bg-gray-300" />
-          </div>
-
-          {/* Action bar */}
-          <div
-            className="sticky top-0 z-30 bg-white"
-            style={{ borderTopLeftRadius: 30, borderTopRightRadius: 30 }}
-          >
-            <BusinessActionBar business={business} />
-          </div>
-
           {/* Stories row */}
           <StoriesRow business={business} />
 
@@ -110,7 +96,7 @@ export default function BusinessPage() {
         </div>
 
         {/* Sticky CTA */}
-        <StickyCTA business={business} />
+        <StickyCTA business={business} firstVoucherId={vouchers[0]?.id} />
       </div>
   );
 }

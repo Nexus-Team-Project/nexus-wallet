@@ -43,8 +43,19 @@ const DEFAULT_SETTINGS: A11ySettings = {
 };
 
 const STORAGE_KEY = 'nexus-a11y-settings';
-const DISMISS_KEY = 'nexus-a11y-dismissed';
+// Bumped to v2 to invalidate any pre-existing dismiss flags from
+// testing the drag-to-trash interaction. The widget shows again on
+// next load; future dismisses write to the v2 key, the old key is
+// inert and can be removed later.
+const DISMISS_KEY = 'nexus-a11y-dismissed-v2';
 const BTN_SIZE = 52;
+// Drag-to-dismiss trash target dimensions / placement. Sized to fit
+// *underneath* the FAB visually — when the user drags the widget over
+// it, the FAB hides the target almost entirely, reinforcing the
+// "absorbed into" feeling.
+const TRASH_SIZE = 56;
+const TRASH_BOTTOM = 80;            // distance from bottom edge of viewport
+const TRASH_HIT_RADIUS = 60;        // how close the FAB has to get to "snap in"
 
 // ─── CSS class application ────────────────────────────────────────────────────
 
@@ -175,6 +186,11 @@ function ToggleRow({ icon, label, checked, onChange, id }: ToggleRowProps) {
 
 export default function AccessibilityWidget() {
   const [widgetState, setWidgetState] = useState<'idle' | 'showX' | 'panelOpen'>('idle');
+  // Drag-to-dismiss state. `dragging` shows the trash target at the
+  // bottom-center; `overTrash` highlights it red when the FAB hovers
+  // within hit range. Both reset on pointer-up.
+  const [dragging, setDragging] = useState(false);
+  const [overTrash, setOverTrash] = useState(false);
   const [dismissed, setDismissed] = useState(() => {
     try {
       return localStorage.getItem(DISMISS_KEY) === 'true';
@@ -285,19 +301,46 @@ export default function AccessibilityWidget() {
     const dy = e.clientY - dragRef.current.startY;
     if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
       dragRef.current.moved = true;
+      // First real movement → reveal the trash target at bottom-center.
+      setDragging(true);
       const newX = Math.max(0, Math.min(window.innerWidth - BTN_SIZE, dragRef.current.origX + dx));
       const newY = Math.max(
         0,
         Math.min(window.innerHeight - BTN_SIZE, dragRef.current.origY + dy),
       );
       setPos({ x: newX, y: newY });
+
+      // Hit-test against the trash target. FAB center vs. trash center.
+      const fabCenterX = newX + BTN_SIZE / 2;
+      const fabCenterY = newY + BTN_SIZE / 2;
+      const trashCenterX = window.innerWidth / 2;
+      const trashCenterY = window.innerHeight - TRASH_BOTTOM - TRASH_SIZE / 2;
+      const distance = Math.hypot(fabCenterX - trashCenterX, fabCenterY - trashCenterY);
+      setOverTrash(distance < TRASH_HIT_RADIUS);
     }
   }, []);
 
   const handlePointerUp = useCallback(() => {
     if (!dragRef.current.active) return;
     dragRef.current.active = false;
-    // If not dragged, treat as a click — advance state machine
+    const wasOverTrash = overTrash;
+    setDragging(false);
+    setOverTrash(false);
+
+    // Dropped over the trash → dismiss the widget. Drag wins over the
+    // click-to-open flow so the user doesn't see the panel open on the
+    // way to deleting the widget.
+    if (wasOverTrash) {
+      setDismissed(true);
+      try {
+        localStorage.setItem(DISMISS_KEY, 'true');
+      } catch {
+        // ignore
+      }
+      return;
+    }
+
+    // Not a drag → original click flow.
     if (!dragRef.current.moved) {
       setWidgetState((prev) => {
         if (prev === 'idle') return 'showX';
@@ -305,7 +348,7 @@ export default function AccessibilityWidget() {
         return 'idle'; // panelOpen → idle
       });
     }
-  }, []);
+  }, [overTrash]);
 
   const handleDismiss = useCallback(() => {
     setDismissed(true);
@@ -331,6 +374,45 @@ export default function AccessibilityWidget() {
   if (dismissed) return null;
 
   return (
+    <>
+    {/* Trash sits OUTSIDE the widget container so it's not trapped in
+        the widget's stacking context. With the widget at z 9999 and the
+        trash at z 9990, the dragged FAB cleanly sits on top of the
+        target — "absorbing into it" reads correctly. */}
+    {dragging && (
+      <div
+        aria-hidden="true"
+        style={{
+          position: 'fixed',
+          bottom: TRASH_BOTTOM,
+          left: '50%',
+          width: TRASH_SIZE,
+          height: TRASH_SIZE,
+          borderRadius: '50%',
+          background: overTrash
+            ? 'rgba(15, 23, 42, 0.92)'
+            : 'rgba(15, 23, 42, 0.7)',
+          backdropFilter: 'blur(14px)',
+          WebkitBackdropFilter: 'blur(14px)',
+          border: `1px solid ${overTrash ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.12)'}`,
+          boxShadow: overTrash
+            ? '0 10px 28px rgba(0, 0, 0, 0.28)'
+            : '0 6px 18px rgba(0, 0, 0, 0.18)',
+          color: 'rgba(255,255,255,0.92)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9990,
+          pointerEvents: 'none',
+          transformOrigin: 'center',
+          transform: `translateX(-50%) scale(${overTrash ? 1.08 : 1})`,
+          transition: 'transform 0.18s ease-out, background 0.18s, border 0.18s, box-shadow 0.18s',
+          animation: 'a11y-trash-in 0.2s ease-out',
+        }}
+      >
+        <X size={20} strokeWidth={2} />
+      </div>
+    )}
     <div
       data-a11y-widget="true"
       style={{
@@ -720,11 +802,16 @@ export default function AccessibilityWidget() {
           from { opacity: 0; transform: translateY(8px); }
           to   { opacity: 1; transform: translateY(0); }
         }
+        @keyframes a11y-trash-in {
+          from { opacity: 0; transform: translateX(-50%) scale(0.6); }
+          to   { opacity: 1; transform: translateX(-50%) scale(1); }
+        }
         [data-a11y-widget="true"] button:focus-visible {
           outline: 2px solid #00d4ff !important;
           outline-offset: 2px !important;
         }
       `}</style>
     </div>
+    </>
   );
 }

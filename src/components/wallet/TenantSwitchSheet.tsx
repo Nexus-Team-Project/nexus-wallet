@@ -15,7 +15,7 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { toast } from 'sonner';
+import { appToast, tenantSender } from '../../lib/appToast';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useLanguage } from '../../i18n/LanguageContext';
@@ -61,6 +61,10 @@ export default function TenantSwitchSheet({ onClose }: TenantSwitchSheetProps) {
   const { isAuthenticated, requireAuth } = useAuthGate();
   const dragY = useRef(0);
   const [showJoin, setShowJoin] = useState(false);
+  // True while a join request is in flight — the picker shows a "Joining…"
+  // spinner and stays open until the result, so the ~1-2s round-trip isn't a
+  // blank wait before the result toast appears.
+  const [joining, setJoining] = useState(false);
 
   // Member-facing: only tenants where the user is a 'member' are switchable
   // views (privileged/admin tenants belong in the dashboard).
@@ -73,6 +77,14 @@ export default function TenantSwitchSheet({ onClose }: TenantSwitchSheetProps) {
   // member of (those are in the switchable list).
   const [pendingOrgs, setPendingOrgs] = useState<Array<{ tenantId: string; tenantName: string }>>([]);
   useEffect(() => {
+    // Pending join requests are a per-user, authenticated lookup. Anonymous
+    // visitors have none and the endpoint requires a token, so skip the call
+    // entirely when not signed in — otherwise it 401s with "Missing or invalid
+    // authorization header" on every open of the switcher.
+    if (!isAuthenticated) {
+      setPendingOrgs([]);
+      return;
+    }
     let active = true;
     listMyJoinRequests()
       .then((reqs) => {
@@ -87,7 +99,7 @@ export default function TenantSwitchSheet({ onClose }: TenantSwitchSheetProps) {
       .catch((e) => console.error('[wallet] load pending join requests failed:', e));
     return () => { active = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [isAuthenticated]);
 
   // Options: each org the user belongs to, plus the Nexus catalog (tenantId null).
   const options: Array<{ key: string; label: string; tenantId: string | null; logoUrl?: string }> = [
@@ -139,19 +151,31 @@ export default function TenantSwitchSheet({ onClose }: TenantSwitchSheetProps) {
    */
   const submitJoin = async (ids: string[]): Promise<void> => {
     if (ids.length === 0) return;
-    // Close the whole sheet immediately so it doesn't flash back to the switch
-    // list between the picker closing and the result. The join runs after.
-    onClose();
+    // Keep the picker open with a "Joining…" spinner during the request so the
+    // user gets immediate feedback; the sheet closes + the result toast fires
+    // when it resolves (the finally block). The spinner overlay means there is
+    // no flash back to the switch list.
+    setJoining(true);
     try {
       const result = await createJoinRequests(ids);
 
       if (result.autoAccepted.length > 0) {
         const tid = result.autoAccepted[0]!;
         // reload() returns the refreshed /api/me, which now includes the joined
-        // org - read the name from there (the closure `me` is still stale).
+        // org - read the name + real logo from there (the closure `me` is stale).
         const updated = await reload();
-        const name = (updated?.memberships ?? []).find((m) => m.tenantId === tid)?.tenantName;
-        toast.success(isHe ? `הצטרפת ל${name ?? 'הארגון'}!` : `You joined ${name ?? 'the organization'}!`);
+        const joinedOrg = (updated?.memberships ?? []).find((m) => m.tenantId === tid);
+        const orgLabel = joinedOrg?.tenantName ?? (isHe ? 'הארגון' : 'the organization');
+        // Branded toast: the tenant's real logo as the avatar, deep-links into
+        // the org's catalog when tapped.
+        appToast.success(
+          isHe ? `הצטרפת ל${orgLabel}!` : `You joined ${orgLabel}!`,
+          {
+            category: 'social',
+            sender: tenantSender(tid, orgLabel, joinedOrg?.logoUrl),
+            deepLink: `/store?tenant=${encodeURIComponent(tid)}`,
+          },
+        );
         // Switch into the joined org and make it the default landing context.
         void setDefaultTenant(tid).catch((e) =>
           console.error('[wallet-switch] persist default tenant failed (non-fatal):', e),
@@ -166,25 +190,32 @@ export default function TenantSwitchSheet({ onClose }: TenantSwitchSheetProps) {
       const pending =
         result.created.length > 0 || result.skipped.some((s) => s.reason === 'already_pending');
       if (pending) {
-        toast.info(
+        appToast.info(
           isHe
             ? 'הבקשה נשלחה. הארגון יבחן אותה ותקבלו עדכון בהמשך.'
             : "Request sent. The organization will review it and you'll be notified.",
+          { category: 'social' },
         );
         return;
       }
 
-      toast.error(isHe ? 'שליחת הבקשה נכשלה' : 'Could not send request');
+      appToast.error(isHe ? 'שליחת הבקשה נכשלה' : 'Could not send request');
     } catch (e) {
       console.error('[wallet-join] switch-sheet join failed:', e);
-      toast.error(isHe ? 'שליחת הבקשה נכשלה' : 'Could not send request');
+      appToast.error(isHe ? 'שליחת הבקשה נכשלה' : 'Could not send request');
+    } finally {
+      // Resolve the loading state and close both the picker and the switch
+      // sheet — the result toast (success / pending / error) is already queued.
+      setJoining(false);
+      setShowJoin(false);
+      onClose();
     }
   };
 
   // The join picker replaces the switch sheet while open (one sheet at a time).
   if (showJoin) {
     return createPortal(
-      <TenantDiscoverySheet onClose={() => setShowJoin(false)} onSubmit={(ids) => { void submitJoin(ids); }} />,
+      <TenantDiscoverySheet onClose={() => setShowJoin(false)} onSubmit={(ids) => { void submitJoin(ids); }} submitting={joining} />,
       document.body,
     );
   }

@@ -65,7 +65,7 @@ export default function RegisterPreferencesPage() {
   const selectedValue = answers[currentQuestion.id];
 
   return (
-    <div className="fixed inset-0 z-[100] bg-black flex flex-col" dir={isHe ? 'rtl' : 'ltr'}>
+    <div className="fixed inset-0 max-w-md mx-auto z-[100] bg-black flex flex-col" dir={isHe ? 'rtl' : 'ltr'}>
 
       {/* ── Progress bars (one per question) ── */}
       <div className="flex-shrink-0 flex gap-1 px-3 pt-3 pb-2">
