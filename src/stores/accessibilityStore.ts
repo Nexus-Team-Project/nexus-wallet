@@ -45,8 +45,11 @@ export const useAccessibilityStore = create<AccessibilityState>((set) => ({
     set({ enabled: true, cardDismissed: true });
   },
   disableWidget: () => {
+    // Turning the widget off also clears the card-dismissed flag, so the
+    // in-feed prompt card returns and the user can re-enable it later.
     write(ENABLED_KEY, false);
-    set({ enabled: false });
+    write(CARD_DISMISSED_KEY, false);
+    set({ enabled: false, cardDismissed: false });
   },
   dismissCard: () => {
     write(CARD_DISMISSED_KEY, true);
