@@ -31,15 +31,29 @@ function MailboxIllustration() {
   );
 }
 
-export default function NotificationEmptyState() {
+interface NotificationEmptyStateProps {
+  /** Heading override (defaults to the "no notifications yet" copy). */
+  title?: string;
+  /** Body override (defaults to the "no notifications yet" copy). */
+  body?: string;
+}
+
+/**
+ * Centered mailbox illustration + message. Used for the empty list and,
+ * with overridden copy, for the "coming soon" state while notifications are
+ * not yet backed by a real feed.
+ * @param title optional heading override.
+ * @param body optional body override.
+ */
+export default function NotificationEmptyState({ title, body }: NotificationEmptyStateProps) {
   const { t } = useLanguage();
   return (
     <div className="flex-1 flex flex-col items-center justify-center px-10 text-center py-16">
       <div className="mb-8">
         <MailboxIllustration />
       </div>
-      <h2 className="text-[22px] font-bold text-text-primary mb-2">{t.notifications.emptyTitle}</h2>
-      <p className="text-[15px] text-text-secondary leading-snug">{t.notifications.emptyBody}</p>
+      <h2 className="text-[22px] font-bold text-text-primary mb-2">{title ?? t.notifications.emptyTitle}</h2>
+      <p className="text-[15px] text-text-secondary leading-snug">{body ?? t.notifications.emptyBody}</p>
     </div>
   );
 }

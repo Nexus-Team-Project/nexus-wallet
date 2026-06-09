@@ -1,15 +1,14 @@
 import { useLanguage } from '../../i18n/LanguageContext';
 
 interface PushPromptCardProps {
-  onEnable: () => void;
   onDismiss: () => void;
 }
 
 // Visual twin of the home page's "Add to Home Screen" card —
 // rounded-[2rem] white card with decorative blurred glows behind the
-// icon and a two-button action row. CTA differs (enable push instead of
-// install app); icon is a bell instead of the app logo.
-export default function PushPromptCard({ onEnable, onDismiss }: PushPromptCardProps) {
+// icon and a two-button action row. Push notifications are not live yet, so
+// both action buttons read "Coming soon" and simply dismiss the card.
+export default function PushPromptCard({ onDismiss }: PushPromptCardProps) {
   const { t } = useLanguage();
 
   return (
@@ -50,19 +49,20 @@ export default function PushPromptCard({ onEnable, onDismiss }: PushPromptCardPr
         </div>
       </div>
 
-      {/* Action buttons */}
+      {/* Action buttons — push is not live yet, so both read "Coming soon"
+          and just dismiss the card. */}
       <div className="flex gap-3">
         <button
           onClick={onDismiss}
           className="flex-1 py-3.5 bg-[#e5e7eb] text-slate-900 font-semibold rounded-full text-base active:scale-95 transition-transform"
         >
-          {t.notifications.pushPromptDismiss}
+          {t.notifications.comingSoon}
         </button>
         <button
-          onClick={onEnable}
+          onClick={onDismiss}
           className="flex-1 py-3.5 bg-[#0a0a0b] text-white font-semibold rounded-full text-base active:scale-95 transition-transform"
         >
-          {t.notifications.pushPromptEnable}
+          {t.notifications.comingSoon}
         </button>
       </div>
     </div>
