@@ -21,6 +21,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { useAuthGate } from '../../hooks/useAuthGate';
 import { createJoinRequests, listMyJoinRequests, setDefaultTenant } from '../../services/walletTenants.service';
+import { useActiveContextStore } from '../../stores/activeContextStore';
 import TenantDiscoverySheet from './TenantDiscoverySheet';
 
 interface TenantSwitchSheetProps {
@@ -122,6 +123,11 @@ export default function TenantSwitchSheet({ onClose }: TenantSwitchSheetProps) {
       next.set('ecosystem', '1');
       next.delete('tenant');
     }
+    // Record the pick as the durable active context so it survives back/forward
+    // navigation (the LanguageRouter reconciles the URL to it on POP).
+    useActiveContextStore.getState().setContext(
+      tenantId ? { kind: 'tenant', tenantId } : { kind: 'ecosystem' },
+    );
     // Persist as the default landing context. Fire-and-forget: a failure here
     // must not block the view switch (the URL change is the user-visible part).
     void setDefaultTenant(tenantId).catch((e) =>
@@ -177,6 +183,7 @@ export default function TenantSwitchSheet({ onClose }: TenantSwitchSheetProps) {
           },
         );
         // Switch into the joined org and make it the default landing context.
+        useActiveContextStore.getState().setContext({ kind: 'tenant', tenantId: tid });
         void setDefaultTenant(tid).catch((e) =>
           console.error('[wallet-switch] persist default tenant failed (non-fatal):', e),
         );

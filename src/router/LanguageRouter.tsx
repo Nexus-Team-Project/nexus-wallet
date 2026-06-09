@@ -1,9 +1,10 @@
-import { useEffect } from 'react';
-import { Outlet, useNavigate, useSearchParams } from 'react-router-dom';
+import { useEffect, useRef } from 'react';
+import { Outlet, useNavigate, useSearchParams, useNavigationType } from 'react-router-dom';
 import { LanguageProvider } from '../i18n/LanguageContext';
 import LoginSheet from '../components/auth/LoginSheet';
 import { useAuth } from '../contexts/AuthContext';
 import { useTenantStore } from '../stores/tenantStore';
+import { useActiveContextStore, sameContext, type ActiveContext } from '../stores/activeContextStore';
 import { lookupTenant } from '../mock/handlers/tenant.handler';
 import { fetchPublicTenant } from '../services/publicTenant.service';
 import type { TenantConfig } from '../types/tenant.types';
@@ -55,8 +56,13 @@ function darkenColor(hex: string, percent: number): string {
 export default function LanguageRouter() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const navigationType = useNavigationType();
   const { me, loading } = useAuth();
   const { tenantId, config, setTenant, clearTenant } = useTenantStore();
+  // Tracks the first effect run so the initial load (always reported as POP)
+  // adopts the URL context (deep-link) instead of overriding it with the
+  // previously-persisted pick.
+  const firstContextRunRef = useRef(true);
 
   // Public-by-default: anonymous visitors may load any route. There is no
   // global redirect here anymore - the route tree (ProtectedRoute on the
@@ -65,6 +71,41 @@ export default function LanguageRouter() {
   useEffect(() => {
     const tenantSlug = searchParams.get('tenant');
     const ecosystemMode = searchParams.get('ecosystem') === '1';
+
+    // ── Active-context reconciliation (fixes tenant lost on back-nav) ─────────
+    // The URL is the per-page context, but back/forward (POP) restores a stale
+    // ?tenant from an old history entry. The last EXPLICITLY-picked context is
+    // the durable source of truth: on POP it wins (rewrite the URL to it); on
+    // explicit navigation (PUSH/REPLACE) the URL wins and updates the store.
+    const urlContext: ActiveContext | null = ecosystemMode
+      ? { kind: 'ecosystem' }
+      : tenantSlug
+        ? { kind: 'tenant', tenantId: tenantSlug }
+        : null;
+    const { context: pickedContext, setContext } = useActiveContextStore.getState();
+
+    if (firstContextRunRef.current) {
+      // Initial load: adopt the URL (a deep-link/shared link wins on entry).
+      firstContextRunRef.current = false;
+      if (urlContext) setContext(urlContext);
+    } else if (navigationType === 'POP') {
+      // Back/forward: the last pick wins. Rewrite the URL to it and re-run.
+      if (pickedContext && !sameContext(pickedContext, urlContext)) {
+        const next = new URLSearchParams(searchParams);
+        if (pickedContext.kind === 'tenant') {
+          next.set('tenant', pickedContext.tenantId);
+          next.delete('ecosystem');
+        } else {
+          next.set('ecosystem', '1');
+          next.delete('tenant');
+        }
+        navigate({ search: next.toString() }, { replace: true });
+        return;
+      }
+    } else if (urlContext) {
+      // PUSH / REPLACE = explicit navigation or switch: the URL is the intent.
+      setContext(urlContext);
+    }
 
     /** Drop any tenant branding and remove a dead ?tenant= from the URL so the
      *  app falls back to the Nexus (ecosystem) catalog and the bad link does
@@ -154,7 +195,7 @@ export default function LanguageRouter() {
     // `me` is included so the tenant re-resolves once /api/me loads (e.g. a
     // refresh on a ?tenant=X member view) and brands from the membership.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams, setTenant, clearTenant, navigate, me, loading]);
+  }, [searchParams, setTenant, clearTenant, navigate, me, loading, navigationType]);
 
   // Inject tenant CSS variable overrides
   const tenantStyle = config
