@@ -59,6 +59,8 @@ export const registrationTranslations = {
     verifyPhoneIsraelOnly: 'We currently support Israeli numbers only.',
     verifyPhoneInUse: 'This phone number is already registered.',
     verifyPhoneSmsUnavailable: 'SMS service is currently unavailable.',
+    verifyPhoneSkip: "Skip for now",
+    verifyPhoneSkipNote: 'You can always add and edit your phone number later in your profile.',
     // VerifyEmail slide
     verifyEmailTitle: 'Add your email',
     verifyEmailSubtitle: "We'll use it for deal alerts and account recovery",
@@ -210,6 +212,8 @@ export const registrationTranslations = {
     verifyPhoneIsraelOnly: 'כרגע אנו תומכים במספרים ישראליים בלבד.',
     verifyPhoneInUse: 'מספר הטלפון כבר רשום במערכת.',
     verifyPhoneSmsUnavailable: 'שירות ה-SMS אינו זמין כעת.',
+    verifyPhoneSkip: 'דלג בינתיים',
+    verifyPhoneSkipNote: 'תמיד אפשר להוסיף ולערוך את מספר הטלפון מאוחר יותר בפרופיל.',
     // VerifyEmail slide
     verifyEmailTitle: 'הוסף כתובת אימייל',
     verifyEmailSubtitle: 'נשתמש בה להתראות על מבצעים ולשחזור חשבון',
