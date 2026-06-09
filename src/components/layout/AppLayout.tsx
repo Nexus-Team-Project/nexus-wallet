@@ -34,7 +34,9 @@ export default function AppLayout() {
   // the "core surfaces" family rather than a flat sub-page.
   const isWalletGradient = /^\/[a-z]{2}\/wallet\/?$/.test(pathname);
   const isWallpaper = /^\/[a-z]{2}\/wallpaper\/?$/.test(pathname);
-  const showHomeGradient = isHome || isNotifications || isProfile || isWalletGradient || isWallpaper;
+  // The store front door shares the home page's decorative gradient backdrop so
+  // it reads as the same primary surface (not a flat white sub-page).
+  const showHomeGradient = isHome || isStore || isNotifications || isProfile || isWalletGradient || isWallpaper;
   // Wallet page renders its own TopBar inline (below the dark strip),
   // so the global overlay TopBar + chat FABs are suppressed here.
   const isWallet = /^\/[a-z]{2}\/wallet\/?$/.test(pathname);
@@ -84,8 +86,20 @@ export default function AppLayout() {
   const showWallpaperBackdrop = !isFullScreenForm && !!wallpaperBg;
   const showBackdrop = showWallpaperBackdrop || showHomeGradient;
 
+  // Disable the browser's automatic scroll restoration so every SPA navigation
+  // starts at the very top (our pathname effect below does the scroll-to-top).
+  // Without this the browser can restore a prior offset after we reset it,
+  // leaving the sticky header overlapping the first content on open.
   useEffect(() => {
-    if (!isHome) {
+    if ('scrollRestoration' in history) {
+      history.scrollRestoration = 'manual';
+    }
+  }, []);
+
+  useEffect(() => {
+    // Home + store both collapse their sticky header on scroll-down and
+    // restore it on scroll-up; every other route keeps a static header.
+    if (!isHome && !isStore) {
       setCollapsed(false);
       return;
     }
@@ -94,7 +108,7 @@ export default function AppLayout() {
     };
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
-  }, [isHome]);
+  }, [isHome, isStore]);
 
   // Reset on page change
   useEffect(() => {
@@ -169,11 +183,19 @@ export default function AppLayout() {
             </div>
           </div>
         ) : isStore ? (
-          /* Store front door: primary surface. Sticky TopBar (avatar / Log in /
-             switcher) sits above StorePage's own StoreHeader - app chrome plus
-             page content, like home's TopBar + CategoryRow. No back button. */
-          <div className="sticky top-0 z-50">
-            <TopBar collapsed={false} />
+          /* Store front door: primary surface — sticky header that collapses on
+             scroll-down (semi-transparent, blurred, compact) and restores on
+             scroll-up, exactly like home — same avatar, tenant switcher, and
+             chat/bell actions. */
+          <div
+            className={`sticky top-0 z-50 transition-colors duration-300 ${
+              collapsed ? 'bg-bg-light/85 backdrop-blur-md shadow-sm' : ''
+            }`}
+          >
+            <TopBar collapsed={collapsed} />
+            <div className="overflow-hidden">
+              <CategoryRow collapsed={collapsed} loading={vouchersLoading} />
+            </div>
           </div>
         ) : isSearch || isEditProfile || isWallet || isFullScreenForm || isBusinessStore || isReferral || isProductLifted || isBusinessCheckout ? (
           /* Pages that render their own header inline (or none): search +
