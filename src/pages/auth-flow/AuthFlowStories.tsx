@@ -13,11 +13,9 @@ import { useRegistrationStore } from '../../stores/registrationStore';
 import { getFirstOnboardingSlide, getOnboardingTotalWithComplete } from '../../utils/onboardingNavigation';
 import { useTenantStore } from '../../stores/tenantStore';
 import { useAuth } from '../../contexts/AuthContext';
-import { useLanguage } from '../../i18n/LanguageContext';
 import { fetchPublicTenant } from '../../services/publicTenant.service';
-import { saveWalletProfile } from '../../services/walletProfile.service';
 import { setDefaultTenant } from '../../services/walletTenants.service';
-import { setAffiliation, getAffiliation, finishWalletRegistration, resetRegistrationFinish } from '../../lib/registrationAffiliation';
+import { setAffiliation, getAffiliation, resetRegistrationFinish } from '../../lib/registrationAffiliation';
 import { resolveTenantColor } from '../../lib/tenantColor';
 import { useImagePreloader } from '../../hooks/useImagePreloader';
 import { SmartInsightsCarousel } from '../InsightsPage';
@@ -63,12 +61,12 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
   const { lang = 'he' } = useParams();
   const navigate = useNavigate();
   const [sp] = useSearchParams();
-  const { t } = useLanguage();
-  const { me, reload } = useAuth();
+  const { me } = useAuth();
   const tenantConfig = useTenantStore((s) => s.config);
   const clearTenant  = useTenantStore((s) => s.clearTenant);
   const orgMember    = useRegistrationStore((s) => s.orgMember);
   const registrationPath  = useRegistrationStore((s) => s.registrationPath);
+  const pendingEmailSignup = useRegistrationStore((s) => s.pendingEmailSignup);
 
   // ── Image preloader ───────────────────────────────────────────────────────
   const { loaded: imagesLoaded, failed: failedImages } = useImagePreloader(FLOW_IMAGES);
@@ -148,9 +146,6 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
   //    questions with that org as the target (a member org lands directly; a new
   //    org sends a join request when the questions start).
   const [showJoin, setShowJoin] = useState(false);
-  // Shows a loading overlay while a join request resolves (network ~1s) so the
-  // user gets feedback between proceeding and the questions appearing.
-  const [joining, setJoining] = useState(false);
   const { memberOrgs } = useStoryMemberOrgs();
 
   // ── The org the user will affiliate with ─────────────────────────────────
@@ -315,12 +310,21 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
     setAffiliation({ kind: 'join', tenantId: target.tenantId, orgName: target.orgName ?? undefined });
   };
 
+  /** Pre-email signup: record the org intent, then collect email (the session is
+   *  minted on EmailOtpPage). The questions run after email-OTP, not here. */
+  const proceedToEmail = async (target: Target): Promise<void> => {
+    await commitTarget(target);
+    const tq = target?.tenantId ? `?tenant=${encodeURIComponent(target.tenantId)}` : '';
+    navigate(`/${lang}/auth/email-required${tq}`);
+  };
+
   /**
    * Leave the promos for the onboarding questions. The affiliation is only
    * RECORDED here; the join request (if any) is sent at registration complete.
    * @param target the org to affiliate with (defaults to the effective target).
    */
   const proceedToQuestions = async (target: Target): Promise<void> => {
+    if (pendingEmailSignup) { await proceedToEmail(target); return; }
     await commitTarget(target);
     const firstSlide = getFirstOnboardingSlide(useRegistrationStore.getState());
     // Carry the org in the URL through the questions so a tab/browser restore
@@ -375,35 +379,21 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
   };
 
   /**
-   * Close (X) the stories. Phone is mandatory for Google sign-ups, so if it is
-   * still required, closing routes the user INTO the phone screen rather than
-   * completing — the phone cannot be bypassed. Otherwise skipping counts as
-   * "onboarded" (we stamp completedAt): commit the affiliation, send the join at
-   * completion, route + fire the single welcome/pending toast.
+   * Close (X) the stories.
+   * - Pre-email signup: X advances to the email step (account creation is required,
+   *   so closing cannot skip onboarding).
+   * - Logged-in (known phone / Google): X advances to the questions — it does NOT
+   *   skip onboarding. The only "skip" lives on the question screens themselves.
    */
   const handleClose = async (): Promise<void> => {
     const regState = useRegistrationStore.getState();
-    const phoneStillNeeded =
-      regState.missingFields.includes('phone') && !regState.phone && !me?.phone;
-    if (phoneStillNeeded) {
-      await commitTarget(effectiveTarget);
-      // Keep the org in the URL so a tab/browser restore on the phone screen
-      // resumes on the same org rather than the Nexus catalog.
-      const tq = effectiveTarget?.tenantId ? `?tenant=${encodeURIComponent(effectiveTarget.tenantId)}` : '';
-      navigate(`/${lang}/register/onboarding/${getFirstOnboardingSlide(regState)}${tq}`);
-      return;
-    }
-
-    setJoining(true);
-    try {
-      await commitTarget(effectiveTarget);
-      await saveWalletProfile({ complete: true });
-    } catch (e) {
-      console.error('[wallet] finalize on close failed (non-fatal):', e);
-    }
-    useRegistrationStore.getState().completeRegistration();
-    await reload();
-    await finishWalletRegistration({ navigate, lang, t, reload });
+    // Pre-email signup: X advances to the email step (account creation is required).
+    if (pendingEmailSignup) { await proceedToEmail(effectiveTarget); return; }
+    // Logged-in (known phone / Google): X advances to the questions — it does NOT
+    // skip onboarding. The only "skip" lives on the question screens themselves.
+    await commitTarget(effectiveTarget);
+    const tq = effectiveTarget?.tenantId ? `?tenant=${encodeURIComponent(effectiveTarget.tenantId)}` : '';
+    navigate(`/${lang}/register/onboarding/${getFirstOnboardingSlide(regState)}${tq}`);
   };
 
   // ── Progress bar segment computation ─────────────────────────────────────
@@ -541,13 +531,6 @@ export default function AuthFlowStories({ flowType }: { flowType: FlowType }) {
             void proceedToQuestions({ tenantId: id, orgName: org?.tenantName ?? null, isMember: true });
           }}
         />
-      )}
-
-      {/* Loading overlay while a join request resolves (network ~1s). */}
-      {joining && (
-        <div className="absolute inset-0 z-[300] flex items-center justify-center bg-black/55 backdrop-blur-sm">
-          <div className="h-10 w-10 rounded-full border-[3px] border-white/30 border-t-white animate-spin" />
-        </div>
       )}
     </div>
   );
