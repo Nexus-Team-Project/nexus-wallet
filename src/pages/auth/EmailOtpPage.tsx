@@ -12,6 +12,8 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { nextPathAfterLogin } from '../../lib/postLogin';
 import { useCountdown, formatMmSs } from '../../hooks/useCountdown';
+import { useRegistrationStore } from '../../stores/registrationStore';
+import { getFirstOnboardingSlide } from '../../utils/onboardingNavigation';
 
 export default function EmailOtpPage() {
   const navigate = useNavigate();
@@ -66,6 +68,18 @@ export default function EmailOtpPage() {
       const me = await onLoginSucceeded(r.accessToken);
       // ?tenant=X drives org-aware routing; ?ecosystem=1 (or absent) = no tenant.
       const urlTenantId = params.get('ecosystem') === '1' ? null : params.get('tenant');
+      // Pre-email signup (the promo stories already ran before email): go straight to
+      // the onboarding questions, not back to the stories. The phone is already
+      // verified on the identity, so getFirstOnboardingSlide skips the phone question.
+      const reg = useRegistrationStore.getState();
+      if (me && reg.pendingEmailSignup) {
+        reg.setProfileData({ email });            // email known now → no verify-email slide
+        reg.setPendingEmailSignup(false);
+        const first = getFirstOnboardingSlide(useRegistrationStore.getState());
+        const tq = urlTenantId ? `?tenant=${encodeURIComponent(urlTenantId)}` : '';
+        navigate(`/${lang}/register/onboarding/${first}${tq}`);
+        return;
+      }
       if (me) {
         navigate(nextPathAfterLogin({ lang, urlTenantId, me }));
       } else {
