@@ -1,8 +1,6 @@
 import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate, useParams } from 'react-router-dom';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
 import { useLanguage } from '../i18n/LanguageContext';
 import { useNearbyDeals } from '../hooks/useNearbyDeals';
 import { useGeolocationStore } from '../stores/geolocationStore';
@@ -11,7 +9,23 @@ import { mockBusinesses } from '../mock/data/businesses.mock';
 import { mockBranches } from '../mock/data/branches.mock';
 import type { NearbyDeal } from '../types/branch.types';
 import type { Business } from '../types/search.types';
+import type { OfferPin, OfferCategory } from '../types/map';
 import { MicButton } from '../components/ui/MicButton';
+import OffersMap from '../components/map/OffersMap';
+
+// Map the page's voucher categories (7 buckets) into OffersMap's 5-bucket model
+const VOUCHER_TO_OFFER: Record<string, OfferCategory> = {
+  food: 'food',
+  shopping: 'retail',
+  entertainment: 'entertainment',
+  travel: 'entertainment',
+  tech: 'services',
+  education: 'services',
+  health: 'wellness',
+};
+function voucherToOfferCategory(cat: string): OfferCategory {
+  return VOUCHER_TO_OFFER[cat] ?? 'services';
+}
 
 // ── Category config ──
 
@@ -63,93 +77,16 @@ function isBranchOpen(branch: { openHour?: number; closeHour?: number }): boolea
   return true;
 }
 
-// ── Custom marker icons ──
+// (The Leaflet-specific helpers — userIcon, createDealIcon, FitBounds,
+//  inner MapControls, FlyToPoint — were removed. OffersMap (MapLibre)
+//  handles all of these now via props.)
 
-const userIcon = L.divIcon({
-  className: '',
-  html: `<div style="
-    width: 20px; height: 20px;
-    background: #3b82f6;
-    border: 3px solid white;
-    border-radius: 50%;
-    box-shadow: 0 2px 8px rgba(59,130,246,0.5);
-  "></div>`,
-  iconSize: [20, 20],
-  iconAnchor: [10, 10],
-});
+// ── Chips Bar: Filter icon + Open Now + Categories ──
+// One white container wrapping the whole row. Selected chip = solid blue
+// pill with a soft blue glow. Unselected chips = plain gray text only.
 
-function createDealIcon(emoji: string, color: string, isSelected: boolean) {
-  const size = isSelected ? 48 : 36;
-  const fontSize = isSelected ? 22 : 18;
-  const pulseRing = isSelected
-    ? `<div style="
-        position: absolute; inset: -6px;
-        border-radius: 50%;
-        border: 3px solid #635bff;
-        animation: marker-pulse 2s ease-out infinite;
-      "></div>`
-    : '';
-  return L.divIcon({
-    className: '',
-    html: `<div style="
-      position: relative;
-      width: ${size}px; height: ${size}px;
-      background: ${isSelected ? '#ffffff' : color};
-      border: ${isSelected ? '3px solid #635bff' : '2px solid white'};
-      border-radius: 50%;
-      box-shadow: ${isSelected ? '0 4px 16px rgba(99,91,255,0.4)' : '0 2px 8px rgba(0,0,0,0.2)'};
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: ${fontSize}px;
-      transition: all 0.2s ease;
-    ">${pulseRing}${emoji}</div>`,
-    iconSize: [size, size],
-    iconAnchor: [size / 2, size],
-    popupAnchor: [0, -size],
-  });
-}
-
-// ── Fit map bounds to markers ──
-
-function FitBounds({ deals, userCoords }: { deals: NearbyDeal[]; userCoords: { lat: number; lng: number } }) {
-  const map = useMap();
-  useEffect(() => {
-    if (deals.length === 0) return;
-    const points: [number, number][] = [
-      [userCoords.lat, userCoords.lng],
-      ...deals.map((d) => [d.branch.lat, d.branch.lng] as [number, number]),
-    ];
-    const bounds = L.latLngBounds(points);
-    map.fitBounds(bounds, { padding: [60, 60], maxZoom: 15 });
-  }, [map, deals, userCoords]);
-  return null;
-}
-
-// ── Map Controls (zoom + my location) ──
-
-function MapControls({ isHe, userCoords }: { isHe: boolean; userCoords: { lat: number; lng: number } | null }) {
-  const map = useMap();
-  return (
-    <div
-      className="absolute z-[1000] flex flex-col gap-2"
-      style={{ top: '50%', transform: 'translateY(-50%)', ...(isHe ? { left: '12px' } : { right: '12px' }) }}
-    >
-      <button onClick={() => map.zoomIn()} className="w-10 h-10 rounded-full bg-white shadow-md flex items-center justify-center active:scale-90 transition-transform">
-        <span className="material-symbols-outlined text-text-primary" style={{ fontSize: '20px' }}>add</span>
-      </button>
-      <button onClick={() => map.zoomOut()} className="w-10 h-10 rounded-full bg-white shadow-md flex items-center justify-center active:scale-90 transition-transform">
-        <span className="material-symbols-outlined text-text-primary" style={{ fontSize: '20px' }}>remove</span>
-      </button>
-      <div className="h-1" />
-      <button onClick={() => userCoords && map.flyTo([userCoords.lat, userCoords.lng], 15, { duration: 0.8 })} className="w-10 h-10 rounded-full bg-white shadow-md flex items-center justify-center active:scale-90 transition-transform">
-        <span className="material-symbols-outlined text-primary" style={{ fontSize: '20px' }}>my_location</span>
-      </button>
-    </div>
-  );
-}
-
-// ── Chips Bar: Open Now + Filter + Categories ──
+const ACTIVE_PILL_GLOW = '0 4px 10px rgba(91, 140, 255, 0.4)';
+const CONTAINER_SHADOW = '0 4px 15px rgba(0, 0, 0, 0.05)';
 
 function ChipsBar({
   activeCategory, onSelectCategory, isHe,
@@ -159,68 +96,70 @@ function ChipsBar({
   isHe: boolean; openNowLabel: string;
   openOnly: boolean; onToggleOpen: () => void; onOpenFilter: () => void; activeFilterCount: number;
 }) {
+  const chipClass = (active: boolean) =>
+    `flex-none whitespace-nowrap text-sm transition-colors flex items-center gap-1.5 ${
+      active
+        ? 'bg-primary text-white px-5 py-2 rounded-xl font-semibold'
+        : 'text-text-muted font-medium px-1'
+    }`;
+  const chipStyle = (active: boolean) =>
+    active ? { boxShadow: ACTIVE_PILL_GLOW } : undefined;
+
   return (
-    <div className="flex overflow-x-auto hide-scrollbar gap-2 px-3 py-2 items-center">
-      {/* Open Now toggle */}
-      <button
-        onClick={onToggleOpen}
-        className={`flex-none px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 flex items-center gap-1.5 ${
-          openOnly
-            ? 'bg-emerald-500 text-white shadow-sm'
-            : 'bg-white/90 backdrop-blur-sm text-text-secondary border border-border/50'
-        }`}
+    <div className="px-3 py-2">
+      <div
+        className="bg-white/95 backdrop-blur-sm rounded-2xl p-2 flex items-center gap-2"
+        style={{ boxShadow: CONTAINER_SHADOW }}
       >
-        <span className={`material-symbols-outlined ${openOnly ? 'text-white' : 'text-emerald-500'}`} style={{ fontSize: '14px' }}>schedule</span>
-        {openNowLabel}
-      </button>
+        {/* Filter icon — circle button at start */}
+        <button
+          onClick={onOpenFilter}
+          className="flex-none w-8 h-8 rounded-full bg-surface flex items-center justify-center relative shrink-0"
+        >
+          <span className="material-symbols-outlined text-text-secondary" style={{ fontSize: '16px' }}>tune</span>
+          {activeFilterCount > 0 && (
+            <span className="absolute -top-1 -right-1 rtl:-right-auto rtl:-left-1 min-w-[16px] h-[16px] bg-primary text-white rounded-full flex items-center justify-center text-[10px] font-bold px-1">
+              {activeFilterCount}
+            </span>
+          )}
+        </button>
 
-      {/* Filter button — circle icon only */}
-      <button
-        onClick={onOpenFilter}
-        className={`flex-none w-8 h-8 rounded-full transition-all duration-200 flex items-center justify-center relative ${
-          activeFilterCount > 0
-            ? 'bg-primary text-white shadow-sm'
-            : 'bg-white/90 backdrop-blur-sm text-text-secondary border border-border/50'
-        }`}
-      >
-        <span className={`material-symbols-outlined ${activeFilterCount > 0 ? 'text-white' : 'text-text-secondary'}`} style={{ fontSize: '16px' }}>tune</span>
-        {activeFilterCount > 0 && (
-          <span className="absolute -top-1.5 -right-1.5 rtl:-right-auto rtl:-left-1.5 min-w-[18px] h-[18px] bg-white text-primary rounded-full flex items-center justify-center text-[10px] font-bold px-1">
-            {activeFilterCount}
-          </span>
-        )}
-      </button>
-
-      {ALL_CATEGORIES.map((cat) => {
-        const cfg = categoryConfig[cat];
-        const label = categoryLabels[cat];
-        const isActive = activeCategory === cat;
-        return (
+        {/* Scrollable items: Open Now + Categories */}
+        <div className="flex-1 flex items-center overflow-x-auto hide-scrollbar gap-6 px-1 min-w-0">
           <button
-            key={cat}
-            onClick={() => onSelectCategory(isActive ? null : cat)}
-            className={`flex-none px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 flex items-center gap-1.5 ${
-              isActive ? 'bg-primary text-white shadow-sm' : 'bg-white/90 backdrop-blur-sm text-text-secondary border border-border/50'
-            }`}
+            onClick={onToggleOpen}
+            className={chipClass(openOnly)}
+            style={chipStyle(openOnly)}
           >
-            <span className="text-sm">{cfg.emoji}</span>
-            {isHe ? label.he : label.en}
+            {openNowLabel}
           </button>
-        );
-      })}
+          {ALL_CATEGORIES.map((cat) => {
+            const label = categoryLabels[cat];
+            const cfg = categoryConfig[cat];
+            const isActive = activeCategory === cat;
+            return (
+              <button
+                key={cat}
+                onClick={() => onSelectCategory(isActive ? null : cat)}
+                className={chipClass(isActive)}
+                style={chipStyle(isActive)}
+              >
+                <span className="text-base leading-none">{cfg?.emoji}</span>
+                <span>{isHe ? label.he : label.en}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }
 
-// ── FlyTo helper ──
-
-function FlyToPoint({ lat, lng, zoom }: { lat: number; lng: number; zoom: number }) {
-  const map = useMap();
-  useEffect(() => { map.flyTo([lat, lng], zoom, { duration: 0.6 }); }, [map, lat, lng, zoom]);
-  return null;
-}
+// (FlyToPoint Leaflet helper removed — OffersMap now handles flyTo via prop.)
 
 // ── Bottom Deal Card Strip ──
+// One card centered at a time (snap-center). Image is inset within a white
+// rounded card — the card's outer padding creates the "white frame" look.
 
 function DealCardStrip({
   deals, selectedIndex, onSelect, isHe, onNavigate,
@@ -241,37 +180,59 @@ function DealCardStrip({
   if (deals.length === 0) return null;
 
   return (
-    <div ref={scrollRef} className="flex overflow-x-auto hide-scrollbar gap-2.5 px-3 pb-3 snap-x snap-mandatory">
+    <div
+      ref={scrollRef}
+      className="flex overflow-x-auto hide-scrollbar gap-3 pb-3 snap-x snap-mandatory items-stretch px-[7.5vw] scroll-px-[7.5vw]"
+    >
       {deals.map((deal, idx) => {
         const v = deal.voucher;
-        const isSelected = selectedIndex === idx;
-        const catCfg = categoryConfig[v.category] || { emoji: '🎁', color: '#f9fafb' };
-        const isOpen = isBranchOpen(deal.branch);
+        const branchOpen = isBranchOpen(deal.branch);
+        const catLabel = categoryLabels[v.category] || { en: v.category, he: v.category };
+        const distanceText = formatDistance(deal.distanceKm, isHe);
 
         return (
           <button
             key={v.id + deal.branch.id}
             onClick={() => onSelect(idx)}
             onDoubleClick={() => onNavigate(deal)}
-            className={`flex-none w-[200px] snap-start rounded-xl shadow-md p-2.5 flex gap-2.5 items-center text-start transition-all duration-200 ${
-              isSelected ? 'bg-white ring-2 ring-primary shadow-lg' : 'bg-white/95 backdrop-blur-sm'
-            }`}
+            className="flex-none w-[85vw] max-w-[340px] snap-center bg-white rounded-2xl overflow-hidden text-start active:scale-[0.98] transition-all duration-200 flex flex-col p-2 shadow-md"
           >
-            <div className="w-11 h-11 rounded-full flex items-center justify-center shrink-0 relative" style={{ background: catCfg.color }}>
-              <span className="text-xl">{v.merchantLogo}</span>
-              <div className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white ${isOpen ? 'bg-emerald-500' : 'bg-gray-300'}`} />
+            {/* Image with a small white frame (card padding + inner rounded-xl) */}
+            <div className="relative bg-surface overflow-hidden rounded-xl" style={{ height: '17vh' }}>
+              {v.imageUrl ? (
+                <img src={v.imageUrl} alt={v.title} className="absolute inset-0 w-full h-full object-cover" />
+              ) : (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <span className="text-6xl">{v.image || v.merchantLogo}</span>
+                </div>
+              )}
             </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-xs font-bold text-text-primary truncate">{isHe ? v.titleHe : v.title}</div>
-              <div className="text-[9px] text-text-muted truncate mt-0.5">{isHe ? deal.branch.addressHe : deal.branch.address}</div>
-              <div className="flex items-center gap-1.5 mt-1">
-                <span className="text-[9px] text-primary font-semibold flex items-center gap-0.5">
-                  <span className="material-symbols-outlined" style={{ fontSize: '10px' }}>location_on</span>
-                  {formatDistance(deal.distanceKm, isHe)}
+
+            {/* Bottom info — two-column layout */}
+            <div className="w-full px-1.5 pt-2.5 pb-1 flex items-start justify-between gap-3">
+              <div className="flex flex-col min-w-0 flex-1">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-sm font-bold text-text-primary truncate">
+                    {isHe ? v.titleHe : v.title}
+                  </span>
+                  {v.discountPercent > 0 && (
+                    <span className="text-[10px] text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded font-semibold shrink-0">
+                      {v.discountPercent}%−
+                    </span>
+                  )}
+                </div>
+                <span className="text-[11px] text-text-muted truncate mt-0.5">
+                  {isHe ? catLabel.he : catLabel.en} · {isHe ? deal.branch.addressHe : deal.branch.address}
                 </span>
-                {v.discountPercent > 0 && (
-                  <span className="text-[9px] text-emerald-700 bg-emerald-50 px-1 py-0.5 rounded font-semibold">{v.discountPercent}%−</span>
-                )}
+              </div>
+              <div className="flex flex-col items-end shrink-0">
+                <span className="text-xs font-semibold text-primary flex items-center gap-0.5">
+                  <span className="material-symbols-outlined" style={{ fontSize: '13px' }}>location_on</span>
+                  {distanceText}
+                </span>
+                <span className={`text-[10px] font-medium mt-0.5 ${branchOpen ? 'text-emerald-600' : 'text-gray-500'}`}>
+                  {branchOpen ? (isHe ? 'פתוח עכשיו' : 'Open now') : (isHe ? 'סגור' : 'Closed')}
+                </span>
               </div>
             </div>
           </button>
@@ -344,7 +305,7 @@ function MapFilterSheet({
   return (
     <>
       <div ref={overlayRef} className="fixed inset-0 z-[2000] bg-black/40 animate-fade-in" onClick={dismiss} />
-      <div ref={sheetRef} className="fixed bottom-0 left-0 right-0 z-[2000] bg-white rounded-t-3xl max-h-[85vh] flex flex-col animate-slide-up">
+      <div ref={sheetRef} className="fixed bottom-0 left-0 right-0 max-w-md mx-auto z-[2000] bg-white rounded-t-3xl max-h-[85vh] flex flex-col animate-slide-up">
         {/* Drag header */}
         <div id="map-filter-header" className="flex-shrink-0 select-none" style={{ touchAction: 'none' }}>
           <div className="flex justify-center pt-3 pb-2"><div className="w-10 h-1.5 bg-border rounded-full" /></div>
@@ -595,7 +556,7 @@ function BusinessDetailSheet({
       <div ref={overlayRef} className="fixed inset-0 z-[2000] bg-black/40 animate-fade-in" style={{ opacity: 0.4 }} onClick={dismiss} />
       <div
         ref={sheetRef}
-        className="fixed bottom-0 left-0 right-0 z-[2000] bg-white rounded-t-3xl flex flex-col"
+        className="fixed bottom-0 left-0 right-0 max-w-md mx-auto z-[2000] bg-white rounded-t-3xl flex flex-col"
         style={{ height: 0, overflow: 'hidden' }}
       >
         {/* Drag header — always visible */}
@@ -766,6 +727,11 @@ export default function NearYouMapPage() {
   const [showDetailSheet, setShowDetailSheet] = useState(false);
   const [detailDeal, setDetailDeal] = useState<NearbyDeal | null>(null);
 
+  // Draggable bottom strip
+  const [stripSnap, setStripSnap] = useState<'peek' | 'collapsed'>('peek');
+  const stripCardsRef = useRef<HTMLDivElement>(null);
+  const peekHeightRef = useRef<number>(280);
+
   const center = coords || { lat: 32.0853, lng: 34.7818 };
 
   const sheetFilterCount = sheetFilters.categories.length + (sheetFilters.priceRange ? 1 : 0) + (sheetFilters.discount ? 1 : 0) + (sheetFilters.inStockOnly ? 1 : 0);
@@ -826,61 +792,259 @@ export default function NearYouMapPage() {
   useEffect(() => { if (flyTarget) { const t = setTimeout(() => setFlyTarget(null), 700); return () => clearTimeout(t); } }, [flyTarget]);
   useEffect(() => { setSelectedDealIndex(null); }, [filterCategory, searchQuery, openOnly, sheetFilters]);
 
-  return (
-    <div className="fixed inset-0 z-50">
-      {/* MAP */}
-      <MapContainer center={[center.lat, center.lng]} zoom={14} className="w-full h-full" zoomControl={false}>
-        <TileLayer
-          attribution='&copy; <a href="https://carto.com/">CARTO</a> &copy; <a href="https://openstreetmap.org/copyright">OSM</a>'
-          url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" subdomains="abcd" maxZoom={20}
-        />
-        {coords && <Marker position={[coords.lat, coords.lng]} icon={userIcon}><Popup>{isHe ? 'אתה כאן' : 'You are here'}</Popup></Marker>}
-        {filteredDeals.map((deal, idx) => {
-          const catCfg = categoryConfig[deal.voucher.category] || { emoji: '🎁', color: '#f9fafb' };
-          return (
-            <Marker key={deal.voucher.id + deal.branch.id} position={[deal.branch.lat, deal.branch.lng]}
-              icon={createDealIcon(catCfg.emoji, catCfg.color, selectedDealIndex === idx)}
-              zIndexOffset={selectedDealIndex === idx ? 1000 : 0}
-              eventHandlers={{ click: () => handleMarkerClick(deal) }} />
-          );
-        })}
-        {coords && filteredDeals.length > 0 && !flyTarget && selectedDealIndex === null && <FitBounds deals={filteredDeals} userCoords={coords} />}
-        {flyTarget && <FlyToPoint lat={flyTarget.lat} lng={flyTarget.lng} zoom={flyTarget.zoom} />}
-        <MapControls isHe={isHe} userCoords={coords} />
-      </MapContainer>
+  // Auto-expand strip when a deal becomes selected (via pin or card click) so
+  // the highlighted card is visible.
+  useEffect(() => {
+    if (selectedDealIndex !== null) setStripSnap('peek');
+  }, [selectedDealIndex]);
 
-      {/* FLOATING TOP */}
-      <div className="absolute top-0 left-0 right-0 z-[1000]" style={{ paddingTop: 'max(12px, env(safe-area-inset-top))' }}>
-        <div className="flex items-center gap-2 px-3">
-          <button onClick={() => navigate(-1)} className="w-10 h-10 rounded-full bg-white shadow-md flex items-center justify-center active:scale-90 transition-transform shrink-0">
-            <span className="material-symbols-outlined text-text-primary" style={{ fontSize: '20px', transform: isHe ? 'scaleX(-1)' : undefined }}>arrow_back</span>
-          </button>
-          <div className="flex-1 flex items-center bg-white/95 backdrop-blur-sm rounded-full shadow-md px-3.5 py-2.5 gap-2">
-            <span className="material-symbols-outlined text-text-muted shrink-0" style={{ fontSize: '18px' }}>search</span>
-            <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder={t.home.mapSearchPlaceholder}
-              className="flex-1 bg-transparent text-sm text-text-primary placeholder-text-muted outline-none" dir={isHe ? 'rtl' : 'ltr'} />
-            <button onClick={() => setSearchQuery('')} className={`w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center shrink-0 ${searchQuery ? '' : 'hidden'}`}>
-              <span className="material-symbols-outlined text-text-muted" style={{ fontSize: '14px' }}>close</span>
-            </button>
-            <div className={searchQuery ? 'hidden' : 'shrink-0'}>
-              <MicButton size="sm" onTranscript={setSearchQuery} onInterim={setSearchQuery} />
+  // Re-measure the natural peek height whenever the cards content changes (or
+  // on mount). This caches the height in peekHeightRef so the snap-change
+  // effect can animate smoothly between collapsed (0) and peek (cached).
+  useEffect(() => {
+    const el = stripCardsRef.current;
+    if (!el) return;
+    const wasTransition = el.style.transition;
+    el.style.transition = 'none';
+    el.style.height = 'auto';
+    peekHeightRef.current = el.getBoundingClientRect().height;
+    el.style.height = stripSnap === 'peek' ? `${peekHeightRef.current}px` : '0px';
+    requestAnimationFrame(() => {
+      if (el) el.style.transition = wasTransition || 'height 0.3s cubic-bezier(.4,0,.2,1)';
+    });
+    // stripSnap intentionally omitted — the snap-change effect handles that
+    // and we don't want a re-measure to skip the animation.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filteredDeals.length]);
+
+  // Animate the cards container between snap states using the cached height.
+  useEffect(() => {
+    const el = stripCardsRef.current;
+    if (!el) return;
+    el.style.transition = 'height 0.3s cubic-bezier(.4,0,.2,1)';
+    el.style.height = stripSnap === 'peek' ? `${peekHeightRef.current}px` : '0px';
+  }, [stripSnap]);
+
+  // Drag gesture on the handle area — supports touch + mouse, taps toggle.
+  useEffect(() => {
+    const handle = document.getElementById('strip-drag-handle');
+    if (!handle) return;
+    let startY = 0;
+    let startH = 0;
+    let dragging = false;
+    let moved = false;
+
+    const apply = (h: number) => {
+      const el = stripCardsRef.current;
+      if (!el) return;
+      el.style.transition = 'none';
+      el.style.height = `${h}px`;
+    };
+    const snapTo = (h: number) => {
+      const el = stripCardsRef.current;
+      if (!el) return;
+      el.style.transition = 'height 0.3s cubic-bezier(.4,0,.2,1)';
+      el.style.height = `${h}px`;
+    };
+
+    const begin = (clientY: number) => {
+      startY = clientY;
+      startH = stripCardsRef.current?.getBoundingClientRect().height ?? 0;
+      dragging = true;
+      moved = false;
+    };
+    const move = (clientY: number) => {
+      if (!dragging) return;
+      const delta = startY - clientY; // up = positive
+      if (Math.abs(delta) > 4) moved = true;
+      const newH = Math.max(0, Math.min(peekHeightRef.current, startH + delta));
+      apply(newH);
+    };
+    const end = () => {
+      if (!dragging) return;
+      dragging = false;
+      const cur = stripCardsRef.current?.getBoundingClientRect().height ?? 0;
+      if (!moved) {
+        // Tap on handle → toggle
+        const goingToPeek = cur < peekHeightRef.current / 2;
+        snapTo(goingToPeek ? peekHeightRef.current : 0);
+        setStripSnap(goingToPeek ? 'peek' : 'collapsed');
+        return;
+      }
+      if (cur > peekHeightRef.current / 2) {
+        snapTo(peekHeightRef.current);
+        setStripSnap('peek');
+      } else {
+        snapTo(0);
+        setStripSnap('collapsed');
+      }
+    };
+
+    const onTouchStart = (e: TouchEvent) => begin(e.touches[0].clientY);
+    const onTouchMove = (e: TouchEvent) => {
+      if (!dragging) return;
+      if (moved) e.preventDefault();
+      move(e.touches[0].clientY);
+    };
+    const onTouchEnd = () => end();
+
+    const onMouseDown = (e: MouseEvent) => { e.preventDefault(); begin(e.clientY); };
+    const onMouseMove = (e: MouseEvent) => move(e.clientY);
+    const onMouseUp = () => end();
+
+    handle.addEventListener('touchstart', onTouchStart, { passive: true });
+    handle.addEventListener('touchmove', onTouchMove, { passive: false });
+    handle.addEventListener('touchend', onTouchEnd, { passive: true });
+    handle.addEventListener('mousedown', onMouseDown);
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+    return () => {
+      handle.removeEventListener('touchstart', onTouchStart);
+      handle.removeEventListener('touchmove', onTouchMove);
+      handle.removeEventListener('touchend', onTouchEnd);
+      handle.removeEventListener('mousedown', onMouseDown);
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+    };
+  }, []);
+
+  // Convert the page's NearbyDeal[] into the OffersMap's OfferPin[] format.
+  // Each pin's id is "<voucherId>_<branchId>" so we can map clicks back.
+  const offerPins = useMemo<OfferPin[]>(
+    () =>
+      filteredDeals.map((deal) => ({
+        id: `${deal.voucher.id}_${deal.branch.id}`,
+        name: isHe ? deal.voucher.titleHe : deal.voucher.title,
+        category: voucherToOfferCategory(deal.voucher.category),
+        lng: deal.branch.lng,
+        lat: deal.branch.lat,
+        tenantId: deal.branch.businessId,
+        brandLogo: deal.voucher.brandLogo,
+        brandColor: deal.voucher.brandColor,
+      })),
+    [filteredDeals, isHe],
+  );
+
+  const selectedPinId =
+    selectedDealIndex !== null && filteredDeals[selectedDealIndex]
+      ? `${filteredDeals[selectedDealIndex].voucher.id}_${filteredDeals[selectedDealIndex].branch.id}`
+      : null;
+
+  const handlePinClick = useCallback(
+    (pin: OfferPin) => {
+      const idx = filteredDeals.findIndex(
+        (d) => `${d.voucher.id}_${d.branch.id}` === pin.id,
+      );
+      if (idx >= 0) handleMarkerClick(filteredDeals[idx]);
+    },
+    [filteredDeals, handleMarkerClick],
+  );
+
+  return (
+    <>
+      {/* SEARCH BAR — portaled to document.body so it escapes <main z-10>'s
+          stacking context. Otherwise its z-55 is trapped inside z-10 and the
+          global TopBar (z-50, sibling of main) sits on top and steals clicks.
+          Aligned visually with the TopBar's row: spacers reserve the side
+          slots (back+avatar on the start, chat+notif on the end); the wrapper
+          is pointer-events-none so taps on the spacers fall through to the
+          underlying TopBar buttons. */}
+      {createPortal(
+        <div className="fixed top-0 inset-x-0 z-[55] max-w-md mx-auto pointer-events-none">
+          <div className="px-5 pt-4 pb-3 flex items-center gap-2">
+            <div className="w-[112px] h-10 shrink-0" aria-hidden />
+            <div className="flex-1 pointer-events-auto h-10 flex items-center bg-white/95 backdrop-blur-sm rounded-full shadow-sm px-3 gap-2 min-w-0">
+              <span className="material-symbols-outlined text-text-muted shrink-0" style={{ fontSize: '16px' }}>search</span>
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder={t.home.mapSearchPlaceholder}
+                className="flex-1 bg-transparent text-sm text-text-primary placeholder-text-muted outline-none min-w-0"
+                dir={isHe ? 'rtl' : 'ltr'}
+              />
+              <button onClick={() => setSearchQuery('')} className={`w-4 h-4 rounded-full bg-gray-200 flex items-center justify-center shrink-0 ${searchQuery ? '' : 'hidden'}`}>
+                <span className="material-symbols-outlined text-text-muted" style={{ fontSize: '12px' }}>close</span>
+              </button>
+              <div className={searchQuery ? 'hidden' : 'shrink-0'}>
+                <MicButton size="sm" onTranscript={setSearchQuery} onInterim={setSearchQuery} />
+              </div>
+            </div>
+            <div className="w-[86px] h-10 shrink-0" aria-hidden />
+          </div>
+        </div>,
+        document.body,
+      )}
+
+      <div
+        className="fixed top-6 bottom-6 left-1/2 -translate-x-1/2 w-full max-w-md z-50 overflow-hidden bg-bg-light shadow-2xl rounded-3xl"
+        style={{
+          // Soft fade on the top + bottom edges so the panel dissolves into
+          // the page background instead of looking like a hard rectangle.
+          maskImage:
+            'linear-gradient(to bottom, transparent 0px, black 36px, black calc(100% - 36px), transparent 100%)',
+          WebkitMaskImage:
+            'linear-gradient(to bottom, transparent 0px, black 36px, black calc(100% - 36px), transparent 100%)',
+        }}
+      >
+        {/* MAP — OffersMap (MapLibre). Page keeps its own chips bar +
+            filter sheet, so we hide the built-in MapControls and Popup. */}
+        <OffersMap
+          pins={offerPins}
+          initialCenter={[
+            coords?.lng ?? center.lng,
+            coords?.lat ?? center.lat,
+          ]}
+          initialZoom={14}
+          userLocation={coords ? { lng: coords.lng, lat: coords.lat } : null}
+          flyTo={
+            flyTarget
+              ? { lng: flyTarget.lng, lat: flyTarget.lat, zoom: flyTarget.zoom }
+              : null
+          }
+          selectedPinId={selectedPinId}
+          onPinClick={handlePinClick}
+          showControls={false}
+          showPopup={false}
+          rtl={isHe}
+          className="w-full h-full"
+        />
+
+        {/* FLOATING TOP — chips only. Search moved up to the TopBar row. */}
+        <div className="absolute top-0 left-0 right-0 z-[1000]" style={{ paddingTop: '52px' }}>
+          <ChipsBar activeCategory={filterCategory} onSelectCategory={setFilterCategory} isHe={isHe}
+            openNowLabel={t.home.mapOpenNow} openOnly={openOnly}
+            onToggleOpen={() => setOpenOnly((p) => !p)} onOpenFilter={() => setShowFilterSheet(true)} activeFilterCount={sheetFilterCount} />
+        </div>
+
+      {/* FLOATING BOTTOM — draggable gallery (peek ↔ collapsed) */}
+      <div className="absolute bottom-0 left-0 right-0 z-[1000]" style={{ paddingBottom: 'max(8px, env(safe-area-inset-bottom))' }}>
+        {/* Drag handle: line + count pill. Tap to toggle, drag to snap. */}
+        <div
+          id="strip-drag-handle"
+          className="select-none cursor-grab active:cursor-grabbing"
+          style={{ touchAction: 'none' }}
+        >
+          <div className="flex justify-center pt-1 pb-1.5">
+            <div className="w-10 h-1.5 bg-white/90 rounded-full shadow-md backdrop-blur-sm" />
+          </div>
+          <div className="flex justify-center mb-2">
+            <div className="bg-white/90 backdrop-blur-sm rounded-full px-3.5 py-1.5 shadow-md flex items-center gap-1.5">
+              <span className="material-symbols-outlined text-primary" style={{ fontSize: '14px' }}>storefront</span>
+              <span className="text-xs font-semibold text-text-primary">{filteredDeals.length} {isHe ? 'הטבות' : 'deals'}</span>
+              <span
+                className="material-symbols-outlined text-text-muted transition-transform"
+                style={{ fontSize: '14px', transform: stripSnap === 'collapsed' ? 'rotate(0deg)' : 'rotate(180deg)' }}
+              >
+                expand_less
+              </span>
             </div>
           </div>
         </div>
-        <ChipsBar activeCategory={filterCategory} onSelectCategory={setFilterCategory} isHe={isHe}
-          openNowLabel={t.home.mapOpenNow} openOnly={openOnly}
-          onToggleOpen={() => setOpenOnly((p) => !p)} onOpenFilter={() => setShowFilterSheet(true)} activeFilterCount={sheetFilterCount} />
-      </div>
-
-      {/* FLOATING BOTTOM */}
-      <div className="absolute bottom-0 left-0 right-0 z-[1000]" style={{ paddingBottom: 'max(8px, env(safe-area-inset-bottom))' }}>
-        <div className="flex justify-center mb-2">
-          <div className="bg-white/90 backdrop-blur-sm rounded-full px-3.5 py-1.5 shadow-md flex items-center gap-1.5">
-            <span className="material-symbols-outlined text-primary" style={{ fontSize: '14px' }}>storefront</span>
-            <span className="text-xs font-semibold text-text-primary">{filteredDeals.length} {isHe ? 'הטבות' : 'deals'}</span>
-          </div>
+        {/* Cards — height is animated between 0 and the measured peek height */}
+        <div ref={stripCardsRef} className="overflow-hidden" style={{ height: `${peekHeightRef.current}px` }}>
+          <DealCardStrip deals={filteredDeals} selectedIndex={selectedDealIndex} onSelect={handleCardSelect} isHe={isHe} onNavigate={() => navigate(`/${lang}/store`)} />
         </div>
-        <DealCardStrip deals={filteredDeals} selectedIndex={selectedDealIndex} onSelect={handleCardSelect} isHe={isHe} onNavigate={() => navigate(`/${lang}/store`)} />
       </div>
 
       {/* FILTER SHEET */}
@@ -903,5 +1067,6 @@ export default function NearYouMapPage() {
         }}
       />
     </div>
+    </>
   );
 }

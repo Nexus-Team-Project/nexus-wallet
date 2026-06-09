@@ -13,7 +13,7 @@
  */
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { toast } from 'sonner';
+import { appToast } from '../../lib/appToast';
 import { createJoinRequests } from '../../services/walletTenants.service';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { joinResultToast } from '../../lib/joinToast';
@@ -96,7 +96,7 @@ export default function SlideJoinPrompt({
       onResolve({ joinedRequested: true });
     } catch (e) {
       console.error('[wallet-join] join from prompt failed:', e);
-      if (mode !== 'new') toast.error(isHe ? 'שליחת הבקשה נכשלה' : 'Could not send request');
+      if (mode !== 'new') appToast.error(isHe ? 'שליחת הבקשה נכשלה' : 'Could not send request');
       onResolve({ joinedRequested: mode === 'new' });
     } finally {
       setSubmitting(false);

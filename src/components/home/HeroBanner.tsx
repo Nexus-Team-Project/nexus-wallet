@@ -9,8 +9,55 @@ interface BaseSlide {
   gradientVia: string;
   gradientTo: string;
   titleKey: 'heroBannerTitle' | 'heroBannerTitle2' | 'heroBannerTitle3' | 'heroBannerTitleWallet' | 'heroBannerTitleInsights';
-  type?: 'wallet' | 'insights';
+  type?: 'wallet' | 'insights' | 'referral' | 'map';
 }
+
+// ── Map tile helpers (mirrors NearYou's teaser map) ──
+function latLngToTile(lat: number, lng: number, zoom: number) {
+  const n = 2 ** zoom;
+  const x = ((lng + 180) / 360) * n;
+  const latRad = (lat * Math.PI) / 180;
+  const y = ((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2) * n;
+  return { x, y };
+}
+
+// 3×3 grid of CARTO voyager tiles around Tel Aviv center, used as a decorative
+// map backdrop for the "cashback around you" hero slide.
+const MAP_CENTER = { lat: 32.0853, lng: 34.7818 };
+const MAP_TILES = (() => {
+  const zoom = 16;
+  const { x, y } = latLngToTile(MAP_CENTER.lat, MAP_CENTER.lng, zoom);
+  const tileX = Math.floor(x);
+  const tileY = Math.floor(y);
+  const tiles: { url: string; x: number; y: number }[] = [];
+  for (let dy = -1; dy <= 1; dy++) {
+    for (let dx = -1; dx <= 1; dx++) {
+      tiles.push({
+        url: `https://a.basemaps.cartocdn.com/rastertiles/voyager/${zoom}/${tileX + dx}/${tileY + dy}@2x.png`,
+        x: dx,
+        y: dy,
+      });
+    }
+  }
+  return tiles;
+})();
+
+// Brand logos shown as an overlapping cluster on the right of the map slide.
+const MAP_BRANDS = [
+  { src: '/brands/mcdonalds.png', bg: '#FFFFFF' },
+  { src: '/brands/carrefour.png', bg: '#FFFFFF' },
+  { src: '/brands/aroma.png', bg: '#000000' },
+];
+
+// Friend portraits — same face-cropped Unsplash set used by the referral page
+// and home banner, so the carousel slide reads as a preview of that flow.
+const AV = (id: string) =>
+  `https://images.unsplash.com/photo-${id}?w=120&h=120&fit=crop&crop=faces&q=80`;
+const REFERRAL_AVATARS = [
+  AV('1494790108377-be9c29b29330'), // woman
+  AV('1500648767791-00dcc994a43e'), // man
+  AV('1534528741775-53994a69daeb'), // woman
+];
 
 interface TenantSlide {
   type: 'tenant';
@@ -20,13 +67,6 @@ type Slide = BaseSlide | TenantSlide;
 
 const baseSlides: BaseSlide[] = [
   {
-    icon: 'wallet',
-    gradientFrom: 'from-primary',
-    gradientVia: 'via-primary-dark',
-    gradientTo: 'to-bg-dark',
-    titleKey: 'heroBannerTitle',
-  },
-  {
     icon: 'account_balance_wallet',
     gradientFrom: 'from-indigo-600',
     gradientVia: 'via-violet-700',
@@ -35,18 +75,20 @@ const baseSlides: BaseSlide[] = [
     type: 'wallet',
   },
   {
-    icon: 'redeem',
-    gradientFrom: 'from-emerald-500',
-    gradientVia: 'via-teal-600',
-    gradientTo: 'to-cyan-800',
-    titleKey: 'heroBannerTitle2',
+    icon: 'location_on',
+    gradientFrom: 'from-emerald-400',
+    gradientVia: 'via-teal-500',
+    gradientTo: 'to-cyan-700',
+    titleKey: 'heroBannerTitle', // unused — map slide has its own overlay branch
+    type: 'map',
   },
   {
-    icon: 'local_offer',
-    gradientFrom: 'from-orange-400',
-    gradientVia: 'via-rose-500',
-    gradientTo: 'to-pink-700',
-    titleKey: 'heroBannerTitle3',
+    icon: 'card_giftcard',
+    gradientFrom: 'from-sky-400',
+    gradientVia: 'via-sky-500',
+    gradientTo: 'to-[#0a2540]',
+    titleKey: 'heroBannerTitle', // unused for referral (own overlay branch)
+    type: 'referral',
   },
   {
     icon: 'insights',
@@ -518,6 +560,110 @@ export default function HeroBanner() {
                   }}
                 />
               </>
+            ) : s.type === 'referral' ? (
+              /* ── Referral slide: navy bg + friend avatars (matches the
+                   referral page / banner) ── */
+              <>
+                <div
+                  className="w-full h-full"
+                  style={{
+                    background:
+                      'radial-gradient(120% 120% at 30% 20%, rgba(125,211,252,0.28), transparent 55%), linear-gradient(135deg, #0a2540, #0a2540 55%, #06182b)',
+                  }}
+                />
+
+                {/* Glow behind avatars */}
+                <div
+                  className="absolute left-1/2 -translate-x-1/2 pointer-events-none"
+                  style={{ bottom: 8, width: 190, height: 96, borderRadius: '50%', background: 'rgba(125,211,252,0.28)', filter: 'blur(36px)' }}
+                />
+
+                {/* Friend-avatar cluster — pinned to the right, larger, sits
+                    directly on the navy (no white card behind it). */}
+                <div className="absolute bottom-6 right-5">
+                  <div className="flex -space-x-5 relative">
+                    {REFERRAL_AVATARS.map((src, i) => (
+                      <img
+                        key={i}
+                        src={src}
+                        alt=""
+                        className="w-16 h-16 rounded-full object-cover border-2 border-white"
+                      />
+                    ))}
+                    {/* Sky-blue share badge */}
+                    <div className="absolute -top-1 -right-2 w-8 h-8 bg-[#7dd3fc] rounded-full border-2 border-white flex items-center justify-center text-[#0a2540]">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                        <path d="M21 11.25v8.25a1.5 1.5 0 01-1.5 1.5H4.5a1.5 1.5 0 01-1.5-1.5v-8.25M12 4.5v15m7.5-7.5H4.5M12 4.5a3 3 0 110 6 3 3 0 110-6z" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Dot grid overlay */}
+                <div
+                  className="absolute inset-0 pointer-events-none"
+                  style={{
+                    backgroundImage: 'radial-gradient(rgba(255,255,255,0.06) 1px, transparent 1px)',
+                    backgroundSize: '18px 18px',
+                    maskImage: 'radial-gradient(70% 55% at 50% 30%, black 25%, transparent 70%)',
+                    opacity: 0.5,
+                  }}
+                />
+              </>
+            ) : s.type === 'map' ? (
+              /* ── Map slide: CARTO tiles + scattered brand circles ── */
+              <>
+                <div className="absolute inset-0 overflow-hidden bg-gray-100">
+                  {/* Tile grid — centered on Tel Aviv. Keyed on `current` so the
+                      satellite zoom-in restarts each time this slide activates. */}
+                  <div
+                    key={`map-tiles-${idx === current ? current : 'idle'}`}
+                    className="absolute"
+                    style={{
+                      left: '50%',
+                      top: '50%',
+                      width: 768,
+                      height: 768,
+                      transform: 'translate(-50%, -50%)',
+                      animation: idx === current ? 'satellite-zoom 1.5s cubic-bezier(0.22, 1, 0.36, 1) both' : 'none',
+                    }}
+                  >
+                    {MAP_TILES.map((tile) => (
+                      <img
+                        key={tile.url}
+                        src={tile.url}
+                        alt=""
+                        width={256}
+                        height={256}
+                        loading="lazy"
+                        className="absolute"
+                        style={{ left: `${(tile.x + 1) * 256}px`, top: `${(tile.y + 1) * 256}px` }}
+                      />
+                    ))}
+                  </div>
+
+                  {/* Lighten the map so white overlay text stays legible */}
+                  <div className="absolute inset-0 bg-white/30 backdrop-blur-[1px]" />
+
+                  {/* Brand cluster — overlapping circles pinned to bottom-right */}
+                  <div
+                    className="absolute z-10"
+                    style={{ bottom: 16, right: 18 }}
+                  >
+                    <div className="flex -space-x-4">
+                      {MAP_BRANDS.map((brand, i) => (
+                        <div
+                          key={brand.src}
+                          className="w-14 h-14 rounded-full shadow-lg border-2 border-white flex items-center justify-center overflow-hidden"
+                          style={{ backgroundColor: brand.bg, zIndex: MAP_BRANDS.length - i }}
+                        >
+                          <img src={brand.src} alt="" className="w-[70%] h-[70%] object-contain" />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </>
             ) : (
               /* ── Default slide: gradient + icon ── */
               <>
@@ -543,8 +689,17 @@ export default function HeroBanner() {
           </div>
         ))}
 
-        {/* Bottom overlay — always on top */}
-        <div className="absolute inset-0 z-20 bg-gradient-to-t from-black/50 via-transparent to-transparent flex flex-col justify-end p-5">
+        {/* Text overlay — always on top. Referral slide anchors its text to the
+            TOP (matching the promo card); all others anchor to the bottom. */}
+        <div
+          className={`absolute inset-0 z-20 flex flex-col p-5 ${
+            slide.type === 'referral'
+              ? 'justify-between bg-gradient-to-b from-black/40 via-transparent to-transparent'
+              : slide.type === 'map'
+                ? 'bg-gradient-to-b from-black/45 via-transparent to-black/40'
+                : 'justify-end bg-gradient-to-t from-black/50 via-transparent to-transparent'
+          }`}
+        >
           {slide.type === 'tenant' && tenantConfig ? (
             <>
               <h2 className="text-white text-xl font-bold leading-snug mb-0.5">
@@ -564,6 +719,46 @@ export default function HeroBanner() {
                 }}
               >
                 {t.home.heroBannerTenantCta}
+              </button>
+            </>
+          ) : slide.type === 'referral' ? (
+            <>
+              <h2 className="text-[#7dd3fc] text-2xl font-black tracking-tighter leading-tight mb-2.5 flex items-center gap-1.5 flex-wrap">
+                <span>שתפו את</span>
+                <span className="inline-flex items-center bg-sky-300 rounded-xl px-2.5 py-1 overflow-hidden">
+                  <img
+                    src="/nexus-logo-black.png"
+                    alt="נקסוס"
+                    className="h-7 w-auto object-contain"
+                    style={{ transform: 'scale(1.5)' }}
+                  />
+                </span>
+                <span>וקבלו 100 ₪</span>
+              </h2>
+              <button
+                onClick={() => navigate(`/${lang}/referral-stories`)}
+                className="self-end bg-[#7dd3fc] text-[#0a2540] px-6 py-2.5 rounded-full font-bold text-xs w-max hover:brightness-105 transition-all"
+              >
+                שתפו עכשיו
+              </button>
+            </>
+          ) : slide.type === 'map' ? (
+            <>
+              {/* Text — top-right */}
+              <div className="absolute top-4 right-5 text-right max-w-[62%]">
+                <h2 className="text-white text-xl font-bold leading-snug drop-shadow-md">
+                  {language === 'he' ? 'מצא קאשבק מסביבך' : 'Find cashback around you'}
+                </h2>
+                <p className="text-white/85 text-xs mt-1 drop-shadow">
+                  {language === 'he' ? 'הטבות מהעסקים הקרובים אליך' : 'Deals from businesses near you'}
+                </p>
+              </div>
+              {/* Button — bottom-left */}
+              <button
+                onClick={() => navigate(`/${lang}/near-you-map`)}
+                className="absolute bottom-4 left-5 bg-white text-text-primary px-5 py-2.5 rounded-full font-bold text-xs w-max hover:brightness-105 transition-all"
+              >
+                {language === 'he' ? 'גלה עכשיו' : 'Explore now'}
               </button>
             </>
           ) : (

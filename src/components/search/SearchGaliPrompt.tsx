@@ -117,7 +117,7 @@ export default function SearchGaliPrompt() {
                 {isHe ? 'לא יודע מה לחפש?' : 'Not sure what to look for?'}
               </p>
               <p className="text-[11px] text-white/80 font-medium mt-1">
-                {isHe ? 'שאל את גלי! ✨' : 'Ask Gali! ✨'}
+                {isHe ? 'שאל את Nexus! ✨' : 'Ask Nexus! ✨'}
               </p>
             </button>
 
@@ -150,7 +150,7 @@ export default function SearchGaliPrompt() {
                 ? 'gali-bounce-in 0.65s cubic-bezier(0.34, 1.56, 0.64, 1) forwards'
                 : 'none',
             }}
-            aria-label={isHe ? 'שאל את גלי' : 'Ask Gali'}
+            aria-label={isHe ? 'שאל את Nexus' : 'Ask Nexus'}
           >
             <div
               className="w-full h-full rounded-full bg-slate-900 relative overflow-hidden"

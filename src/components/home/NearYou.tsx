@@ -285,7 +285,7 @@ function LocationDeniedSheet({
       />
       {/* Sheet */}
       <div
-        className="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-2xl shadow-xl px-6 pt-5 pb-8 animate-slide-up"
+        className="fixed bottom-0 left-0 right-0 max-w-md mx-auto z-50 bg-white rounded-t-2xl shadow-xl px-6 pt-5 pb-8 animate-slide-up"
         style={{ maxHeight: '70vh' }}
       >
         {/* Drag handle */}

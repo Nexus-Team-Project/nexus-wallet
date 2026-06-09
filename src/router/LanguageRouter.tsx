@@ -1,7 +1,6 @@
 import { useEffect } from 'react';
 import { Outlet, useNavigate, useSearchParams } from 'react-router-dom';
 import { LanguageProvider } from '../i18n/LanguageContext';
-import AppToaster from '../components/AppToaster';
 import LoginSheet from '../components/auth/LoginSheet';
 import { useAuth } from '../contexts/AuthContext';
 import { useTenantStore } from '../stores/tenantStore';
@@ -169,8 +168,9 @@ export default function LanguageRouter() {
     <LanguageProvider>
       <div style={tenantStyle}>
         <Outlet />
-        {/* Single app-wide toaster, RTL-aware (Hebrew toasts render right-to-left). */}
-        <AppToaster />
+        {/* Transient toasts render through the in-app notification system
+            (NotificationToastHost, mounted in AppLayout) — see lib/appToast.ts.
+            The old sonner <Toaster> was removed so every toast shares one design. */}
         <LoginSheet />
         {/* Organization switching now lives in the TopBar org-name chip (opens
             TenantSwitchSheet); the old top-left switcher pill was removed. */}

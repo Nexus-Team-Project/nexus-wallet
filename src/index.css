@@ -1,6 +1,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Rubik:wght@300;400;500;600;700;800&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:wght,FILL@100..700,0..1&display=swap');
 @import "tailwindcss";
 
 @theme {
@@ -31,9 +32,24 @@
   --animate-bounce-dot: bounce-dot 1.4s ease-in-out infinite;
   --animate-slide-fade-in: slide-fade-in 0.5s ease-out forwards;
   --animate-slide-fade-in-delay: slide-fade-in 0.5s ease-out 0.15s forwards;
+  --animate-avatar-slide-down: avatar-slide-down 0.35s cubic-bezier(0.32, 0.72, 0, 1);
   --animate-drip-in: drip-in 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
   --animate-marker-pulse: marker-pulse 2s ease-out infinite;
   --animate-mic-pulse: mic-pulse 1.5s ease-in-out infinite;
+  --animate-bell-shake: bell-shake 0.7s cubic-bezier(0.36, 0.07, 0.19, 0.97);
+  --animate-card-shine: card-shine 1.4s ease-out;
+  --animate-card-pulse: card-pulse 1.4s ease-out;
+  --animate-lava-flow: lava-flow 8s ease-in-out infinite;
+}
+
+/* Lava-like flowing background — shifts the background-position across
+   an oversized gradient so the colours appear to morph and swim. */
+@keyframes lava-flow {
+  0%   { background-position: 0% 0%; }
+  25%  { background-position: 100% 0%; }
+  50%  { background-position: 100% 100%; }
+  75%  { background-position: 0% 100%; }
+  100% { background-position: 0% 0%; }
 }
 
 @keyframes fade-in {
@@ -41,9 +57,89 @@
   to { opacity: 1; }
 }
 
+/* Bell receives a toast — quick scale-up "absorb" followed by a rocking
+   shake that decays. Mimics what iOS / Apple Watch do when something
+   lands in the bell area. transform-origin top so the bell pivots
+   around its hanger like a real bell, not around its center. */
+@keyframes bell-shake {
+  0%   { transform: scale(1)    rotate(0); }
+  10%  { transform: scale(1.18) rotate(-14deg); }
+  25%  { transform: scale(1.12) rotate(12deg); }
+  40%  { transform: scale(1.06) rotate(-9deg); }
+  55%  { transform: scale(1.03) rotate(6deg); }
+  70%  { transform: scale(1.01) rotate(-3deg); }
+  85%  { transform: scale(1)    rotate(1deg); }
+  100% { transform: scale(1)    rotate(0); }
+}
+
 @keyframes fade-up {
   from { opacity: 0; transform: translateY(12px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+/* Map skeleton shimmer — a soft highlight band sweeps across the
+   placeholder while the real map tiles stream in. */
+@keyframes map-shimmer {
+  0%   { transform: translateX(-120%); }
+  100% { transform: translateX(120%); }
+}
+
+/* Gentle drop+settle for the loading pin sitting on the map skeleton. */
+@keyframes map-pin-bob {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-6px); }
+}
+
+/* Gentle float — used for the gift preview illustration */
+@keyframes gift-float {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-10px); }
+}
+.animate-gift-float { animation: gift-float 4s ease-in-out infinite; }
+
+/* Split-bill checkbox — teal filled with a white check when selected */
+.split-checkbox {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  border: 2px solid #bbc9ca;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background-color 0.15s, border-color 0.15s;
+}
+.split-checkbox:checked {
+  background-color: var(--color-primary);
+  border-color: var(--color-primary);
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 16 16' fill='white' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M12.207 4.793a1 1 0 010 1.414l-5 5a1 1 0 01-1.414 0l-2-2a1 1 0 011.414-1.414L6.5 9.086l4.293-4.293a1 1 0 011.414 0z'/%3E%3C/svg%3E");
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+/* Cashback badge pop — used when the cashback amount changes */
+@keyframes cashback-pop {
+  0%   { transform: scale(0.82); opacity: 0.6; }
+  60%  { transform: scale(1.08); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* 3D flip card — used to "open" the gift in the preview */
+.flip-perspective { perspective: 1600px; }
+.flip-inner {
+  position: relative;
+  transform-style: preserve-3d;
+  transition: transform 0.75s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.flip-inner.is-flipped { transform: rotateY(180deg); }
+.flip-face {
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+.flip-face-back {
+  position: absolute;
+  inset: 0;
+  transform: rotateY(180deg);
 }
 
 @keyframes slide-up {
@@ -69,6 +165,62 @@
 @keyframes slide-fade-in {
   from { opacity: 0; transform: translateY(20px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes avatar-slide-down {
+  from { opacity: 0; transform: translateY(-40px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Discount-finder dropdown pop-in — the option card scales up from where
+   the trigger chip sits (top-center origin) with a tiny bounce. Stays in
+   the document flow so its vertical position matches the chip; only the
+   horizontal centering is handled by the layout. */
+@keyframes panel-pop-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.7);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.04);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Search filters drop-in — the whole "filter & sort" panel descends from
+   the top of the screen (translateY(-100%) → 0) with a soft ease so it
+   reads as dropping down from above, rather than rising from the sheet. */
+@keyframes filters-drop-in {
+  0% {
+    opacity: 0;
+    transform: translateY(-100%);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Input placeholder swipe-left — the "Tap to type" text sweeps off the
+   LEFT edge with a slight skew + fade when the user taps to activate the
+   input. GPU-friendly (transform + opacity only, no filter blur). */
+@keyframes input-swipe-left {
+  0% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) skewX(0deg);
+  }
+  60% {
+    opacity: 0.5;
+    transform: translate3d(-40vw, 0, 0) skewX(-6deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(-110vw, 0, 0) skewX(-10deg);
+  }
 }
 
 /* Drip animation — like a water droplet forming from the left edge and detaching into a circle */
@@ -104,6 +256,23 @@
   }
 }
 
+/* Satellite-style zoom: map starts high & zoomed-out, descends and settles
+   centered. Keep the -50%/-50% centering offset in every keyframe so the
+   element stays anchored to the slide center. */
+@keyframes satellite-zoom {
+  0% {
+    transform: translate(-50%, -64%) scale(1.9);
+    filter: blur(2px);
+  }
+  60% {
+    filter: blur(0.5px);
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+    filter: blur(0);
+  }
+}
+
 @keyframes marker-pulse {
   0% { transform: scale(1); opacity: 0.6; }
   50% { transform: scale(2); opacity: 0; }
@@ -116,9 +285,49 @@
   100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
 }
 
+/* Card celebration — when the user finishes filling the form, the card
+   gets a one-shot lift + a diagonal shine sweep. The shine is a child
+   element animated separately so we can layer it under the card content
+   but above the gradient background. */
+@keyframes card-pulse {
+  0%   { transform: scale(1);    box-shadow: 0 12px 28px rgba(99, 91, 255, 0.25); }
+  35%  { transform: scale(1.035); box-shadow: 0 22px 48px rgba(99, 91, 255, 0.55); }
+  70%  { transform: scale(1.015); box-shadow: 0 16px 36px rgba(99, 91, 255, 0.4); }
+  100% { transform: scale(1);    box-shadow: 0 12px 28px rgba(99, 91, 255, 0.25); }
+}
+
+@keyframes card-shine {
+  0%   { transform: translateX(-130%) skewX(-22deg); opacity: 0; }
+  20%  { opacity: 0.9; }
+  80%  { opacity: 0.9; }
+  100% { transform: translateX(130%) skewX(-22deg); opacity: 0; }
+}
+
 @keyframes sheet-up {
   from { opacity: 0; transform: translateY(30%); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+/* Chat page entrance — two simultaneous motions that meet in the middle:
+   the lilac gradient backdrop curtains down from above, while the bottom
+   sheet (quick actions card) rises up from below. The eye naturally lands
+   on the card as both motions resolve. Easing is a soft "expo-out" so the
+   first frames travel fast and the last frames settle gently. */
+@keyframes chat-pink-curtain {
+  from { transform: translateY(-100%); }
+  to   { transform: translateY(0); }
+}
+@keyframes chat-sheet-rise {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+/* Search entrance — the card slides DOWN from the top of the screen and
+   settles into its docked position (used for the store/search flow instead
+   of the bottom-up rise). dvh keeps the off-screen start viewport-relative
+   so it clears the screen regardless of the card's own height. */
+@keyframes chat-card-drop {
+  from { transform: translateY(-100dvh); }
+  to   { transform: translateY(0); }
 }
 
 /* Tailwind v4 Preflight (in @layer base) already resets margins, padding, and box-sizing.
@@ -129,6 +338,10 @@ html {
   scroll-behavior: smooth;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  /* Disable the browser's pull-to-refresh and rubber-band overscroll —
+     framer-motion drag gestures on cards were leaking into the
+     browser's vertical overscroll and triggering a page reload. */
+  overscroll-behavior: none;
   overflow-x: hidden; /* clip would create a containing block and break position:fixed */
 }
 
@@ -136,8 +349,13 @@ body {
   font-family: var(--font-display);
   background-color: var(--color-bg-light);
   color: var(--color-text-primary);
+  overscroll-behavior: none;
   min-height: max(884px, 100dvh);
-  overflow-x: hidden; /* clip would create a containing block and break position:fixed */
+  /* `clip` (not `hidden`) prevents horizontal overflow WITHOUT making body a
+     scroll container. `hidden` forces overflow-y to compute to `auto`, turning
+     body into a dead-end scroller that traps wheel/touch gestures and blocks
+     chaining to the html scroller (combined with overscroll-behavior: none). */
+  overflow-x: clip;
   -webkit-text-size-adjust: 100%;
 }
 
@@ -155,6 +373,43 @@ body {
 
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* MapLibre OffersMap custom theming — applies only to the canvas so it
+   doesn't desaturate the HTML markers/popups sitting on top.
+   Light desaturation gives the base tiles a softer, custom-themed look
+   without washing out the label text (kept brightness/contrast neutral). */
+.maplibregl-canvas {
+  filter: saturate(0.78);
+}
+
+/* Popup body — rounded, soft shadow, slight backdrop blur for the
+   premium "lift" look. Tip arrow color matches the surface. */
+.maplibregl-popup-content {
+  border-radius: 14px;
+  padding: 0;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+}
+.maplibregl-popup-tip {
+  border-top-color: rgba(255, 255, 255, 0.95) !important;
+  border-bottom-color: rgba(255, 255, 255, 0.95) !important;
+}
+.maplibregl-popup-close-button {
+  display: none;
+}
+
+/* Subtle, almost-hidden scrollbar — barely visible track, slim translucent thumb */
+.subtle-scrollbar::-webkit-scrollbar { width: 3px; height: 3px; }
+.subtle-scrollbar::-webkit-scrollbar-track { background: transparent; }
+.subtle-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.12);
+  border-radius: 9999px;
+}
+.subtle-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(0, 0, 0, 0.2); }
+.subtle-scrollbar { scrollbar-width: thin; scrollbar-color: rgba(0, 0, 0, 0.12) transparent; }
 
 .bottom-sheet-overlay {
   position: fixed;
@@ -176,8 +431,8 @@ body {
   margin-bottom: calc(80px + env(safe-area-inset-bottom, 0px));
 }
 
-.material-symbols-outlined {
-  font-family: 'Material Symbols Outlined';
+.material-symbols-outlined,
+.material-symbols-rounded {
   font-weight: normal;
   font-style: normal;
   font-size: 24px;
@@ -191,11 +446,46 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+.material-symbols-outlined {
+  font-family: 'Material Symbols Outlined';
+}
+
+.material-symbols-rounded {
+  font-family: 'Material Symbols Rounded';
+}
+
 .line-clamp-1 {
   display: -webkit-box;
   -webkit-line-clamp: 1;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+/* ── Thin, subtle scrollbar (no arrows) ───────────────────────────────────── */
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.12) transparent;
+}
+.scrollbar-thin::-webkit-scrollbar {
+  width: 3px;
+}
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.12);
+  border-radius: 999px;
+}
+.scrollbar-thin::-webkit-scrollbar-button {
+  display: none;
+}
+
+.scrollbar-hide {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
 }
 
 /* ── Gali orb ─────────────────────────────────────────────────────────────── */

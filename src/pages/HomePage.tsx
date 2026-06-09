@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useLanguage } from '../i18n/LanguageContext';
 import HeroBanner from '../components/home/HeroBanner';
+import HomePageSkeleton from '../components/home/HomePageSkeleton';
+import NexusPicksRow from '../components/home/NexusPicksRow';
 import CardIssuanceBanner from '../components/home/CardIssuanceBanner';
 import BrandSlider from '../components/home/BrandSlider';
 import ActiveOffers from '../components/home/ActiveOffers';
@@ -19,7 +21,9 @@ import {
 } from '../components/store/StoreSliders';
 import { useAuthStore } from '../stores/authStore';
 import { useTenantStore } from '../stores/tenantStore';
+import { useVouchers } from '../hooks/useVouchers';
 import type { StoreFilter } from '../types/voucher.types';
+import DevPlaygroundSheet from '../components/dev/DevPlaygroundSheet';
 
 const A2HS_DISMISSED_KEY = 'nexus_a2hs_dismissed';
 
@@ -38,6 +42,7 @@ export default function HomePage() {
   const [showA2HS, setShowA2HS] = useState(
     () => !localStorage.getItem(A2HS_DISMISSED_KEY)
   );
+  const [showDevSheet, setShowDevSheet] = useState(false);
 
   const dismissA2HS = () => {
     setShowA2HS(false);
@@ -52,6 +57,13 @@ export default function HomePage() {
   const handleSelectFilter = (filter: StoreFilter) => {
     navigate(`/${lang}/store`, { state: { filter } });
   };
+
+  // All home-page sliders read from the same `useVouchers` query (shared React
+  // Query cache), so this loading flag mirrors what every slider sees.
+  const { isLoading: vouchersLoading } = useVouchers();
+  if (vouchersLoading) {
+    return <HomePageSkeleton />;
+  }
 
   return (
     <div className="animate-fade-in">
@@ -122,6 +134,9 @@ export default function HomePage() {
         </div>
       )}
 
+      {/* ההמלצות של Nexus עבורך — synced with last chat-sheet picks */}
+      <NexusPicksRow />
+
       <HeroBanner />
       <BrandSlider />
 
@@ -160,15 +175,20 @@ export default function HomePage() {
       {/* בקרוב */}
       <ComingSoonSlider onSelectFilter={handleSelectFilter} />
 
-      {/* DEV ONLY */}
+      {/* DEV PLAYGROUND — single entry point that opens a bottom sheet
+          containing both the auth-flow test and the live-notifications
+          test panel. Keeps the home page clean while giving devs one
+          discoverable button for all the playground tooling. */}
       <div className="px-6 py-4">
         <button
-          onClick={() => navigate(`/${lang}/auth-flow/test`)}
+          onClick={() => setShowDevSheet(true)}
           className="w-full py-3 rounded-2xl bg-warning/10 text-warning text-xs font-semibold border border-warning/20 active:scale-[0.98] transition-all"
         >
-          🧪 Auth Flow Test (Dev)
+          🧪 Dev Playground
         </button>
       </div>
+
+      {showDevSheet && <DevPlaygroundSheet onClose={() => setShowDevSheet(false)} />}
     </div>
   );
 }

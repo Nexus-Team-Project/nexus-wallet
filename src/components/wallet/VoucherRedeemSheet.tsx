@@ -25,7 +25,7 @@ export default function VoucherRedeemSheet({ userVoucher, onClose }: VoucherRede
   return (
     <>
       <div className="bottom-sheet-overlay" onClick={onClose} />
-      <div className="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-3xl animate-slide-up">
+      <div className="fixed bottom-0 left-0 right-0 max-w-md mx-auto z-50 bg-white rounded-t-3xl animate-slide-up">
         <div className="flex justify-center pt-3 pb-2">
           <div className="w-10 h-1 bg-border rounded-full" />
         </div>

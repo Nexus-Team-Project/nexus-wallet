@@ -48,6 +48,13 @@ interface TenantDiscoverySheetProps {
    * a tenant link would see that same org listed under "find another org".
    */
   excludeTenantId?: string;
+  /**
+   * True while the parent is sending the join request. The Continue button
+   * shows a spinner + "Joining…" and the sheet can't be dismissed, so the
+   * user gets immediate feedback during the ~1-2s round-trip instead of a
+   * blank wait until the result toast appears.
+   */
+  submitting?: boolean;
 }
 
 /** Two-letter initials fallback when a tenant has no logo. */
@@ -76,7 +83,7 @@ function colorFor(name: string): string {
  * @param onClose closes the sheet without submitting.
  * @returns the animated bottom-sheet / modal element.
  */
-export default function TenantDiscoverySheet({ onSubmit, onClose, memberOrgs, onPickMember, excludeTenantId }: TenantDiscoverySheetProps) {
+export default function TenantDiscoverySheet({ onSubmit, onClose, memberOrgs, onPickMember, excludeTenantId, submitting = false }: TenantDiscoverySheetProps) {
   const { language } = useLanguage();
   const isHe = language === 'he';
 
@@ -171,8 +178,8 @@ export default function TenantDiscoverySheet({ onSubmit, onClose, memberOrgs, on
         style={{ background: 'rgba(0,0,0,0.35)' }}
         initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
         onPointerDown={(e) => { dragY.current = e.clientY; }}
-        onPointerUp={(e) => { if (e.clientY - dragY.current > 40) onClose(); }}
-        onClick={(e) => { e.stopPropagation(); onClose(); }}
+        onPointerUp={(e) => { if (!submitting && e.clientY - dragY.current > 40) onClose(); }}
+        onClick={(e) => { e.stopPropagation(); if (!submitting) onClose(); }}
       />
       <motion.div
         key="sheet"
@@ -184,7 +191,7 @@ export default function TenantDiscoverySheet({ onSubmit, onClose, memberOrgs, on
         drag="y"
         dragConstraints={{ top: 0 }}
         dragElastic={0.2}
-        onDragEnd={(_e, info) => { if (info.offset.y > 60) onClose(); }}
+        onDragEnd={(_e, info) => { if (!submitting && info.offset.y > 60) onClose(); }}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex justify-center pt-3 pb-2 flex-shrink-0 cursor-grab">
@@ -383,11 +390,21 @@ export default function TenantDiscoverySheet({ onSubmit, onClose, memberOrgs, on
         <div className="flex-shrink-0 px-5 pb-6 pt-2 sm:px-8">
           <button
             type="button"
-            disabled={!canSubmit}
+            disabled={!canSubmit || submitting}
             onClick={() => onSubmit(selectedId ? [selectedId] : [])}
-            className="w-full rounded-2xl bg-primary py-3 text-sm font-semibold text-white shadow-sm transition-all hover:opacity-90 disabled:opacity-40 sm:py-4 sm:text-base"
+            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-primary py-3 text-sm font-semibold text-white shadow-sm transition-all hover:opacity-90 disabled:opacity-40 sm:py-4 sm:text-base"
           >
-            {isHe ? 'המשך' : 'Continue'}
+            {submitting ? (
+              <>
+                <span
+                  className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white"
+                  aria-hidden="true"
+                />
+                {isHe ? 'מצטרף…' : 'Joining…'}
+              </>
+            ) : (
+              isHe ? 'המשך' : 'Continue'
+            )}
           </button>
         </div>
       </motion.div>

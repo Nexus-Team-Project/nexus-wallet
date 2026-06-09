@@ -16,7 +16,8 @@
  * catalog, and on logout, so a stale org never re-attaches to a later session.
  */
 import type { NavigateFunction } from 'react-router-dom';
-import { toast } from 'sonner';
+import { appToast, tenantSender } from './appToast';
+import type { NotificationSender } from '../types/notification.types';
 import type { TranslationKeys } from '../i18n/types';
 import { sendJoinRequest } from '../services/walletTenants.service';
 
@@ -120,8 +121,8 @@ export async function finishWalletRegistration(opts: {
   lang: string;
   t: TranslationKeys;
   overridePath?: string;
-  /** Refreshes /api/me — needed to read a freshly-joined org's name. */
-  reload?: () => Promise<{ memberships?: Array<{ tenantId: string; tenantName: string }> } | null>;
+  /** Refreshes /api/me — needed to read a freshly-joined org's name + logo. */
+  reload?: () => Promise<{ memberships?: Array<{ tenantId: string; tenantName: string; logoUrl?: string }> } | null>;
 }): Promise<void> {
   const { navigate, lang, t, overridePath, reload } = opts;
   // Run exactly once per registration — ignore repeat calls (double-fire /
@@ -150,13 +151,27 @@ export async function finishWalletRegistration(opts: {
   // An org context (joined / existing member) is the user's destination and
   // must win over any return-stash override — you just chose/joined it.
   let orgWins = false;
+  // Sender for the welcome toast — set to the tenant so the toast avatar shows
+  // the org's real logo (joined) or its initial (pending, not a member yet),
+  // matching the branded notification design.
+  let toastSender: NotificationSender | undefined;
+  let toastDeepLink: string | undefined;
 
   if (aff?.kind === 'joined' && aff.tenantId) {
     path = `/${lang}/store?tenant=${encodeURIComponent(aff.tenantId)}`;
     message = t.authFlow.welcomeJoinedToast.replace('{{orgName}}', name);
     orgWins = true;
+    // The org is now a membership → read its real logo from a fresh /api/me.
+    const logoUrl = reload
+      ? (await reload())?.memberships?.find((m) => m.tenantId === aff!.tenantId)?.logoUrl
+      : undefined;
+    toastSender = tenantSender(aff.tenantId, name, logoUrl);
+    toastDeepLink = `/store?tenant=${encodeURIComponent(aff.tenantId)}`;
   } else if (aff?.kind === 'pending') {
     message = t.authFlow.welcomePendingToast.replace('{{orgName}}', name);
+    // Not a member yet, so no logo is available — the initial-letter avatar
+    // still brands the toast with the org.
+    if (aff.tenantId) toastSender = tenantSender(aff.tenantId, name);
   } else if (aff?.kind === 'member' && aff.tenantId) {
     path = `/${lang}/store?tenant=${encodeURIComponent(aff.tenantId)}`;
     orgWins = true;
@@ -164,6 +179,12 @@ export async function finishWalletRegistration(opts: {
 
   const target = orgWins ? path : (overridePath ?? path);
   clearAffiliation();
-  if (message) toast.success(message);
+  if (message) {
+    appToast.success(message, {
+      category: 'social',
+      sender: toastSender,
+      deepLink: toastDeepLink,
+    });
+  }
   navigate(target, { replace: true });
 }

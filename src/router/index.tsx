@@ -10,6 +10,12 @@ import { useRegistrationStore } from '../stores/registrationStore';
 import RegistrationGuard from '../components/registration/RegistrationGuard';
 import AppLayout from '../components/layout/AppLayout';
 import NotFoundPage from '../pages/NotFoundPage';
+// HomePageSkeleton / WalletPageSkeleton are eager so they can be shown
+// immediately as the Suspense fallback for their respective routes —
+// avoids the blank white flash on first load.
+import HomePageSkeleton from '../components/home/HomePageSkeleton';
+import WalletPageSkeleton from '../components/wallet/WalletPageSkeleton';
+import WalletHistorySkeleton from '../components/wallet/WalletHistorySkeleton';
 
 // ── Lazy chunks ──────────────────────────────────────────────────────────────
 // Main app tabs — loaded right after initial render
@@ -21,22 +27,38 @@ const ProfilePage        = lazy(() => import('../pages/ProfilePage'));
 const EditProfilePage    = lazy(() => import('../pages/EditProfilePage'));
 
 // Utility pages
-const SearchPage         = lazy(() => import('../pages/SearchPage'));
 const AiChatPage         = lazy(() => import('../pages/AiChatPage'));
 const NearYouMapPage     = lazy(() => import('../pages/NearYouMapPage'));
+// MapLibre demo — lazy so MapLibre's ~250KB only loads on this route
+const OffersMapDemo      = lazy(() => import('../components/map/OffersMap.demo'));
 const InsightsPage       = lazy(() => import('../pages/InsightsPage'));
 const StoriesPage        = lazy(() => import('../pages/StoriesPage'));
 const ReferralStoriesPage = lazy(() => import('../pages/ReferralStoriesPage'));
 const PremiumRevealPage  = lazy(() => import('../pages/PremiumRevealPage'));
 const CategoryPage       = lazy(() => import('../pages/CategoryPage'));
 const BusinessPage       = lazy(() => import('../pages/BusinessPage'));
+const BusinessStorePage  = lazy(() => import('../pages/BusinessStorePage'));
+const BusinessProductPage  = lazy(() => import('../pages/BusinessProductPage'));
+const BusinessReviewsPage  = lazy(() => import('../pages/BusinessReviewsPage'));
+const BusinessCheckoutPage = lazy(() => import('../pages/BusinessCheckoutPage'));
+const GiftDetailsPage      = lazy(() => import('../pages/GiftDetailsPage'));
+const SplitBillPage        = lazy(() => import('../pages/SplitBillPage'));
+const OrderConfirmationPage = lazy(() => import('../pages/OrderConfirmationPage'));
 const VoucherPurchasePage = lazy(() => import('../pages/VoucherPurchasePage'));
+const NotificationsPage  = lazy(() => import('../pages/NotificationsPage'));
 
 // Wallet add-money flow
 const AddMoneyPage       = lazy(() => import('../pages/AddMoneyPage'));
 const AddMoneySourcePage = lazy(() => import('../pages/AddMoneySourcePage'));
 const AddMoneyLoadingPage = lazy(() => import('../pages/AddMoneyLoadingPage'));
+const AddPaymentMethodPage = lazy(() => import('../pages/AddPaymentMethodPage'));
+const PaymentMethodsPage = lazy(() => import('../pages/PaymentMethodsPage'));
+const WalletHistoryPage = lazy(() => import('../pages/WalletHistoryPage'));
+const WallpaperPage = lazy(() => import('../pages/WallpaperPage'));
+const WalletCustomizePage = lazy(() => import('../pages/WalletCustomizePage'));
+const WalletActionsPage = lazy(() => import('../pages/WalletActionsPage'));
 const VoucherDetailPage  = lazy(() => import('../pages/VoucherDetailPage'));
+const PaymentIntroPage   = lazy(() => import('../pages/PaymentIntroPage'));
 
 // Registration flow — single chunk (user goes through all slides sequentially)
 const RegisterMembershipPage   = lazy(() => import('../pages/RegisterMembershipPage'));
@@ -72,8 +94,11 @@ const OrgUserFlow = lazy(() =>
 );
 
 // ── Minimal fallback (no spinner — just blank, transitions feel instant) ─────
+// Fixed + above the overlay TopBar (z-50) so the persistent tenant logo in the
+// TopBar doesn't float over the white flash during a lazy-route transition.
+// Constrained to the app frame (max-w-md) to match the centred layout.
 function PageFallback() {
-  return <div className="min-h-dvh bg-white" />;
+  return <div className="fixed inset-y-0 left-0 right-0 mx-auto max-w-md bg-white z-[55]" />;
 }
 
 function S({ children }: { children: React.ReactNode }) {
@@ -146,11 +171,19 @@ export const router = createBrowserRouter([
           // anonymous and logged-in users both land on StorePage.
           // See IndexRoute + StoreRoute above.
           { index: true,      element: <IndexRoute /> },
-          { path: 'home',     element: <S><HomePage /></S> },
+          {
+            path: 'home',
+            element: (
+              <Suspense fallback={<HomePageSkeleton />}>
+                <HomePage />
+              </Suspense>
+            ),
+          },
           { path: 'store',    element: <StoreRoute /> },
-          { path: 'search',           element: <S><SearchPage /></S> },
           { path: 'chat',             element: <S><AiChatPage /></S> },
+          { path: 'search',           element: <S><AiChatPage /></S> },
           { path: 'near-you-map',     element: <S><NearYouMapPage /></S> },
+          { path: 'map-demo',         element: <S><OffersMapDemo /></S> },
           { path: 'insights',         element: <S><InsightsPage /></S> },
           { path: 'stories',          element: <S><StoriesPage /></S> },
           { path: 'referral-stories', element: <S><ReferralStoriesPage /></S> },
@@ -158,17 +191,50 @@ export const router = createBrowserRouter([
           { path: 'card-issuance',    element: <S><CardIssuanceStoriesPage /></S> },
           { path: 'category/:categoryId', element: <S><CategoryPage /></S> },
           { path: 'business/:businessId', element: <S><BusinessPage /></S> },
+          { path: 'business/:businessId/store', element: <S><BusinessStorePage /></S> },
+          { path: 'business/:businessId/product/:productId', element: <S><BusinessProductPage /></S> },
+          { path: 'business/:businessId/product/:productId/reviews', element: <S><BusinessReviewsPage /></S> },
+          { path: 'business/:businessId/product/:productId/checkout', element: <S><BusinessCheckoutPage /></S> },
+          { path: 'business/:businessId/product/:productId/gift', element: <S><GiftDetailsPage /></S> },
+          { path: 'business/:businessId/product/:productId/split', element: <S><SplitBillPage /></S> },
+          { path: 'business/:businessId/product/:productId/order-confirmed', element: <S><OrderConfirmationPage /></S> },
           { path: 'business/:businessId/voucher/:voucherId', element: <S><VoucherPurchasePage /></S> },
 
           // === PROTECTED routes ===
+          // All wallet / payment / personalization / notifications surfaces
+          // are gated: they show the signed-in user's own data, so they live
+          // under ProtectedRoute (route-resolve-time redirect, no render flash)
+          // rather than as public routes.
           {
             element: <ProtectedRoute />,
             children: [
-              { path: 'wallet',                    element: <S><WalletPage /></S> },
+              {
+                path: 'wallet',
+                element: (
+                  <Suspense fallback={<WalletPageSkeleton />}>
+                    <WalletPage />
+                  </Suspense>
+                ),
+              },
               { path: 'wallet/add-money',          element: <S><AddMoneyPage /></S> },
               { path: 'wallet/add-money/source',   element: <S><AddMoneySourcePage /></S> },
               { path: 'wallet/add-money/loading',  element: <S><AddMoneyLoadingPage /></S> },
+              { path: 'wallet/add-payment-method', element: <S><AddPaymentMethodPage /></S> },
+              { path: 'wallet/payment-methods',    element: <S><PaymentMethodsPage /></S> },
+              { path: 'wallet/pay-intro',          element: <S><PaymentIntroPage /></S> },
+              { path: 'wallet/customize',          element: <S><WalletCustomizePage /></S> },
+              { path: 'wallet/actions',            element: <S><WalletActionsPage /></S> },
+              {
+                path: 'wallet/history',
+                element: (
+                  <Suspense fallback={<WalletHistorySkeleton />}>
+                    <WalletHistoryPage />
+                  </Suspense>
+                ),
+              },
               { path: 'wallet/voucher/:voucherId', element: <S><VoucherDetailPage /></S> },
+              { path: 'wallpaper',                 element: <S><WallpaperPage /></S> },
+              { path: 'notifications',             element: <S><NotificationsPage /></S> },
               { path: 'activity',                  element: <S><ActivityPage /></S> },
               { path: 'profile',                   element: <S><ProfilePage /></S> },
               { path: 'profile/edit',              element: <S><EditProfilePage /></S> },

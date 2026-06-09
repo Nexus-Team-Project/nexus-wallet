@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useAuthGate } from '../../hooks/useAuthGate';
 import { useAuth } from '../../contexts/AuthContext';
@@ -9,6 +9,8 @@ import { useUser } from '../../hooks/useUser';
 import { tenantColor } from '../../lib/tenantColor';
 import TenantSwitchSheet from '../wallet/TenantSwitchSheet';
 import UserMenu from './UserMenu';
+import { useUnreadNotificationCount } from '../../hooks/useNotifications';
+import { useNotificationToastStore } from '../../stores/notificationToastStore';
 
 function getGreeting(t: { home: { goodMorning: string; goodAfternoon: string; goodEvening: string; goodNight: string } }) {
   const hour = new Date().getHours();
@@ -41,9 +43,11 @@ function deriveInitials(first?: string | null, last?: string | null, fullName?: 
 interface TopBarProps {
   collapsed?: boolean;
   showBack?: boolean;
+  /** Hide the "good morning / name" greeting (e.g. full-screen flows). */
+  hideGreeting?: boolean;
 }
 
-export default function TopBar({ collapsed = false, showBack = false }: TopBarProps) {
+export default function TopBar({ collapsed = false, showBack = false, hideGreeting = false }: TopBarProps) {
   const internalRef = useRef<HTMLElement>(null);
 
   const { lang = 'he' } = useParams();
@@ -101,7 +105,7 @@ export default function TopBar({ collapsed = false, showBack = false }: TopBarPr
   const tenantInitials = deriveInitials(undefined, undefined, logoAlt);
 
   const displayFirstName = authFirstName ?? user?.firstName;
-  const showGreeting = isAuthenticated && !!displayFirstName;
+  const showGreeting = isAuthenticated && !!displayFirstName && !hideGreeting;
   const greetingText = getGreeting(t);
 
   // Initials shown in the profile avatar when logged in (no uploaded photo).
@@ -111,8 +115,26 @@ export default function TopBar({ collapsed = false, showBack = false }: TopBarPr
     me?.user?.name ?? displayFirstName,
   );
 
-  const notificationCount = 3;
-  const chatCount = 1;
+  // Real unread notification count drives the bell badge.
+  const { data: notificationCount = 0 } = useUnreadNotificationCount();
+  // Chat is not wired to a real backend yet, so there is no real unread-message
+  // count — show 0 (badge hidden) instead of a hardcoded mock number. Replace
+  // with a real unread-messages query when the chat backend lands.
+  const chatCount = 0;
+
+  // Subscribe to the bell-pulse trigger from the toast store. Every
+  // time a toast finishes its fly-to-bell exit the counter ticks; we
+  // toggle a one-shot CSS class on the bell to play the shake.
+  const bellPulseCount = useNotificationToastStore((s) => s.bellPulseCount);
+  const [bellShaking, setBellShaking] = useState(false);
+  useEffect(() => {
+    // Skip the very first render's value (we don't want to shake on
+    // mount) — only react to increments from there on.
+    if (bellPulseCount === 0) return;
+    setBellShaking(true);
+    const handle = setTimeout(() => setBellShaking(false), 700);
+    return () => clearTimeout(handle);
+  }, [bellPulseCount]);
 
   const [switchSheetOpen, setSwitchSheetOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
@@ -146,13 +168,8 @@ export default function TopBar({ collapsed = false, showBack = false }: TopBarPr
     if (authed) setUserMenuOpen(true);
   };
 
-  const handleNotifications = async () => {
-    if (isAuthenticated) {
-      navigate(`/${lang}/activity`);
-    } else {
-      const authed = await requireAuth({ promptMessage: t.auth.genericPrompt });
-      if (authed) navigate(`/${lang}/activity`);
-    }
+  const handleNotifications = () => {
+    navigate(`/${lang}/notifications`);
   };
 
   // Button size classes
@@ -274,7 +291,9 @@ export default function TopBar({ collapsed = false, showBack = false }: TopBarPr
 
               <button
                 onClick={handleNotifications}
-                className={`relative rounded-full bg-surface flex items-center justify-center hover:bg-border transition-all duration-300 ease-in-out ${btnSize}`}
+                data-notif-bell
+                className={`relative rounded-full bg-surface flex items-center justify-center hover:bg-border transition-all duration-300 ease-in-out ${btnSize} ${bellShaking ? 'animate-bell-shake' : ''}`}
+                style={{ transformOrigin: 'top center' }}
                 aria-label="Notifications"
               >
                 <span className={`material-symbols-outlined text-text-primary transition-transform duration-300 ${iconScale}`}>notifications</span>

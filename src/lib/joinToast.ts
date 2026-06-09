@@ -4,7 +4,7 @@
  * pending request that needs admin approval - this surfaces the right message
  * for each case from the CreateJoinResult buckets.
  */
-import { toast } from 'sonner';
+import { appToast } from './appToast';
 import type { CreateJoinResult } from '../services/walletTenants.service';
 
 /**
@@ -17,23 +17,27 @@ export function joinResultToast(result: CreateJoinResult, isHe: boolean): void {
   const pending = result.created.length;
 
   if (joined > 0 && pending > 0) {
-    toast.success(
+    appToast.success(
       isHe
         ? 'הצטרפת לחלק מהארגונים, השאר ממתינים לאישור מנהל'
         : 'Joined some organizations; the rest are pending admin approval',
+      { category: 'social' },
     );
     return;
   }
   if (joined > 0) {
-    toast.success(isHe ? 'הצטרפת לארגון!' : "You're in!");
+    appToast.success(isHe ? 'הצטרפת לארגון!' : "You're in!", { category: 'social' });
     return;
   }
   if (pending > 0) {
-    toast.success(
+    appToast.success(
       isHe ? 'הבקשה נשלחה, ממתינה לאישור מנהל' : 'Request sent, pending admin approval',
+      { category: 'social' },
     );
     return;
   }
   // Nothing joined or created -> everything was skipped (already member/pending).
-  toast.info(isHe ? 'כבר ביקשת להצטרף לארגון זה' : "You've already requested to join");
+  appToast.info(isHe ? 'כבר ביקשת להצטרף לארגון זה' : "You've already requested to join", {
+    category: 'social',
+  });
 }
