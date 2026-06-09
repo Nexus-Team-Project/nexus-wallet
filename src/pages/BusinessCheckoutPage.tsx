@@ -396,6 +396,9 @@ export default function BusinessCheckoutPage() {
                 avatarUrl={user?.avatar}
                 onLoad={() => setMapReady(true)}
                 className="w-full h-full"
+                // Static — only recenters when a different address card is
+                // picked (via flyTo); the user can't pan/zoom it by hand.
+                interactive={false}
               />
               {/* Plain gray loading box with a sweeping glow; fades out once the
                   interactive GL map has loaded. */}

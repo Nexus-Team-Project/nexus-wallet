@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useAccessibilityStore } from '../stores/accessibilityStore';
 import {
   X,
   Type,
@@ -43,11 +44,6 @@ const DEFAULT_SETTINGS: A11ySettings = {
 };
 
 const STORAGE_KEY = 'nexus-a11y-settings';
-// Bumped to v2 to invalidate any pre-existing dismiss flags from
-// testing the drag-to-trash interaction. The widget shows again on
-// next load; future dismisses write to the v2 key, the old key is
-// inert and can be removed later.
-const DISMISS_KEY = 'nexus-a11y-dismissed-v2';
 const BTN_SIZE = 52;
 // Drag-to-dismiss trash target dimensions / placement. Sized to fit
 // *underneath* the FAB visually — when the user drags the widget over
@@ -191,13 +187,10 @@ export default function AccessibilityWidget() {
   // within hit range. Both reset on pointer-up.
   const [dragging, setDragging] = useState(false);
   const [overTrash, setOverTrash] = useState(false);
-  const [dismissed, setDismissed] = useState(() => {
-    try {
-      return localStorage.getItem(DISMISS_KEY) === 'true';
-    } catch {
-      return false;
-    }
-  });
+  // Opt-in visibility lives in a shared store so the home-page prompt card
+  // can reveal the widget the moment the user adds it.
+  const enabled = useAccessibilityStore((s) => s.enabled);
+  const disableWidget = useAccessibilityStore((s) => s.disableWidget);
   const [settings, setSettings] = useState<A11ySettings>(() => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
@@ -331,12 +324,7 @@ export default function AccessibilityWidget() {
     // click-to-open flow so the user doesn't see the panel open on the
     // way to deleting the widget.
     if (wasOverTrash) {
-      setDismissed(true);
-      try {
-        localStorage.setItem(DISMISS_KEY, 'true');
-      } catch {
-        // ignore
-      }
+      disableWidget();
       return;
     }
 
@@ -348,17 +336,12 @@ export default function AccessibilityWidget() {
         return 'idle'; // panelOpen → idle
       });
     }
-  }, [overTrash]);
+  }, [overTrash, disableWidget]);
 
   const handleDismiss = useCallback(() => {
-    setDismissed(true);
+    disableWidget();
     setWidgetState('idle');
-    try {
-      localStorage.setItem(DISMISS_KEY, 'true');
-    } catch {
-      // ignore
-    }
-  }, []);
+  }, [disableWidget]);
 
   const modified = isModified(settings);
   const panelOpen = widgetState === 'panelOpen';
@@ -371,7 +354,7 @@ export default function AccessibilityWidget() {
   const containerBottom = pos ? window.innerHeight - pos.y - BTN_SIZE : 24;
   const containerLeft = pos?.x ?? 24;
 
-  if (dismissed) return null;
+  if (!enabled) return null;
 
   return (
     <>

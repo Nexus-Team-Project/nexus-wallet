@@ -1,11 +1,16 @@
-import { useState } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { useAuthGate } from '../../hooks/useAuthGate';
 import { useMyVouchers } from '../../hooks/useMyVouchers';
-import FilterSheet from './FilterSheet';
+import AnimatedNavIcon from './AnimatedNavIcon';
+import navWalletUrl from '../../assets/animations/nav-wallet.json?url';
+import navWalletBoldUrl from '../../assets/animations/nav-wallet-bold.json?url';
+import navSearchUrl from '../../assets/animations/nav-search.json?url';
+import navSearchBoldUrl from '../../assets/animations/nav-search-bold.json?url';
+import navHomeUrl from '../../assets/animations/nav-home.json?url';
+import navHomeBoldUrl from '../../assets/animations/nav-home-bold.json?url';
 
-export default function FloatingActions() {
+export default function FloatingActions({ force = false }: { force?: boolean } = {}) {
   const { lang = 'he' } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
@@ -13,18 +18,18 @@ export default function FloatingActions() {
   const { isAuthenticated, requireAuth } = useAuthGate();
   const { data: activeVouchers } = useMyVouchers('active', { enabled: isAuthenticated });
   const activeCount = activeVouchers?.length || 0;
-  const [showFilter, setShowFilter] = useState(false);
 
   const isHome = location.pathname === `/${lang}` || location.pathname === `/${lang}/`;
   const isWallet = location.pathname.includes('/wallet');
+  const isSearch = /\/(chat|search)/.test(location.pathname);
   const isBusiness = /\/business\/[^/]+/.test(location.pathname);
   const isVoucherPurchase = /\/business\/[^/]+\/voucher\//.test(location.pathname);
   // The add-money flow owns its own fixed continue button at the bottom;
-  // the floating search + home pills would collide with it.
+  // the floating nav would collide with it.
   const isAddMoney = location.pathname.includes('/wallet/add-money');
   // On the chat / search pages, the recommendations sheet (with full-bleed
   // map) sits at the bottom — the white gradient backdrop would obscure the
-  // map's bottom edge. Hide it there; the buttons still float on top.
+  // map's bottom edge. Hide the backdrop there; the nav still floats on top.
   const isChatOrSearch = /\/(chat|search)/.test(location.pathname);
   // The search button always lands the user on the dedicated discount-finder
   // path. On a category page it also pre-selects that category in the finder.
@@ -45,7 +50,7 @@ export default function FloatingActions() {
     }
   };
 
-  if (isBusiness || isVoucherPurchase || isAddMoney) return null;
+  if (!force && (isBusiness || isVoucherPurchase || isAddMoney)) return null;
 
   const handleWallet = async () => {
     if (isAuthenticated) {
@@ -56,11 +61,16 @@ export default function FloatingActions() {
     }
   };
 
+  // Shared styling for the three pill items. The active page's icon shows in
+  // full ink (and replays its animation); the rest sit muted.
+  const itemClass =
+    'nav-btn relative w-11 h-11 flex items-center justify-center rounded-full transition-transform active:scale-90';
+
   return (
     <>
-      {/* White fade backdrop behind floating actions. Skipped on the chat
-          page so the recommendations sheet's full-bleed map stays visible
-          all the way down. */}
+      {/* White fade backdrop behind the floating nav. Skipped on the chat /
+          search page so the recommendations sheet's full-bleed map stays
+          visible all the way down. */}
       {!isChatOrSearch && (
         <div className="fixed bottom-0 inset-x-0 h-8 z-40 pointer-events-none flex justify-center">
           <div
@@ -73,93 +83,36 @@ export default function FloatingActions() {
         </div>
       )}
 
-      {/* Search pill stays centered; wallet + home absolutely positioned beside it */}
+      {/* Floating nav: a white pill holding home / search / wallet, centered,
+          styled after the Rhode aesthetic. */}
       <div className="fixed bottom-6 inset-x-0 z-50 flex items-center justify-center">
-        {/* Search pill wrapper — relative so wallet + home can anchor to it */}
         <div className="relative">
-          {/* Wallet FAB — anchored to the right of the pill (right in RTL = end) */}
-          {!isWallet && (
-          <div className="absolute end-full me-3 top-1/2 -translate-y-1/2">
-            <button
-              onClick={handleWallet}
-              className="relative w-12 h-12 rounded-full bg-white shadow-lg border border-border/50 flex flex-col items-center justify-center hover:shadow-xl hover:scale-105 active:scale-95 transition-all duration-200"
-              aria-label="Wallet"
-            >
-              <span
-                className="material-symbols-outlined text-text-primary"
-                style={{ fontSize: '18px', fontVariationSettings: "'FILL' 1" }}
-              >
-                wallet
-              </span>
-              <span className="text-[8px] font-medium text-text-muted leading-none mt-0.5">{t.nav.wallet}</span>
-              {isAuthenticated && activeCount > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 rtl:-right-auto rtl:-left-0.5 w-[18px] h-[18px] bg-error rounded-full border-2 border-white flex items-center justify-center">
-                  <span className="text-[10px] font-bold text-white leading-none">
-                    {activeCount > 9 ? '9+' : activeCount}
-                  </span>
+        {/* Pill nav bar */}
+        <nav className="h-12 bg-white rounded-full flex items-center gap-1 px-3 shadow-[0_4px_12px_rgba(0,0,0,0.08)]">
+          {/* Wallet (with active-voucher badge) */}
+          <button onClick={handleWallet} aria-label={t.nav.wallet} className={itemClass}>
+            <AnimatedNavIcon src={navWalletUrl} boldSrc={navWalletBoldUrl} active={isWallet} />
+            {isAuthenticated && activeCount > 0 && (
+              <span className="absolute top-0.5 end-0.5 min-w-[18px] h-[18px] px-1 bg-error rounded-full border-2 border-white flex items-center justify-center">
+                <span className="text-[10px] font-bold text-white leading-none">
+                  {activeCount > 9 ? '9+' : activeCount}
                 </span>
-              )}
-            </button>
-          </div>
-          )}
-
-          {/* Home FAB — anchored to the left of the pill (left in RTL = start) */}
-          {!isHome && (
-            <button
-              onClick={() => navigate(`/${lang}`)}
-              className="absolute start-full ms-3 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-bg-dark shadow-lg shadow-bg-dark/30 flex flex-col items-center justify-center hover:shadow-xl hover:scale-105 active:scale-95 transition-all duration-200"
-              aria-label="Home"
-            >
-              <span
-                className="material-symbols-outlined text-white"
-                style={{ fontSize: '18px', fontVariationSettings: "'FILL' 1" }}
-              >
-                cottage
               </span>
-              <span className="text-[8px] font-medium text-white/70 leading-none mt-0.5">{t.nav.home}</span>
-            </button>
-          )}
+            )}
+          </button>
 
-          {/* Search + Filter pill bar — centered */}
-          <div className="flex items-center bg-bg-dark rounded-full shadow-lg shadow-bg-dark/30 overflow-hidden">
-            {/* Search zone → opens the in-page filter sheet on a category page,
-                otherwise the global chat search */}
-            <button
-              onClick={handleSearchClick}
-              className="flex items-center gap-2.5 pl-4 pr-2.5 rtl:pl-2.5 rtl:pr-4 py-3 hover:bg-white/5 active:bg-white/10 transition-colors"
-            >
-              <span
-                className="material-symbols-outlined text-white"
-                style={{ fontSize: '20px' }}
-              >
-                search
-              </span>
-              <span className="text-white text-sm font-medium">
-                {t.common.search}
-              </span>
-            </button>
+          {/* Search */}
+          <button onClick={handleSearchClick} aria-label={t.common.search} className={itemClass}>
+            <AnimatedNavIcon src={navSearchUrl} boldSrc={navSearchBoldUrl} active={isSearch} />
+          </button>
 
-            {/* Divider */}
-            <div className="w-px h-5 bg-white/20" />
-
-            {/* Filter zone → opens filter sheet */}
-            <button
-              onClick={() => setShowFilter(true)}
-              className="flex items-center px-3 py-3 hover:bg-white/5 active:bg-white/10 transition-colors"
-            >
-              <span
-                className="material-symbols-outlined text-white/70"
-                style={{ fontSize: '20px' }}
-              >
-                tune
-              </span>
-            </button>
-          </div>
+          {/* Home */}
+          <button onClick={() => navigate(`/${lang}`)} aria-label={t.nav.home} className={itemClass}>
+            <AnimatedNavIcon src={navHomeUrl} boldSrc={navHomeBoldUrl} active={isHome} />
+          </button>
+        </nav>
         </div>
       </div>
-
-      {/* Filter bottom sheet */}
-      {showFilter && <FilterSheet onClose={() => setShowFilter(false)} />}
     </>
   );
 }

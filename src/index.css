@@ -469,6 +469,44 @@ body {
   overflow: hidden;
 }
 
+/* ── Cashback section reveal — a circular clip-path wipe expanding outward
+   from the card's centre (top-centre of the section). Done in native CSS
+   because framer-motion can't tween `circle(.. at ..)` (the `at` keyword
+   breaks its value parser, so it snaps). Runs on mount. ─────────────────── */
+@keyframes cashback-reveal {
+  from {
+    clip-path: circle(0px at 50% -150px);
+    -webkit-clip-path: circle(0px at 50% -150px);
+  }
+  to {
+    clip-path: circle(620px at 50% -150px);
+    -webkit-clip-path: circle(620px at 50% -150px);
+  }
+}
+.cashback-reveal {
+  animation: cashback-reveal 0.85s linear both;
+}
+
+/* Close: reverse the circular pulse (collapses back toward the card centre)
+   while the box height folds to 0 — so the section below (widgets) rises up
+   gradually in step with the fold. */
+@keyframes cashback-collapse {
+  from {
+    clip-path: circle(620px at 50% -150px);
+    -webkit-clip-path: circle(620px at 50% -150px);
+    max-height: 360px;
+  }
+  to {
+    clip-path: circle(0px at 50% -150px);
+    -webkit-clip-path: circle(0px at 50% -150px);
+    max-height: 0px;
+  }
+}
+.cashback-collapse {
+  overflow: hidden;
+  animation: cashback-collapse 0.6s linear both;
+}
+
 /* ── Thin, subtle scrollbar (no arrows) ───────────────────────────────────── */
 .scrollbar-thin {
   scrollbar-width: thin;

@@ -41,6 +41,7 @@ const BusinessCheckoutPage = lazy(() => import('../pages/BusinessCheckoutPage'))
 const GiftDetailsPage      = lazy(() => import('../pages/GiftDetailsPage'));
 const SplitBillPage        = lazy(() => import('../pages/SplitBillPage'));
 const OrderConfirmationPage = lazy(() => import('../pages/OrderConfirmationPage'));
+const ReceiptPage = lazy(() => import('../pages/ReceiptPage'));
 const VoucherPurchasePage = lazy(() => import('../pages/VoucherPurchasePage'));
 const NotificationsPage  = lazy(() => import('../pages/NotificationsPage'));
 
@@ -142,6 +143,7 @@ export const router = createBrowserRouter([
           { path: 'business/:businessId/product/:productId/gift', element: <S><GiftDetailsPage /></S> },
           { path: 'business/:businessId/product/:productId/split', element: <S><SplitBillPage /></S> },
           { path: 'business/:businessId/product/:productId/order-confirmed', element: <S><OrderConfirmationPage /></S> },
+          { path: 'business/:businessId/product/:productId/receipt', element: <S><ReceiptPage /></S> },
           { path: 'business/:businessId/voucher/:voucherId', element: <S><VoucherPurchasePage /></S> },
           { path: 'wallet/add-money',          element: <S><AddMoneyPage /></S> },
           { path: 'wallet/add-money/source',   element: <S><AddMoneySourcePage /></S> },

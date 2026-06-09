@@ -56,7 +56,6 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
   // each section header triggers vertical drag, so taps elsewhere on
   // the section (collapse chevron, buttons inside) stay independent.
   const widgetsDragControls = useDragControls();
-  const offersDragControls = useDragControls();
 
   // Collapsible section states
   const [widgetsOpen, setWidgetsOpen] = useState(true);
@@ -93,6 +92,20 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
   }, [balanceIndex]);
   // Which voucher card is flipped to its redemption side (null = none).
   const [flippedVoucherId, setFlippedVoucherId] = useState<string | null>(null);
+  // Cashback section phases. We don't unmount immediately on leaving the
+  // balance card — we play a reverse pulse + height-collapse first so the
+  // section below (widgets) rises up gradually. `seq` bumps on each open so
+  // the reveal keyframe replays on every return to the balance card.
+  const onBalanceCard = deckCards[activeCard] === 'balance';
+  const [cashback, setCashback] = useState<{ phase: 'closed' | 'open' | 'closing'; seq: number }>(
+    () => (onBalanceCard ? { phase: 'open', seq: 0 } : { phase: 'closed', seq: 0 }),
+  );
+  useEffect(() => {
+    setCashback((c) => {
+      if (onBalanceCard) return c.phase === 'open' ? c : { phase: 'open', seq: c.seq + 1 };
+      return c.phase === 'open' ? { ...c, phase: 'closing' } : c;
+    });
+  }, [onBalanceCard]);
   // Commit a swap only once the drag travels far / fast enough; otherwise
   // dragSnapToOrigin springs the card back. The deck does NOT loop, so at
   // an edge nothing happens. You fling the centre card toward where it
@@ -313,12 +326,12 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
           <button
             onClick={() => navigate(`/${lang}/wallet/payment-methods`)}
             aria-label={language === 'he' ? 'ניהול אמצעי תשלום' : 'Manage payment methods'}
-            className="absolute top-1/2 -translate-y-1/2 z-10 w-16 h-16 rounded-full shadow-md flex flex-col items-center justify-center gap-1.5 active:scale-95 transition-transform"
-            style={{ ...(isRTL ? { left: '-2%' } : { right: '-2%' }), backgroundColor: '#0a2540' }}
+            className="absolute top-1/2 -translate-y-1/2 z-10 w-16 h-16 rounded-full shadow-[0_6px_16px_rgba(0,0,0,0.14)] flex flex-col items-center justify-center gap-1.5 active:scale-95 transition-transform"
+            style={{ ...(isRTL ? { left: '-2%' } : { right: '-2%' }), backgroundColor: '#ffffff' }}
           >
-            <span className="block w-7 h-0.5 rounded-full bg-white" />
-            <span className="block w-7 h-0.5 rounded-full bg-white" />
-            <span className="block w-7 h-0.5 rounded-full bg-white" />
+            <span className="block w-7 h-0.5 rounded-full bg-text-secondary" />
+            <span className="block w-7 h-0.5 rounded-full bg-text-secondary" />
+            <span className="block w-7 h-0.5 rounded-full bg-text-secondary" />
           </button>
         </div>
       );
@@ -840,24 +853,9 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
           );
         }
         if (sectionId === 'offers') {
-          // "הטבות במיוחד בשבילך" — its own reorderable section so it can
-          // be dragged up/down (and hidden) in customize mode.
-          return (
-      <Reorder.Item
-        key="offers"
-        value="offers"
-        dragListener={false}
-        dragControls={offersDragControls}
-        className={`transition-opacity ${isHidden ? 'opacity-40' : ''}`}
-      >
-        <WalletOffersSlider
-          editEnabled={editEnabled}
-          isHidden={isHidden}
-          onToggleHidden={() => toggleHidden('offers')}
-          onReorderPointerDown={(e) => offersDragControls.start(e)}
-        />
-      </Reorder.Item>
-          );
+          // The cashback section is now pinned directly below the card gallery
+          // (see above), so it no longer renders here in the reorder list.
+          return null;
         }
         if (sectionId === 'digitalCards') {
           // The card and its "issue card" action now live in the balance
@@ -872,6 +870,24 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
         return null;
       })}
       </Reorder.Group>
+
+      {/* ══════ CASHBACK — below the widgets / sections, shown only while the
+          Nexus balance card is centred. `cashback-reveal` (open) expands a
+          circle from the card centre; `cashback-collapse` (close) reverses it
+          while the height folds to 0. ══════ */}
+      {cashback.phase !== 'closed' && (
+        <div
+          key={`cashback-${cashback.seq}`}
+          className={cashback.phase === 'closing' ? 'cashback-collapse' : 'cashback-reveal'}
+          onAnimationEnd={(e) => {
+            if (e.animationName === 'cashback-collapse') {
+              setCashback((c) => (c.phase === 'closing' ? { ...c, phase: 'closed' } : c));
+            }
+          }}
+        >
+          <WalletOffersSlider />
+        </div>
+      )}
       </div>{/* /relative gradient wrapper */}
       </motion.div>
 
@@ -978,8 +994,8 @@ function renderWidgetBody(
       className="flex flex-col items-center gap-1.5 w-full"
     >
       <span
-        className="w-16 h-16 rounded-full flex items-center justify-center shadow-[0_8px_30px_rgb(0,0,0,0.06)] border border-border"
-        style={{ backgroundColor: opts.bg ?? 'var(--color-surface)' }}
+        className="w-16 h-16 rounded-full flex items-center justify-center shadow-[0_6px_16px_rgba(0,0,0,0.14)]"
+        style={{ backgroundColor: opts.bg ?? '#ffffff' }}
       >
         <motion.span
           className="inline-block"
@@ -1013,7 +1029,7 @@ function renderWidgetBody(
             className="flex flex-col items-center gap-1.5 w-full"
           >
             <span
-              className="w-16 h-16 rounded-full flex items-center justify-center shadow-[0_8px_30px_rgb(0,0,0,0.06)] border border-border overflow-hidden"
+              className="w-16 h-16 rounded-full flex items-center justify-center shadow-[0_6px_16px_rgba(0,0,0,0.14)] overflow-hidden"
               style={{ backgroundColor: tenantConfig.primaryColor ?? 'var(--color-surface)' }}
             >
               <motion.img
@@ -1035,13 +1051,19 @@ function renderWidgetBody(
       });
     case 'best-offers':
       return circle('🏷️', t.wallet.widgetBestOffers, {
-        onClick: () => navigate(`/${lang}/store`),
+        onClick: () => navigate(`/${lang}`),
       });
-    case 'cashback-stat':
-      return circle('📈', t.wallet.widgetCashback, {});
-    case 'vouchers-stat':
-      return circle('🎁', t.wallet.widgetActiveVouchers, {});
-    case 'savings-stat':
-      return circle('💰', t.wallet.widgetSavings, {});
+    case 'refer-friends':
+      return circle('🤝', t.wallet.widgetReferFriends, {
+        onClick: () => navigate(`/${lang}/referral-stories`),
+      });
+    case 'my-profile':
+      return circle('🪪', t.wallet.widgetMyProfile, {
+        onClick: () => navigate(`/${lang}/profile`),
+      });
+    case 'my-orders':
+      return circle('🧾', t.wallet.widgetMyOrders, {
+        onClick: () => navigate(`/${lang}/activity`),
+      });
   }
 }

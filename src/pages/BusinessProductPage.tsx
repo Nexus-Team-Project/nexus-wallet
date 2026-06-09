@@ -2,6 +2,7 @@ import { useMemo, useState, useRef, useEffect } from 'react';
 import { useParams, Navigate, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence, useMotionValue, useTransform, animate } from 'framer-motion';
 import { mockBusinesses } from '../mock/data/businesses.mock';
+import { useCartStore } from '../stores/cartStore';
 import { useLanguage } from '../i18n/LanguageContext';
 import { ProductImage } from '../components/business/BusinessContent';
 import AddressSheet, { type Address } from '../components/business/AddressSheet';
@@ -47,6 +48,14 @@ export default function BusinessProductPage() {
   const [colorIndex, setColorIndex] = useState(0);
   const galleryRef = useRef<HTMLDivElement>(null);
 
+  // Add to the global cart; a shrinking copy of the product image flies into
+  // the global floating cart button (rendered by AppLayout).
+  const addToGlobalCart = useCartStore((s) => s.addItem);
+  const flyerSeq = useRef(0);
+  const [flyers, setFlyers] = useState<
+    { id: number; top: number; left: number; w: number; h: number; endX: number; endY: number }[]
+  >([]);
+
   const [addresses, setAddresses] = useState<Address[]>([
     { id: 'home', label: isHe ? 'בית' : 'Home', line: isHe ? 'הרצל 45, תל אביב' : '45 Herzl St, Tel Aviv' },
     { id: 'work', label: isHe ? 'עבודה' : 'Work', line: isHe ? 'רוטשילד 12, תל אביב' : '12 Rothschild Blvd, Tel Aviv' },
@@ -80,12 +89,12 @@ export default function BusinessProductPage() {
   }, []);
   // The frame lifts by this much (kept fixed — this sets where the black
   // checkout sits and how big the top strip is).
-  const liftMax = vpHeight * 0.52;
+  const liftMax = vpHeight * 0.62;
   // Independently, slide the page CONTENT up inside the fixed frame so the
   // part BELOW the hero image (price / qty / CTAs) shows, instead of pinning
   // to the very top. Larger pageReveal = page sits higher inside the card =
   // you see further past the burger. The frame + black stay put.
-  const pageReveal = vpHeight * 0.57;
+  const pageReveal = vpHeight * 1.0;
   const pageShift = liftMax - pageReveal;
 
   // The lift is driven by a single MotionValue (0 = down/closed,
@@ -262,8 +271,58 @@ export default function BusinessProductPage() {
     },
   ];
 
+  // Add to the global cart; a shrinking copy of the product image flies
+  // toward the global cart button parked at the bottom-right corner.
+  const handleAddToCart = () => {
+    const startEl = galleryRef.current;
+    if (startEl) {
+      const s = startEl.getBoundingClientRect();
+      flyerSeq.current += 1;
+      setFlyers((f) => [
+        ...f,
+        {
+          id: flyerSeq.current,
+          top: s.top + s.height / 2 - 60,
+          left: s.left + s.width / 2 - 60,
+          w: 120,
+          h: 120,
+          // Global FAB centre: right:16 + 28 (half), bottom:96 + 28; minus
+          // half the 28px flyer.
+          endX: window.innerWidth - 58,
+          endY: window.innerHeight - 138,
+        },
+      ]);
+    }
+    addToGlobalCart(
+      {
+        businessId: business.id,
+        productId: product.id,
+        name: product.name,
+        nameHe: product.nameHe,
+        image: product.image,
+        price: product.price,
+        currency: product.currency,
+      },
+      qty,
+    );
+  };
+
   return (
     <>
+      {/* Fly-to-cart image copies → the global cart button. */}
+      {flyers.map((fl) => (
+        <motion.img
+          key={fl.id}
+          src={product.image}
+          aria-hidden
+          initial={{ top: fl.top, left: fl.left, width: fl.w, height: fl.h, borderRadius: 24, opacity: 1 }}
+          animate={{ top: fl.endY, left: fl.endX, width: 28, height: 28, borderRadius: 999, opacity: 0.35 }}
+          transition={{ duration: 0.75, ease: [0.16, 1, 0.3, 1] }}
+          onAnimationComplete={() => setFlyers((f) => f.filter((x) => x.id !== fl.id))}
+          style={{ position: 'fixed', zIndex: 70, objectFit: 'cover', pointerEvents: 'none' }}
+        />
+      ))}
+
     {/* ───────────────────────────────────────────────
         BLACK CHECKOUT — sits fixed UNDERNEATH the product page.
         Revealed in the lower area when the page lifts up.
@@ -279,7 +338,7 @@ export default function BusinessProductPage() {
           transition={{ duration: 0.2 }}
           dir={isHe ? 'rtl' : 'ltr'}
         >
-          <div className="absolute inset-0 overflow-y-auto scrollbar-hide pt-[120%] pb-10" style={{ touchAction: 'pan-y' }}>
+          <div className="absolute inset-0 overflow-y-auto scrollbar-hide pt-[40vh] pb-10" style={{ touchAction: 'pan-y' }}>
             <motion.div
               className="mx-4 bg-[#1C1C1E] rounded-3xl p-5 flex flex-col gap-5"
               style={{
@@ -369,6 +428,21 @@ export default function BusinessProductPage() {
                 {isHe ? 'המשך לתשלום' : 'Continue to checkout'}
               </button>
             </motion.div>
+
+            {/* Close X — flows directly below the black checkout card (not
+                pinned to the screen edge), pulls the page back down. */}
+            <motion.div
+              className="flex justify-center mt-6"
+              style={{ opacity: checkoutOpacity }}
+            >
+              <button
+                onClick={() => setQuickBuyOpen(false)}
+                aria-label="Close"
+                className="w-12 h-12 bg-white/20 backdrop-blur-md border border-white/30 rounded-full flex items-center justify-center active:scale-95 transition-transform shadow-lg"
+              >
+                <span className="material-symbols-outlined text-white" style={{ fontSize: 26 }}>close</span>
+              </button>
+            </motion.div>
           </div>
         </motion.div>
       )}
@@ -386,21 +460,6 @@ export default function BusinessProductPage() {
           style={isHe ? { left: 16 } : { right: 16 }}
         >
           <span className="material-symbols-outlined text-text-primary" style={{ fontSize: 22 }}>close</span>
-        </motion.button>
-      )}
-    </AnimatePresence>
-
-    {/* Bottom close — a circular X over the checkout to pull the page back down. */}
-    <AnimatePresence>
-      {quickBuyOpen && (
-        <motion.button
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: 8 }}
-          onClick={() => setQuickBuyOpen(false)}
-          className="fixed bottom-20 left-0 right-0 mx-auto z-[60] w-12 h-12 bg-white/20 backdrop-blur-md border border-white/30 rounded-full flex items-center justify-center active:scale-95 transition-transform shadow-lg"
-        >
-          <span className="material-symbols-outlined text-white" style={{ fontSize: 26 }}>close</span>
         </motion.button>
       )}
     </AnimatePresence>
@@ -704,7 +763,7 @@ export default function BusinessProductPage() {
             {isHe ? 'קנייה מהירה' : 'Buy now'}
           </button>
           <button
-            onClick={() => navigate(`/${language}/wallet`)}
+            onClick={handleAddToCart}
             className="w-full py-3.5 rounded-full font-bold text-base bg-sky-200 text-bg-dark active:scale-[0.98] transition-transform"
           >
             {isHe ? 'הוספה לסל' : 'Add to cart'}
