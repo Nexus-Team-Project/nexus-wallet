@@ -530,8 +530,10 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
         {/* Wrap everything below in a relative div so the gradient stays
             behind. */}
         <div className="relative">
-      {/* ══════ INLINE TOPBAR ROW (logo, avatar, greeting, chat, bell) ══════ */}
-      {!embedded && <TopBar collapsed={false} />}
+      {/* ══════ INLINE TOPBAR ROW (back, logo, avatar, greeting, chat, bell) ══════
+          showBack adds the standard back arrow (navigate(-1)) — the wallet is a
+          full page with no other way back. Not shown when embedded in the pay sheet. */}
+      {!embedded && <TopBar collapsed={false} showBack />}
 
       {/* ══════ BALANCE CARD (Klarna-style) ══════ */}
       <section className="relative mt-4 mb-8 px-5">
