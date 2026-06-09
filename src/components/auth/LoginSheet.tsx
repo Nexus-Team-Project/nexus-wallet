@@ -261,10 +261,13 @@ export default function LoginSheet() {
       // originating ?tenant=X through the email-required/OTP hops so the new
       // user lands in that org's stories rather than the ecosystem catalog.
       if (result.needsEmail) {
+        // New phone: show the promo stories FIRST; email-OTP comes after the stories
+        // (EmailRequiredPage). missingFields excludes 'phone' (already verified) and
+        // 'email' (collected by email-OTP) so the questions don't re-ask them.
+        startRegistration({ path: 'new-user', phone, missingFields: ['firstName', 'lastName', 'birthday'] });
+        useRegistrationStore.getState().setPendingEmailSignup(true);
         close();
-        navigate(
-          `/${lang}/auth/email-required?ticket=${result.needsEmail.signupTicketId}&phone=${encodeURIComponent(result.needsEmail.phone)}${urlTenantId ? `&tenant=${encodeURIComponent(urlTenantId)}` : ''}`,
-        );
+        navigate(`/${lang}/auth-flow/new-user${tenantSuffix}`);
         return;
       }
 
