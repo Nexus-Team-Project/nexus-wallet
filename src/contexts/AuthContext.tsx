@@ -221,7 +221,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               regStore.startRegistration({
                 path: 'new-user',
                 phone: '',
-                missingFields: needsPhone ? ['phone', 'birthday'] : ['birthday'],
+                missingFields: needsPhone ? ['phone', 'firstName', 'lastName', 'birthday'] : ['firstName', 'lastName', 'birthday'],
               });
               regStore.setProfileData({
                 firstName,
@@ -286,7 +286,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           regStore.startRegistration({
             path: 'new-user',
             phone: '',
-            missingFields: needsPhone ? ['phone', 'birthday'] : ['birthday'],
+            missingFields: needsPhone ? ['phone', 'firstName', 'lastName', 'birthday'] : ['firstName', 'lastName', 'birthday'],
           });
           regStore.setProfileData({
             firstName: nameParts[0] ?? '',

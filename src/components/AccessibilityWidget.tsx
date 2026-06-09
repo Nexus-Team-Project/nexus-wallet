@@ -15,6 +15,50 @@ import {
   Palette,
 } from 'lucide-react';
 
+// ─── Route-awareness hook (outside router) ────────────────────────────────────
+
+/**
+ * Track the current pathname from OUTSIDE the router. react-router uses
+ * history.pushState/replaceState (no popstate), so we patch both to emit a
+ * same-tab event and also listen to popstate for browser back/forward.
+ * Returns the live pathname; re-renders the consumer on every navigation.
+ */
+function useLivePathname(): string {
+  const [pathname, setPathname] = useState<string>(() => window.location.pathname);
+  useEffect(() => {
+    const update = () => setPathname(window.location.pathname);
+    const emit = () => window.dispatchEvent(new Event('nexus:locationchange'));
+
+    const origPush = window.history.pushState.bind(window.history);
+    const origReplace = window.history.replaceState.bind(window.history);
+    window.history.pushState = (...args: Parameters<typeof window.history.pushState>) => {
+      const result = origPush(...args);
+      emit();
+      return result;
+    };
+    window.history.replaceState = (...args: Parameters<typeof window.history.replaceState>) => {
+      const result = origReplace(...args);
+      emit();
+      return result;
+    };
+
+    window.addEventListener('popstate', update);
+    window.addEventListener('nexus:locationchange', update);
+    // Sync once in case the path changed between initial state and effect.
+    update();
+    return () => {
+      window.history.pushState = origPush;
+      window.history.replaceState = origReplace;
+      window.removeEventListener('popstate', update);
+      window.removeEventListener('nexus:locationchange', update);
+    };
+  }, []);
+  return pathname;
+}
+
+/** True when the path is part of the first-time signup journey (FAB hidden there). */
+const SIGNUP_ROUTE_RE = /^\/[a-z]{2}\/(auth-flow|register|auth\/email-required|auth\/email-otp)\b/;
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type FontSize = 0 | 1 | 2; // 0=normal, 1=large (+20%), 2=larger (+40%)
@@ -191,6 +235,10 @@ export default function AccessibilityWidget() {
   // can reveal the widget the moment the user adds it.
   const enabled = useAccessibilityStore((s) => s.enabled);
   const disableWidget = useAccessibilityStore((s) => s.disableWidget);
+  // Route gate: hide the FAB on signup screens. Must be called unconditionally
+  // (before any early return) because it is a hook.
+  const pathname = useLivePathname();
+  const hiddenForSignup = SIGNUP_ROUTE_RE.test(pathname);
   const [settings, setSettings] = useState<A11ySettings>(() => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
@@ -354,7 +402,7 @@ export default function AccessibilityWidget() {
   const containerBottom = pos ? window.innerHeight - pos.y - BTN_SIZE : 24;
   const containerLeft = pos?.x ?? 24;
 
-  if (!enabled) return null;
+  if (!enabled || hiddenForSignup) return null;
 
   return (
     <>

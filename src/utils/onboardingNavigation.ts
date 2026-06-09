@@ -25,9 +25,11 @@ function buildActiveSlides(state: RegistrationState): OnboardingSlideId[] {
       return state.missingFields.includes('phone');
     }
     if (slide === 'first-name') {
+      // Shown whenever the name is requested. Do NOT skip when pre-filled: the Google
+      // signup path seeds the name and still needs the user to see/confirm/edit it.
       return (
-        (state.missingFields.includes('firstName') && !state.profileData.firstName.trim()) ||
-        (state.missingFields.includes('lastName')  && !state.profileData.lastName.trim())
+        state.missingFields.includes('firstName') ||
+        state.missingFields.includes('lastName')
       );
     }
     if (slide === 'verify-email') {
