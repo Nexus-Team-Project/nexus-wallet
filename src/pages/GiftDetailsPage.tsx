@@ -6,6 +6,8 @@ import { useUser } from '../hooks/useUser';
 import { useTenantStore } from '../stores/tenantStore';
 import { GIFT_CARDS, type GiftCard } from '../data/giftCards';
 import PhoneInput, { formatPhoneNumber } from '../components/ui/PhoneInput';
+import AnimatedActionIcon from '../components/layout/AnimatedActionIcon';
+import profileUrl from '../assets/animations/profile.json?url';
 
 // Wide white "NEXUS™" wordmark — the same brand lockup used on the credit card.
 const NEXUS_WIDE_WHITE = '/nexus-white-wide-logo.png';
@@ -207,7 +209,11 @@ export default function GiftDetailsPage() {
               onClick={handlePickContact}
               className="w-full flex items-center justify-center gap-2 rounded-xl border border-border bg-white px-4 py-3.5 text-sm font-bold text-text-primary shadow-sm active:bg-surface transition-colors"
             >
-              <span className="material-symbols-rounded text-primary" style={{ fontSize: 20 }}>contacts</span>
+              {/* Wired profile Lottie (same as the TopBar profile icon) —
+                  plays on mount and replays on press. */}
+              <span className="shrink-0">
+                <AnimatedActionIcon src={profileUrl} size={22} />
+              </span>
               {isHe ? 'בחר מאנשי הקשר שלך' : 'Choose from your contacts'}
             </button>
 

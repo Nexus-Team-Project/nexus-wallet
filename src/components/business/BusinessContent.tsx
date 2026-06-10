@@ -8,6 +8,7 @@ import type { Voucher } from '../../types/voucher.types';
 import type { Review } from '../../mock/data/reviews.mock';
 import OffersMap from '../map/OffersMap';
 import RatingBars from '../ui/RatingBars';
+import AnimatedLocationIcon from '../ui/AnimatedLocationIcon';
 import type { OfferPin, OfferCategory } from '../../types/map';
 
 /* ─── Stories Row Section ─────────────────────────────────────────── */
@@ -101,7 +102,7 @@ export function StoriesRow({ business }: StoriesRowProps) {
 
   return (
     <div className="px-6 py-4">
-      <h3 className="text-sm font-bold text-text-primary mb-3">{t.business.stories}</h3>
+      <h2 className="text-2xl font-bold text-text-primary mb-4">{t.business.stories}</h2>
       <div className="flex overflow-x-auto hide-scrollbar gap-3">
         {stories.map((story) => (
           <button
@@ -141,7 +142,7 @@ export function OffersSlider({ vouchers, business, onSelect }: OffersSectionProp
     <div className="pb-6">
       <div className="flex items-center justify-between px-6 mb-4">
         <h2 className="text-2xl font-bold text-text-primary">{t.business.offers}</h2>
-        <button className="text-sm font-semibold text-primary active:opacity-70 transition-opacity">
+        <button className="px-3 py-1 rounded-md bg-sky-100 text-sky-600 text-xs font-normal hover:bg-sky-200 transition-colors active:scale-95">
           {t.business.allOffers}
         </button>
       </div>
@@ -175,8 +176,8 @@ export function OffersSlider({ vouchers, business, onSelect }: OffersSectionProp
 
               {/* Discount badge — top end */}
               <div className="absolute top-2.5 end-2.5 z-10">
-                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-pink-100 text-pink-700">
-                  {v.discountPercent}%
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-400/20 text-emerald-300">
+                  {v.discountPercent}% {isHe ? 'הנחה' : 'OFF'}
                 </span>
               </div>
             </div>
@@ -267,7 +268,7 @@ export function ProductsSection({ products, business }: ProductsSectionProps) {
         <h2 className="text-2xl font-bold text-text-primary">{t.business.products}</h2>
         <button
           onClick={() => navigate(`/${language}/business/${business.id}/store`)}
-          className="text-sm font-semibold text-primary active:opacity-70 transition-opacity"
+          className="px-3 py-1 rounded-md bg-sky-100 text-sky-600 text-xs font-normal hover:bg-sky-200 transition-colors active:scale-95"
         >
           {t.business.allProducts}
         </button>
@@ -288,8 +289,8 @@ export function ProductsSection({ products, business }: ProductsSectionProps) {
               {/* Square image area */}
               <div className="bg-gray-50 rounded-2xl p-4 relative aspect-square flex items-center justify-center overflow-hidden">
                 {discountPercent > 0 && (
-                  <span className="absolute top-2 start-2 z-10 bg-pink-100 text-pink-600 text-[10px] font-bold px-2 py-0.5 rounded-full">
-                    -{discountPercent}%
+                  <span className="absolute top-2 start-2 z-10 bg-emerald-400/20 text-emerald-300 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                    -{discountPercent}% {isHe ? 'הנחה' : 'OFF'}
                   </span>
                 )}
                 <ProductImage src={product.image} />
@@ -401,6 +402,9 @@ export function BuyInStoreSection({ branches, business }: MapSectionProps) {
   const navigate = useNavigate();
   const isHe = language === 'he';
   const [activeIndex, setActiveIndex] = useState(0);
+  // Per-branch replay counter — bumped only for the branch that just became
+  // selected, so its location pin re-animates on selection.
+  const [branchAnimTick, setBranchAnimTick] = useState<Record<string, number>>({});
   const [mapReady, setMapReady] = useState(false);
   const [flyTarget, setFlyTarget] = useState<{ lng: number; lat: number; zoom?: number } | null>(null);
   const carouselRef = useRef<HTMLDivElement>(null);
@@ -431,6 +435,7 @@ export function BuyInStoreSection({ branches, business }: MapSectionProps) {
       if (!branch) return;
       activeIndexRef.current = index;
       setActiveIndex(index);
+      setBranchAnimTick((m) => ({ ...m, [branch.id]: (m[branch.id] ?? 0) + 1 }));
       setFlyTarget({ lng: branch.lng, lat: branch.lat, zoom: 15 });
     },
     [branches],
@@ -591,9 +596,7 @@ export function BuyInStoreSection({ branches, business }: MapSectionProps) {
                   }}
                   className="w-9 h-9 bg-primary/10 rounded-xl flex items-center justify-center shrink-0 active:scale-95 transition-transform"
                 >
-                  <span className="material-symbols-outlined text-primary" style={{ fontSize: 18 }}>
-                    navigation
-                  </span>
+                  <AnimatedLocationIcon size={18} className="text-primary" playKey={branchAnimTick[branch.id] ?? 0} />
                 </span>
               </div>
             </button>

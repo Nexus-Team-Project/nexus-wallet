@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { Map as MapLibreMap, Marker } from 'react-map-gl/maplibre';
 import type { MapRef } from 'react-map-gl/maplibre';
+import AnimatedLocationIcon from '../ui/AnimatedLocationIcon';
 
 /**
  * AddressMapThumb — a real map zoomed in on a single delivery address, used
@@ -87,12 +88,7 @@ export default function AddressMapThumb({
               <span className="absolute bottom-0 w-2.5 h-1 rounded-full bg-black/30 blur-[1px]" />
             </span>
           ) : (
-            <span
-              className="material-symbols-rounded text-primary drop-shadow"
-              style={{ fontSize: 36, fontVariationSettings: "'FILL' 1" }}
-            >
-              location_on
-            </span>
+            <AnimatedLocationIcon size={36} className="text-primary drop-shadow" />
           )}
         </Marker>
       </MapLibreMap>

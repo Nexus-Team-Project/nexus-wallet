@@ -862,8 +862,8 @@ export default function VoucherPurchasePage() {
                             {/* Discount badge */}
                             {v.discountPercent > 0 && (
                               <div className="absolute top-2.5 end-2.5 z-10">
-                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-pink-100 text-pink-700">
-                                  {v.discountPercent}%
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-400/20 text-emerald-300">
+                                  {v.discountPercent}% {isHe ? 'הנחה' : 'OFF'}
                                 </span>
                               </div>
                             )}

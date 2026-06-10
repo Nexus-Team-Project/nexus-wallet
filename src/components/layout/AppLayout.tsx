@@ -27,7 +27,10 @@ export default function AppLayout() {
   // the "core surfaces" family rather than a flat sub-page.
   const isWalletGradient = /^\/[a-z]{2}\/wallet\/?$/.test(pathname);
   const isWallpaper = /^\/[a-z]{2}\/wallpaper\/?$/.test(pathname);
-  const showHomeGradient = isHome || isNotifications || isProfile || isWalletGradient || isWallpaper;
+  // Orders opts into the same decorative gradient backdrop as the other core
+  // surfaces (home / notifications / profile / wallet).
+  const isOrders = /^\/[a-z]{2}\/orders\/?$/.test(pathname);
+  const showHomeGradient = isHome || isNotifications || isProfile || isWalletGradient || isWallpaper || isOrders;
   // Wallet page renders its own TopBar inline (below the dark strip),
   // so the global overlay TopBar + chat FABs are suppressed here.
   const isWallet = /^\/[a-z]{2}\/wallet\/?$/.test(pathname);

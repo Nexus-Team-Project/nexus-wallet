@@ -3,6 +3,9 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useLanguage } from '../../i18n/LanguageContext';
 import type { VoucherCategory } from '../../types/voucher.types';
 import { mockBusinesses } from '../../mock/data/businesses.mock';
+import AnimatedNavIcon from '../layout/AnimatedNavIcon';
+import navSearchUrl from '../../assets/animations/nav-search.json?url';
+import navSearchBoldUrl from '../../assets/animations/nav-search-bold.json?url';
 
 // "Find me deals" autocomplete. Starts as a white search-bubble button with
 // a magnifying glass icon. Tapping it morphs the bubble into a chat-input
@@ -638,13 +641,9 @@ function SearchBubble({ label, onClick }: { label: string; onClick: () => void }
       aria-label={label}
       className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white border border-gray-200 shadow-sm hover:bg-gray-50 active:scale-95 transition-all"
     >
-      <span
-        className="material-symbols-outlined"
-        style={{ fontSize: '16px', color: HEADER_MAIN }}
-        aria-hidden="true"
-      >
-        search
-      </span>
+      {/* Same wired Lottie search icon used by the floating nav pill, so the
+          finder's search bubble matches the bottom-bar search button exactly. */}
+      <AnimatedNavIcon src={navSearchUrl} boldSrc={navSearchBoldUrl} active size={18} />
       <span className="text-[14px] font-medium" style={{ color: HEADER_MAIN }}>
         {label}
       </span>
@@ -713,13 +712,10 @@ const SearchPillInput = ({
     className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full shadow-sm"
     style={{ backgroundColor: CHIP_BLUE }}
   >
-    <span
-      className="material-symbols-outlined text-white/90"
-      style={{ fontSize: '16px' }}
-      aria-hidden="true"
-    >
-      search
-    </span>
+    {/* Same wired nav-search Lottie as the bubble — replays its animation on
+        mount, so tapping the bubble (which swaps it for this pill) plays the
+        animation again, not only on the card's initial entry. */}
+    <AnimatedNavIcon src={navSearchUrl} boldSrc={navSearchBoldUrl} active size={18} />
     <input
       ref={ref}
       type="text"

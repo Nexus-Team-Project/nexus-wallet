@@ -1,3 +1,5 @@
+import { useRef, useState, type ReactNode } from 'react';
+import { motion } from 'framer-motion';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { useAuthGate } from '../../hooks/useAuthGate';
@@ -61,11 +63,6 @@ export default function FloatingActions({ force = false }: { force?: boolean } =
     }
   };
 
-  // Shared styling for the three pill items. The active page's icon shows in
-  // full ink (and replays its animation); the rest sit muted.
-  const itemClass =
-    'nav-btn relative w-11 h-11 flex items-center justify-center rounded-full transition-transform active:scale-90';
-
   return (
     <>
       {/* White fade backdrop behind the floating nav. Skipped on the chat /
@@ -88,31 +85,104 @@ export default function FloatingActions({ force = false }: { force?: boolean } =
       <div className="fixed bottom-6 inset-x-0 z-50 flex items-center justify-center">
         <div className="relative">
         {/* Pill nav bar */}
-        <nav className="h-12 bg-white rounded-full flex items-center gap-1 px-3 shadow-[0_4px_12px_rgba(0,0,0,0.08)]">
+        <nav className="h-12 bg-white rounded-full flex items-center gap-1 px-3 shadow-[0_6px_16px_rgba(0,0,0,0.14)]">
           {/* Wallet (with active-voucher badge) */}
-          <button onClick={handleWallet} aria-label={t.nav.wallet} className={itemClass}>
-            <AnimatedNavIcon src={navWalletUrl} boldSrc={navWalletBoldUrl} active={isWallet} />
-            {isAuthenticated && activeCount > 0 && (
-              <span className="absolute top-0.5 end-0.5 min-w-[18px] h-[18px] px-1 bg-error rounded-full border-2 border-white flex items-center justify-center">
-                <span className="text-[10px] font-bold text-white leading-none">
-                  {activeCount > 9 ? '9+' : activeCount}
+          <PillButton
+            onClick={handleWallet}
+            ariaLabel={t.nav.wallet}
+            badge={
+              isAuthenticated && activeCount > 0 ? (
+                <span className="absolute top-0.5 end-0.5 z-20 min-w-[18px] h-[18px] px-1 bg-error rounded-full border-2 border-white flex items-center justify-center">
+                  <span className="text-[10px] font-bold text-white leading-none">
+                    {activeCount > 9 ? '9+' : activeCount}
+                  </span>
                 </span>
-              </span>
-            )}
-          </button>
+              ) : null
+            }
+          >
+            <AnimatedNavIcon src={navWalletUrl} boldSrc={navWalletBoldUrl} active={isWallet} />
+          </PillButton>
 
           {/* Search */}
-          <button onClick={handleSearchClick} aria-label={t.common.search} className={itemClass}>
+          <PillButton onClick={handleSearchClick} ariaLabel={t.common.search}>
             <AnimatedNavIcon src={navSearchUrl} boldSrc={navSearchBoldUrl} active={isSearch} />
-          </button>
+          </PillButton>
 
           {/* Home */}
-          <button onClick={() => navigate(`/${lang}`)} aria-label={t.nav.home} className={itemClass}>
+          <PillButton onClick={() => navigate(`/${lang}`)} ariaLabel={t.nav.home}>
             <AnimatedNavIcon src={navHomeUrl} boldSrc={navHomeBoldUrl} active={isHome} />
-          </button>
+          </PillButton>
         </nav>
         </div>
       </div>
     </>
+  );
+}
+
+/**
+ * A single round nav item in the floating pill. On press it raises a soft
+ * grey ripple from the finger point — the same touch feedback the wallet
+ * cards use — clipped inside the button's circle, then fading out. Keeps the
+ * existing active:scale-90 squeeze on top.
+ */
+function PillButton({
+  onClick,
+  ariaLabel,
+  children,
+  badge,
+}: {
+  onClick: () => void;
+  ariaLabel: string;
+  children: ReactNode;
+  badge?: ReactNode;
+}) {
+  const btnRef = useRef<HTMLButtonElement | null>(null);
+  // Changing `key` remounts the ripple so a re-tap re-plays it from frame 0.
+  const seq = useRef(0);
+  const [ripple, setRipple] = useState<{ xPct: number; yPct: number; key: number } | null>(null);
+
+  const handlePointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
+    const el = btnRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const xPct = ((e.clientX - rect.left) / rect.width) * 100;
+    const yPct = ((e.clientY - rect.top) / rect.height) * 100;
+    seq.current += 1;
+    setRipple({ xPct, yPct, key: seq.current });
+  };
+
+  return (
+    <button
+      ref={btnRef}
+      onClick={onClick}
+      onPointerDown={handlePointerDown}
+      aria-label={ariaLabel}
+      className="nav-btn relative w-11 h-11 flex items-center justify-center rounded-full transition-transform active:scale-90"
+    >
+      {/* Ripple, clipped to the button's circle. Kept under the icon (z-0) and
+          behind the badge so neither is dimmed by the wash. */}
+      <span className="absolute inset-0 rounded-full overflow-hidden pointer-events-none">
+        {ripple && (
+          <motion.span
+            key={ripple.key}
+            aria-hidden
+            className="absolute rounded-full"
+            style={{
+              left: `${ripple.xPct}%`,
+              top: `${ripple.yPct}%`,
+              width: 56,
+              height: 56,
+              background:
+                'radial-gradient(circle, rgba(0,0,0,0.16) 0%, rgba(0,0,0,0.07) 45%, transparent 70%)',
+            }}
+            initial={{ scale: 0.3, opacity: 0.9, x: '-50%', y: '-50%' }}
+            animate={{ scale: 1, opacity: 0, x: '-50%', y: '-50%' }}
+            transition={{ duration: 0.5, ease: 'easeOut' }}
+          />
+        )}
+      </span>
+      <span className="relative z-10 flex items-center justify-center">{children}</span>
+      {badge}
+    </button>
   );
 }

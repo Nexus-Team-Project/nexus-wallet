@@ -39,11 +39,14 @@ const BusinessProductPage  = lazy(() => import('../pages/BusinessProductPage'));
 const BusinessReviewsPage  = lazy(() => import('../pages/BusinessReviewsPage'));
 const BusinessCheckoutPage = lazy(() => import('../pages/BusinessCheckoutPage'));
 const GiftDetailsPage      = lazy(() => import('../pages/GiftDetailsPage'));
+const GiftSamplePage       = lazy(() => import('../pages/GiftSamplePage'));
 const SplitBillPage        = lazy(() => import('../pages/SplitBillPage'));
 const OrderConfirmationPage = lazy(() => import('../pages/OrderConfirmationPage'));
 const ReceiptPage = lazy(() => import('../pages/ReceiptPage'));
 const VoucherPurchasePage = lazy(() => import('../pages/VoucherPurchasePage'));
 const NotificationsPage  = lazy(() => import('../pages/NotificationsPage'));
+const OrdersPage         = lazy(() => import('../pages/OrdersPage'));
+const OrderTrackingPage  = lazy(() => import('../pages/OrderTrackingPage'));
 
 // Wallet add-money flow
 const AddMoneyPage       = lazy(() => import('../pages/AddMoneyPage'));
@@ -166,6 +169,8 @@ export const router = createBrowserRouter([
           },
           { path: 'wallet/voucher/:voucherId', element: <S><VoucherDetailPage /></S> },
           { path: 'notifications',             element: <S><NotificationsPage /></S> },
+          { path: 'orders',                    element: <S><OrdersPage /></S> },
+          { path: 'orders/track',              element: <S><OrderTrackingPage /></S> },
 
           // === PROTECTED routes ===
           {
@@ -185,6 +190,9 @@ export const router = createBrowserRouter([
           },
         ],
       },
+
+      // Standalone ready-made gift page (Bnei Akiva — Passover)
+      { path: 'gift-sample', element: <S><GiftSamplePage /></S> },
 
       // Registration flow
       {

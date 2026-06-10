@@ -115,7 +115,7 @@ export default function MenuList() {
         {
           Icon: ShoppingBag,
           label: language === 'he' ? 'ההזמנות שלי' : 'My orders',
-          onClick: () => {},
+          onClick: () => navigate(`/${lang}/orders`),
         },
         {
           Icon: User,

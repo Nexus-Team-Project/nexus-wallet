@@ -152,8 +152,8 @@ export default function StoreSearchResults({
                 >
                   <div className="relative bg-gray-50 rounded-2xl aspect-[3/4] flex items-center justify-center overflow-hidden p-4">
                     {discountPercent > 0 && (
-                      <span className="absolute top-2.5 start-2.5 z-10 bg-pink-100 text-pink-600 text-[10px] font-bold px-2 py-0.5 rounded-full">
-                        -{discountPercent}%
+                      <span className="absolute top-2.5 start-2.5 z-10 bg-emerald-400/20 text-emerald-300 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                        -{discountPercent}% {isHe ? 'הנחה' : 'OFF'}
                       </span>
                     )}
                     <button

@@ -1,5 +1,6 @@
 import { useState, forwardRef } from 'react';
 import { useLanguage } from '../../i18n/LanguageContext';
+import AnimatedLocationIcon from '../ui/AnimatedLocationIcon';
 import type { Business, Product, Service } from '../../types/search.types';
 import type { Branch } from '../../types/branch.types';
 import type { Voucher } from '../../types/voucher.types';
@@ -161,9 +162,7 @@ function LocationsSection({ branches }: { branches: Branch[] }) {
             className="flex items-start gap-3 bg-surface rounded-2xl p-3"
           >
             <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center shrink-0 mt-0.5">
-              <span className="material-symbols-outlined text-primary" style={{ fontSize: 18 }}>
-                location_on
-              </span>
+              <AnimatedLocationIcon size={20} className="text-primary" />
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold text-text-primary truncate">
@@ -221,8 +220,8 @@ const OffersSection = forwardRef<HTMLDivElement, OffersSectionProps>(
                 <div className="relative p-4 pb-3">
                   <div className="flex items-center gap-2 mb-3">
                     <span className="text-2xl">{v.image}</span>
-                    <div className="bg-primary/10 text-primary text-xs font-bold px-2 py-0.5 rounded-full">
-                      {v.discountPercent}%
+                    <div className="bg-emerald-400/20 text-emerald-300 text-xs font-bold px-2 py-0.5 rounded-full">
+                      {v.discountPercent}% {isHe ? 'הנחה' : 'OFF'}
                     </div>
                   </div>
                   <p className="text-xs text-text-secondary">{v.merchantName}</p>

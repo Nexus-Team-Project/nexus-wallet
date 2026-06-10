@@ -11,7 +11,7 @@ import TypingIndicator from '../components/chat/TypingIndicator';
 import RecommendationsContent from '../components/chat/RecommendationsSheet';
 import DiscountFinderCard from '../components/chat/DiscountFinderCard';
 import SearchFiltersView from '../components/chat/SearchFiltersView';
-import StoreSearchResults from '../components/chat/StoreSearchResults';
+import BusinessCardContent from '../components/business/BusinessCardContent';
 import type { DiscountFinderResult } from '../components/chat/DiscountFinderCard';
 import VoucherDetail from '../components/store/VoucherDetail';
 import WalletPage from './WalletPage';
@@ -19,6 +19,19 @@ import { useRecommendationsStore } from '../stores/recommendationsStore';
 import { useChatStore } from '../stores/chatStore';
 import { mockVouchers } from '../mock/data/vouchers.mock';
 import { mockBusinesses } from '../mock/data/businesses.mock';
+import AnimatedActionIcon from '../components/layout/AnimatedActionIcon';
+import offerAnim from '../assets/animations/action-offer.json?url';
+import shopAnim from '../assets/animations/action-shop.json?url';
+import giftAnim from '../assets/animations/action-gift.json?url';
+import supportAnim from '../assets/animations/action-support.json?url';
+
+// Maps each quick-action's material-symbol name to its animated wired icon.
+// 'nexus-badge' is handled separately (it renders the sky badge, not an icon).
+const ANIM_BY_ICON: Record<string, string> = {
+  local_offer: offerAnim,
+  shopping_cart: shopAnim,
+  card_giftcard: giftAnim,
+};
 
 // icon: 'nexus-badge' → render the sky-blue rectangular Nexus badge
 // (same one used on the Wallet "balance" label). Otherwise it's a
@@ -126,8 +139,8 @@ export default function AiChatPage() {
   const [loadingRecs, setLoadingRecs] = useState(false);
   // Store scope is derived STRAIGHT from the URL (?store=<id>), never from
   // effect-set state — so it can't fall out of sync with navigation or HMR.
-  // When present, the sheet renders the store's own grid (StoreSearchResults)
-  // and the top filter panel is scoped to that store, instead of the generic
+  // When present, the sheet renders the store's own business-card content
+  // (stories → offers → products → …, via BusinessCardContent) instead of the generic
   // "ההמלצות של Nexus" recommendations list.
   const storeParam = searchParams.get('store');
   const scopedStore = useMemo<Business | null>(
@@ -184,7 +197,7 @@ export default function AiChatPage() {
     // ?store=<businessId> — launched from a business store page's search icon.
     // Store scope is derived from the URL above. The top shows the same compact
     // finder bar ("מצא לי [חיפוש] בקטגוריות [הכל]") the regular search uses, and
-    // the sheet opens straight onto the store's own grid (StoreSearchResults).
+    // the sheet opens straight onto the store's business-card content.
     if (scopedStore) {
       markActivity();
       // Sheet is already 'expanded' from the initial state above (no height
@@ -647,7 +660,7 @@ export default function AiChatPage() {
             // bottom. Each new send appends to the thread between filters
             // and input so messages stack downward. In store-scoped search the
             // panel is fed by the scoped store's products directly.
-            <div className="pt-20 pb-4">
+            <div className={`${isSearchPath ? 'pt-36' : 'pt-20'} pb-4`}>
               <SearchFiltersView vouchers={recommendations?.products ?? []} />
 
               {messages.map((msg, i) => {
@@ -666,7 +679,7 @@ export default function AiChatPage() {
               <div ref={messagesEndRef} />
             </div>
           ) : hasConversation ? (
-            <div className="pt-20 pb-4">
+            <div className={`${isSearchPath ? 'pt-36' : 'pt-20'} pb-4`}>
               {messages.map((msg, i) => {
                 if (msg.id === 'welcome') return null;
                 if (msg.type === 'finder') {
@@ -698,7 +711,7 @@ export default function AiChatPage() {
             // grid in the expanded sheet is the whole experience.
             null
           ) : (
-            <div className="pt-20 pb-4">
+            <div className={`${isSearchPath ? 'pt-36' : 'pt-20'} pb-4`}>
               <ChatIntroCard />
               {inputActive && activeInputNode}
             </div>
@@ -809,14 +822,13 @@ export default function AiChatPage() {
                   <WalletPage embedded />
                 </div>
               ) : storeScoped && scopedStore ? (
-                // Store-scoped search keeps the store's own structure — the
-                // centred logo + two-per-row product grid — so it reads as
-                // staying inside that store rather than the generic list.
-                <StoreSearchResults
-                  business={scopedStore}
-                  isHe={isHe}
-                  loading={loadingRecs}
-                />
+                // Store-scoped search shows the SAME content as the business
+                // page's card (stories → offers → products → … → similar) so
+                // it reads as staying inside that store. pt-9 clears the
+                // sheet's floating drag handle.
+                <div className="h-full overflow-y-auto overscroll-contain no-scrollbar bg-white rounded-t-[28px] pt-9">
+                  <BusinessCardContent business={scopedStore} />
+                </div>
               ) : (
                 <RecommendationsContent
                   vouchers={recommendations?.products}
@@ -927,6 +939,8 @@ export default function AiChatPage() {
                               style={{ transform: 'scale(1.373)' }}
                             />
                           </span>
+                        ) : ANIM_BY_ICON[action.icon] ? (
+                          <AnimatedActionIcon src={ANIM_BY_ICON[action.icon]} size={28} />
                         ) : (
                           <span
                             className="material-symbols-outlined text-gray-300"
@@ -958,12 +972,7 @@ export default function AiChatPage() {
                     className="flex items-center gap-3 w-full py-3.5 px-3 text-start hover:bg-gray-50 active:bg-gray-100 rounded-xl transition-colors"
                   >
                     <div className="w-24 flex items-center justify-center flex-shrink-0">
-                      <span
-                        className="material-symbols-outlined text-gray-300"
-                        style={{ fontSize: '24px' }}
-                      >
-                        support_agent
-                      </span>
+                      <AnimatedActionIcon src={supportAnim} size={28} />
                     </div>
                     <span className="text-[15px] text-gray-400 font-medium">
                       {isHe ? 'סיוע מנציג אנושי' : 'Help from a human'}

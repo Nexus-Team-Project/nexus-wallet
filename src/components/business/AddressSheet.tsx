@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { AnimatePresence, motion, type Variants } from 'framer-motion';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { COUNTRIES, type Country } from '../ui/PhoneInput';
+import AnimatedLocationIcon from '../ui/AnimatedLocationIcon';
 
 export interface Address {
   id: string;
@@ -314,7 +315,7 @@ export default function AddressSheet({
                       return (
                         <button key={addr.id} onClick={() => { onSelect(addr.id); handleClose(); }} className="w-full flex items-center justify-between gap-3 py-3.5 text-start active:bg-surface/70 rounded-xl transition-colors">
                           <span className="flex items-start gap-3 min-w-0">
-                            <span className="material-symbols-rounded text-text-muted shrink-0" style={{ fontSize: 22 }}>location_on</span>
+                            <AnimatedLocationIcon size={22} className="text-text-muted shrink-0" />
                             <span className="min-w-0">
                               <span className="block text-[15px] font-semibold text-text-primary leading-tight">{addr.label}</span>
                               <span className="block text-[13px] text-text-muted truncate">{addr.line}</span>
@@ -338,7 +339,7 @@ export default function AddressSheet({
                       {isHe ? 'לפי מיקום הטלפון שלך, נראה שהכתובת היא:' : "Based on your phone's location, the address appears to be:"}
                     </p>
                     <div className="bg-surface rounded-2xl p-4 mb-6 flex items-start gap-3">
-                      <span className="material-symbols-rounded text-primary shrink-0 mt-0.5" style={{ fontSize: 24 }}>location_on</span>
+                      <AnimatedLocationIcon size={24} className="text-primary shrink-0 mt-0.5" />
                       <p className="text-[15px] font-semibold text-text-primary leading-snug">{isHe ? MOCK_LOCATION.he : MOCK_LOCATION.en}</p>
                     </div>
                     <div className="flex flex-col gap-3">
@@ -377,7 +378,7 @@ export default function AddressSheet({
                       <div className="rounded-xl border border-border overflow-hidden -mt-2">
                         {suggestions.map((s) => (
                           <button key={s.label} onMouseDown={() => pickSuggestion(s)} onClick={() => pickSuggestion(s)} className="w-full flex items-center gap-3 px-4 py-3 text-start active:bg-surface transition-colors border-b border-border/40 last:border-0">
-                            <span className="material-symbols-rounded text-text-muted shrink-0" style={{ fontSize: 18 }}>location_on</span>
+                            <AnimatedLocationIcon size={18} className="text-text-muted shrink-0" />
                             <span className="min-w-0">
                               <span className="block text-sm text-text-primary truncate">{s.label}</span>
                               <span className="block text-xs text-text-muted">{isHe ? 'מיקוד' : 'Postal code'} {s.postalCode}</span>

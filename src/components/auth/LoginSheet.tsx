@@ -13,6 +13,8 @@ import {
   firebaseSaveConsent,
 } from '../../services/auth.service';
 import { lookupTenantByOrg } from '../../mock/handlers/tenant.handler';
+import AnimatedActionIcon from '../layout/AnimatedActionIcon';
+import chatUrl from '../../assets/animations/chat.json?url';
 
 export default function LoginSheet() {
   const { lang = 'he' } = useParams();
@@ -553,11 +555,56 @@ export default function LoginSheet() {
       disabled={isLoading}
       className="w-full flex items-center justify-center gap-2.5 py-3.5 rounded-2xl bg-white border border-border text-sm font-bold text-text-primary hover:bg-surface active:scale-[0.98] transition-all disabled:opacity-50"
     >
-      <span className="material-symbols-outlined text-primary" style={{ fontSize: '18px' }}>
-        sms
-      </span>
+      <AnimatedActionIcon src={chatUrl} size={18} />
       {isHe ? 'המשך עם SMS' : 'Continue with SMS'}
     </button>
+  );
+
+  // Inline phone-entry row. Opens in place of the SMS button once the user
+  // taps "Continue with SMS". The send control reuses the animated chat icon.
+  const phoneInput = (
+    <div className="animate-fade-in">
+      <div className="flex items-center gap-2 border-2 border-primary rounded-2xl px-3 py-2.5 transition-colors">
+        <span className="text-base flex-shrink-0">🇮🇱</span>
+        <span className="text-xs text-text-secondary font-medium flex-shrink-0">
+          +972
+        </span>
+        <div className="w-px h-4 bg-border flex-shrink-0" />
+        <input
+          ref={phoneInputRef}
+          type="tel"
+          value={phone}
+          onChange={(e) => setPhone(formatPhone(e.target.value))}
+          placeholder={t.auth.phonePlaceholder}
+          className="flex-1 bg-transparent border-none outline-none text-sm text-text-primary placeholder:text-text-muted min-w-0"
+          dir="ltr"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && canSend) handleSendOtp();
+          }}
+        />
+        <button
+          onClick={handleSendOtp}
+          disabled={!canSend || isLoading}
+          className="flex-shrink-0 w-9 h-9 rounded-xl bg-primary flex items-center justify-center disabled:opacity-40 transition-opacity"
+        >
+          {isLoading ? (
+            <span
+              className="material-symbols-outlined text-white animate-spin"
+              style={{ fontSize: '18px' }}
+            >
+              progress_activity
+            </span>
+          ) : (
+            <span
+              className="material-symbols-outlined text-white"
+              style={{ fontSize: '22px' }}
+            >
+              chevron_right
+            </span>
+          )}
+        </button>
+      </div>
+    </div>
   );
 
   const whatsappButton = (
@@ -644,10 +691,11 @@ export default function LoginSheet() {
                 {t.auth.loginSheetSubtitle}
               </p>
 
-              {/* Primary methods — Google, then SMS */}
+              {/* Primary methods — Google, then SMS. Tapping SMS swaps the
+                  button out for the inline phone-entry row in its place. */}
               <div className="space-y-2.5 mb-3">
                 {googleButton('light')}
-                {smsButton}
+                {phoneExpanded ? phoneInput : smsButton}
               </div>
 
               {/* View more methods — reveals Apple + WhatsApp */}
@@ -665,52 +713,6 @@ export default function LoginSheet() {
                 <div className="space-y-2.5 animate-fade-in">
                   {whatsappButton}
                   {appleButton('dark')}
-                </div>
-              )}
-
-              {/* ── Inline phone input (expanded) ── */}
-              {phoneExpanded && (
-                <div className="mb-2.5 animate-fade-in">
-                  <div className="flex items-center gap-2 border-2 border-primary rounded-2xl px-3 py-2.5 transition-colors mb-2.5">
-                    <span className="text-base flex-shrink-0">🇮🇱</span>
-                    <span className="text-xs text-text-secondary font-medium flex-shrink-0">
-                      +972
-                    </span>
-                    <div className="w-px h-4 bg-border flex-shrink-0" />
-                    <input
-                      ref={phoneInputRef}
-                      type="tel"
-                      value={phone}
-                      onChange={(e) => setPhone(formatPhone(e.target.value))}
-                      placeholder={t.auth.phonePlaceholder}
-                      className="flex-1 bg-transparent border-none outline-none text-sm text-text-primary placeholder:text-text-muted min-w-0"
-                      dir="ltr"
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && canSend) handleSendOtp();
-                      }}
-                    />
-                    <button
-                      onClick={handleSendOtp}
-                      disabled={!canSend || isLoading}
-                      className="flex-shrink-0 w-9 h-9 rounded-xl bg-primary flex items-center justify-center disabled:opacity-40 transition-opacity"
-                    >
-                      {isLoading ? (
-                        <span
-                          className="material-symbols-outlined text-white animate-spin"
-                          style={{ fontSize: '18px' }}
-                        >
-                          progress_activity
-                        </span>
-                      ) : (
-                        <span
-                          className="material-symbols-outlined text-white"
-                          style={{ fontSize: '18px' }}
-                        >
-                          arrow_forward
-                        </span>
-                      )}
-                    </button>
-                  </div>
                 </div>
               )}
 

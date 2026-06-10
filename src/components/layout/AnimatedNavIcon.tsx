@@ -60,7 +60,7 @@ export default function AnimatedNavIcon({ src, boldSrc, active, size = 26 }: Ani
     <span
       onPointerDown={startSequence}
       className="relative grid place-items-center"
-      style={{ width: size, height: size, opacity: active ? 1 : 0.45, transition: 'opacity 300ms ease' }}
+      style={{ width: size, height: size, opacity: 1, transition: 'opacity 300ms ease' }}
     >
       {/* Normal weight — always shown; reveals the bold layer once it finishes. */}
       <span className="absolute inset-0">

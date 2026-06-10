@@ -9,6 +9,10 @@ import { useUnreadNotificationCount } from '../../hooks/useNotifications';
 import { useNotificationToastStore } from '../../stores/notificationToastStore';
 import TenantSheet from './TenantSheet';
 import { useTopBarBadgeStore } from '../../stores/topBarBadgeStore';
+import AnimatedActionIcon from './AnimatedActionIcon';
+import chatUrl from '../../assets/animations/chat.json?url';
+import bellUrl from '../../assets/animations/notif-bell.json?url';
+import profileUrl from '../../assets/animations/profile.json?url';
 
 function getGreeting(t: { home: { goodMorning: string; goodAfternoon: string; goodEvening: string; goodNight: string } }) {
   const hour = new Date().getHours();
@@ -102,10 +106,10 @@ export default function TopBar({ collapsed = false, showBack = false, hideGreeti
           {showBack && (
             <button
               onClick={() => navigate(-1)}
-              className="w-9 h-9 rounded-full bg-white flex items-center justify-center shadow-[0_6px_16px_rgba(0,0,0,0.14)] active:scale-95 transition-transform"
+              className="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-[0_6px_16px_rgba(0,0,0,0.14)] active:scale-95 transition-transform"
               aria-label={t.common?.back ?? 'Back'}
             >
-              <span className="material-symbols-outlined text-text-primary" style={{ fontSize: 24 }}>
+              <span className="material-symbols-rounded text-text-primary" style={{ fontSize: 24 }}>
                 {language === 'he' ? 'chevron_right' : 'chevron_left'}
               </span>
             </button>
@@ -162,7 +166,7 @@ export default function TopBar({ collapsed = false, showBack = false, hideGreeti
               />
             ) : (
               <div className="relative z-10 w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-[0_6px_16px_rgba(0,0,0,0.14)]">
-                <span style={{ fontSize: '22px', lineHeight: 1 }}>👤</span>
+                <AnimatedActionIcon src={profileUrl} size={24} />
               </div>
             )}
           </button>
@@ -197,7 +201,9 @@ export default function TopBar({ collapsed = false, showBack = false, hideGreeti
             className={`relative rounded-full bg-white flex items-center justify-center shadow-[0_6px_16px_rgba(0,0,0,0.14)] transition-all duration-300 ease-in-out ${btnSize}`}
             aria-label="Chat"
           >
-            <span className={`transition-transform duration-300 ${iconScale}`} style={{ fontSize: '22px', lineHeight: 1 }}>💬</span>
+            <span className={`transition-transform duration-300 ${iconScale}`}>
+              <AnimatedActionIcon src={chatUrl} size={22} />
+            </span>
             {chatCount > 0 && (
               <span className="absolute -top-0.5 -left-0.5 w-[18px] h-[18px] bg-error rounded-full border-2 border-white flex items-center justify-center">
                 <span className="text-[10px] font-bold text-white leading-none">{chatCount > 9 ? '9+' : chatCount}</span>
@@ -212,7 +218,9 @@ export default function TopBar({ collapsed = false, showBack = false, hideGreeti
             style={{ transformOrigin: 'top center' }}
             aria-label="Notifications"
           >
-            <span className={`transition-transform duration-300 ${iconScale}`} style={{ fontSize: '22px', lineHeight: 1 }}>🔔</span>
+            <span className={`transition-transform duration-300 ${iconScale}`}>
+              <AnimatedActionIcon src={bellUrl} size={22} playKey={bellPulseCount} />
+            </span>
             {notificationCount > 0 && (
               <span className="absolute -top-0.5 -left-0.5 w-[18px] h-[18px] bg-error rounded-full border-2 border-white flex items-center justify-center">
                 <span className="text-[10px] font-bold text-white leading-none">{notificationCount > 9 ? '9+' : notificationCount}</span>

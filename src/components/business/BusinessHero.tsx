@@ -1,8 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '../../i18n/LanguageContext';
 import type { Business } from '../../types/search.types';
 import BusinessMenuSheet from './BusinessMenuSheet';
 import BusinessContactSheet from './BusinessContactSheet';
+import AnimatedNavIcon from '../layout/AnimatedNavIcon';
+import navSearchUrl from '../../assets/animations/nav-search.json?url';
+import navSearchBoldUrl from '../../assets/animations/nav-search-bold.json?url';
 
 interface BusinessHeroProps {
   business: Business;
@@ -22,6 +26,7 @@ const categoryGradients: Record<string, string> = {
 
 export default function BusinessHero({ business }: BusinessHeroProps) {
   const { language } = useLanguage();
+  const navigate = useNavigate();
   const isHe = language === 'he';
   const [following, setFollowing] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -47,7 +52,7 @@ export default function BusinessHero({ business }: BusinessHeroProps) {
   }, [images.length]);
 
   return (
-    <section className="relative w-full h-[550px] overflow-hidden">
+    <section className="relative w-full h-[460px] overflow-hidden">
       {/* Background gradient fallback */}
       <div className={`absolute inset-0 bg-gradient-to-br ${gradient}`} />
 
@@ -89,10 +94,16 @@ export default function BusinessHero({ business }: BusinessHeroProps) {
             {following ? (isHe ? 'עוקב' : 'Following') : (isHe ? 'עקוב' : 'Follow')}
           </button>
           <button
+            onClick={() => navigate(`/${language}/search?store=${business.id}`)}
             className="h-10 w-10 inline-flex items-center justify-center bg-white/20 backdrop-blur-md rounded-lg active:scale-95 transition-transform"
             aria-label="Search"
           >
-            <span className="material-symbols-outlined text-white leading-none" style={{ fontSize: 22 }}>search</span>
+            {/* Same wired nav-search Lottie as the bottom-bar pill, forced
+                white (the icon's native ink is dark) so it reads on the dark
+                hero overlay. */}
+            <span className="leading-none" style={{ filter: 'brightness(0) invert(1)' }}>
+              <AnimatedNavIcon src={navSearchUrl} boldSrc={navSearchBoldUrl} active size={22} />
+            </span>
           </button>
           <button
             onClick={() => setMenuOpen(true)}
