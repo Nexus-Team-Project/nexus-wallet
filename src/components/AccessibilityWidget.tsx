@@ -270,6 +270,31 @@ export default function AccessibilityWidget() {
     setPos({ x: 24, y: window.innerHeight - 24 - BTN_SIZE });
   }, []);
 
+  // Keep the FAB on-screen when the viewport changes. The position is an
+  // absolute coordinate baked at mount; without this, shrinking the viewport
+  // (desktop -> mobile, device rotation, mobile URL-bar collapse) pushes the
+  // button off-screen because `bottom = innerHeight - pos.y - BTN_SIZE` turns
+  // negative. Re-clamp into the viewport, keeping the same 24px resting margin.
+  useEffect(() => {
+    const clampIntoViewport = () => {
+      setPos((prev) => {
+        if (!prev) return prev;
+        const maxX = Math.max(0, window.innerWidth - BTN_SIZE - 24);
+        const maxY = Math.max(0, window.innerHeight - BTN_SIZE - 24);
+        const x = Math.min(Math.max(prev.x, 0), maxX);
+        const y = Math.min(Math.max(prev.y, 0), maxY);
+        // Avoid a needless state update (and re-render) when nothing moved.
+        return x === prev.x && y === prev.y ? prev : { x, y };
+      });
+    };
+    window.addEventListener('resize', clampIntoViewport);
+    window.addEventListener('orientationchange', clampIntoViewport);
+    return () => {
+      window.removeEventListener('resize', clampIntoViewport);
+      window.removeEventListener('orientationchange', clampIntoViewport);
+    };
+  }, []);
+
   // Apply settings on mount + on change
   useEffect(() => {
     applySettings(settings);
