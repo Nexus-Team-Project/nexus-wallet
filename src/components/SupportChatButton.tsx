@@ -21,13 +21,16 @@ interface SupportChatButtonProps {
 // Geometry shared across both variants.
 const BTN_SIZE = 56;
 const EDGE_MARGIN = 12;
-// Clearance reserved at the bottom edge for the fixed BottomNav (z-50, ~80px
-// tall incl. its safe-area padding). The FAB (z-40) sits *below* the nav in
-// stacking order, so if it could rest in that band the nav would cover it and
-// swallow its pointer events — making it impossible to grab/drag again. We cap
-// how low it can go instead of raising its z-index (which would hide nav items).
-const BOTTOM_SAFE = 96;
 const DRAG_THRESHOLD = 5;
+// Stacking order: the FAB must sit ABOVE the fixed FloatingActions bar
+// (a full-width, transparent z-50 container whose centered pill holds
+// wallet/search/home). At z-40 the FAB used to fall *behind* that container,
+// so dragging it into the bottom band made the container swallow its pointer
+// events and it could no longer be grabbed. The FAB snaps to a side gutter
+// while the pill is centered, so sitting above it never covers the pill's
+// buttons. The drag-dismiss trash sits just under the FAB but above the pill.
+const FAB_Z = 60;
+const TRASH_Z = 55;
 const TRASH_SIZE = 56;
 const TRASH_BOTTOM = 80;
 const TRASH_HIT_RADIUS = 60;
@@ -96,7 +99,7 @@ export default function SupportChatButton({ variant, onClick, isTyping = true }:
       const raw = localStorage.getItem(config.posKey);
       if (raw) {
         const parsed = JSON.parse(raw) as { x: number; y: number };
-        const y = Math.max(EDGE_MARGIN, Math.min(window.innerHeight - BTN_SIZE - BOTTOM_SAFE, parsed.y));
+        const y = Math.max(EDGE_MARGIN, Math.min(window.innerHeight - BTN_SIZE - EDGE_MARGIN, parsed.y));
         // Snap to the nearest edge — migrates any previously centered
         // position back to the gutter so scrolling works immediately.
         setPos({ x: snapX(parsed.x), y });
@@ -132,7 +135,7 @@ export default function SupportChatButton({ variant, onClick, isTyping = true }:
         const x = snapX(prev.x);
         const y = Math.max(
           EDGE_MARGIN,
-          Math.min(window.innerHeight - BTN_SIZE - BOTTOM_SAFE, prev.y),
+          Math.min(window.innerHeight - BTN_SIZE - EDGE_MARGIN, prev.y),
         );
         // Skip a redundant state update (and re-render) when nothing moved.
         return x === prev.x && y === prev.y ? prev : { x, y };
@@ -175,7 +178,7 @@ export default function SupportChatButton({ variant, onClick, isTyping = true }:
       );
       const newY = Math.max(
         EDGE_MARGIN,
-        Math.min(window.innerHeight - BTN_SIZE - BOTTOM_SAFE, dragRef.current.origY + dy),
+        Math.min(window.innerHeight - BTN_SIZE - EDGE_MARGIN, dragRef.current.origY + dy),
       );
       setPos({ x: newX, y: newY });
 
@@ -274,7 +277,7 @@ export default function SupportChatButton({ variant, onClick, isTyping = true }:
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            zIndex: 30,
+            zIndex: TRASH_Z,
             pointerEvents: 'none',
             transformOrigin: 'center',
             transform: `translateX(-50%) scale(${overTrash ? 1.08 : 1})`,
@@ -301,7 +304,7 @@ export default function SupportChatButton({ variant, onClick, isTyping = true }:
           left: pos.x,
           width: BTN_SIZE,
           height: BTN_SIZE,
-          zIndex: 40,
+          zIndex: FAB_Z,
           touchAction: 'none',
           cursor: dragging ? 'grabbing' : 'grab',
           animation: 'supportFabSlideUp 0.4s ease-out',
