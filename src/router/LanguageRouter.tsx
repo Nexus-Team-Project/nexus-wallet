@@ -23,10 +23,12 @@ export default function LanguageRouter() {
   const { tenantId, config, setTenant, clearTenant } = useTenantStore();
 
   // Hide the dev simulator overlays (tenant / user-type switchers) in the
-  // shareable gift flow — the gift-sample page and the gift wallet view.
+  // shareable gift flow — the gift-sample page, the gift wallet view, and the
+  // gift card's "more actions" detail page (/wallet/voucher/uv_bnei_pesach).
   const hideDevOverlays =
     /\/gift-sample\/?$/.test(pathname) ||
-    (/\/wallet\/?$/.test(pathname) && searchParams.has('focus'));
+    (/\/wallet\/?$/.test(pathname) && searchParams.has('focus')) ||
+    /\/wallet\/voucher\/uv_bnei_pesach\/?$/.test(pathname);
 
   useEffect(() => {
     const tenantSlug = searchParams.get('tenant');
