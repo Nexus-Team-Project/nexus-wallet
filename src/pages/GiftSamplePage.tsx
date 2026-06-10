@@ -86,35 +86,22 @@ export default function GiftSamplePage() {
         />
       </div>
 
-      {/* Header */}
-      <header className="relative z-10 flex items-center justify-between px-4 py-4">
-        <button
-          onClick={() => navigate(-1)}
-          aria-label="חזרה"
-          className="h-10 w-10 inline-flex items-center justify-center rounded-full bg-white/70 backdrop-blur-sm active:bg-gray-100 transition-colors"
-        >
-          <span className="material-symbols-rounded text-text-secondary" style={{ fontSize: 24 }}>
-            arrow_forward
-          </span>
-        </button>
-        <h1 className="text-lg font-bold text-text-primary flex-grow text-center pe-10">
-          מתנת חג הפסח
-        </h1>
-      </header>
-
-      {/* Scrollable body */}
+      {/* Scrollable body — no header (no title / back arrow on the cover). */}
       <main
         className={`relative z-10 flex-1 overflow-y-auto scrollbar-hide px-5 ${
-          revealed ? 'pt-4 pb-12' : 'flex items-start justify-center pt-3 pb-4'
+          revealed ? 'pt-10 pb-12' : 'flex items-start justify-center pt-12 pb-4'
         }`}
       >
         <div className="w-full max-w-[400px] mx-auto">
           {/* ── Greeting (top): the flip card. Front = cover, Back = full letter. ── */}
           <div className="flip-perspective w-full">
             <div className={`flip-inner ${revealed ? 'is-flipped' : ''}`}>
-              {/* FRONT — the Bnei Akiva Passover cover */}
+              {/* FRONT — the Bnei Akiva Passover cover. Once revealed it goes
+                  absolute so the (taller) letter back drives the card height. */}
               <div
-                className="flip-face relative w-full aspect-[10/16] rounded-2xl flex flex-col items-center justify-between p-7 overflow-hidden"
+                className={`flip-face w-full aspect-[10/16] rounded-2xl flex flex-col items-center justify-between p-7 overflow-hidden ${
+                  revealed ? 'absolute top-0 inset-x-0' : 'relative'
+                }`}
                 style={{
                   background: HOME_GRADIENT,
                   color: '#ffffff',
@@ -177,18 +164,25 @@ export default function GiftSamplePage() {
               </div>
 
               {/* BACK — the מזכ"ל's letter, in the preview's dark design
-                  (#0a2540 face, bold white heading, white/80 body, cyan sender). */}
+                  (#0a2540 face, bold white heading, white/80 body, cyan sender).
+                  In-flow once revealed so the card grows to the FULL letter (no
+                  scroll); before reveal it's absolute, filling the cover. */}
               <div
-                className="flip-face flip-face-back w-full aspect-[10/16] rounded-2xl p-8 flex flex-col text-start overflow-hidden"
-                style={{ background: '#0a2540', boxShadow: '0 26px 40px -18px rgba(0, 0, 0, 0.45)' }}
+                className={`flip-face w-full rounded-2xl p-8 text-start ${
+                  revealed ? 'relative' : 'absolute inset-0 overflow-hidden'
+                }`}
+                style={{
+                  background: '#0a2540',
+                  boxShadow: '0 26px 40px -18px rgba(0, 0, 0, 0.45)',
+                  transform: 'rotateY(180deg)',
+                }}
               >
-                <h2 className="mt-4 text-3xl font-black text-white leading-tight whitespace-pre-line">
+                <h2 className="mt-2 text-3xl font-black text-white leading-tight whitespace-pre-line">
                   {LETTER_HEADING}
                 </h2>
 
-                {/* Body — scrolls within the card (min-h-0 lets the flex child
-                    shrink so overflow-y actually kicks in). */}
-                <div className="mt-4 flex-1 min-h-0 overflow-y-auto scrollbar-hide">
+                {/* Full letter — flows naturally (the card is as tall as it). */}
+                <div className="mt-4">
                   {LETTER_BODY.map((para, i) => (
                     <p
                       key={i}
@@ -235,11 +229,7 @@ export default function GiftSamplePage() {
           >
             למימוש המתנה
           </button>
-        ) : (
-          <div className="h-8 flex justify-center items-end pb-2">
-            <div className="w-32 h-1 bg-border rounded-full" />
-          </div>
-        )}
+        ) : null}
       </footer>
 
       {/* ── Redeem celebration ── the same reveal experience as the "הכל מוכן"

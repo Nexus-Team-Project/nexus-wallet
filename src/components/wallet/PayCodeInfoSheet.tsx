@@ -1,5 +1,5 @@
 import { createPortal } from 'react-dom';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useLanguage } from '../../i18n/LanguageContext';
 
 interface PayCodeInfoSheetProps {
@@ -16,7 +16,13 @@ export default function PayCodeInfoSheet({ isOpen, onClose }: PayCodeInfoSheetPr
   const { t, language } = useLanguage();
   const { lang = 'he' } = useParams();
   const navigate = useNavigate();
+  const { pathname, search } = useLocation();
   const isHe = language === 'he';
+
+  // In the locked gift wallet view (deep-link `?focus=`) the "More" link, which
+  // navigates off to the pay-intro page, is hidden so it can't move pages.
+  const giftLocked =
+    /\/wallet\/?$/.test(pathname) && new URLSearchParams(search).has('focus');
 
   if (!isOpen) return null;
 
@@ -64,16 +70,18 @@ export default function PayCodeInfoSheet({ isOpen, onClose }: PayCodeInfoSheetPr
               </p>
             </div>
 
-            <button
-              type="button"
-              onClick={() => {
-                onClose();
-                navigate(`/${lang}/wallet/pay-intro`);
-              }}
-              className="text-sky-500 font-semibold underline"
-            >
-              {isHe ? 'עוד' : 'More'}
-            </button>
+            {!giftLocked && (
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  navigate(`/${lang}/wallet/pay-intro`);
+                }}
+                className="text-sky-500 font-semibold underline"
+              >
+                {isHe ? 'עוד' : 'More'}
+              </button>
+            )}
           </div>
         </div>
       </div>

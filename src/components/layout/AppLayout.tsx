@@ -163,7 +163,7 @@ export default function AppLayout() {
       {/* Dark cart panel — sits behind the page; revealed as the page lifts. */}
       <CartOverlay />
       <motion.div
-        className={`max-w-md mx-auto bg-bg-light relative shadow-sm ${isFullScreenForm ? '' : 'pb-20'} ${cartOpen ? 'overflow-hidden' : 'min-h-screen'}`}
+        className={`max-w-md mx-auto bg-bg-light relative shadow-sm ${isFullScreenForm ? '' : 'pb-20'} ${cartOpen ? 'overflow-hidden' : giftLocked ? 'h-dvh overflow-hidden' : 'min-h-screen'}`}
         style={
           cartOpen
             ? { position: 'fixed', top: 0, left: 0, right: 0, height: vh, zIndex: 10, y: cartLiftY, touchAction: 'none' }

@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Outlet, useNavigate, useSearchParams } from 'react-router-dom';
+import { Outlet, useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { LanguageProvider } from '../i18n/LanguageContext';
 import LoginSheet from '../components/auth/LoginSheet';
 import { TenantSimulator } from '../components/dev/TenantSimulator';
@@ -19,7 +19,14 @@ function darkenColor(hex: string, percent: number): string {
 export default function LanguageRouter() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   const { tenantId, config, setTenant, clearTenant } = useTenantStore();
+
+  // Hide the dev simulator overlays (tenant / user-type switchers) in the
+  // shareable gift flow — the gift-sample page and the gift wallet view.
+  const hideDevOverlays =
+    /\/gift-sample\/?$/.test(pathname) ||
+    (/\/wallet\/?$/.test(pathname) && searchParams.has('focus'));
 
   useEffect(() => {
     const tenantSlug = searchParams.get('tenant');
@@ -75,8 +82,8 @@ export default function LanguageRouter() {
             the iOS hit-test DOM-order tiebreaker.
             TenantSimulator: top-left pill toggle (top: 12).
             UserTypeSimulator: below it (top: 44), same left edge. */}
-        <TenantSimulator />
-        <UserTypeSimulator />
+        {!hideDevOverlays && <TenantSimulator />}
+        {!hideDevOverlays && <UserTypeSimulator />}
       </div>
     </LanguageProvider>
   );

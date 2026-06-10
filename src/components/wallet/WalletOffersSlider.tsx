@@ -86,8 +86,8 @@ export default function WalletOffersSlider({
 
   const title = bneiAkiva
     ? isHe
-      ? 'קאשבק בני עקיבא'
-      : 'Bnei Akiva Cashback'
+      ? 'ניתן לממש כאן'
+      : 'Redeemable here'
     : isHe
     ? 'קאשבק'
     : 'Cashback';
@@ -116,7 +116,7 @@ export default function WalletOffersSlider({
   const renderCard = (biz: (typeof mockBusinesses)[number]) => (
     <button
       key={biz.id}
-      onClick={() => navigate(`/${lang}/business/${biz.id}`)}
+      onClick={locked ? undefined : () => navigate(`/${lang}/business/${biz.id}`)}
       className="rounded-[20px] p-3 flex flex-col justify-between min-h-[116px] w-[112px] shrink-0 text-start active:scale-95 transition-transform duration-100"
       style={{ backgroundColor: '#f1f1f3' }}
     >
@@ -165,7 +165,7 @@ export default function WalletOffersSlider({
   const renderBneiCard = (b: CashbackBrand) => (
     <button
       key={b.id}
-      onClick={goHome}
+      onClick={locked ? undefined : goHome}
       className="rounded-[20px] p-3 flex flex-col justify-between min-h-[116px] w-[112px] shrink-0 text-start active:scale-95 transition-transform duration-100"
       style={{ backgroundColor: '#f1f1f3' }}
     >
@@ -199,11 +199,11 @@ export default function WalletOffersSlider({
   );
 
   return (
-    <section className={`mb-6 ${locked ? 'pointer-events-none' : ''}`}>
+    <section className="mb-6">
       {/* Wallet-style section header — matches widgets / vouchers sections */}
       <div className="flex items-center justify-between w-full px-5 mb-3">
         <button
-          onClick={() => setOpen((o) => !o)}
+          onClick={locked ? undefined : () => setOpen((o) => !o)}
           className="flex items-center gap-1 active:opacity-70 transition-opacity"
         >
           <h2 className="text-lg font-bold text-text-primary">{title}</h2>
@@ -215,8 +215,10 @@ export default function WalletOffersSlider({
           </span>
         </button>
         <div className="flex items-center gap-2">
+          {/* "More" navigates home — kept visible, but inert in the locked gift
+              view so it can't move the user off the page. */}
           <button
-            onClick={goHome}
+            onClick={locked ? undefined : goHome}
             className="px-3 py-1 rounded-md bg-sky-100 text-sky-600 text-xs font-normal active:scale-95 transition-colors"
           >
             {isHe ? 'עוד' : 'More'}

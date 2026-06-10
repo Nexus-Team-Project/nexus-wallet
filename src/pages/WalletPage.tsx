@@ -116,6 +116,18 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
       didFocus.current = true;
     }
   }, [focusVoucherId, deckCards]);
+  // Gift view: kill native pull-to-refresh so a long pull can't navigate away
+  // (the page is already locked to the screen via overflow-hidden in AppLayout).
+  // overscrollBehavior isn't touched by AppLayout's body self-heal, so it sticks.
+  useEffect(() => {
+    if (!cameFromGift) return;
+    const html = document.documentElement;
+    const prev = html.style.overscrollBehavior;
+    html.style.overscrollBehavior = 'none';
+    return () => {
+      html.style.overscrollBehavior = prev;
+    };
+  }, [cameFromGift]);
   // Which voucher card is flipped to its redemption side (null = none).
   const [flippedVoucherId, setFlippedVoucherId] = useState<string | null>(null);
   // Cashback section phases. We don't unmount immediately on leaving the
