@@ -21,6 +21,12 @@ interface SupportChatButtonProps {
 // Geometry shared across both variants.
 const BTN_SIZE = 56;
 const EDGE_MARGIN = 12;
+// Clearance reserved at the bottom edge for the fixed BottomNav (z-50, ~80px
+// tall incl. its safe-area padding). The FAB (z-40) sits *below* the nav in
+// stacking order, so if it could rest in that band the nav would cover it and
+// swallow its pointer events — making it impossible to grab/drag again. We cap
+// how low it can go instead of raising its z-index (which would hide nav items).
+const BOTTOM_SAFE = 96;
 const DRAG_THRESHOLD = 5;
 const TRASH_SIZE = 56;
 const TRASH_BOTTOM = 80;
@@ -90,7 +96,7 @@ export default function SupportChatButton({ variant, onClick, isTyping = true }:
       const raw = localStorage.getItem(config.posKey);
       if (raw) {
         const parsed = JSON.parse(raw) as { x: number; y: number };
-        const y = Math.max(EDGE_MARGIN, Math.min(window.innerHeight - BTN_SIZE - EDGE_MARGIN, parsed.y));
+        const y = Math.max(EDGE_MARGIN, Math.min(window.innerHeight - BTN_SIZE - BOTTOM_SAFE, parsed.y));
         // Snap to the nearest edge — migrates any previously centered
         // position back to the gutter so scrolling works immediately.
         setPos({ x: snapX(parsed.x), y });
@@ -114,6 +120,31 @@ export default function SupportChatButton({ variant, onClick, isTyping = true }:
       // ignore
     }
   }, [pos, config.posKey]);
+
+  // Re-clamp + re-snap when the viewport changes. The position is an absolute
+  // coordinate; without this, a stored/desktop position survives into a smaller
+  // viewport (desktop->mobile, rotation, mobile URL-bar collapse) and the FAB
+  // ends up off-screen. Snapping x also re-pins it to the nearest gutter.
+  useEffect(() => {
+    const reflow = () => {
+      setPos((prev) => {
+        if (!prev) return prev;
+        const x = snapX(prev.x);
+        const y = Math.max(
+          EDGE_MARGIN,
+          Math.min(window.innerHeight - BTN_SIZE - BOTTOM_SAFE, prev.y),
+        );
+        // Skip a redundant state update (and re-render) when nothing moved.
+        return x === prev.x && y === prev.y ? prev : { x, y };
+      });
+    };
+    window.addEventListener('resize', reflow);
+    window.addEventListener('orientationchange', reflow);
+    return () => {
+      window.removeEventListener('resize', reflow);
+      window.removeEventListener('orientationchange', reflow);
+    };
+  }, [snapX]);
 
   const handlePointerDown = useCallback(
     (e: React.PointerEvent<HTMLButtonElement>) => {
@@ -144,7 +175,7 @@ export default function SupportChatButton({ variant, onClick, isTyping = true }:
       );
       const newY = Math.max(
         EDGE_MARGIN,
-        Math.min(window.innerHeight - BTN_SIZE - EDGE_MARGIN, dragRef.current.origY + dy),
+        Math.min(window.innerHeight - BTN_SIZE - BOTTOM_SAFE, dragRef.current.origY + dy),
       );
       setPos({ x: newX, y: newY });
 
