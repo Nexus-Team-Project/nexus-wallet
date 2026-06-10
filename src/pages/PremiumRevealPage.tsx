@@ -58,13 +58,25 @@ interface Bubble {
 /**
  * Premium Reveal content — embeddable in StoriesPage or standalone.
  */
-export function PremiumRevealContent({ onReveal }: { onReveal?: () => void }) {
+export function PremiumRevealContent({
+  onReveal,
+  autoReveal = false,
+  revealHoldMs = 7000,
+}: {
+  onReveal?: () => void
+  /** Skip the drag interaction and fire the reveal celebration on mount. */
+  autoReveal?: boolean
+  /** How long to hold the celebration before calling onReveal / navigating. */
+  revealHoldMs?: number
+}) {
   const { lang = "he" } = useParams()
   const navigate = useNavigate()
 
   const [pillHeight, setPillHeight] = useState(PILL_MIN)
   const [isDragging, setIsDragging] = useState(false)
-  const [revealed, setRevealed] = useState(false)
+  // In autoReveal mode start already-revealed, so the dark drag track/cap never
+  // flashes (the black bar) before the mount effect fires.
+  const [revealed, setRevealed] = useState(autoReveal)
   const [showFlash, setShowFlash] = useState(false)
   const [ripples, setRipples] = useState<number[]>([])
   const [particles, setParticles] = useState<Particle[]>([])
@@ -211,8 +223,17 @@ export function PremiumRevealContent({ onReveal }: { onReveal?: () => void }) {
       } else {
         navigate(`/${lang}`)
       }
-    }, 7000)
-  }, [lang, navigate, onReveal])
+    }, revealHoldMs)
+  }, [lang, navigate, onReveal, revealHoldMs])
+
+  // Opt-in: fire the reveal celebration automatically on mount (no drag).
+  const didAutoReveal = useRef(false)
+  useEffect(() => {
+    if (autoReveal && !didAutoReveal.current) {
+      didAutoReveal.current = true
+      triggerReveal()
+    }
+  }, [autoReveal, triggerReveal])
 
   return (
     <div

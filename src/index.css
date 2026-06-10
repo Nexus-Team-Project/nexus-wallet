@@ -97,6 +97,14 @@
 }
 .animate-gift-float { animation: gift-float 4s ease-in-out infinite; }
 
+/* Gift redeem — the card rises up into the centre of the screen. */
+@keyframes gift-rise-center {
+  0%   { transform: translateY(46vh) scale(0.85); opacity: 0; }
+  22%  { opacity: 1; }
+  100% { transform: translateY(0)    scale(1);    opacity: 1; }
+}
+.animate-gift-rise-center { animation: gift-rise-center 0.95s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
+
 /* Split-bill checkbox — teal filled with a white check when selected */
 .split-checkbox {
   appearance: none;

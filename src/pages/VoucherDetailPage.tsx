@@ -6,6 +6,7 @@ import { useMyVouchers } from '../hooks/useMyVouchers';
 import { formatDate } from '../utils/formatDate';
 import PayCodesPanel from '../components/wallet/PayCodesPanel';
 import { voucherStacks } from '../components/wallet/VoucherCard';
+import WalletCardActions from '../components/wallet/WalletCardActions';
 
 /** Perceived-luminance check so we pick readable ink on the brand colour. */
 function isDarkColor(hex: string): boolean {
@@ -69,7 +70,7 @@ export default function VoucherDetailPage() {
     <div className="relative min-h-dvh bg-white px-5" dir={isRTL ? 'rtl' : 'ltr'}>
       {/* Back button — dark on the white surface */}
       <button
-        onClick={() => navigate(`/${lang}/wallet`)}
+        onClick={() => navigate(-1)}
         aria-label={isRTL ? 'חזרה' : 'Back'}
         className="absolute top-5 start-4 z-10 w-10 h-10 rounded-full bg-surface border border-border flex items-center justify-center active:scale-95 transition-transform"
       >
@@ -183,6 +184,12 @@ export default function VoucherDetailPage() {
             </button>
           ))}
         </div>
+
+        {/* Transfer-to-balance + Add to Google Pay */}
+        <WalletCardActions
+          className="mt-5"
+          onTransfer={() => navigate(`/${lang}/wallet/balance`)}
+        />
       </motion.div>
     </div>
   );

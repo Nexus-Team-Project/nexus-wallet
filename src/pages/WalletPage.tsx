@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useLayoutEffect, useEffect } from 'react';
 import { motion, Reorder, useDragControls, type PanInfo } from 'framer-motion';
 import { GripVertical, Eye, EyeOff } from 'lucide-react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useLanguage } from '../i18n/LanguageContext';
 import { useWallet } from '../hooks/useWallet';
 import { useMyVouchers } from '../hooks/useMyVouchers';
@@ -23,6 +23,10 @@ interface WalletPageProps {
   // "card not on file" top banner is suppressed.
   embedded?: boolean;
 }
+
+// The Bnei Akiva gift voucher (added to the wallet mock); arriving from the
+// gift-sample redeem deep-links here with `?focus=` set to this id.
+const BNEI_VOUCHER_ID = 'uv_bnei_pesach';
 
 export default function WalletPage({ embedded = false }: WalletPageProps) {
   const { t, language, isRTL } = useLanguage();
@@ -57,7 +61,14 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
   // the section (collapse chevron, buttons inside) stay independent.
   const widgetsDragControls = useDragControls();
 
-  // Collapsible section states
+  // Deep-link: arriving with `?focus=<userVoucherId>` (from redeeming a gift)
+  // puts the wallet into a focused, LOCKED "gift" view — only the gift card in
+  // the deck, widgets collapsed, and toolbars / cashback non-interactive.
+  const [searchParams] = useSearchParams();
+  const focusVoucherId = searchParams.get('focus');
+  const cameFromGift = !!focusVoucherId;
+
+  // Collapsible section states.
   const [widgetsOpen, setWidgetsOpen] = useState(true);
   const [noCardBannerOpen, setNoCardBannerOpen] = useState(false);
   const [editBannerOpen, setEditBannerOpen] = useState(false);
@@ -73,23 +84,38 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
   const activeVouchers = (myVouchers ?? [])
     .filter((v) => v.status === 'active')
     .sort((a, b) => new Date(a.purchasedAt).getTime() - new Date(b.purchasedAt).getTime());
-  const deckCards: string[] = [
-    ...activeVouchers.map((v) => `voucher:${v.id}`),
-    'balance',
-    'card',
-    // Trailing "manage payment methods" stop: the final drag past the
-    // digital card parks it to the side (its dimmed peek form) and anchors
-    // the stripes circle beside it.
-    'add',
-  ];
+  // In the gift view the deck holds ONLY the gift card — no other vouchers,
+  // balance, card or "add" stops.
+  const deckCards: string[] = cameFromGift
+    ? [`voucher:${focusVoucherId}`]
+    : [
+        ...activeVouchers.map((v) => `voucher:${v.id}`),
+        'balance',
+        'card',
+        // Trailing "manage payment methods" stop: the final drag past the
+        // digital card parks it to the side (its dimmed peek form) and anchors
+        // the stripes circle beside it.
+        'add',
+      ];
   // Balance sits right after the vouchers; its index shifts as vouchers
   // load async, so keep the deck centred on it until the user swipes.
   const balanceIndex = activeVouchers.length;
   const [activeCard, setActiveCard] = useState(0);
   const userMovedDeck = useRef(false);
   useLayoutEffect(() => {
-    if (!userMovedDeck.current) setActiveCard(balanceIndex);
-  }, [balanceIndex]);
+    if (!userMovedDeck.current && !cameFromGift) setActiveCard(balanceIndex);
+  }, [balanceIndex, cameFromGift]);
+  // Deep-link focus: centre + pin the deck on the gift voucher.
+  const didFocus = useRef(false);
+  useLayoutEffect(() => {
+    if (didFocus.current || !focusVoucherId) return;
+    const idx = deckCards.indexOf(`voucher:${focusVoucherId}`);
+    if (idx >= 0) {
+      userMovedDeck.current = true;
+      setActiveCard(idx);
+      didFocus.current = true;
+    }
+  }, [focusVoucherId, deckCards]);
   // Which voucher card is flipped to its redemption side (null = none).
   const [flippedVoucherId, setFlippedVoucherId] = useState<string | null>(null);
   // Cashback section phases. We don't unmount immediately on leaving the
@@ -97,15 +123,42 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
   // section below (widgets) rises up gradually. `seq` bumps on each open so
   // the reveal keyframe replays on every return to the balance card.
   const onBalanceCard = deckCards[activeCard] === 'balance';
-  const [cashback, setCashback] = useState<{ phase: 'closed' | 'open' | 'closing'; seq: number }>(
-    () => (onBalanceCard ? { phase: 'open', seq: 0 } : { phase: 'closed', seq: 0 }),
+  // The Bnei Akiva gift card has its own cashback section (same reveal slot),
+  // so redeeming a gift lands on a wallet that immediately shows where to spend
+  // it — branded for Bnei Akiva.
+  const onBneiCard = deckCards[activeCard] === `voucher:${BNEI_VOUCHER_ID}`;
+  // Which cashback section the active card wants (null = none). Tracking the
+  // *identity* (not just a boolean) lets the section animate closed→open even
+  // when switching between two cards that BOTH have cashback (balance ↔ Bnei).
+  type CashbackKey = 'balance' | 'bnei' | null;
+  const targetCashback: CashbackKey = onBalanceCard ? 'balance' : onBneiCard ? 'bnei' : null;
+  const [cashback, setCashback] = useState<{
+    phase: 'closed' | 'open' | 'closing';
+    seq: number;
+    key: CashbackKey;
+  }>(() =>
+    targetCashback
+      ? { phase: 'open', seq: 0, key: targetCashback }
+      : { phase: 'closed', seq: 0, key: null },
   );
   useEffect(() => {
     setCashback((c) => {
-      if (onBalanceCard) return c.phase === 'open' ? c : { phase: 'open', seq: c.seq + 1 };
-      return c.phase === 'open' ? { ...c, phase: 'closing' } : c;
+      // Leaving cashback entirely → collapse.
+      if (targetCashback === null) {
+        return c.phase === 'open' ? { ...c, phase: 'closing' } : c;
+      }
+      // Closed → open fresh on the target card.
+      if (c.phase === 'closed') {
+        return { phase: 'open', seq: c.seq + 1, key: targetCashback };
+      }
+      // Switching to a DIFFERENT cashback card → collapse the current one first
+      // (it reopens on the new card once the collapse animation ends).
+      if (c.key !== targetCashback) {
+        return { ...c, phase: 'closing' };
+      }
+      return c;
     });
-  }, [onBalanceCard]);
+  }, [targetCashback]);
   // Commit a swap only once the drag travels far / fast enough; otherwise
   // dragSnapToOrigin springs the card back. The deck does NOT loop, so at
   // an edge nothing happens. You fling the centre card toward where it
@@ -208,7 +261,9 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
   // The dark top strip prompting "add card details" shows only on the
   // standalone wallet page — never in the embedded chat sheet, and never
   // while the edit-mode banner is showing.
-  const showNoCardBanner = !hasCard && !embedded && !editEnabled;
+  // Arriving from a redeemed gift (deep-link `?focus=`): suppress the
+  // "add a payment method" prompt — the user just received a gift, not a nudge.
+  const showNoCardBanner = !hasCard && !embedded && !editEnabled && !cameFromGift;
   // Either banner occupies the dark top strip, so the white content frame
   // overlaps it the same way in both cases.
   const showTopStrip = showNoCardBanner || showEditBanner;
@@ -531,7 +586,12 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
             behind. */}
         <div className="relative">
       {/* ══════ INLINE TOPBAR ROW (logo, avatar, greeting, chat, bell) ══════ */}
-      {!embedded && <TopBar collapsed={false} />}
+      {!embedded && (
+        // Gift view: the top toolbar stays visible but non-interactive.
+        <div className={cameFromGift ? 'pointer-events-none' : undefined}>
+          <TopBar collapsed={false} />
+        </div>
+      )}
 
       {/* ══════ BALANCE CARD (Klarna-style) ══════ */}
       <section className="relative mt-4 mb-8 px-5">
@@ -774,6 +834,8 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
         // edit mode they show dimmed so the user can bring them back.
         if (isHidden && !editEnabled) return null;
         if (sectionId === 'widgets') {
+          // Gift view: drop the widgets section entirely.
+          if (cameFromGift) return null;
           return (
       <Reorder.Item
         key="widgets"
@@ -881,11 +943,18 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
           className={cashback.phase === 'closing' ? 'cashback-collapse' : 'cashback-reveal'}
           onAnimationEnd={(e) => {
             if (e.animationName === 'cashback-collapse') {
-              setCashback((c) => (c.phase === 'closing' ? { ...c, phase: 'closed' } : c));
+              setCashback((c) => {
+                if (c.phase !== 'closing') return c;
+                // If a cashback card is still targeted, reopen on it (the
+                // card-switch close→open); otherwise finish closing.
+                return targetCashback
+                  ? { phase: 'open', seq: c.seq + 1, key: targetCashback }
+                  : { ...c, phase: 'closed' };
+              });
             }
           }}
         >
-          <WalletOffersSlider />
+          <WalletOffersSlider bneiAkiva={cashback.key === 'bnei'} locked={cameFromGift} />
         </div>
       )}
       </div>{/* /relative gradient wrapper */}

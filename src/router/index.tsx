@@ -171,6 +171,8 @@ export const router = createBrowserRouter([
           { path: 'notifications',             element: <S><NotificationsPage /></S> },
           { path: 'orders',                    element: <S><OrdersPage /></S> },
           { path: 'orders/track',              element: <S><OrderTrackingPage /></S> },
+          // Standalone ready-made gift page (Bnei Akiva — Passover)
+          { path: 'gift-sample',               element: <S><GiftSamplePage /></S> },
 
           // === PROTECTED routes ===
           {
@@ -190,9 +192,6 @@ export const router = createBrowserRouter([
           },
         ],
       },
-
-      // Standalone ready-made gift page (Bnei Akiva — Passover)
-      { path: 'gift-sample', element: <S><GiftSamplePage /></S> },
 
       // Registration flow
       {

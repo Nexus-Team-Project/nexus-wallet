@@ -17,7 +17,7 @@ import { useCartStore } from '../../stores/cartStore';
 const COLLAPSE_THRESHOLD = 40;
 
 export default function AppLayout() {
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
   const isHome = /^\/[a-z]{2}\/?$/.test(pathname);
   // Pages that opt into the home-page decorative gradient backdrop.
   const isNotifications = /^\/[a-z]{2}\/notifications\/?$/.test(pathname);
@@ -34,10 +34,15 @@ export default function AppLayout() {
   // Wallet page renders its own TopBar inline (below the dark strip),
   // so the global overlay TopBar + chat FABs are suppressed here.
   const isWallet = /^\/[a-z]{2}\/wallet\/?$/.test(pathname);
+  // Wallet opened from a redeemed gift (deep-link `?focus=`) is a locked,
+  // focused view — the bottom toolbar + cart button stay visible but dead.
+  const giftLocked = isWallet && new URLSearchParams(search).has('focus');
   // Pages that opt into the "full-bleed form" treatment — global TopBar,
   // bottom-nav padding, and chat FABs are all suppressed so the page can
   // own its own header / fixed CTA / chrome.
-  const isFullScreenForm = /^\/[a-z]{2}\/wallet\/(add-payment-method|pay-intro|card|balance|voucher\/[^/]+)\/?$/.test(pathname);
+  const isFullScreenForm =
+    /^\/[a-z]{2}\/wallet\/(add-payment-method|pay-intro|card|balance|voucher\/[^/]+)\/?$/.test(pathname) ||
+    /^\/[a-z]{2}\/gift-sample\/?$/.test(pathname);
   // Business store page owns its own collapsing header (big hero → compact
   // sticky bar) with its own back button, so the global overlay TopBar is
   // suppressed here. The bottom nav + chat FABs stay so it still reads as a
@@ -248,7 +253,13 @@ export default function AppLayout() {
         </main>
         {/* Bottom search/home/wallet strip — hidden on the wallpaper
             picker so the picker grid + CTA own the screen. */}
-        {!cartOpen && !isFullScreenForm && !isWallpaper && !isReferral && !isBusinessProduct && !isBusinessReviews && !isBusinessCheckout && <FloatingActions />}
+        {!cartOpen && !isFullScreenForm && !isWallpaper && !isReferral && !isBusinessProduct && !isBusinessReviews && !isBusinessCheckout && (
+          giftLocked ? (
+            <div className="pointer-events-none"><FloatingActions /></div>
+          ) : (
+            <FloatingActions />
+          )
+        )}
         {/* AI assistant FAB — always available (suppressed on wallet
             page, which renders its own chat affordance inline). */}
         {!cartOpen && !isWallet && !isFullScreenForm && !isBusinessProduct && !isBusinessReviews && !isBusinessCheckout && (
@@ -269,8 +280,13 @@ export default function AppLayout() {
         <NotificationToastHost />
       </motion.div>
 
-      {/* Global draggable cart button (persists across pages). */}
-      <CartFab />
+      {/* Global draggable cart button (persists across pages). Locked (dead)
+          in the gift view. */}
+      {giftLocked ? (
+        <div className="pointer-events-none"><CartFab /></div>
+      ) : (
+        <CartFab />
+      )}
     </div>
   );
 }

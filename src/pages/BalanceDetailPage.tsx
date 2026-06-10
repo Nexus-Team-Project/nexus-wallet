@@ -67,7 +67,7 @@ export default function BalanceDetailPage() {
     <div className="relative min-h-dvh bg-white px-5" dir={isRTL ? 'rtl' : 'ltr'}>
       {/* Back button — dark on the white surface */}
       <button
-        onClick={() => navigate(`/${lang}/wallet`)}
+        onClick={() => navigate(-1)}
         aria-label={isRTL ? 'חזרה' : 'Back'}
         className="absolute top-5 start-4 z-10 w-10 h-10 rounded-full bg-surface border border-border flex items-center justify-center active:scale-95 transition-transform"
       >
