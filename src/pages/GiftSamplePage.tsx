@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import { PremiumRevealContent } from './PremiumRevealPage';
 import VoucherCard from '../components/wallet/VoucherCard';
 import { mockUserVouchers } from '../mock/data/vouchers.mock';
@@ -93,100 +94,117 @@ export default function GiftSamplePage() {
         }`}
       >
         <div className="w-full max-w-[400px] mx-auto">
-          {/* ── Greeting (top): the cover until opened, then the FULL letter.
-              A 3D flip can't share one box between a short cover and a tall
-              letter — and the shared box caused backface bleed-through (the
-              cover showing through the letter). So we swap cover ↔ letter. ── */}
-          {!revealed ? (
-            <div
-              className="relative w-full aspect-[10/16] rounded-2xl flex flex-col items-center justify-between p-7 overflow-hidden animate-fade-in"
-              style={{
-                background: HOME_GRADIENT,
-                color: '#ffffff',
-                boxShadow: '0 26px 40px -18px rgba(14, 44, 84, 0.45)',
-              }}
-            >
-              {/* Soft scrim — keeps the white logo/title legible over the
-                  lighter (cyan) end of the home gradient. */}
-              <div
-                className="absolute inset-0 z-0 pointer-events-none"
-                style={{
-                  background:
-                    'linear-gradient(to bottom, rgba(10,37,64,0.28) 0%, rgba(10,37,64,0.05) 35%, rgba(10,37,64,0.18) 75%, rgba(10,37,64,0.4) 100%)',
-                }}
-              />
-
-              {/* Bnei Akiva logo — transparent, rendered white over the wash. */}
-              <img
-                src={BNEI_AKIVA_LOGO}
-                alt="בני עקיבא"
-                className="relative z-10 h-16 w-auto object-contain drop-shadow-lg"
-                style={{ filter: 'brightness(0) invert(1)' }}
-              />
-
-              {/* The Passover gift illustration — matzah + wine (transparent). */}
-              <div className="relative z-10 flex-1 min-h-0 w-full flex items-center justify-center animate-gift-float my-2">
-                <img
-                  src={PESACH_GIFT}
-                  alt=""
-                  aria-hidden
-                  className="max-w-[80%] max-h-full object-contain drop-shadow-xl"
-                />
-              </div>
-
-              <div className="relative z-10 w-full space-y-4">
-                <h2
-                  className="text-2xl font-extrabold text-center leading-tight"
-                  style={{ textShadow: '0 1px 14px rgba(10,37,64,0.5)' }}
+          {/* ── Greeting (top): a 3D flip from the cover to the FULL letter.
+              Two independently-sized motion elements (NOT two faces of one box,
+              which caused backface bleed-through) cross-flipped via
+              AnimatePresence — so the cover can stay short and the letter tall. ── */}
+          <div className="flip-perspective w-full">
+            <AnimatePresence mode="wait" initial={false}>
+              {!revealed ? (
+                <motion.div
+                  key="cover"
+                  animate={{ rotateY: 0, opacity: 1 }}
+                  exit={{ rotateY: 90, opacity: 0 }}
+                  transition={{ duration: 0.35, ease: 'easeIn' }}
+                  className="relative w-full aspect-[10/16] rounded-2xl flex flex-col items-center justify-between p-7 overflow-hidden"
+                  style={{
+                    background: HOME_GRADIENT,
+                    color: '#ffffff',
+                    boxShadow: '0 26px 40px -18px rgba(14, 44, 84, 0.45)',
+                    backfaceVisibility: 'hidden',
+                  }}
                 >
-                  {RECIPIENT}, קיבלת מתנה מ{SENDER}!
-                </h2>
-                <p
-                  className="text-center text-sm font-semibold leading-relaxed text-white/90"
-                  style={{ textShadow: '0 1px 10px rgba(10,37,64,0.45)' }}
+                  {/* Soft scrim — keeps the white logo/title legible over the
+                      lighter (cyan) end of the home gradient. */}
+                  <div
+                    className="absolute inset-0 z-0 pointer-events-none"
+                    style={{
+                      background:
+                        'linear-gradient(to bottom, rgba(10,37,64,0.28) 0%, rgba(10,37,64,0.05) 35%, rgba(10,37,64,0.18) 75%, rgba(10,37,64,0.4) 100%)',
+                    }}
+                  />
+
+                  {/* Bnei Akiva logo — transparent, rendered white over the wash. */}
+                  <img
+                    src={BNEI_AKIVA_LOGO}
+                    alt="בני עקיבא"
+                    className="relative z-10 h-16 w-auto object-contain drop-shadow-lg"
+                    style={{ filter: 'brightness(0) invert(1)' }}
+                  />
+
+                  {/* The Passover gift illustration — matzah + wine (transparent). */}
+                  <div className="relative z-10 flex-1 min-h-0 w-full flex items-center justify-center animate-gift-float my-2">
+                    <img
+                      src={PESACH_GIFT}
+                      alt=""
+                      aria-hidden
+                      className="max-w-[80%] max-h-full object-contain drop-shadow-xl"
+                    />
+                  </div>
+
+                  <div className="relative z-10 w-full space-y-4">
+                    <h2
+                      className="text-2xl font-extrabold text-center leading-tight"
+                      style={{ textShadow: '0 1px 14px rgba(10,37,64,0.5)' }}
+                    >
+                      {RECIPIENT}, קיבלת מתנה מ{SENDER}!
+                    </h2>
+                    <p
+                      className="text-center text-sm font-semibold leading-relaxed text-white/90"
+                      style={{ textShadow: '0 1px 10px rgba(10,37,64,0.45)' }}
+                    >
+                      לרגל חג הפסח — חג החירות
+                    </p>
+                    <div className="flex flex-col items-center gap-3 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => setRevealed(true)}
+                        className="w-full bg-bg-dark text-white py-4 px-6 rounded-full font-bold text-base shadow-lg shadow-bg-dark/30 transition-all active:scale-[0.98]"
+                      >
+                        גלה את המתנה
+                      </button>
+                      {/* Nexus wordmark — the platform mark, below the button. */}
+                      <img src={NEXUS_WIDE_WHITE} alt="Nexus" className="h-9 w-auto" />
+                    </div>
+                  </div>
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="letter"
+                  initial={{ rotateY: -90, opacity: 0 }}
+                  animate={{ rotateY: 0, opacity: 1 }}
+                  transition={{ duration: 0.4, ease: 'easeOut' }}
+                  className="w-full rounded-2xl p-8 text-start"
+                  style={{
+                    background: '#0a2540',
+                    boxShadow: '0 26px 40px -18px rgba(0, 0, 0, 0.45)',
+                    backfaceVisibility: 'hidden',
+                  }}
                 >
-                  לרגל חג הפסח — חג החירות
-                </p>
-                <div className="flex flex-col items-center gap-3 pt-1">
-                  <button
-                    type="button"
-                    onClick={() => setRevealed(true)}
-                    className="w-full bg-bg-dark text-white py-4 px-6 rounded-full font-bold text-base shadow-lg shadow-bg-dark/30 transition-all active:scale-[0.98]"
-                  >
-                    גלה את המתנה
-                  </button>
-                  {/* Nexus wordmark — the platform mark, below the button. */}
-                  <img src={NEXUS_WIDE_WHITE} alt="Nexus" className="h-9 w-auto" />
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div
-              className="w-full rounded-2xl p-8 text-start animate-fade-in"
-              style={{ background: '#0a2540', boxShadow: '0 26px 40px -18px rgba(0, 0, 0, 0.45)' }}
-            >
-              <h2 className="text-3xl font-black text-white leading-tight whitespace-pre-line">
-                {LETTER_HEADING}
-              </h2>
-              {/* Full letter — flows naturally (the card is as tall as it). */}
-              <div className="mt-4">
-                {LETTER_BODY.map((para, i) => (
-                  <p
-                    key={i}
-                    className={`text-[15px] font-medium text-white/80 leading-relaxed ${i > 0 ? 'mt-3' : ''}`}
-                  >
-                    {para}
-                  </p>
-                ))}
-                <p className="mt-5 text-xl font-extrabold text-[#7dd3fc]">פסח כשר ושמח</p>
-                <p className="mt-1.5 text-[15px] font-semibold text-white/80">
-                  ובברכת חברים לתורה ועבודה
-                </p>
-                <p className="mt-3 text-base font-bold text-white">{SIGNATURE}</p>
-                <p className="mt-5 text-2xl font-bold text-[#7dd3fc]">{SENDER}</p>
-              </div>
-            </div>
-          )}
+                  <h2 className="text-3xl font-black text-white leading-tight whitespace-pre-line">
+                    {LETTER_HEADING}
+                  </h2>
+                  {/* Full letter — flows naturally (the card is as tall as it). */}
+                  <div className="mt-4">
+                    {LETTER_BODY.map((para, i) => (
+                      <p
+                        key={i}
+                        className={`text-[15px] font-medium text-white/80 leading-relaxed ${i > 0 ? 'mt-3' : ''}`}
+                      >
+                        {para}
+                      </p>
+                    ))}
+                    <p className="mt-5 text-xl font-extrabold text-[#7dd3fc]">פסח כשר ושמח</p>
+                    <p className="mt-1.5 text-[15px] font-semibold text-white/80">
+                      ובברכת חברים לתורה ועבודה
+                    </p>
+                    <p className="mt-3 text-base font-bold text-white">{SIGNATURE}</p>
+                    <p className="mt-5 text-2xl font-bold text-[#7dd3fc]">{SENDER}</p>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
 
           {/* ── Gift (below): a Bnei Akiva gift card, in the wallet's voucher style. ── */}
           {revealed && (
