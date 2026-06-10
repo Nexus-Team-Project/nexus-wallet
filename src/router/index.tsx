@@ -1,15 +1,17 @@
 import { lazy, Suspense } from 'react';
-import { createBrowserRouter, Navigate } from 'react-router-dom';
+import { createBrowserRouter, Navigate, Outlet, useParams, useSearchParams, useLocation } from 'react-router-dom';
 import LanguageRouter from './LanguageRouter';
 import ProtectedRoute from './ProtectedRoute';
 import ErrorBoundary from '../components/ErrorBoundary';
+import { useAuth } from '../contexts/AuthContext';
+import { useRegistrationStore } from '../stores/registrationStore';
 
 // ── Always eager (tiny, needed immediately) ─────────────────────────────────
 import RegistrationGuard from '../components/registration/RegistrationGuard';
 import AppLayout from '../components/layout/AppLayout';
 import NotFoundPage from '../pages/NotFoundPage';
 // HomePageSkeleton / WalletPageSkeleton are eager so they can be shown
-// immediately as the Suspense fallback for their respective routes —
+// immediately as the Suspense fallback for the store + wallet routes —
 // avoids the blank white flash on first load.
 import HomePageSkeleton from '../components/home/HomePageSkeleton';
 import WalletPageSkeleton from '../components/wallet/WalletPageSkeleton';
@@ -17,11 +19,11 @@ import WalletHistorySkeleton from '../components/wallet/WalletHistorySkeleton';
 
 // ── Lazy chunks ──────────────────────────────────────────────────────────────
 // Main app tabs — loaded right after initial render
-const HomePage           = lazy(() => import('../pages/HomePage'));
 const StorePage          = lazy(() => import('../pages/StorePage'));
 const WalletPage         = lazy(() => import('../pages/WalletPage'));
 const ActivityPage       = lazy(() => import('../pages/ActivityPage'));
 const ProfilePage        = lazy(() => import('../pages/ProfilePage'));
+const EditProfilePage    = lazy(() => import('../pages/EditProfilePage'));
 
 // Utility pages
 const AiChatPage         = lazy(() => import('../pages/AiChatPage'));
@@ -75,14 +77,17 @@ const PurposeSlide           = lazy(() => import('../pages/register/onboarding/P
 const LifeStageSlide         = lazy(() => import('../pages/register/onboarding/LifeStageSlide'));
 const BirthdaySlide          = lazy(() => import('../pages/register/onboarding/BirthdaySlide'));
 const GenderSlide            = lazy(() => import('../pages/register/onboarding/GenderSlide'));
-const BenefitCategoriesSlide = lazy(() => import('../pages/register/onboarding/BenefitCategoriesSlide'));
 const InviteFriendsSlide     = lazy(() => import('../pages/register/onboarding/InviteFriendsSlide'));
+const BenefitCategoriesSlide = lazy(() => import('../pages/register/onboarding/BenefitCategoriesSlide'));
 
 // Card issuance onboarding flow
 const CardIssuanceStoriesPage = lazy(() => import('../pages/CardIssuanceStoriesPage'));
 
 // Auth flow
 const FlowTestPage         = lazy(() => import('../pages/auth-flow/FlowTestPage'));
+const EmailRequiredPage    = lazy(() => import('../pages/auth/EmailRequiredPage'));
+const EmailOtpPage         = lazy(() => import('../pages/auth/EmailOtpPage'));
+const JoinStandalone       = lazy(() => import('../pages/auth-flow/JoinStandalone'));
 const NewUserFlow = lazy(() =>
   import('../pages/auth-flow/AuthFlowStories').then((m) => ({ default: m.NewUserFlow }))
 );
@@ -102,6 +107,59 @@ function S({ children }: { children: React.ReactNode }) {
   return <Suspense fallback={<PageFallback />}>{children}</Suspense>;
 }
 
+/**
+ * Index route for /:lang. The catalog is the public front door for
+ * everyone (anonymous + logged-in), so redirect to /store. Preserve the
+ * full incoming query string so ?tenant=X AND the Google OAuth ?code=
+ * callback survive. Default to ?ecosystem=1 when no context is present.
+ */
+function IndexRoute() {
+  const { search } = useLocation();
+  const params = new URLSearchParams(search);
+  if (!params.get('tenant') && params.get('ecosystem') !== '1') {
+    params.set('ecosystem', '1');
+  }
+  return <Navigate to={{ pathname: 'store', search: `?${params.toString()}` }} replace />;
+}
+
+/**
+ * /:lang/store - the public catalog. No auth required to view. If neither
+ * ?tenant nor ?ecosystem is present, default to ecosystem.
+ */
+function StoreRoute() {
+  const { lang = 'he' } = useParams();
+  const [searchParams] = useSearchParams();
+  const hasContext = !!searchParams.get('tenant') || searchParams.get('ecosystem') === '1';
+  if (!hasContext) {
+    return <Navigate to={`/${lang}/store?ecosystem=1`} replace />;
+  }
+  // Skeleton (not the blank PageFallback) so arriving from /register/complete —
+  // or any first hit on /store — shows a loading skeleton during the chunk load,
+  // continuing the skeleton the complete page started.
+  return (
+    <Suspense fallback={<HomePageSkeleton />}>
+      <StorePage />
+    </Suspense>
+  );
+}
+
+/**
+ * Guards /:lang/auth-flow/*. The stories/onboarding chain only makes sense
+ * mid-flow: allow when a registration is in progress OR a session exists
+ * (a returning non-member reaching auth-flow/join is logged in). Otherwise
+ * an anonymous cold-load bounces to the public ecosystem catalog.
+ */
+function AuthFlowGuard() {
+  const { lang = 'he' } = useParams();
+  const { me, loading } = useAuth();
+  const isRegistering = useRegistrationStore((s) => s.isRegistering);
+  if (loading) return null;
+  if (!isRegistering && !me) {
+    return <Navigate to={`/${lang}/store?ecosystem=1`} replace />;
+  }
+  return <Outlet />;
+}
+
 export const router = createBrowserRouter([
   {
     path: '/',
@@ -116,15 +174,16 @@ export const router = createBrowserRouter([
         element: <AppLayout />,
         children: [
           // === PUBLIC routes ===
-          {
-            index: true,
-            element: (
-              <Suspense fallback={<HomePageSkeleton />}>
-                <HomePage />
-              </Suspense>
-            ),
-          },
-          { path: 'store',    element: <S><StorePage /></S> },
+          // /:lang and /:lang/store: the public catalog front door for
+          // everyone. /he redirects to /he/store, defaulting to
+          // ?ecosystem=1 when no tenant/ecosystem context is present, so
+          // anonymous and logged-in users both land on StorePage.
+          // See IndexRoute + StoreRoute above.
+          { index: true,      element: <IndexRoute /> },
+          // The real home page IS /store. There is intentionally NO /home route:
+          // a hit on /:lang/home falls through to the catch-all below and
+          // redirects to /store.
+          { path: 'store',    element: <StoreRoute /> },
           { path: 'chat',             element: <S><AiChatPage /></S> },
           { path: 'search',           element: <S><AiChatPage /></S> },
           { path: 'near-you-map',     element: <S><NearYouMapPage /></S> },
@@ -145,29 +204,12 @@ export const router = createBrowserRouter([
           { path: 'business/:businessId/product/:productId/order-confirmed', element: <S><OrderConfirmationPage /></S> },
           { path: 'business/:businessId/product/:productId/receipt', element: <S><ReceiptPage /></S> },
           { path: 'business/:businessId/voucher/:voucherId', element: <S><VoucherPurchasePage /></S> },
-          { path: 'wallet/add-money',          element: <S><AddMoneyPage /></S> },
-          { path: 'wallet/add-money/source',   element: <S><AddMoneySourcePage /></S> },
-          { path: 'wallet/add-money/loading',  element: <S><AddMoneyLoadingPage /></S> },
-          { path: 'wallet/add-payment-method', element: <S><AddPaymentMethodPage /></S> },
-          { path: 'wallet/payment-methods',    element: <S><PaymentMethodsPage /></S> },
-          { path: 'wallet/pay-intro',          element: <S><PaymentIntroPage /></S> },
-          { path: 'wallpaper',                 element: <S><WallpaperPage /></S> },
-          { path: 'wallet/customize',          element: <S><WalletCustomizePage /></S> },
-          { path: 'wallet/actions',            element: <S><WalletActionsPage /></S> },
-          { path: 'wallet/card',               element: <S><CardDetailPage /></S> },
-          { path: 'wallet/balance',            element: <S><BalanceDetailPage /></S> },
-          {
-            path: 'wallet/history',
-            element: (
-              <Suspense fallback={<WalletHistorySkeleton />}>
-                <WalletHistoryPage />
-              </Suspense>
-            ),
-          },
-          { path: 'wallet/voucher/:voucherId', element: <S><VoucherDetailPage /></S> },
-          { path: 'notifications',             element: <S><NotificationsPage /></S> },
 
           // === PROTECTED routes ===
+          // All wallet / payment / personalization / notifications surfaces
+          // are gated: they show the signed-in user's own data, so they live
+          // under ProtectedRoute (route-resolve-time redirect, no render flash)
+          // rather than as public routes.
           {
             element: <ProtectedRoute />,
             children: [
@@ -179,8 +221,30 @@ export const router = createBrowserRouter([
                   </Suspense>
                 ),
               },
-              { path: 'activity',      element: <S><ActivityPage /></S> },
-              { path: 'profile',       element: <S><ProfilePage /></S> },
+              { path: 'wallet/add-money',          element: <S><AddMoneyPage /></S> },
+              { path: 'wallet/add-money/source',   element: <S><AddMoneySourcePage /></S> },
+              { path: 'wallet/add-money/loading',  element: <S><AddMoneyLoadingPage /></S> },
+              { path: 'wallet/add-payment-method', element: <S><AddPaymentMethodPage /></S> },
+              { path: 'wallet/payment-methods',    element: <S><PaymentMethodsPage /></S> },
+              { path: 'wallet/pay-intro',          element: <S><PaymentIntroPage /></S> },
+              { path: 'wallet/customize',          element: <S><WalletCustomizePage /></S> },
+              { path: 'wallet/actions',            element: <S><WalletActionsPage /></S> },
+              { path: 'wallet/card',               element: <S><CardDetailPage /></S> },
+              { path: 'wallet/balance',            element: <S><BalanceDetailPage /></S> },
+              {
+                path: 'wallet/history',
+                element: (
+                  <Suspense fallback={<WalletHistorySkeleton />}>
+                    <WalletHistoryPage />
+                  </Suspense>
+                ),
+              },
+              { path: 'wallet/voucher/:voucherId', element: <S><VoucherDetailPage /></S> },
+              { path: 'wallpaper',                 element: <S><WallpaperPage /></S> },
+              { path: 'notifications',             element: <S><NotificationsPage /></S> },
+              { path: 'activity',                  element: <S><ActivityPage /></S> },
+              { path: 'profile',                   element: <S><ProfilePage /></S> },
+              { path: 'profile/edit',              element: <S><EditProfilePage /></S> },
             ],
           },
         ],
@@ -202,8 +266,8 @@ export const router = createBrowserRouter([
           { path: 'onboarding/life-stage',         element: <S><LifeStageSlide /></S> },
           { path: 'onboarding/birthday',           element: <S><BirthdaySlide /></S> },
           { path: 'onboarding/gender',             element: <S><GenderSlide /></S> },
-          { path: 'onboarding/benefit-categories', element: <S><BenefitCategoriesSlide /></S> },
           { path: 'onboarding/invite-friends',     element: <S><InviteFriendsSlide /></S> },
+          { path: 'onboarding/benefit-categories', element: <S><BenefitCategoriesSlide /></S> },
           { path: 'complete',    element: <S><RegistrationCompletePage /></S> },
         ],
       },
@@ -211,13 +275,23 @@ export const router = createBrowserRouter([
       // Auth Flow
       {
         path: 'auth-flow',
+        element: <AuthFlowGuard />,
         children: [
-          { path: 'test',       element: <S><FlowTestPage /></S> },
-          { path: 'new-user',   element: <S><NewUserFlow /></S> },
-          { path: 'org-user',   element: <S><OrgUserFlow /></S> },
+          { path: 'test',     element: <S><FlowTestPage /></S> },
+          { path: 'new-user', element: <S><NewUserFlow /></S> },
+          { path: 'org-user', element: <S><OrgUserFlow /></S> },
+          { path: 'join',     element: <S><JoinStandalone /></S> },
         ],
       },
 
+      // Plan #2: wallet auth (phone -> email signup branch + post-login router)
+      {
+        path: 'auth',
+        children: [
+          { path: 'email-required', element: <S><EmailRequiredPage /></S> },
+          { path: 'email-otp',      element: <S><EmailOtpPage /></S> },
+        ],
+      },
       { path: '*', element: <Navigate to=".." replace /> },
     ],
   },

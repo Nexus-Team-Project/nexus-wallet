@@ -1,111 +1,204 @@
-import { useParams, useNavigate } from 'react-router-dom';
+/**
+ * SlideMatchScreen — the "we found your organization(s)" step, reached when the
+ * user taps "קליק להמשך" and we matched him (by member role) to one or more
+ * organizations. Sourced from props (his real memberships / the URL tenant),
+ * NOT from stores — the parent (AuthFlowStories) owns the behavior + backend.
+ *
+ * Behavior (unchanged):
+ * - Single match: confirm "continue with {org}" or "continue without an org".
+ * - Multiple matches (and/or a join target): a SINGLE-SELECT list (pick one).
+ * - The bottom "continue with another organization" link opens the join picker.
+ *
+ * Styling (ported from `main`): a clean, light app-surface screen — verified
+ * header + subtitle + a "signed in as" identity chip, a brand-color org card for
+ * the single case (or light selectable rows for many), and brand-color buttons.
+ * The accent follows the selected org's brand color (falls back to the default).
+ */
+import { useState } from 'react';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { useAuthStore } from '../../stores/authStore';
 import { useRegistrationStore } from '../../stores/registrationStore';
-import { useTenantStore } from '../../stores/tenantStore';
-import { useLoginSheetStore } from '../../stores/loginSheetStore';
-import { getFirstOnboardingSlide } from '../../utils/onboardingNavigation';
+import { StoryJoinOtherLink } from './StoryJoinOtherLink';
+import type { MemberOrgOption } from '../../components/wallet/TenantDiscoverySheet';
 
-export function SlideMatchScreen() {
-  const { lang = 'he' } = useParams();
-  const navigate = useNavigate();
+interface SlideMatchScreenProps {
+  /** Matched organizations (member role). 1 = single, >1 = select one. */
+  orgs: MemberOrgOption[];
+  /**
+   * The URL tenant the user arrived through but is NOT a member of, offered as a
+   * distinct "join" option (auto-selected). Only set when the user also has
+   * member orgs to choose between. Undefined/null = no join option.
+   */
+  joinTarget?: MemberOrgOption | null;
+  /** Continue with an existing membership (existing member, no new join). */
+  onContinueWith: (tenantId: string) => void;
+  /** Join the URL tenant (new join — a request is sent when the questions start). */
+  onContinueJoin?: (tenantId: string) => void;
+  /** Continue with no organization affiliation (Nexus catalog). */
+  onContinueNoAffiliation: () => void;
+  /** Open the join picker (the bottom "another organization" link). */
+  onJoinOther: () => void;
+}
+
+/** Default accent when an org has no brand color (mirrors main's fallback). */
+const DEFAULT_ACCENT = '#635bff';
+
+/** Two-letter initials fallback when an org has no logo. */
+function deriveInitials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) return (parts[0]![0]! + parts[1]![0]!).toUpperCase();
+  return name.trim().slice(0, 2).toUpperCase() || '?';
+}
+
+/** Stable hash -> color so the same org always renders the same initials tile. */
+function colorFor(name: string): string {
+  const PALETTE = ['#1e40af', '#059669', '#F97316', '#DC2626', '#2563EB', '#7C3AED', '#0D9488', '#CA8A04'];
+  let h = 0;
+  for (let i = 0; i < name.length; i++) { h = (h << 5) - h + name.charCodeAt(i); h |= 0; }
+  return PALETTE[Math.abs(h) % PALETTE.length]!;
+}
+
+/** A small org tile (true-color logo on a white tile, or colored initials). */
+function OrgTile({ org, size = 44 }: { org: MemberOrgOption; size?: number }) {
+  return (
+    <div
+      className="flex flex-shrink-0 items-center justify-center overflow-hidden rounded-xl text-sm font-bold text-white"
+      style={{
+        width: size,
+        height: size,
+        background: org.logoUrl ? '#fff' : colorFor(org.tenantName),
+        border: org.logoUrl ? '1px solid #e5e7eb' : undefined,
+      }}
+    >
+      {org.logoUrl ? (
+        <img src={org.logoUrl} alt="" className="object-contain" style={{ width: size * 0.78, height: size * 0.78 }} />
+      ) : (
+        deriveInitials(org.tenantName)
+      )}
+    </div>
+  );
+}
+
+/**
+ * @returns the match-screen slide (light, brand-themed; behavior from props).
+ */
+export function SlideMatchScreen({ orgs, joinTarget, onContinueWith, onContinueJoin, onContinueNoAffiliation, onJoinOther }: SlideMatchScreenProps) {
   const { t, language } = useLanguage();
   const isHe = language === 'he';
+  const hasJoin = !!joinTarget;
+  // Total selectable rows = member orgs + the optional join target.
+  const multiple = orgs.length + (hasJoin ? 1 : 0) > 1;
+  // Auto-select the join target (the org the user arrived through) when present;
+  // otherwise the single member org, or nothing for a multi-member select.
+  const [selectedId, setSelectedId] = useState<string | null>(
+    joinTarget ? joinTarget.tenantId : orgs.length === 1 ? orgs[0]!.tenantId : null,
+  );
+  const isJoinSelected = hasJoin && selectedId === joinTarget!.tenantId;
+  const selectedOrg = orgs.find((o) => o.tenantId === selectedId);
 
-  const authMethod        = useAuthStore((s) => s.authMethod);
-  const authFirstName     = useAuthStore((s) => s.firstName);
-  const logout            = useAuthStore((s) => s.logout);
+  // Accent = the selected org's brand color (updates as the selection changes),
+  // falling back to the first org's color, then the default.
+  const selectedAny = isJoinSelected ? joinTarget : selectedOrg;
+  const accent = selectedAny?.brandColor || orgs[0]?.brandColor || joinTarget?.brandColor || DEFAULT_ACCENT;
 
-  const orgMember         = useRegistrationStore((s) => s.orgMember);
-  const phone             = useRegistrationStore((s) => s.phone);
-  const missingFields     = useRegistrationStore((s) => s.missingFields);
-  const profileData       = useRegistrationStore((s) => s.profileData);
-  const startRegistration = useRegistrationStore((s) => s.startRegistration);
-  const resetRegistration = useRegistrationStore((s) => s.resetRegistration);
-
-  const tenantConfig  = useTenantStore((s) => s.config);
-  const clearTenant   = useTenantStore((s) => s.clearTenant);
-
-  const openLoginSheet = useLoginSheetStore((s) => s.open);
-
-  const orgName  = isHe
-    ? (tenantConfig?.nameHe ?? orgMember?.organizationName ?? '')
-    : (tenantConfig?.name   ?? orgMember?.organizationName ?? '');
-  const orgColor = tenantConfig?.primaryColor ?? '#635bff';
-  const orgLogo  = tenantConfig?.logo;
-
+  // "Signed in as" identity (display-only — does not affect behavior).
+  const authMethod = useAuthStore((s) => s.authMethod);
+  const authFirstName = useAuthStore((s) => s.firstName);
+  const phone = useRegistrationStore((s) => s.phone);
+  const profileData = useRegistrationStore((s) => s.profileData);
   const userIdentifier =
     (authMethod === 'google' || authMethod === 'apple') && profileData.email
       ? profileData.email
       : authFirstName ?? phone ?? null;
 
-  const handleContinueWithOrg = () => {
-    // Mark in sessionStorage BEFORE navigating so that pressing Back
-    // restores the match-screen step (location.state doesn't survive back-nav).
-    sessionStorage.setItem('nexus_return_match', '1');
-    if (tenantConfig?.requiresMembershipFee) {
-      navigate(`/${lang}/register/membership`);
-    } else {
-      navigate(
-        `/${lang}/register/onboarding/${getFirstOnboardingSlide(
-          useRegistrationStore.getState()
-        )}`
-      );
-    }
+  // When a join option is present the screen is a "where to continue?" chooser;
+  // otherwise the existing single/multiple member-match titles.
+  const title = hasJoin
+    ? t.authFlow.matchTitleChoose
+    : multiple
+      ? t.authFlow.matchTitleMultiple.replace('{{count}}', String(orgs.length))
+      : t.authFlow.matchTitleSingle.replace('{{orgName}}', orgs[0]?.tenantName ?? '');
+
+  const subtitle = hasJoin || multiple
+    ? t.authFlow.matchSubtitleMultiple
+    : t.authFlow.matchSubtitleSingle.replace('{{orgName}}', orgs[0]?.tenantName ?? '');
+
+  const primaryLabel = isJoinSelected
+    ? t.authFlow.matchJoinWithOrg.replace('{{orgName}}', joinTarget!.tenantName)
+    : selectedOrg
+      ? t.authFlow.matchContinueWithOrg.replace('{{orgName}}', selectedOrg.tenantName)
+      : t.authFlow.matchContinue;
+
+  const handlePrimary = () => {
+    const id = selectedId ?? orgs[0]?.tenantId;
+    if (!id) return;
+    if (isJoinSelected) onContinueJoin?.(id);
+    else onContinueWith(id);
   };
 
-  const handleContinueNoOrg = () => {
-    clearTenant();
-    startRegistration({
-      path:         'new-user',
-      phone:        phone ?? '',
-      orgMember:    null,
-      missingFields,
-    });
-    navigate(
-      `/${lang}/register/onboarding/${getFirstOnboardingSlide(
-        useRegistrationStore.getState()
-      )}`
+  /** Small uppercase section label (only used in the mixed member+join view). */
+  const sectionHeader = (label: string) => (
+    <p className="px-1 pt-1 text-[11px] font-semibold uppercase tracking-wide text-text-muted">{label}</p>
+  );
+
+  /** One selectable row (light theme) — a member "continue" row or the join row. */
+  const renderRow = (org: MemberOrgOption, isJoin: boolean) => {
+    const selected = selectedId === org.tenantId;
+    return (
+      <button
+        key={org.tenantId}
+        type="button"
+        onClick={() => setSelectedId(org.tenantId)}
+        className="flex w-full items-center gap-3 rounded-2xl bg-white px-4 py-3 text-start transition-all"
+        style={{
+          border: `${selected ? 2 : 1}px solid ${selected ? accent : 'var(--color-border)'}`,
+          boxShadow: '0 2px 10px rgba(0,0,0,0.05)',
+        }}
+      >
+        <OrgTile org={org} />
+        <span className="flex-1 truncate text-sm font-bold text-text-primary">{org.tenantName}</span>
+        {isJoin && (
+          <span className="flex-shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold text-white" style={{ background: accent }}>
+            {t.authFlow.matchJoinRowLabel}
+          </span>
+        )}
+        {(multiple || selected) && (
+          <span
+            className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full"
+            style={{ background: selected ? accent : '#e5e7eb' }}
+          >
+            {selected && (
+              <span className="material-symbols-outlined text-white" style={{ fontSize: 16, fontVariationSettings: "'FILL' 1" }}>
+                check
+              </span>
+            )}
+          </span>
+        )}
+      </button>
     );
-  };
-
-  const handleSwitchAccount = () => {
-    logout();
-    resetRegistration();
-    clearTenant();
-    navigate(`/${lang}`, { replace: true });
-    Promise.resolve().then(() => openLoginSheet().catch(() => {}));
   };
 
   return (
     <div
+      dir={isHe ? 'rtl' : 'ltr'}
       className="absolute inset-0 flex flex-col overflow-y-auto"
       style={{ background: 'var(--color-surface)' }}
-      dir={isHe ? 'rtl' : 'ltr'}
       onClick={(e) => e.stopPropagation()}
     >
-      <div className="flex-1 flex flex-col px-5 pb-8 pt-8">
-
-        {/* Header */}
+      <div className="flex-1 flex flex-col px-5 pb-8 pt-8 animate-fade-in">
+        {/* ── Header ── */}
         <div className="mb-6">
-          <div
-            className="w-11 h-11 rounded-2xl flex items-center justify-center mb-4"
-            style={{ background: `${orgColor}1a` }}
-          >
+          <div className="w-11 h-11 rounded-2xl flex items-center justify-center mb-4" style={{ background: `${accent}1a` }}>
             <span
               className="material-symbols-outlined"
-              style={{ fontSize: '22px', color: orgColor, fontVariationSettings: "'FILL' 1" }}
+              style={{ fontSize: '22px', color: accent, fontVariationSettings: "'FILL' 1" }}
             >
               verified
             </span>
           </div>
 
-          <h1 className="text-2xl font-extrabold text-text-primary mb-1">
-            {t.authFlow.matchTitle}
-          </h1>
-          <p className="text-sm text-text-muted leading-snug">
-            {t.authFlow.matchSubtitleSingle.replace('{{orgName}}', orgName)}
-          </p>
+          <h1 className="text-2xl font-extrabold text-text-primary mb-1">{title}</h1>
+          <p className="text-sm text-text-muted leading-snug">{subtitle}</p>
 
           {userIdentifier && (
             <div className="mt-3 inline-flex items-center gap-1.5 bg-white border border-border rounded-full px-3 py-1">
@@ -130,59 +223,58 @@ export function SlideMatchScreen() {
           )}
         </div>
 
-        {/* Org card */}
-        <div
-          className="rounded-2xl p-4 mb-6"
-          style={{ background: `linear-gradient(135deg, ${orgColor} 0%, ${orgColor}cc 100%)` }}
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center flex-shrink-0">
-              {orgLogo ? (
-                <img src={orgLogo} alt={orgName} className="h-7 w-7 object-contain"
-                  style={{ filter: 'brightness(0) invert(1)' }}
-                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                />
-              ) : (
-                <span className="material-symbols-outlined text-white"
-                  style={{ fontSize: '22px', fontVariationSettings: "'FILL' 1" }}>
-                  business
-                </span>
+        {/* ── Org display: brand-color card (single) or selectable rows (many) ── */}
+        <div className="mb-6">
+          {!multiple && orgs[0] ? (
+            <div className="rounded-2xl p-4" style={{ background: `linear-gradient(135deg, ${accent} 0%, ${accent}cc 100%)` }}>
+              <div className="flex items-center gap-3">
+                <OrgTile org={orgs[0]} size={48} />
+                <div className="flex-1 min-w-0">
+                  <p className="text-white font-bold text-base leading-tight truncate">{orgs[0].tenantName}</p>
+                  <p className="text-white/70 text-xs mt-0.5">{isHe ? 'חבר ארגון' : 'Organization member'}</p>
+                </div>
+                <div className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
+                  <span className="material-symbols-outlined text-white" style={{ fontSize: '14px', fontVariationSettings: "'FILL' 1" }}>check</span>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-2.5">
+              {hasJoin && orgs.length > 0 && sectionHeader(t.authFlow.matchYourOrgs)}
+              {orgs.map((org) => renderRow(org, false))}
+              {joinTarget && (
+                <>
+                  {sectionHeader(t.authFlow.matchArrivedVia)}
+                  {renderRow(joinTarget, true)}
+                </>
               )}
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-white font-bold text-base leading-tight truncate">{orgName}</p>
-              <p className="text-white/70 text-xs mt-0.5">{isHe ? 'חבר ארגון' : 'Organization member'}</p>
-            </div>
-            <div className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
-              <span className="material-symbols-outlined text-white"
-                style={{ fontSize: '14px', fontVariationSettings: "'FILL' 1" }}>check</span>
-            </div>
-          </div>
+          )}
         </div>
 
         <div className="flex-1" />
 
-        {/* Action buttons */}
+        {/* ── Actions ── */}
         <div className="space-y-3">
           <button
-            onClick={handleContinueWithOrg}
-            className="w-full py-4 rounded-2xl font-bold text-sm text-white active:scale-[0.98] transition-all"
-            style={{ background: orgColor }}
+            type="button"
+            disabled={multiple && !selectedId}
+            onClick={handlePrimary}
+            className="w-full py-4 rounded-2xl font-bold text-sm text-white active:scale-[0.98] transition-all disabled:opacity-50"
+            style={{ background: accent }}
           >
-            {t.authFlow.matchContinueWithOrg.replace('{{orgName}}', orgName)}
+            {primaryLabel}
           </button>
           <button
-            onClick={handleContinueNoOrg}
+            type="button"
+            onClick={onContinueNoAffiliation}
             className="w-full py-3.5 rounded-2xl font-semibold text-sm border border-border text-text-primary bg-white active:scale-[0.98] transition-all hover:bg-surface"
           >
-            {t.authFlow.matchContinueNoOrg}
+            {t.authFlow.matchContinueNoAffiliation}
           </button>
-          <button
-            onClick={handleSwitchAccount}
-            className="w-full py-2.5 text-center text-sm text-text-muted hover:text-text-secondary transition-colors"
-          >
-            {t.authFlow.matchSwitchAccount}
-          </button>
+          <div className="flex justify-center pt-0.5">
+            <StoryJoinOtherLink onClick={onJoinOther} variant="onLight" />
+          </div>
         </div>
       </div>
     </div>

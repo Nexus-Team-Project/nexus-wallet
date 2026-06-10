@@ -19,11 +19,22 @@ export default function FloatingActions({ force = false }: { force?: boolean } =
   const { data: activeVouchers } = useMyVouchers('active', { enabled: isAuthenticated });
   const activeCount = activeVouchers?.length || 0;
 
-  const isHome = location.pathname === `/${lang}` || location.pathname === `/${lang}/`;
+  // "Home" covers the index, the store front door (the index redirects there,
+  // so it's the page the Home FAB actually lands on), and the legacy /home
+  // route. The Home FAB hides on all of these so it never points at the page
+  // the user is already on.
+  const isHome =
+    location.pathname === `/${lang}` ||
+    location.pathname === `/${lang}/` ||
+    /^\/[a-z]{2}\/store\/?$/.test(location.pathname) ||
+    /^\/[a-z]{2}\/home\/?$/.test(location.pathname);
   const isWallet = location.pathname.includes('/wallet');
   const isSearch = /\/(chat|search)/.test(location.pathname);
   const isBusiness = /\/business\/[^/]+/.test(location.pathname);
   const isVoucherPurchase = /\/business\/[^/]+\/voucher\//.test(location.pathname);
+  // The edit-profile page has its own sticky Save bar at the bottom; the FABs
+  // would overlap it, so hide them there.
+  const isProfileEdit = /\/profile\/edit\/?$/.test(location.pathname);
   // The add-money flow owns its own fixed continue button at the bottom;
   // the floating nav would collide with it.
   const isAddMoney = location.pathname.includes('/wallet/add-money');
@@ -50,7 +61,7 @@ export default function FloatingActions({ force = false }: { force?: boolean } =
     }
   };
 
-  if (!force && (isBusiness || isVoucherPurchase || isAddMoney)) return null;
+  if (!force && (isBusiness || isVoucherPurchase || isProfileEdit || isAddMoney)) return null;
 
   const handleWallet = async () => {
     if (isAuthenticated) {

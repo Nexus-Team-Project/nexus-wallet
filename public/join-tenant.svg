@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+  <!-- Three stylized figures representing a community to join. Filled
+       with white so it reads cleanly on the amber gradient avatar
+       circle used by the wallet's RouterScreen. -->
+  <!-- Back-center figure -->
+  <circle cx="32" cy="22" r="7" fill="white"/>
+  <path d="M18 50 C18 41 23 35 32 35 C41 35 46 41 46 50 Z" fill="white"/>
+  <!-- Left figure -->
+  <circle cx="14" cy="28" r="5.5" fill="white" opacity="0.85"/>
+  <path d="M3 52 C3 44 7 39 14 39 C17.5 39 20 40.2 22 42.2 L22 52 Z" fill="white" opacity="0.85"/>
+  <!-- Right figure -->
+  <circle cx="50" cy="28" r="5.5" fill="white" opacity="0.85"/>
+  <path d="M61 52 C61 44 57 39 50 39 C46.5 39 44 40.2 42 42.2 L42 52 Z" fill="white" opacity="0.85"/>
+  <!-- Subtle plus glyph indicating "join" -->
+  <circle cx="50" cy="14" r="7" fill="white"/>
+  <rect x="48.5" y="10" width="3" height="8" rx="1.5" fill="#f59e0b"/>
+  <rect x="46" y="12.5" width="8" height="3" rx="1.5" fill="#f59e0b"/>
+</svg>

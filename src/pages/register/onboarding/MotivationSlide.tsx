@@ -1,7 +1,7 @@
 /**
  * MotivationSlide — mandatory transitional slide between the personal-details
  * slides (verify-phone / first-name / verify-email / consents) and the
- * preference questions (purpose, life-stage, birthday, gender, benefit-categories).
+ * preference questions (purpose, life-stage, birthday, gender).
  *
  * Goal: explain WHY we need more info in a benefit-focused way that maximises
  * the completion rate of the optional preference slides.

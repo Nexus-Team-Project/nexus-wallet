@@ -6,7 +6,7 @@
  *
  * Country picker opens as a bottom sheet (slides up from bottom of screen).
  */
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useLanguage } from '../../i18n/LanguageContext';
 
@@ -237,6 +237,27 @@ export function formatPhoneNumber(value: string, maxDigits = 10): string {
   return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
 }
 
+// Windows fonts don't render flag emoji (they show the "IL"/"AF" letter pair),
+// so flags come from flagcdn as small PNGs keyed by the ISO country code.
+const flagSrc = (code: string): string => `https://flagcdn.com/24x18/${code.toLowerCase()}.png`;
+const flagSrc2x = (code: string): string => `https://flagcdn.com/48x36/${code.toLowerCase()}.png`;
+
+/** A small rounded flag image. Falls back to hiding itself if the PNG is missing. */
+function FlagImg({ code, w, h }: { code: string; w: number; h: number }) {
+  return (
+    <img
+      src={flagSrc(code)}
+      srcSet={`${flagSrc2x(code)} 2x`}
+      width={w}
+      height={h}
+      alt={code}
+      loading="lazy"
+      className="flex-shrink-0 rounded-[3px] object-cover"
+      onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = 'hidden'; }}
+    />
+  );
+}
+
 interface PhoneInputProps {
   value: string;
   onChange: (value: string) => void;
@@ -246,6 +267,9 @@ interface PhoneInputProps {
   autoFocus?: boolean;
   inputRef?: React.RefObject<HTMLInputElement | null>;
   isLoading?: boolean;
+  /** Notified with the selected country on mount and whenever it changes — lets
+   *  the parent enforce country rules (e.g. Israel-only acceptance). */
+  onCountryChange?: (country: Country) => void;
 }
 
 export default function PhoneInput({
@@ -257,11 +281,26 @@ export default function PhoneInput({
   autoFocus = false,
   inputRef,
   isLoading = false,
+  onCountryChange,
 }: PhoneInputProps) {
   const { language } = useLanguage();
   const isHe = language === 'he';
 
   const [country, setCountry] = useState<Country>(COUNTRIES[0]);
+
+  // Tell the parent the initial country (Israel) once, so its country-rule
+  // checks have a value before the user opens the picker.
+  useEffect(() => {
+    onCountryChange?.(country);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Placeholder follows the selected country: Israel keeps the design's
+  // 050-000-0000; others show a dashed zero pattern of the right length.
+  const effectivePlaceholder =
+    country.code === 'IL'
+      ? placeholder
+      : formatPhoneNumber('0'.repeat(country.maxDigits), country.maxDigits);
   // mounted = portal exists in DOM; visible = sheet is slid into view
   const [mounted, setMounted] = useState(false);
   const [visible, setVisible] = useState(false);
@@ -288,6 +327,7 @@ export default function PhoneInput({
 
   const handleSelect = (c: Country) => {
     setCountry(c);
+    onCountryChange?.(c);
     closeSheet();
     onChange('');
   };
@@ -302,7 +342,7 @@ export default function PhoneInput({
       onClick={openSheet}
       className={`${countryFieldCls} border-border active:scale-95 transition-transform`}
     >
-      <span className="w-6 h-6 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center" style={{ fontSize: '18px', lineHeight: 1 }}>{country.flag}</span>
+      <FlagImg code={country.code} w={22} h={16} />
       <span className="text-xs font-semibold text-text-primary" dir="ltr">{country.dial}</span>
       <span className="material-symbols-outlined text-text-muted" style={{ fontSize: '14px' }}>
         keyboard_arrow_down
@@ -321,7 +361,7 @@ export default function PhoneInput({
         onChange={(e) => onChange(formatPhoneNumber(e.target.value, country.maxDigits))}
         onKeyDown={onKeyDown}
         autoComplete="tel-national"
-        placeholder={placeholder}
+        placeholder={effectivePlaceholder}
         className="flex-1 bg-transparent border-none outline-none text-sm text-text-primary placeholder:text-text-muted min-w-0"
         dir="ltr"
         autoFocus={autoFocus}
@@ -412,7 +452,7 @@ export default function PhoneInput({
                     c.code === country.code ? 'bg-primary/5' : ''
                   }`}
                 >
-                  <span className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center" style={{ fontSize: '24px', lineHeight: 1 }}>{c.flag}</span>
+                  <FlagImg code={c.code} w={28} h={20} />
                   <span className={`flex-1 text-start font-medium ${c.code === country.code ? 'text-primary' : 'text-text-primary'}`}>
                     {isHe ? c.nameHe : c.name}
                   </span>

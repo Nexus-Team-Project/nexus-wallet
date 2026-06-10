@@ -1,11 +1,48 @@
-import { useEffect } from 'react';
-import { Outlet, useNavigate, useSearchParams } from 'react-router-dom';
+import { useEffect, useRef } from 'react';
+import { Outlet, useNavigate, useSearchParams, useNavigationType } from 'react-router-dom';
 import { LanguageProvider } from '../i18n/LanguageContext';
 import LoginSheet from '../components/auth/LoginSheet';
-import { TenantSimulator } from '../components/dev/TenantSimulator';
-import { UserTypeSimulator } from '../components/dev/UserTypeSimulator';
+import { useAuth } from '../contexts/AuthContext';
 import { useTenantStore } from '../stores/tenantStore';
+import { useActiveContextStore, sameContext, type ActiveContext } from '../stores/activeContextStore';
 import { lookupTenant } from '../mock/handlers/tenant.handler';
+import { fetchPublicTenant } from '../services/publicTenant.service';
+import type { TenantConfig } from '../types/tenant.types';
+
+/**
+ * Default brand color used when a tenant has no themed config of its
+ * own. Mirrors the `--color-primary` CSS variable (Nexus brand) declared
+ * in index.css so anonymous ?tenant=X links that only know a real org's
+ * name/logo still render with consistent Nexus theming.
+ */
+const DEFAULT_PRIMARY_COLOR = '#635bff';
+
+/**
+ * Build a minimal TenantConfig (name/logo only) from public endpoint info.
+ * Real backend tenants have no themed mock entry, so we synthesize a config
+ * that carries the org name + logo and falls back to the Nexus brand color.
+ * @param id domain tenantId from ?tenant=X
+ * @param info public tenant info (organization name + optional logo URL)
+ * @returns a TenantConfig safe to feed into the tenant store / theme.
+ */
+function buildPublicTenantConfig(
+  id: string,
+  info: { organizationName: string; logoUrl?: string; brandColor?: string },
+): TenantConfig {
+  return {
+    id,
+    name: info.organizationName,
+    nameHe: info.organizationName,
+    // Real tenants only: no logo -> leave undefined so the UI shows initials.
+    // (The Nexus logo is reserved for the ecosystem catalog, not per-tenant.)
+    logo: info.logoUrl,
+    // The tenant's chosen brand color when set; otherwise the Nexus default,
+    // which resolveTenantColor() treats as "no custom theme" and replaces with
+    // a stable per-tenant hashed color.
+    primaryColor: info.brandColor ?? DEFAULT_PRIMARY_COLOR,
+    requiresMembershipFee: false,
+  };
+}
 
 /** Darken a hex color by a given percentage */
 function darkenColor(hex: string, percent: number): string {
@@ -19,24 +56,127 @@ function darkenColor(hex: string, percent: number): string {
 export default function LanguageRouter() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const navigationType = useNavigationType();
+  const { me, loading } = useAuth();
   const { tenantId, config, setTenant, clearTenant } = useTenantStore();
+  // Tracks the first effect run so the initial load (always reported as POP)
+  // adopts the URL context (deep-link) instead of overriding it with the
+  // previously-persisted pick.
+  const firstContextRunRef = useRef(true);
+
+  // Public-by-default: anonymous visitors may load any route. There is no
+  // global redirect here anymore - the route tree (ProtectedRoute on the
+  // member-only paths) decides what an anonymous user can reach.
 
   useEffect(() => {
     const tenantSlug = searchParams.get('tenant');
+    const ecosystemMode = searchParams.get('ecosystem') === '1';
 
-    if (tenantSlug) {
-      // ?tenant= in URL → set (or refresh) tenant
+    // ── Active-context reconciliation (fixes tenant lost on back-nav) ─────────
+    // The URL is the per-page context, but back/forward (POP) restores a stale
+    // ?tenant from an old history entry. The last EXPLICITLY-picked context is
+    // the durable source of truth: on POP it wins (rewrite the URL to it); on
+    // explicit navigation (PUSH/REPLACE) the URL wins and updates the store.
+    const urlContext: ActiveContext | null = ecosystemMode
+      ? { kind: 'ecosystem' }
+      : tenantSlug
+        ? { kind: 'tenant', tenantId: tenantSlug }
+        : null;
+    const { context: pickedContext, setContext } = useActiveContextStore.getState();
+
+    if (firstContextRunRef.current) {
+      // Initial load: adopt the URL (a deep-link/shared link wins on entry).
+      firstContextRunRef.current = false;
+      if (urlContext) setContext(urlContext);
+    } else if (navigationType === 'POP') {
+      // Back/forward: the last pick wins. Rewrite the URL to it and re-run.
+      if (pickedContext && !sameContext(pickedContext, urlContext)) {
+        const next = new URLSearchParams(searchParams);
+        if (pickedContext.kind === 'tenant') {
+          next.set('tenant', pickedContext.tenantId);
+          next.delete('ecosystem');
+        } else {
+          next.set('ecosystem', '1');
+          next.delete('tenant');
+        }
+        navigate({ search: next.toString() }, { replace: true });
+        return;
+      }
+    } else if (urlContext) {
+      // PUSH / REPLACE = explicit navigation or switch: the URL is the intent.
+      setContext(urlContext);
+    }
+
+    /** Drop any tenant branding and remove a dead ?tenant= from the URL so the
+     *  app falls back to the Nexus (ecosystem) catalog and the bad link does
+     *  not persist on reload or when shared. */
+    const goToEcosystem = (): void => {
+      clearTenant();
+      const next = new URLSearchParams(searchParams);
+      next.delete('tenant');
+      navigate({ search: next.toString() }, { replace: true });
+    };
+
+    if (ecosystemMode) {
+      // User explicitly picked Nexus-Catalog: drop any persisted tenant
+      // so the TopBar / theme reflect ecosystem context. Without this,
+      // the else-if branch below would silently re-add ?tenant=<id>
+      // from the Zustand store and the UI would keep showing the
+      // tenant name after the user opted into ecosystem view.
+      clearTenant();
+    } else if (tenantSlug) {
       const tenantConfig = lookupTenant(tenantSlug);
       if (tenantConfig) {
         setTenant(tenantSlug, tenantConfig);
       } else {
-        clearTenant();
+        // Prefer the user's own membership (name + logo) — a member tenant that
+        // is not publicly listed still brands correctly, and we skip the public
+        // endpoint, which 404s for tenants without an active public catalog.
+        const membership = (me?.memberships ?? []).find((m) => m.tenantId === tenantSlug);
+        if (membership) {
+          setTenant(
+            tenantSlug,
+            buildPublicTenantConfig(tenantSlug, {
+              organizationName: membership.tenantName,
+              logoUrl: membership.logoUrl,
+              brandColor: membership.brandColor,
+            }),
+          );
+        } else if (loading) {
+          // Auth is still resolving: we cannot yet tell a member of a
+          // non-public tenant from a stranger. Wait for the re-run (me/loading
+          // are in the deps) before deciding, so member branding is not lost.
+        } else {
+          // Logged-out or confirmed non-member: resolve the tenant's public
+          // branding. An unknown tenant (no such tenant / catalog not active)
+          // bounces to the Nexus (ecosystem) catalog and the dead ?tenant= is
+          // stripped from the URL so a bad link does not stick on reload/share.
+          fetchPublicTenant(tenantSlug)
+            .then((info) => {
+              if (info) {
+                setTenant(tenantSlug, buildPublicTenantConfig(tenantSlug, info));
+              } else {
+                goToEcosystem();
+              }
+            })
+            .catch(goToEcosystem);
+        }
       }
     } else if (tenantId) {
-      // Tenant is active but missing from URL → restore it silently
-      const next = new URLSearchParams(searchParams);
-      next.set('tenant', tenantId);
-      navigate({ search: next.toString() }, { replace: true });
+      // A persisted tenant is set but missing from the URL. Only auto-restore
+      // it when the user is actually a MEMBER of it — a remembered non-member /
+      // pending tenant view must NOT silently re-enter on reload/navigation; it
+      // falls back to the Nexus catalog instead.
+      const isMember = (me?.memberships ?? []).some(
+        (m) => m.tenantId === tenantId && m.isMember,
+      );
+      if (isMember) {
+        const next = new URLSearchParams(searchParams);
+        next.set('tenant', tenantId);
+        navigate({ search: next.toString() }, { replace: true });
+      } else {
+        clearTenant();
+      }
     } else {
       // No tenant anywhere → clear (ensures Nexus colors on plain home)
       clearTenant();
@@ -52,8 +192,10 @@ export default function LanguageRouter() {
     // causes the URL to immediately revert.  The else-if branch reads tenantId
     // from the closure of whichever render triggered the effect (always the
     // render caused by a searchParams change), so the value is always correct.
+    // `me` is included so the tenant re-resolves once /api/me loads (e.g. a
+    // refresh on a ?tenant=X member view) and brands from the membership.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams, setTenant, clearTenant, navigate]);
+  }, [searchParams, setTenant, clearTenant, navigate, me, loading, navigationType]);
 
   // Inject tenant CSS variable overrides
   const tenantStyle = config
@@ -67,16 +209,12 @@ export default function LanguageRouter() {
     <LanguageProvider>
       <div style={tenantStyle}>
         <Outlet />
+        {/* Transient toasts render through the in-app notification system
+            (NotificationToastHost, mounted in AppLayout) — see lib/appToast.ts.
+            The old sonner <Toaster> was removed so every toast shares one design. */}
         <LoginSheet />
-        {/* Dev overlays MUST come last in DOM order.
-            On iOS Safari, position:fixed elements lose pointer-event priority
-            to later-in-DOM block elements even when z-index is higher.
-            Rendering them last guarantees they win both the CSS stacking AND
-            the iOS hit-test DOM-order tiebreaker.
-            TenantSimulator: top-left pill toggle (top: 12).
-            UserTypeSimulator: below it (top: 44), same left edge. */}
-        <TenantSimulator />
-        <UserTypeSimulator />
+        {/* Organization switching now lives in the TopBar org-name chip (opens
+            TenantSwitchSheet); the old top-left switcher pill was removed. */}
       </div>
     </LanguageProvider>
   );

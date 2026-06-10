@@ -45,6 +45,22 @@ export const authFlowTranslations = {
     matchContinueWithOrg: 'Continue with {{orgName}}',
     matchContinueNoOrg: 'Continue without organization',
     matchSwitchAccount: 'Sign in with a different account',
+    // Memberships-driven match + silent-join flow (2026-06-03)
+    matchTitleSingle: 'We found a match for you: {{orgName}}',
+    matchTitleMultiple: "You're a member of {{count}} organizations",
+    matchContinue: 'Continue',
+    matchContinueNoAffiliation: 'Continue without an organization',
+    joinOtherLink: "Can't find your organization? Continue with another",
+    welcomeJoinedToast: 'Welcome! You successfully joined {{orgName}}. Feel free to explore the benefits available to you here!',
+    welcomePendingToast: "Welcome! Your request was sent to {{orgName}}; we'll email you soon. Meanwhile you're connected without an organization.",
+    pendingApprovalBadge: 'Pending approval',
+    // Match-screen with a join option (arrived via a tenant link you're not a
+    // member of, while belonging to other orgs).
+    matchTitleChoose: 'Where would you like to continue?',
+    matchYourOrgs: 'Your organizations',
+    matchArrivedVia: 'You arrived through',
+    matchJoinRowLabel: 'Join',
+    matchJoinWithOrg: 'Join {{orgName}}',
   },
   he: {
     welcomeBackTitle: 'טוב שחזרת 👋',
@@ -92,5 +108,21 @@ export const authFlowTranslations = {
     matchContinueWithOrg: 'המשך עם {{orgName}}',
     matchContinueNoOrg: 'להיכנס בלי שיוך ארגוני',
     matchSwitchAccount: 'התחבר עם חשבון אחר',
+    // Memberships-driven match + silent-join flow (2026-06-03)
+    matchTitleSingle: 'מצאנו לך התאמה ל{{orgName}}',
+    matchTitleMultiple: 'מצאנו שאתה חבר ב-{{count}} ארגונים',
+    matchContinue: 'המשך',
+    matchContinueNoAffiliation: 'המשך ללא שיוך ארגוני',
+    joinOtherLink: 'לא מוצא את הארגון שלך? המשך עם ארגון אחר',
+    welcomeJoinedToast: 'ברוך הבא! הצטרפת לארגון {{orgName}} בהצלחה. מוזמן להתרשם מההטבות המוצעות לך כאן!',
+    welcomePendingToast: 'ברוך הבא! בקשתך הועברה לארגון {{orgName}}, נעדכן אותך במייל בקרוב. בינתיים הינך מחובר ללא שיוך ארגוני',
+    pendingApprovalBadge: 'ממתין לאישור',
+    // מסך התאמה עם אפשרות הצטרפות (הגעת דרך קישור של ארגון שאינך חבר בו, בעודך
+    // חבר בארגונים אחרים).
+    matchTitleChoose: 'איפה תרצה להמשיך?',
+    matchYourOrgs: 'הארגונים שלך',
+    matchArrivedVia: 'הגעת דרך',
+    matchJoinRowLabel: 'הצטרפות',
+    matchJoinWithOrg: 'הצטרפו ל{{orgName}}',
   },
 };

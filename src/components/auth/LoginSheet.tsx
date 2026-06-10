@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useLanguage } from '../../i18n/LanguageContext';
+import { nextPathAfterLogin } from '../../lib/postLogin';
 import { useAuthStore } from '../../stores/authStore';
 import { useLoginSheetStore } from '../../stores/loginSheetStore';
 import { useTenantStore } from '../../stores/tenantStore';
@@ -10,33 +11,42 @@ import {
   firebaseVerifyOtp,
   firebaseGoogleSignIn,
   firebaseAppleSignIn,
-  firebaseSaveConsent,
 } from '../../services/auth.service';
 import { lookupTenantByOrg } from '../../mock/handlers/tenant.handler';
+import { useAuth } from '../../contexts/AuthContext';
+import { useCountdown, formatMmSs } from '../../hooks/useCountdown';
+import { useWebOtpAutofill } from '../../hooks/useWebOtpAutofill';
 
 export default function LoginSheet() {
   const { lang = 'he' } = useParams();
   const navigate = useNavigate();
+  const [sp] = useSearchParams();
+  // ?tenant=X drives org-aware post-login routing; ?ecosystem=1 means "no tenant".
+  const urlTenantId = sp.get('ecosystem') === '1' ? null : sp.get('tenant');
+  // Suffix appended to stories navigations so they can resolve org context.
+  const tenantSuffix = urlTenantId ? `?tenant=${encodeURIComponent(urlTenantId)}` : '';
   const { t, language } = useLanguage();
   const isHe = language === 'he';
   const { isOpen, step, close, setStep, completeLogin } =
     useLoginSheetStore();
   const login = useAuthStore((s) => s.login);
-  const setMarketingConsent = useAuthStore((s) => s.setMarketingConsent);
+  const { onLoginSucceeded } = useAuth();
   const tenantConfig = useTenantStore((s) => s.config);
   const setTenant = useTenantStore((s) => s.setTenant);
   const startRegistration = useRegistrationStore((s) => s.startRegistration);
 
   // ── Local state ──
   const [phone, setPhone] = useState('');
-  const [otp, setOtp] = useState(['', '', '', '']);
+  const [otp, setOtp] = useState(['', '', '', '', '', '']);
+  // Bumped on every SMS send/resend so the WebOTP listener re-arms for the new code.
+  const [otpNonce, setOtpNonce] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [isRouting, setIsRouting] = useState(false);
   const [error, setError] = useState('');
   const [, setIsClosing] = useState(false);
-  const [marketingOptIn, setMarketingOptIn] = useState(true);
   const [successOrgName, setSuccessOrgName] = useState('');
   const [phoneExpanded, setPhoneExpanded] = useState(false);
+  // Reveals the secondary providers (Apple + WhatsApp) under "more methods".
   const [showMore, setShowMore] = useState(false);
   const [logoSrc, setLogoSrc] = useState('/nexus-logo.png');
 
@@ -53,18 +63,23 @@ export default function LoginSheet() {
     useRef<HTMLInputElement>(null),
     useRef<HTMLInputElement>(null),
     useRef<HTMLInputElement>(null),
+    useRef<HTMLInputElement>(null),
+    useRef<HTMLInputElement>(null),
   ];
   const phoneInputRef = useRef<HTMLInputElement>(null);
+  // Live code-validity countdown (mirrors the 10-min backend expiry).
+  const { remaining: otpRemaining, reset: resetOtpExpiry } = useCountdown(600);
+  // Resend throttle (mirrors the backend 1-per-30s send limit).
+  const { remaining: resendCooldown, reset: resetResendCooldown } = useCountdown(30);
 
   // ── Reset when closed ──
   useEffect(() => {
     if (!isOpen) {
       setPhone('');
-      setOtp(['', '', '', '']);
+      setOtp(['', '', '', '', '', '']);
       setError('');
       setIsLoading(false);
       setIsClosing(false);
-      setMarketingOptIn(true);
       setSuccessOrgName('');
       setPhoneExpanded(false);
       setShowMore(false);
@@ -97,7 +112,7 @@ export default function LoginSheet() {
     setIsClosing(true);
     if (sheetRef.current) {
       sheetRef.current.style.transition = 'transform 0.3s ease-out';
-      sheetRef.current.style.transform = 'translateY(120%)';
+      sheetRef.current.style.transform = 'translateY(100%)';
     }
     if (overlayRef.current) {
       overlayRef.current.style.transition = 'opacity 0.3s ease-out';
@@ -106,24 +121,24 @@ export default function LoginSheet() {
     setTimeout(close, 300);
   }, [close]);
 
-  // ── Drag-to-dismiss (pointer events — works with mouse + touch) ──
+  // ── Drag-to-dismiss (native events, passive:false) ──
   useEffect(() => {
     if (!isOpen) return;
     const headerEl = document.getElementById('login-sheet-header');
     if (!headerEl) return;
 
-    const onDown = (e: PointerEvent) => {
-      dragStartY.current = e.clientY;
+    const onTouchStart = (e: TouchEvent) => {
+      dragStartY.current = e.touches[0].clientY;
       isDragging.current = true;
       currentTranslateY.current = 0;
       if (sheetRef.current) sheetRef.current.style.transition = 'none';
-      try { headerEl.setPointerCapture(e.pointerId); } catch { /* noop */ }
     };
 
-    const onMove = (e: PointerEvent) => {
+    const onTouchMove = (e: TouchEvent) => {
       if (!isDragging.current) return;
-      const deltaY = e.clientY - dragStartY.current;
+      const deltaY = e.touches[0].clientY - dragStartY.current;
       if (deltaY > 0) {
+        e.preventDefault();
         currentTranslateY.current = deltaY;
         if (sheetRef.current)
           sheetRef.current.style.transform = `translateY(${deltaY}px)`;
@@ -134,7 +149,7 @@ export default function LoginSheet() {
       }
     };
 
-    const onUp = () => {
+    const onTouchEnd = () => {
       if (!isDragging.current) return;
       isDragging.current = false;
       if (currentTranslateY.current > 80) {
@@ -152,16 +167,14 @@ export default function LoginSheet() {
       currentTranslateY.current = 0;
     };
 
-    headerEl.addEventListener('pointerdown', onDown);
-    headerEl.addEventListener('pointermove', onMove);
-    headerEl.addEventListener('pointerup', onUp);
-    headerEl.addEventListener('pointercancel', onUp);
+    headerEl.addEventListener('touchstart', onTouchStart, { passive: true });
+    headerEl.addEventListener('touchmove', onTouchMove, { passive: false });
+    headerEl.addEventListener('touchend', onTouchEnd, { passive: true });
 
     return () => {
-      headerEl.removeEventListener('pointerdown', onDown);
-      headerEl.removeEventListener('pointermove', onMove);
-      headerEl.removeEventListener('pointerup', onUp);
-      headerEl.removeEventListener('pointercancel', onUp);
+      headerEl.removeEventListener('touchstart', onTouchStart);
+      headerEl.removeEventListener('touchmove', onTouchMove);
+      headerEl.removeEventListener('touchend', onTouchEnd);
     };
   }, [isOpen, dismiss]);
 
@@ -173,6 +186,15 @@ export default function LoginSheet() {
     return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
   };
 
+  /** Maps a backend send-OTP error code to a localized message. */
+  const smsSendErrorMessage = (e: unknown): string => {
+    const code = e instanceof Error ? e.message : '';
+    if (code === 'sms_unavailable') return t.registration.verifyPhoneSmsUnavailable;
+    if (code.startsWith('rate_limited')) return t.auth.otpTooManyAttempts;
+    if (code === 'invalid_phone') return t.registration.verifyPhoneIsraelOnly;
+    return t.registration.verifyPhoneSmsUnavailable;
+  };
+
   const handleSendOtp = async () => {
     const digits = phone.replace(/\D/g, '');
     if (digits.length < 9) return;
@@ -181,6 +203,13 @@ export default function LoginSheet() {
     try {
       await firebaseSendOtp(phone);
       setStep('otp');
+      resetOtpExpiry();
+      resetResendCooldown();
+      setOtpNonce((n) => n + 1);
+    } catch (e) {
+      // Surface the failure (e.g. sms_unavailable when InforU rejects) instead of
+      // silently stalling on the phone step.
+      setError(smsSendErrorMessage(e));
     } finally {
       setIsLoading(false);
     }
@@ -189,13 +218,13 @@ export default function LoginSheet() {
   // ── OTP helpers ──
   const handleOtpChange = (index: number, value: string) => {
     if (value.length > 1) {
-      const digits = value.replace(/\D/g, '').slice(0, 4);
+      const digits = value.replace(/\D/g, '').slice(0, 6);
       const newOtp = [...otp];
       digits.split('').forEach((d, i) => {
-        if (i + index < 4) newOtp[i + index] = d;
+        if (i + index < 6) newOtp[i + index] = d;
       });
       setOtp(newOtp);
-      const nextIdx = Math.min(index + digits.length, 3);
+      const nextIdx = Math.min(index + digits.length, 5);
       otpRefs[nextIdx].current?.focus();
       setError('');
       if (newOtp.every((d) => d !== '')) verifyOtp(newOtp.join(''));
@@ -206,7 +235,7 @@ export default function LoginSheet() {
     newOtp[index] = digit;
     setOtp(newOtp);
     setError('');
-    if (digit && index < 3) otpRefs[index + 1].current?.focus();
+    if (digit && index < 5) otpRefs[index + 1].current?.focus();
     if (digit && newOtp.every((d) => d !== '')) verifyOtp(newOtp.join(''));
   };
 
@@ -219,20 +248,68 @@ export default function LoginSheet() {
     }
   };
 
+  /**
+   * Fill the 6 boxes from a single code string (WebOTP autofill on Android).
+   * Pads/truncates to 6 digits and auto-verifies when a full code arrives.
+   */
+  const fillOtpFromCode = (raw: string) => {
+    const digits = raw.replace(/\D/g, '').slice(0, 6).split('');
+    if (digits.length === 0) return;
+    const next = ['', '', '', '', '', ''];
+    digits.forEach((d, i) => { next[i] = d; });
+    setOtp(next);
+    setError('');
+    if (digits.length === 6) verifyOtp(digits.join(''));
+  };
+
+  // Android Chrome: read the SMS code automatically while the OTP step is shown.
+  // No-op on other browsers (iOS uses the autocomplete="one-time-code" attr).
+  useWebOtpAutofill({
+    enabled: isOpen && step === 'otp' && otpRemaining > 0,
+    onCode: fillOtpFromCode,
+    rearmKey: otpNonce,
+  });
+
   // ── Post-OTP branching logic ──
   const verifyOtp = async (code: string) => {
+    if (otpRemaining === 0) { setError(t.auth.otpExpired); return; }
     setIsLoading(true);
     setError('');
     try {
       const result = await firebaseVerifyOtp(phone, code);
+
+      // Plan #2: phone verified but unknown -> ask for email next. Carry the
+      // originating ?tenant=X through the email-required/OTP hops so the new
+      // user lands in that org's stories rather than the ecosystem catalog.
+      if (result.needsEmail) {
+        // New phone: show the promo stories FIRST; email-OTP comes after the stories
+        // (EmailRequiredPage). missingFields excludes 'phone' (already verified) and
+        // 'email' (collected by email-OTP) so the questions don't re-ask them.
+        startRegistration({ path: 'new-user', phone, missingFields: ['firstName', 'lastName', 'birthday'] });
+        useRegistrationStore.getState().setPendingEmailSignup(true);
+        close();
+        navigate(`/${lang}/auth-flow/new-user${tenantSuffix}`);
+        return;
+      }
+
       if (!result.success || !result.session) {
         setError(t.auth.wrongCode);
-        setOtp(['', '', '', '']);
+        setOtp(['', '', '', '', '', '']);
         otpRefs[0].current?.focus();
         return;
       }
 
       const { session, registrationContext } = result;
+
+      // Plan #2: hydrate AuthContext so /api/me + post-login routing work.
+      const me = await onLoginSucceeded(session.token);
+      // Plan #3: returning user (profile already completed once) -> go
+      // straight to the resolved post-login path and skip the slide chain.
+      if (me?.profile?.completedAt) {
+        close();
+        navigate(nextPathAfterLogin({ lang, urlTenantId, me }));
+        return;
+      }
       const orgMember = registrationContext?.orgMember;
       const profileComplete = registrationContext?.profileComplete ?? false;
       const missingFields = registrationContext?.missingFields ?? [];
@@ -248,8 +325,7 @@ export default function LoginSheet() {
       if (profileComplete) {
         useAuthStore.getState().setProfileCompleted(true);
       }
-      await firebaseSaveConsent(session.userId, marketingOptIn);
-      setMarketingConsent(marketingOptIn);
+      // Marketing consent is collected in the auth-flow ConsentsSlide, not here.
 
       // Load tenant config for org members (so TopBar can show the logo).
       // Only when no URL-tenant is active — tenant URL wins branding conflicts.
@@ -264,7 +340,7 @@ export default function LoginSheet() {
       setIsRouting(true);
 
       // Helper: preference-type fields that drive the profile nudge banner
-      const PREF_FIELDS = ['purpose', 'lifeStage', 'birthday', 'gender', 'benefitCategories'];
+      const PREF_FIELDS = ['purpose', 'lifeStage', 'birthday', 'gender'];
       const hasMissingPreferences = missingFields.some((f) => PREF_FIELDS.includes(f));
 
       // Phone auth — need full profile (name, email, birthday)
@@ -296,7 +372,7 @@ export default function LoginSheet() {
           // orgMember is NOT passed — tenant branding/flow takes full precedence
         });
         close();
-        navigate(`/${lang}/auth-flow/org-user`);
+        navigate(`/${lang}/auth-flow/org-user${tenantSuffix}`);
         return;
       }
 
@@ -315,7 +391,7 @@ export default function LoginSheet() {
           missingFields,
         });
         close();
-        navigate(`/${lang}/auth-flow/new-user`); // nexus-hero first, match-screen follows
+        navigate(`/${lang}/auth-flow/new-user${tenantSuffix}`); // nexus-hero first, match-screen follows
         return;
       }
 
@@ -326,7 +402,7 @@ export default function LoginSheet() {
         missingFields: phoneMissing,
       });
       close();
-      navigate(`/${lang}/auth-flow/new-user`);
+      navigate(`/${lang}/auth-flow/new-user${tenantSuffix}`);
     } finally {
       setIsLoading(false);
     }
@@ -349,8 +425,17 @@ export default function LoginSheet() {
           firstName: result.profile?.firstName,
           organizationName: orgMember?.organizationName,
         });
-        await firebaseSaveConsent(result.session.userId, marketingOptIn);
-        setMarketingConsent(marketingOptIn);
+
+        // Plan #2: hydrate AuthContext so /api/me + post-login routing work.
+        const me = await onLoginSucceeded(result.session.token);
+        // Marketing consent is collected in the auth-flow ConsentsSlide, not here.
+        // Plan #3: returning user (profile already completed once) ->
+        // skip slide chain, go to the resolved post-login path.
+        if (me?.profile?.completedAt) {
+          close();
+          navigate(nextPathAfterLogin({ lang, urlTenantId, me }));
+          return;
+        }
 
         // Load tenant config for org members — only when no URL-tenant is active
         if (!tenantConfig && orgMember?.organizationId) {
@@ -383,7 +468,7 @@ export default function LoginSheet() {
             });
           }
           close();
-          navigate(`/${lang}/auth-flow/org-user`);
+          navigate(`/${lang}/auth-flow/org-user${tenantSuffix}`);
           return;
         }
 
@@ -413,7 +498,7 @@ export default function LoginSheet() {
             });
           }
           close();
-          navigate(`/${lang}/auth-flow/new-user`); // nexus-hero first, match-screen follows
+          navigate(`/${lang}/auth-flow/new-user${tenantSuffix}`); // nexus-hero first, match-screen follows
           return;
         }
 
@@ -427,70 +512,18 @@ export default function LoginSheet() {
           });
         }
         close();
-        navigate(`/${lang}/auth-flow/new-user`);
+        navigate(`/${lang}/auth-flow/new-user${tenantSuffix}`);
       }
     } finally {
       setIsLoading(false);
     }
   };
 
-  // ── Apple ──
+  // ── Apple - coming soon. firebaseAppleSignIn always returns
+  // notAvailable until a real provider is wired in a later plan.
   const handleApple = async () => {
-    setIsLoading(true);
-    try {
-      const result = await firebaseAppleSignIn();
-      if (result.notAvailable) {
-        setError(isHe ? 'התחברות עם Apple תהיה זמינה בקרוב' : 'Apple sign-in coming soon');
-        return;
-      }
-      if (result.success && result.session) {
-        login({
-          token: result.session.token,
-          userId: result.session.userId,
-          method: 'apple',
-          isOrgMember: result.session.isOrgMember,
-          avatarUrl: result.profile?.picture,
-          firstName: result.profile?.firstName,
-        });
-        await firebaseSaveConsent(result.session.userId, marketingOptIn);
-        setMarketingConsent(marketingOptIn);
-
-        // Show routing overlay — auth is done, deciding which flow to open
-        setIsRouting(true);
-
-        // Returning user (already completed profile before) → go to requested page
-        if (useAuthStore.getState().profileCompleted) {
-          completeLogin();
-          return;
-        }
-
-        // Apple gives name + email → only phone is missing
-        const profile = result.profile;
-        const regPath = tenantConfig?.requiresMembershipFee
-          ? 'tenant-with-fee'
-          : tenantConfig
-            ? 'tenant-no-fee'
-            : 'new-user';
-
-        startRegistration({
-          path: regPath,
-          phone: '',
-          missingFields: ['phone'],
-        });
-        if (profile) {
-          useRegistrationStore.getState().setProfileData({
-            firstName: profile.firstName,
-            lastName: profile.lastName,
-            email: profile.email,
-          });
-        }
-        close();
-        // Tenant context → org stories; plain new user → nexus hero
-        navigate(`/${lang}/auth-flow/${regPath !== 'new-user' ? 'org-user' : 'new-user'}`);
-      }
-    } finally {
-      setIsLoading(false);
-    }
+    await firebaseAppleSignIn();
+    setError(isHe ? 'התחברות עם Apple תהיה זמינה בקרוב' : 'Apple sign-in coming soon');
   };
 
   // Reset routing overlay every time the sheet opens fresh —
@@ -505,9 +538,9 @@ export default function LoginSheet() {
   const phoneDigits = phone.replace(/\D/g, '');
   const canSend = phoneDigits.length >= 9;
 
-  // Provider button renderers — `dark` is the prominent filled style,
-  // `light` is the outlined secondary style. Google is the primary (white)
-  // choice; Apple is the dark button shown under "more options".
+  // ── Provider button renderers (main's "Continue with X" chooser look) ──
+  // `dark` = prominent filled, `light` = outlined secondary. All wire to our
+  // own auth handlers; Apple + WhatsApp stay "soon" (not real providers yet).
   const googleButton = (variant: 'dark' | 'light') => (
     <button
       onClick={handleGoogle}
@@ -530,23 +563,6 @@ export default function LoginSheet() {
     </button>
   );
 
-  const appleButton = (variant: 'dark' | 'light') => (
-    <button
-      onClick={handleApple}
-      disabled={isLoading}
-      className={`w-full flex items-center justify-center gap-2.5 py-3.5 rounded-2xl text-sm font-bold active:scale-[0.98] transition-all disabled:opacity-50 ${
-        variant === 'dark'
-          ? 'bg-bg-dark text-white'
-          : 'bg-white border border-border text-text-primary hover:bg-surface'
-      }`}
-    >
-      <svg width="16" height="16" viewBox="0 0 24 24" fill={variant === 'dark' ? 'white' : 'black'}>
-        <path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z" />
-      </svg>
-      {isHe ? 'המשך עם Apple' : 'Continue with Apple'}
-    </button>
-  );
-
   const smsButton = (
     <button
       onClick={() => { setPhoneExpanded(true); }}
@@ -560,25 +576,62 @@ export default function LoginSheet() {
     </button>
   );
 
+  const appleButton = (variant: 'dark' | 'light') => (
+    <button
+      onClick={handleApple}
+      disabled={isLoading}
+      className={`relative w-full flex items-center justify-center gap-2.5 py-3.5 rounded-2xl text-sm font-bold opacity-60 active:scale-[0.98] transition-all disabled:opacity-50 ${
+        variant === 'dark'
+          ? 'bg-bg-dark text-white'
+          : 'bg-white border border-border text-text-primary hover:bg-surface'
+      }`}
+    >
+      <svg width="16" height="16" viewBox="0 0 24 24" fill={variant === 'dark' ? 'white' : 'black'}>
+        <path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z" />
+      </svg>
+      {isHe ? 'המשך עם Apple' : 'Continue with Apple'}
+      <span className="absolute end-3 top-1/2 -translate-y-1/2 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-white/15 text-white/90">
+        {isHe ? 'בקרוב' : 'Soon'}
+      </span>
+    </button>
+  );
+
   const whatsappButton = (
     <button
-      onClick={() => { setPhoneExpanded(true); }}
+      onClick={() =>
+        setError(isHe ? 'התחברות עם WhatsApp תהיה זמינה בקרוב' : 'WhatsApp sign-in coming soon')
+      }
       disabled={isLoading}
-      className="w-full flex items-center justify-center gap-2.5 py-3.5 rounded-2xl bg-white border border-border text-sm font-bold text-text-primary hover:bg-surface active:scale-[0.98] transition-all disabled:opacity-50"
+      className="relative w-full flex items-center justify-center gap-2.5 py-3.5 rounded-2xl bg-white border border-border text-sm font-bold text-text-primary opacity-60 hover:bg-surface active:scale-[0.98] transition-all disabled:opacity-50"
     >
       <svg width="18" height="18" viewBox="0 0 24 24" fill="#25D366">
         <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
       </svg>
       {isHe ? 'המשך עם WhatsApp' : 'Continue with WhatsApp'}
+      <span className="absolute end-3 top-1/2 -translate-y-1/2 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-surface text-text-muted">
+        {isHe ? 'בקרוב' : 'Soon'}
+      </span>
     </button>
   );
 
-  // Tenant welcome message
-  const welcomeTitle = tenantConfig?.flowOverrides?.customWelcomeMessage && !isHe
-    ? tenantConfig.flowOverrides.customWelcomeMessage
-    : tenantConfig?.flowOverrides?.customWelcomeMessageHe && isHe
-      ? tenantConfig.flowOverrides.customWelcomeMessageHe
-      : t.auth.loginSheetTitle;
+  // Tenant welcome message. When the user arrived via ?tenant=X (so tenantConfig
+  // is set), the login sheet names the org — a custom message if the tenant has
+  // one, otherwise a generic "sign in to {org}" / "join {org}" so the login
+  // clearly reflects the organization they came from.
+  const tenantName = tenantConfig ? (isHe ? tenantConfig.nameHe : tenantConfig.name) : null;
+  const customWelcome = isHe
+    ? tenantConfig?.flowOverrides?.customWelcomeMessageHe
+    : tenantConfig?.flowOverrides?.customWelcomeMessage;
+  const welcomeTitle =
+    customWelcome ??
+    (tenantName
+      ? (isHe ? `התחברות ל${tenantName}` : `Sign in to ${tenantName}`)
+      : t.auth.loginSheetTitle);
+  const welcomeSubtitle = tenantName
+    ? (isHe
+        ? `התחברו כדי להצטרף ל${tenantName} וליהנות מההטבות שלו`
+        : `Log in to join ${tenantName} and enjoy its benefits`)
+    : t.auth.loginSheetSubtitle;
 
   return (
     <>
@@ -641,10 +694,10 @@ export default function LoginSheet() {
                 {welcomeTitle}
               </h2>
               <p className="text-[11px] text-text-muted text-center mb-4">
-                {t.auth.loginSheetSubtitle}
+                {welcomeSubtitle}
               </p>
 
-              {/* Primary methods — Google, then SMS */}
+              {/* Primary methods — Google, then SMS (main's "Continue with X" look) */}
               <div className="space-y-2.5 mb-3">
                 {googleButton('light')}
                 {smsButton}
@@ -660,7 +713,7 @@ export default function LoginSheet() {
                 </button>
               )}
 
-              {/* More methods: Apple + WhatsApp */}
+              {/* More methods: WhatsApp + Apple — both still 'soon' (stubs) */}
               {!phoneExpanded && showMore && (
                 <div className="space-y-2.5 animate-fade-in">
                   {whatsappButton}
@@ -711,21 +764,15 @@ export default function LoginSheet() {
                       )}
                     </button>
                   </div>
+                  {error && (
+                    <p className="mt-1 text-center text-xs text-error" role="alert">{error}</p>
+                  )}
                 </div>
               )}
 
-              {/* Marketing opt-in checkbox */}
-              <label className="flex items-center gap-2 mt-3.5 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={marketingOptIn}
-                  onChange={(e) => setMarketingOptIn(e.target.checked)}
-                  className="w-3.5 h-3.5 rounded border-border text-primary accent-primary flex-shrink-0"
-                />
-                <span className="text-[10px] text-text-muted leading-snug">
-                  {t.auth.consentSubtitle}
-                </span>
-              </label>
+              {/* Marketing consent is no longer collected here — it is asked as a
+                  dedicated question in the new-user auth-flow (ConsentsSlide) and
+                  editable later from Profile. */}
 
               {/* Terms */}
               <p className="text-[9px] text-text-muted/60 text-center mt-3 leading-relaxed">
@@ -751,7 +798,7 @@ export default function LoginSheet() {
               <button
                 onClick={() => {
                   setStep('welcome');
-                  setOtp(['', '', '', '']);
+                  setOtp(['', '', '', '', '', '']);
                   setError('');
                 }}
                 className="w-8 h-8 rounded-full bg-surface flex items-center justify-center mb-4"
@@ -776,18 +823,20 @@ export default function LoginSheet() {
               </p>
 
               {/* OTP inputs */}
-              <div className="flex gap-3 justify-center mb-4" dir="ltr">
+              <div className="flex gap-2 justify-center mb-4" dir="ltr">
                 {otp.map((digit, idx) => (
                   <input
                     key={idx}
                     ref={otpRefs[idx]}
                     type="text"
                     inputMode="numeric"
-                    maxLength={idx === 0 ? 4 : 1}
+                    autoComplete={idx === 0 ? 'one-time-code' : 'off'}
+                    maxLength={idx === 0 ? 6 : 1}
                     value={digit}
                     onChange={(e) => handleOtpChange(idx, e.target.value)}
                     onKeyDown={(e) => handleOtpKeyDown(idx, e)}
-                    className={`w-14 h-14 text-center text-xl font-bold rounded-2xl border-2 outline-none transition-all ${
+                    disabled={otpRemaining === 0}
+                    className={`w-11 h-12 text-center text-lg font-bold rounded-2xl border-2 outline-none transition-all disabled:opacity-50 ${
                       error
                         ? 'border-error text-error'
                         : digit
@@ -797,6 +846,12 @@ export default function LoginSheet() {
                   />
                 ))}
               </div>
+
+              <p className={`text-xs text-center mb-3 ${otpRemaining === 0 ? 'text-error' : 'text-text-muted'}`}>
+                {otpRemaining > 0
+                  ? t.auth.otpExpiresIn.replace('{time}', formatMmSs(otpRemaining))
+                  : t.auth.otpExpired}
+              </p>
 
               {error && (
                 <p className="text-xs text-error text-center mb-3 animate-fade-in">
@@ -817,15 +872,25 @@ export default function LoginSheet() {
 
               <button
                 onClick={async () => {
-                  setOtp(['', '', '', '']);
+                  if (resendCooldown > 0 || isLoading) return;
+                  setOtp(['', '', '', '', '', '']);
                   setError('');
-                  await firebaseSendOtp(phone);
-                  otpRefs[0].current?.focus();
+                  try {
+                    await firebaseSendOtp(phone);
+                    resetOtpExpiry();
+                    resetResendCooldown();
+                    setOtpNonce((n) => n + 1);
+                    otpRefs[0].current?.focus();
+                  } catch (e) {
+                    setError(smsSendErrorMessage(e));
+                  }
                 }}
-                disabled={isLoading}
+                disabled={isLoading || resendCooldown > 0}
                 className="w-full text-center text-sm text-primary font-medium py-2 hover:underline disabled:opacity-50"
               >
-                {t.auth.resendCode}
+                {resendCooldown > 0
+                  ? t.auth.resendCodeWait.replace('{seconds}', String(resendCooldown))
+                  : t.auth.resendCode}
               </button>
 
             </div>

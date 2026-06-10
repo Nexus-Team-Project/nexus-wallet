@@ -4,6 +4,9 @@ import { Outlet, useLocation } from 'react-router-dom';
 import TopBar from './TopBar';
 import FloatingActions from './FloatingActions';
 import CategoryRow from '../home/CategoryRow';
+import ProfileNudgeBanner from '../profile/ProfileNudgeBanner';
+import WalletLoadingScreen from '../wallet/WalletLoadingScreen';
+import { useAuth } from '../../contexts/AuthContext';
 import NotificationToastHost from '../notifications/NotificationToastHost';
 import SupportChatButton from '../SupportChatButton';
 import CartFab from '../cart/CartFab';
@@ -19,6 +22,14 @@ const COLLAPSE_THRESHOLD = 40;
 export default function AppLayout() {
   const { pathname } = useLocation();
   const isHome = /^\/[a-z]{2}\/?$/.test(pathname);
+  const isSearch = /^\/[a-z]{2}\/search\/?$/.test(pathname);
+  // The store front door is a primary surface (like home): it gets the sticky
+  // TopBar (app chrome - avatar / Log in / switcher) above StorePage's own
+  // StoreHeader (page title + search), and no overlay back-header.
+  const isStore = /^\/[a-z]{2}\/store\/?$/.test(pathname);
+  // Settings/form pages render their own minimal SettingsHeader (back + title),
+  // so AppLayout must not also stamp the heavy overlay TopBar on top of them.
+  const isEditProfile = /^\/[a-z]{2}\/profile\/edit\/?$/.test(pathname);
   // Pages that opt into the home-page decorative gradient backdrop.
   const isNotifications = /^\/[a-z]{2}\/notifications\/?$/.test(pathname);
   const isProfile = /^\/[a-z]{2}\/profile\/?$/.test(pathname);
@@ -27,7 +38,9 @@ export default function AppLayout() {
   // the "core surfaces" family rather than a flat sub-page.
   const isWalletGradient = /^\/[a-z]{2}\/wallet\/?$/.test(pathname);
   const isWallpaper = /^\/[a-z]{2}\/wallpaper\/?$/.test(pathname);
-  const showHomeGradient = isHome || isNotifications || isProfile || isWalletGradient || isWallpaper;
+  // The store front door shares the home page's decorative gradient backdrop so
+  // it reads as the same primary surface (not a flat white sub-page).
+  const showHomeGradient = isHome || isStore || isNotifications || isProfile || isWalletGradient || isWallpaper;
   // Wallet page renders its own TopBar inline (below the dark strip),
   // so the global overlay TopBar + chat FABs are suppressed here.
   const isWallet = /^\/[a-z]{2}\/wallet\/?$/.test(pathname);
@@ -56,6 +69,7 @@ export default function AppLayout() {
   // fixed page, so it stays pinned at the top as the page scrolls.
   const isReferral = /^\/[a-z]{2}\/referral-stories\/?$/.test(pathname);
   const [collapsed, setCollapsed] = useState(false);
+  const { me, loading: authLoading } = useAuth();
 
   // Global cart lift — when the cart overlay opens, the whole page card lifts
   // up (like the product quick-buy) to reveal the dark cart panel beneath.
@@ -112,8 +126,20 @@ export default function AppLayout() {
   const showWallpaperBackdrop = !isFullScreenForm && !!wallpaperBg;
   const showBackdrop = showWallpaperBackdrop || showHomeGradient;
 
+  // Disable the browser's automatic scroll restoration so every SPA navigation
+  // starts at the very top (our pathname effect below does the scroll-to-top).
+  // Without this the browser can restore a prior offset after we reset it,
+  // leaving the sticky header overlapping the first content on open.
   useEffect(() => {
-    if (!isHome) {
+    if ('scrollRestoration' in history) {
+      history.scrollRestoration = 'manual';
+    }
+  }, []);
+
+  useEffect(() => {
+    // Home + store both collapse their sticky header on scroll-down and
+    // restore it on scroll-up; every other route keeps a static header.
+    if (!isHome && !isStore) {
       setCollapsed(false);
       return;
     }
@@ -122,7 +148,7 @@ export default function AppLayout() {
     };
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
-  }, [isHome]);
+  }, [isHome, isStore]);
 
   // Reset on page change
   useEffect(() => {
@@ -149,6 +175,9 @@ export default function AppLayout() {
   useEffect(() => {
     closeCart();
   }, [pathname, closeCart]);
+
+  // Short-circuit the entire layout while auth bootstrap is in flight.
+  if (authLoading) return <WalletLoadingScreen />;
 
   return (
     <div className="min-h-screen bg-surface">
@@ -223,10 +252,26 @@ export default function AppLayout() {
               <CategoryRow collapsed={collapsed} loading={vouchersLoading} />
             </div>
           </div>
-        ) : isWallet || isFullScreenForm || isBusinessStore || isReferral || isProductLifted || isBusinessCheckout ? (
-          /* Wallet + full-screen forms + business store + referral: page
-             renders its own header inline (the referral page pins its own
-             fixed user-icon strip outside its scroll area). */
+        ) : isStore ? (
+          /* Store front door: primary surface — sticky header that collapses on
+             scroll-down (semi-transparent, blurred, compact) and restores on
+             scroll-up, exactly like home — same avatar, tenant switcher, and
+             chat/bell actions. */
+          <div
+            className={`sticky top-0 z-50 transition-colors duration-300 ${
+              collapsed ? 'bg-bg-light/85 backdrop-blur-md shadow-sm' : ''
+            }`}
+          >
+            <TopBar collapsed={collapsed} />
+            <div className="overflow-hidden">
+              <CategoryRow collapsed={collapsed} loading={vouchersLoading} />
+            </div>
+          </div>
+        ) : isSearch || isEditProfile || isWallet || isFullScreenForm || isBusinessStore || isReferral || isProductLifted || isBusinessCheckout ? (
+          /* Pages that render their own header inline (or none): search +
+             edit-profile (own SettingsHeader), wallet + full-screen forms +
+             business store + referral (the referral page pins its own fixed
+             user-icon strip outside its scroll area). */
           null
         ) : isBusinessReviews ? (
           /* Reviews page: sticky TopBar, no shadow so it blends with the sub-header */
@@ -234,7 +279,7 @@ export default function AppLayout() {
             <TopBar collapsed={false} showBack />
           </div>
         ) : (
-          /* Other pages: transparent overlay, does not scroll */
+          /* Other pages: transparent overlay back-header, does not scroll. */
           <div className="relative z-50 h-0 overflow-visible">
             <TopBar collapsed={false} showBack />
           </div>
@@ -243,8 +288,12 @@ export default function AppLayout() {
         <main className="relative z-10">
           <Outlet />
         </main>
-        {/* Bottom search/home/wallet strip — hidden on the wallpaper
-            picker so the picker grid + CTA own the screen. */}
+        {/* Profile nudge is logged-in only. */}
+        {me && <ProfileNudgeBanner />}
+        {/* Bottom search/home/wallet strip — FABs render for everyone so
+            anonymous visitors can still navigate (search / wallet / home);
+            hidden while the cart is open and on the wallpaper picker + pages
+            that own their own bottom chrome. */}
         {!cartOpen && !isFullScreenForm && !isWallpaper && !isReferral && !isBusinessProduct && !isBusinessReviews && !isBusinessCheckout && <FloatingActions />}
         {/* AI assistant FAB — always available (suppressed on wallet
             page, which renders its own chat affordance inline). */}
