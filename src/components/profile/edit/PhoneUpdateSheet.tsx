@@ -15,6 +15,7 @@ import {
   verifyPhoneOtp,
 } from '../../../services/walletPhone.service';
 import { useCountdown, formatMmSs } from '../../../hooks/useCountdown';
+import { useWebOtpAutofill } from '../../../hooks/useWebOtpAutofill';
 
 interface Props {
   onClose: () => void;
@@ -77,6 +78,22 @@ export default function PhoneUpdateSheet({ onClose, currentPhone, onUpdated }: P
     catch (e) { setError(mapErr(e)); setOtp(''); } finally { setBusy(false); }
   };
 
+  // Normalize a raw value to <=6 digits, store it, and auto-verify a full code.
+  // Shared by the manual onChange and the WebOTP autofill path.
+  const applyOtp = (raw: string) => {
+    const d = raw.replace(/\D/g, '').slice(0, 6);
+    setOtp(d); setError('');
+    if (d.length === 6) void verify(d);
+  };
+
+  // Android Chrome: auto-read the SMS code while the OTP step is active. No-op
+  // elsewhere (iOS uses autocomplete="one-time-code"). Re-arms per challenge.
+  useWebOtpAutofill({
+    enabled: step === 'otp' && otpRemaining > 0,
+    onCode: applyOtp,
+    rearmKey: challengeId,
+  });
+
   const formatHint =
     isIsrael && phoneDigits.length > 0 && !isValidIsraeliPhone
       ? t.registration.verifyPhoneFormat
@@ -125,12 +142,9 @@ export default function PhoneUpdateSheet({ onClose, currentPhone, onUpdated }: P
             </p>
             <input
               value={otp}
-              onChange={(e) => {
-                const d = e.target.value.replace(/\D/g, '').slice(0, 6);
-                setOtp(d); setError('');
-                if (d.length === 6) void verify(d);
-              }}
+              onChange={(e) => applyOtp(e.target.value)}
               inputMode="numeric"
+              autoComplete="one-time-code"
               maxLength={6}
               autoFocus
               dir="ltr"

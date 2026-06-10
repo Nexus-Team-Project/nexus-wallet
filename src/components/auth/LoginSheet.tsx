@@ -15,6 +15,7 @@ import {
 import { lookupTenantByOrg } from '../../mock/handlers/tenant.handler';
 import { useAuth } from '../../contexts/AuthContext';
 import { useCountdown, formatMmSs } from '../../hooks/useCountdown';
+import { useWebOtpAutofill } from '../../hooks/useWebOtpAutofill';
 
 export default function LoginSheet() {
   const { lang = 'he' } = useParams();
@@ -37,6 +38,8 @@ export default function LoginSheet() {
   // ── Local state ──
   const [phone, setPhone] = useState('');
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
+  // Bumped on every SMS send/resend so the WebOTP listener re-arms for the new code.
+  const [otpNonce, setOtpNonce] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [isRouting, setIsRouting] = useState(false);
   const [error, setError] = useState('');
@@ -202,6 +205,7 @@ export default function LoginSheet() {
       setStep('otp');
       resetOtpExpiry();
       resetResendCooldown();
+      setOtpNonce((n) => n + 1);
     } catch (e) {
       // Surface the failure (e.g. sms_unavailable when InforU rejects) instead of
       // silently stalling on the phone step.
@@ -243,6 +247,28 @@ export default function LoginSheet() {
       otpRefs[index - 1].current?.focus();
     }
   };
+
+  /**
+   * Fill the 6 boxes from a single code string (WebOTP autofill on Android).
+   * Pads/truncates to 6 digits and auto-verifies when a full code arrives.
+   */
+  const fillOtpFromCode = (raw: string) => {
+    const digits = raw.replace(/\D/g, '').slice(0, 6).split('');
+    if (digits.length === 0) return;
+    const next = ['', '', '', '', '', ''];
+    digits.forEach((d, i) => { next[i] = d; });
+    setOtp(next);
+    setError('');
+    if (digits.length === 6) verifyOtp(digits.join(''));
+  };
+
+  // Android Chrome: read the SMS code automatically while the OTP step is shown.
+  // No-op on other browsers (iOS uses the autocomplete="one-time-code" attr).
+  useWebOtpAutofill({
+    enabled: isOpen && step === 'otp' && otpRemaining > 0,
+    onCode: fillOtpFromCode,
+    rearmKey: otpNonce,
+  });
 
   // ── Post-OTP branching logic ──
   const verifyOtp = async (code: string) => {
@@ -804,6 +830,7 @@ export default function LoginSheet() {
                     ref={otpRefs[idx]}
                     type="text"
                     inputMode="numeric"
+                    autoComplete={idx === 0 ? 'one-time-code' : 'off'}
                     maxLength={idx === 0 ? 6 : 1}
                     value={digit}
                     onChange={(e) => handleOtpChange(idx, e.target.value)}
@@ -852,6 +879,7 @@ export default function LoginSheet() {
                     await firebaseSendOtp(phone);
                     resetOtpExpiry();
                     resetResendCooldown();
+                    setOtpNonce((n) => n + 1);
                     otpRefs[0].current?.focus();
                   } catch (e) {
                     setError(smsSendErrorMessage(e));
