@@ -27,6 +27,7 @@ import {
   verifyPhoneOtp,
 } from '../../../services/walletPhone.service';
 import { useCountdown, formatMmSs } from '../../../hooks/useCountdown';
+import { useWebOtpAutofill } from '../../../hooks/useWebOtpAutofill';
 
 type OtpStep = 'phone' | 'otp';
 const MAX_ATTEMPTS = 5;
@@ -164,6 +165,15 @@ export default function VerifyPhoneSlide() {
     setError('');
     if (digits.length === 6) handleVerify(digits);
   };
+
+  // Android Chrome: auto-read the SMS code while the OTP step is active.
+  // No-op elsewhere (iOS uses the autocomplete="one-time-code" attr below).
+  // Re-arms on each new challenge (resend) via the challengeId key.
+  useWebOtpAutofill({
+    enabled: step === 'otp' && !locked && otpRemaining > 0,
+    onCode: handleOtpChange,
+    rearmKey: challengeId,
+  });
 
   // ── Phone step ─────────────────────────────────────────────────────────────
   if (step === 'phone') {
