@@ -98,7 +98,7 @@ const VARIANTS: Record<string, GiftVariant> = {
     // cover + glow, and the dark-navy letter.
     gradient: HOME_GRADIENT,
     logo: '/tenants/spar-official.svg',
-    logoWhite: false,
+    logoWhite: true,
     logoClass: 'w-[80%] h-auto',
     heroImage: '/gift-cards/rosh-hashana.png',
     heroMaxW: 'max-w-[80%]',
