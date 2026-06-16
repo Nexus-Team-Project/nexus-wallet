@@ -8,9 +8,12 @@ import CardIssuanceBanner from '../components/home/CardIssuanceBanner';
 import BrandSlider from '../components/home/BrandSlider';
 import ActiveOffers from '../components/home/ActiveOffers';
 import TopStores from '../components/home/TopStores';
+import RecentlyViewed from '../components/home/RecentlyViewed';
 import NearYou from '../components/home/NearYou';
 import ReferralBanner from '../components/home/ReferralBanner';
 import TenantOffers from '../components/home/TenantOffers';
+import BrandFeatureStore from '../components/category/BrandFeatureStore';
+import { mockBusinesses } from '../mock/data/businesses.mock';
 
 import {
   PopularSlider,
@@ -57,6 +60,39 @@ export default function HomePage() {
   const enableA11y = useAccessibilityStore((s) => s.enableWidget);
   const dismissA11yCard = useAccessibilityStore((s) => s.dismissCard);
   const showA11yCard = !a11yEnabled && !a11yCardDismissed;
+
+  // H&M brand store card — shown on the home page right under "Especially for
+  // you". Reuses the category page's BrandFeatureStore card.
+  const hmBusiness = mockBusinesses.find((b) => b.id === 'biz_010');
+  // mb-6 wrapper so the gap to the next section is measured below the promo
+  // banner (the card's foot), not the card itself.
+  const hmStoreCard = hmBusiness ? (
+    <div className="mb-6">
+      <BrandFeatureStore
+        business={hmBusiness}
+        variant="light"
+        promo={{
+          saveLabel: language === 'he' ? 'חסכו ₪30' : 'Save ₪30',
+          condition: language === 'he' ? 'בהזמנות מעל ₪200' : 'on orders over ₪200',
+        }}
+      />
+    </div>
+  ) : null;
+
+  // Golf & Co brand store section.
+  const golfBusiness = mockBusinesses.find((b) => b.id === 'biz_011');
+  const golfStoreCard = golfBusiness ? (
+    <div className="mb-6">
+      <BrandFeatureStore
+        business={golfBusiness}
+        variant="dark"
+        promo={{
+          saveLabel: language === 'he' ? 'חסכו ₪40' : 'Save ₪40',
+          condition: language === 'he' ? 'בהזמנות מעל ₪250' : 'on orders over ₪250',
+        }}
+      />
+    </div>
+  ) : null;
 
   // "במיוחד בשבילך" (ActiveOffers) position:
   //   hasProfile  → 2nd: right after TopStores (real personalized recommendations)
@@ -204,19 +240,31 @@ export default function HomePage() {
       {/* הזמנות חוזרות */}
       <TopStores />
 
+      {/* הכי פופולרים — מעל גולף */}
+      <PopularSlider onSelectFilter={handleSelectFilter} />
+
+      {/* סקשן גולף */}
+      {golfStoreCard}
+
       {/* במיוחד בשבילך — 2nd when questionnaire is filled */}
       {hasProfile && <ActiveOffers />}
 
-      {/* הכי פופולרים */}
-      <PopularSlider onSelectFilter={handleSelectFilter} />
+      {/* חנות H&M — מתחת לבמיוחד בשבילך */}
+      {hasProfile && hmStoreCard}
 
       {/* במיוחד בשבילך — 3rd (teaser) when questionnaire is not yet filled */}
       {!hasProfile && <ActiveOffers />}
+
+      {/* חנות H&M — מתחת לבמיוחד בשבילך */}
+      {!hasProfile && hmStoreCard}
 
       <ReferralBanner />
 
       {/* הטבות הטננט */}
       <TenantOffers />
+
+      {/* נצפו לאחרונה */}
+      <RecentlyViewed />
 
       {/* קרוב אליך */}
       <NearYou />

@@ -87,11 +87,26 @@ export default function OrderConfirmationPage() {
 
   return (
     <div className="relative min-h-dvh bg-white flex flex-col pb-28" dir={isHe ? 'rtl' : 'ltr'}>
+      {/* Decorative home-page gradient glow — same rainbow backdrop the home /
+          wallet / orders surfaces use, fading into the white page below. */}
+      <div className="absolute top-0 inset-x-0 h-[280px] pointer-events-none z-0" aria-hidden>
+        <div
+          className="w-full h-full opacity-[0.18]"
+          style={{ background: 'linear-gradient(135deg, #ffb74d 0%, #ff91b8 35%, #9c88ff 65%, #80deea 100%)' }}
+        />
+        <div
+          className="absolute inset-0"
+          style={{ background: 'linear-gradient(to bottom, rgba(255,255,255,0) 0%, rgba(255,255,255,0) 60%, #ffffff 100%)' }}
+        />
+      </div>
+
       {/* Standard top strip — user icon / chat (support) / notifications */}
-      <TopBar showBack />
+      <div className="relative z-10">
+        <TopBar showBack />
+      </div>
 
       {/* Order details */}
-      <main className="px-5 pt-8 space-y-6">
+      <main className="relative z-10 px-5 pt-8 space-y-6">
         <div className="flex justify-between items-start gap-4">
           <div className="min-w-0">
             <h1 className="text-[28px] font-bold text-text-primary leading-tight">
@@ -158,24 +173,34 @@ export default function OrderConfirmationPage() {
           </div>
         </div>
 
-        {/* Receipt */}
-        <button
-          type="button"
-          onClick={() =>
-            navigate(`/${language}/business/${business.id}/product/${product.id}/receipt`, {
-              state: {
-                qty,
-                total: state.total,
-                shippingLabel: state.shippingLabel,
-                address: state.address,
-                orderNumber,
-              },
-            })
-          }
-          className="w-full bg-surface text-text-primary font-semibold py-3.5 rounded-xl text-center text-sm active:opacity-70 transition-opacity"
-        >
-          {isHe ? 'צפייה בקבלה' : 'View order receipt'}
-        </button>
+        {/* Receipt + track shipment */}
+        <div className="space-y-3">
+          <button
+            type="button"
+            onClick={() =>
+              navigate(`/${language}/business/${business.id}/product/${product.id}/receipt`, {
+                state: {
+                  qty,
+                  total: state.total,
+                  shippingLabel: state.shippingLabel,
+                  address: state.address,
+                  orderNumber,
+                },
+              })
+            }
+            className="w-full bg-surface text-text-primary font-semibold py-3.5 rounded-xl text-center text-sm active:opacity-70 transition-opacity"
+          >
+            {isHe ? 'צפייה בקבלה' : 'View order receipt'}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => navigate(`/${language}/orders/track`)}
+            className="w-full bg-surface text-text-primary font-semibold py-3.5 rounded-xl text-center text-sm active:opacity-70 transition-opacity"
+          >
+            {isHe ? 'צפייה במשלוח' : 'View shipment'}
+          </button>
+        </div>
       </main>
 
       {/* More from brand */}

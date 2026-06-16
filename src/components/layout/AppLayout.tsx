@@ -42,7 +42,9 @@ export default function AppLayout() {
   // own its own header / fixed CTA / chrome.
   const isFullScreenForm =
     /^\/[a-z]{2}\/wallet\/(add-payment-method|pay-intro|card|balance|voucher\/[^/]+)\/?$/.test(pathname) ||
-    /^\/[a-z]{2}\/gift-sample\/?$/.test(pathname);
+    /^\/[a-z]{2}\/gift-sample\/?$/.test(pathname) ||
+    /^\/[a-z]{2}\/premium\/?$/.test(pathname) ||
+    /^\/[a-z]{2}\/business\/[^/]+\/site\/?$/.test(pathname);
   // Business store page owns its own collapsing header (big hero → compact
   // sticky bar) with its own back button, so the global overlay TopBar is
   // suppressed here. The bottom nav + chat FABs stay so it still reads as a
@@ -53,6 +55,9 @@ export default function AppLayout() {
   // TopBar and the bottom search strip are both suppressed here.
   const isBusinessProduct = /^\/[a-z]{2}\/business\/[^/]+\/product\/[^/]+\/?$/.test(pathname);
   const isBusinessReviews = /^\/[a-z]{2}\/business\/[^/]+\/product\/[^/]+\/reviews\/?$/.test(pathname);
+  // Category page pins the TopBar (user-icon row) so it stays put while the
+  // page scrolls; the big category title itself is NOT sticky.
+  const isCategory = /^\/[a-z]{2}\/category\//.test(pathname);
   // Checkout + order-confirmation own their own header / fixed action bar, so
   // the global TopBar, bottom search strip and chat FABs are all suppressed.
   const isBusinessCheckout = /^\/[a-z]{2}\/business\/[^/]+\/product\/[^/]+\/(checkout|order-confirmed|receipt|gift|split)\/?$/.test(pathname);
@@ -64,6 +69,9 @@ export default function AppLayout() {
   // fixed page, so it stays pinned at the top as the page scrolls.
   const isReferral = /^\/[a-z]{2}\/referral-stories\/?$/.test(pathname);
   const [collapsed, setCollapsed] = useState(false);
+  // Category page: once the user starts scrolling, a white backing fades in
+  // behind the pinned TopBar strip.
+  const [scrolled, setScrolled] = useState(false);
 
   // Global cart lift — when the cart overlay opens, the whole page card lifts
   // up (like the product quick-buy) to reveal the dark cart panel beneath.
@@ -131,6 +139,18 @@ export default function AppLayout() {
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, [isHome]);
+
+  // Category page: track scroll to fade in the white TopBar backing.
+  useEffect(() => {
+    if (!isCategory) {
+      setScrolled(false);
+      return;
+    }
+    const handleScroll = () => setScrolled(window.scrollY > 8);
+    handleScroll();
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [isCategory]);
 
   // Reset on page change
   useEffect(() => {
@@ -230,6 +250,12 @@ export default function AppLayout() {
             <div className="overflow-hidden">
               <CategoryRow collapsed={collapsed} loading={vouchersLoading} />
             </div>
+            {/* White fade below the header — mirrors the category page's
+                FilterSortBar scrim, so content softly passes under the header. */}
+            <div
+              className="pointer-events-none absolute inset-x-0 top-full h-5 bg-gradient-to-b from-white/70 to-transparent"
+              aria-hidden
+            />
           </div>
         ) : isWallet || isFullScreenForm || isBusinessStore || isReferral || isProductLifted || isBusinessCheckout ? (
           /* Wallet + full-screen forms + business store + referral: page
@@ -240,6 +266,19 @@ export default function AppLayout() {
           /* Reviews page: sticky TopBar, no shadow so it blends with the sub-header */
           <div className="sticky top-0 z-50 bg-bg-light/80 backdrop-blur-md">
             <TopBar collapsed={false} showBack />
+          </div>
+        ) : isCategory ? (
+          /* Category page: TopBar pinned (sticky) over the scrolling content;
+             zero-height overlay so it doesn't add layout space (the page's own
+             pt clears it). A white backing fades in once the page is scrolled. */
+          <div className="sticky top-0 z-50 h-0 overflow-visible">
+            <div
+              aria-hidden
+              className={`absolute inset-x-0 top-0 h-[72px] bg-white/95 backdrop-blur-md shadow-sm transition-opacity duration-300 ${scrolled ? 'opacity-100' : 'opacity-0'}`}
+            />
+            <div className="relative">
+              <TopBar collapsed={false} showBack />
+            </div>
           </div>
         ) : (
           /* Other pages: transparent overlay, does not scroll */

@@ -14,6 +14,7 @@ import {
   LogOut,
   ChevronRight,
   ChevronLeft,
+  Crown,
   type LucideIcon,
 } from 'lucide-react';
 import { useLanguage } from '../../i18n/LanguageContext';
@@ -158,6 +159,33 @@ export default function MenuList() {
 
   return (
     <div className="px-6 pb-12 pt-4 space-y-8">
+      {/* Premium upsell — gradient banner that opens the Nexus Premium screen. */}
+      <button
+        type="button"
+        onClick={() => navigate(`/${lang}/premium`)}
+        className="w-full flex items-center gap-3 rounded-2xl p-4 text-start text-white shadow-lg active:scale-[0.98] transition-transform"
+        style={{
+          background:
+            'linear-gradient(135deg, #635bff 0%, #7c6cff 50%, #5649d8 100%)',
+          boxShadow: '0 12px 28px rgba(99, 91, 255, 0.28)',
+        }}
+      >
+        <div className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center flex-shrink-0">
+          <Crown size={22} strokeWidth={1.8} className="text-white" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="text-[15px] font-bold leading-tight">
+            Nexus Premium
+          </div>
+          <div className="text-[13px] text-white/80 truncate">
+            {language === 'he'
+              ? 'תשלום מיידי וקאשבק מוגבר'
+              : 'Instant payout & boosted cashback'}
+          </div>
+        </div>
+        <Chevron size={18} strokeWidth={2.5} className="text-white/90 flex-shrink-0" />
+      </button>
+
       {sections.map((section) => (
         <section key={section.title}>
           <h2 className="text-[22px] font-bold text-text-primary mb-4">

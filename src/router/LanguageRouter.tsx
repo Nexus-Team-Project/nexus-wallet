@@ -28,7 +28,7 @@ export default function LanguageRouter() {
   const hideDevOverlays =
     /\/gift-sample\/?$/.test(pathname) ||
     (/\/wallet\/?$/.test(pathname) && searchParams.has('focus')) ||
-    /\/wallet\/voucher\/uv_bnei_pesach\/?$/.test(pathname);
+    /\/wallet\/voucher\/uv_(bnei_pesach|spar_gift)\/?$/.test(pathname);
 
   useEffect(() => {
     const tenantSlug = searchParams.get('tenant');

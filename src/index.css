@@ -496,8 +496,8 @@ body {
     -webkit-clip-path: circle(0px at 50% -150px);
   }
   to {
-    clip-path: circle(620px at 50% -150px);
-    -webkit-clip-path: circle(620px at 50% -150px);
+    clip-path: circle(1100px at 50% -150px);
+    -webkit-clip-path: circle(1100px at 50% -150px);
   }
 }
 .cashback-reveal {
@@ -509,9 +509,9 @@ body {
    gradually in step with the fold. */
 @keyframes cashback-collapse {
   from {
-    clip-path: circle(620px at 50% -150px);
-    -webkit-clip-path: circle(620px at 50% -150px);
-    max-height: 360px;
+    clip-path: circle(1100px at 50% -150px);
+    -webkit-clip-path: circle(1100px at 50% -150px);
+    max-height: 800px;
   }
   to {
     clip-path: circle(0px at 50% -150px);

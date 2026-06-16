@@ -529,9 +529,9 @@ export default function BusinessCheckoutPage() {
                 <button
                   key={opt.id}
                   onClick={() => setShipping(opt.id)}
-                  className={`w-full flex items-center justify-between gap-3 p-4 text-start transition-colors ${
+                  className={`w-full flex items-center justify-between gap-3 p-4 text-start transition-colors first:rounded-t-2xl last:rounded-b-2xl ${
                     active
-                      ? 'border-2 border-bg-dark'
+                      ? 'ring-2 ring-inset ring-bg-dark rounded-2xl border-b border-transparent last:border-b-0'
                       : 'border-b border-border/60 last:border-b-0 active:bg-surface'
                   }`}
                 >

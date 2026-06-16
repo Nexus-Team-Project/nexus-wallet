@@ -26,6 +26,11 @@ export const mockBusinesses: Business[] = [
       { id: 'p3', name: 'French Fries', nameHe: 'צ\'יפס', description: 'Golden crispy fries', descriptionHe: 'צ\'יפס זהוב ופריך', merchantName: "McDonald's", image: 'https://images.unsplash.com/photo-1573080496219-bb080dd4f877?w=400&q=80', price: 18, currency: '₪', inStock: true },
       { id: 'p4', name: 'Happy Meal', nameHe: 'הפי מיל', description: 'Kids meal with a toy', descriptionHe: 'ארוחת ילדים עם צעצוע', merchantName: "McDonald's", image: 'https://images.unsplash.com/photo-1619881589316-4c7c8c277e58?w=400&q=80', price: 39, currency: '₪', inStock: true },
     ],
+    couponCodes: [
+      { code: 'NEXUS15', title: '15% off your order', titleHe: '15% הנחה על ההזמנה', discount: '15%' },
+      { code: 'FREEFRIES', title: 'Free fries over ₪50', titleHe: 'צ\'יפס חינם מעל ₪50', discount: '₪18' },
+      { code: 'BIGMAC1', title: '1+1 on Big Mac', titleHe: '1+1 על ביג מק', discount: '1+1' },
+    ],
   },
   {
     id: 'biz_002', name: 'Castro', nameHe: 'קסטרו',
@@ -58,6 +63,10 @@ export const mockBusinesses: Business[] = [
       { id: 'cas10', name: 'Wool Coat', nameHe: 'מעיל צמר', description: 'Tailored wool overcoat', descriptionHe: 'מעיל צמר חורפי', merchantName: 'Castro', image: 'https://images.unsplash.com/photo-1539533018447-63fcce2678e3?w=400&q=80', price: 399, originalPrice: 549, currency: '₪', inStock: true },
       { id: 'cas11', name: 'Graphic Tee', nameHe: 'חולצת הדפס', description: 'Cotton print T-shirt', descriptionHe: 'חולצת כותנה עם הדפס', merchantName: 'Castro', image: 'https://images.unsplash.com/photo-1503341504253-dff4815485f1?w=400&q=80', price: 79, originalPrice: 99, currency: '₪', inStock: true },
       { id: 'cas12', name: 'Denim Shorts', nameHe: 'מכנסי ג\'ינס קצרים', description: 'High-waist denim shorts', descriptionHe: 'מכנסי ג\'ינס קצרים גבוהים', merchantName: 'Castro', image: 'https://images.unsplash.com/photo-1565084888279-aca607ecce0c?w=400&q=80', price: 99, currency: '₪', inStock: true },
+    ],
+    couponCodes: [
+      { code: 'CASTRO20', title: '20% off everything', titleHe: '20% הנחה על הכל', discount: '20%' },
+      { code: 'SHIP0', title: 'Free shipping', titleHe: 'משלוח חינם', discount: '₪0' },
     ],
   },
   {
@@ -240,6 +249,32 @@ export const mockBusinesses: Business[] = [
     products: [
       { id: 'p14', name: 'Summer Dress', nameHe: 'שמלת קיץ', description: 'Light summer dress', descriptionHe: 'שמלת קיץ קלילה', merchantName: 'H&M', image: 'https://images.unsplash.com/photo-1495385794356-15371f348c31?w=400&q=80', price: 149, originalPrice: 199, currency: '₪', inStock: true },
       { id: 'p15', name: 'Denim Jacket', nameHe: 'ג\'קט ג\'ינס', description: 'Classic denim jacket', descriptionHe: 'ג\'קט ג\'ינס קלאסי', merchantName: 'H&M', image: 'https://images.unsplash.com/photo-1551537482-f2075a1d41f2?w=400&q=80', price: 249, originalPrice: 349, currency: '₪', inStock: true },
+      { id: 'p16', name: 'Ribbed Tank Top', nameHe: 'גופיית ריב', description: 'Soft ribbed cotton tank', descriptionHe: 'גופיית כותנה בריב רך', merchantName: 'H&M', image: 'https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=400&q=80', price: 49, originalPrice: 69, currency: '₪', inStock: true },
+      { id: 'p17', name: 'Tailored Trousers', nameHe: 'מכנסיים מחויטים', description: 'Slim tailored trousers', descriptionHe: 'מכנסיים מחויטים בגזרה צרה', merchantName: 'H&M', image: 'https://images.unsplash.com/photo-1445205170230-053b83016050?w=400&q=80', price: 159, originalPrice: 219, currency: '₪', inStock: true },
+    ],
+  },
+  {
+    id: 'biz_011', name: 'Golf & Co', nameHe: 'גולף',
+    category: 'Fashion', categoryHe: 'אופנה',
+    logo: '🛍️', rating: 4.3, reviewCount: 760,
+    location: 'Nationwide', locationHe: 'ארצי',
+    hasVouchers: true,
+    description: 'Israeli fashion & home lifestyle brand — clothing, home and accessories.',
+    descriptionHe: 'מותג אופנה ולייפסטייל ישראלי — ביגוד, בית ואקססוריז.',
+    website: 'https://www.golf.co.il',
+    phone: '*3678',
+    logoUrl: '/brands/golf.png',
+    heroImageUrl: 'https://images.unsplash.com/photo-1489987707025-afc232f7ea0f?w=800&q=80',
+    heroImages: [
+      'https://images.unsplash.com/photo-1489987707025-afc232f7ea0f?w=800&q=80',
+      'https://images.unsplash.com/photo-1556905055-8f358a7a47b2?w=800&q=80',
+      'https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?w=800&q=80',
+    ],
+    products: [
+      { id: 'glf1', name: 'Linen Shirt', nameHe: 'חולצת פשתן', description: 'Relaxed linen shirt', descriptionHe: 'חולצת פשתן רגועה', merchantName: 'Golf & Co', image: 'https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?w=400&q=80', price: 129, originalPrice: 179, currency: '₪', inStock: true },
+      { id: 'glf2', name: 'Cotton Throw', nameHe: 'שמיכת כותנה', description: 'Soft cotton throw blanket', descriptionHe: 'שמיכת כותנה רכה', merchantName: 'Golf & Co', image: 'https://images.unsplash.com/photo-1584100936595-c0654b55a2e6?w=400&q=80', price: 99, originalPrice: 149, currency: '₪', inStock: true },
+      { id: 'glf3', name: 'Knit Sweater', nameHe: 'סוודר סרוג', description: 'Cozy knit sweater', descriptionHe: 'סוודר סרוג נעים', merchantName: 'Golf & Co', image: 'https://images.unsplash.com/photo-1576566588028-4147f3842f27?w=400&q=80', price: 149, currency: '₪', inStock: true },
+      { id: 'glf4', name: 'Scented Candle', nameHe: 'נר ריחני', description: 'Home scented candle', descriptionHe: 'נר ריחני לבית', merchantName: 'Golf & Co', image: 'https://images.unsplash.com/photo-1602874801006-e26d56d8a3d3?w=400&q=80', price: 59, originalPrice: 79, currency: '₪', inStock: true },
     ],
   },
 ];

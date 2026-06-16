@@ -38,6 +38,9 @@ interface WalletCardActionsProps {
   onTransfer?: () => void;
   /** Fired when the user taps "Add to Google Pay". */
   onAddToGooglePay?: () => void;
+  /** Renders the transfer-to-balance button display-only (non-interactive),
+   *  e.g. in the gift demo flow. */
+  transferDisabled?: boolean;
 }
 
 /**
@@ -49,6 +52,7 @@ export default function WalletCardActions({
   className = '',
   onTransfer,
   onAddToGooglePay,
+  transferDisabled = false,
 }: WalletCardActionsProps) {
   const { isRTL } = useLanguage();
 
@@ -58,8 +62,11 @@ export default function WalletCardActions({
           styled like the business-page CTA: dark navy fill, white ink, with
           the Nexus mark sitting in a sky pill after the text. */}
       <button
-        onClick={onTransfer}
-        className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-bg-dark text-white text-sm font-bold active:scale-[0.98] transition-transform"
+        onClick={transferDisabled ? undefined : onTransfer}
+        disabled={transferDisabled}
+        className={`w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-bg-dark text-white text-sm font-bold transition-transform ${
+          transferDisabled ? 'cursor-default' : 'active:scale-[0.98]'
+        }`}
       >
         {isRTL ? 'העברת הערך ליתרה שלי' : 'Transfer value to my balance'}
         <span

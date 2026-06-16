@@ -44,7 +44,9 @@ export default function VoucherDetailPage() {
   const { voucher, redemptionCode, qrCode, purchasedAt, expiresAt, status } = uv;
   const bg = voucher.brandColor || '#0a2540';
   const dark = isDarkColor(bg);
-  const ink = dark ? '#ffffff' : '#0a2540';
+  // Full-bleed artwork card (e.g. the SPAR gift) — the photo *is* the card.
+  const imageCard = !!voucher.cardImage;
+  const ink = imageCard ? '#ffffff' : dark ? '#ffffff' : '#0a2540';
   const stacks = voucherStacks(uv.id);
 
   const statusLabel =
@@ -90,32 +92,50 @@ export default function VoucherDetailPage() {
           className="relative w-full rounded-xl shadow-xl overflow-hidden p-5"
           style={{ aspectRatio: '1.586 / 1', backgroundColor: bg }}
         >
-          {/* Nexus mark — top-left */}
+          {/* Full-bleed artwork — the card *is* the image (e.g. SPAR gift). */}
+          {imageCard && (
+            <>
+              <img
+                src={voucher.cardImage}
+                alt={voucher.merchantName}
+                draggable={false}
+                className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+                style={{ objectPosition: voucher.cardImagePosition || 'center' }}
+              />
+              <div
+                className="absolute inset-x-0 bottom-0 h-1/2 pointer-events-none"
+                style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.55), rgba(0,0,0,0))' }}
+              />
+            </>
+          )}
+          {/* Nexus mark — top-left on brand cards, bottom-left on artwork cards */}
           <img
             src="/nexus-white-wide-logo.png"
             alt="Nexus"
             draggable={false}
-            className="absolute top-4 left-4 h-9 w-auto opacity-95 pointer-events-none"
-            style={{ filter: dark ? undefined : 'brightness(0)' }}
+            className={`absolute left-4 h-9 w-auto opacity-95 pointer-events-none ${imageCard ? 'bottom-4' : 'top-4'}`}
+            style={{ filter: imageCard || dark ? undefined : 'brightness(0)' }}
           />
-          {/* Brand logo / name — centred */}
-          <div className="absolute inset-0 flex items-center justify-center px-6">
-            {voucher.brandLogo && !logoError ? (
-              <img
-                src={voucher.brandLogo}
-                alt={voucher.merchantName}
-                className="h-20 w-auto max-w-[64%] object-contain"
-                onError={() => setLogoError(true)}
-                draggable={false}
-              />
-            ) : (
-              <span className="text-2xl font-extrabold text-center leading-tight" style={{ color: ink }}>
-                {voucher.merchantName}
-              </span>
-            )}
-          </div>
-          {/* Discount pill — bottom-left */}
-          {voucher.discountPercent ? (
+          {/* Brand logo / name — centred (brand cards only) */}
+          {!imageCard && (
+            <div className="absolute inset-0 flex items-center justify-center px-6">
+              {voucher.brandLogo && !logoError ? (
+                <img
+                  src={voucher.brandLogo}
+                  alt={voucher.merchantName}
+                  className="h-20 w-auto max-w-[64%] object-contain"
+                  onError={() => setLogoError(true)}
+                  draggable={false}
+                />
+              ) : (
+                <span className="text-2xl font-extrabold text-center leading-tight" style={{ color: ink }}>
+                  {voucher.merchantName}
+                </span>
+              )}
+            </div>
+          )}
+          {/* Discount pill — bottom-left (brand cards only) */}
+          {!imageCard && voucher.discountPercent ? (
             <span
               className="absolute bottom-4 left-4 text-[11px] font-bold px-2 py-0.5 rounded-full"
               style={{ backgroundColor: 'rgba(255,255,255,0.18)', color: ink }}
@@ -124,13 +144,15 @@ export default function VoucherDetailPage() {
             </span>
           ) : null}
 
-          {/* Stacking fact — translucent pill (like the discount %), top-right */}
-          <span
-            className="absolute top-4 right-4 text-[11px] font-bold px-2 py-0.5 rounded-full"
-            style={{ backgroundColor: 'rgba(255,255,255,0.18)', color: ink }}
-          >
-            {stacks ? t.wallet.includesStacking : t.wallet.excludesStacking}
-          </span>
+          {/* Stacking fact — translucent pill, top-right (brand cards only) */}
+          {!imageCard && (
+            <span
+              className="absolute top-4 right-4 text-[11px] font-bold px-2 py-0.5 rounded-full"
+              style={{ backgroundColor: 'rgba(255,255,255,0.18)', color: ink }}
+            >
+              {stacks ? t.wallet.includesStacking : t.wallet.excludesStacking}
+            </span>
+          )}
         </div>
       </motion.div>
 
@@ -185,10 +207,12 @@ export default function VoucherDetailPage() {
           ))}
         </div>
 
-        {/* Transfer-to-balance + Add to Google Pay */}
+        {/* Transfer-to-balance + Add to Google Pay. In the SPAR gift demo the
+            transfer action is display-only (non-interactive). */}
         <WalletCardActions
           className="mt-5"
           onTransfer={() => navigate(`/${lang}/wallet/balance`)}
+          transferDisabled={uv.id === 'uv_spar_gift'}
         />
       </motion.div>
     </div>

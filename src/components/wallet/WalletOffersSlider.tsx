@@ -20,6 +20,8 @@ function cashbackPct(id: string): number {
 // Bnei Akiva movement logo — badges the cashback brands when the Bnei Akiva
 // gift card is the active deck card (the "קאשבק בני עקיבא" variant).
 const BNEI_AKIVA_LOGO = '/bnei-akiva-logo.png';
+// SPAR logo — badges the cashback brands under the SPAR gift card.
+const SPAR_LOGO = '/tenants/spar-logo-color.png';
 
 // The specific brands offered as cashback on the Bnei Akiva gift card.
 // `logo` is optional — brands without an asset (e.g. Fox) render `text` in the
@@ -44,6 +46,18 @@ const BNEI_CASHBACK_BRANDS: CashbackBrand[] = [
   { id: 'mango', name: 'Mango', nameHe: 'מנגו', logo: '/brands/mango.png', bg: '#FFFFFF', pct: 8 },
 ];
 
+// The fashion chains the SPAR gift card is redeemable at.
+const SPAR_CASHBACK_BRANDS: CashbackBrand[] = [
+  { id: 'golf', name: 'Golf & Co', nameHe: 'גולף אנד קו', logo: '/brands/golf.png', bg: '#FFFFFF', pct: 12 },
+  { id: 'castro', name: 'Castro', nameHe: 'קסטרו', logo: '/castro-logo.png', bg: '#0a0a0a', pct: 15 },
+  { id: 'fox', name: 'Fox', nameHe: 'פוקס', logo: '/brands/fox.png', bg: '#FF0000', pct: 10 },
+  { id: 'hm', name: 'H&M', nameHe: 'H&M', logo: '/brands/hm.png', bg: '#FFFFFF', pct: 7 },
+  { id: 'mango', name: 'Mango', nameHe: 'מנגו', logo: '/brands/mango.png', bg: '#FFFFFF', pct: 8 },
+  { id: 'american-eagle', name: 'American Eagle', nameHe: 'אמריקן איגל', logo: '/brands/american-eagle.png', bg: '#FFFFFF', pct: 10 },
+  { id: 'foot-locker', name: 'Foot Locker', nameHe: 'פוט לוקר', logo: '/brands/foot-locker.png', bg: '#FFFFFF', pct: 10 },
+  { id: 'billabong', name: 'Billabong', nameHe: 'בילבונג', logo: '/brands/billabong.png', bg: '#00A5A5', pct: 10 },
+];
+
 interface WalletOffersSliderProps {
   /** When the wallet is in "Customize" mode, the section header shows an
    *  eye (hide/show) toggle and a grip handle for vertical reordering. */
@@ -55,6 +69,9 @@ interface WalletOffersSliderProps {
   /** Bnei Akiva variant — shown under the Bnei Akiva gift card. Retitles the
    *  section and badges the brands with the Bnei Akiva logo. */
   bneiAkiva?: boolean;
+  /** SPAR variant — shown under the SPAR gift card. Same treatment as the
+   *  Bnei Akiva variant, badged with the SPAR logo. */
+  spar?: boolean;
   /** Locked (gift) view — the whole section is shown but non-interactive. */
   locked?: boolean;
 }
@@ -70,6 +87,7 @@ export default function WalletOffersSlider({
   onToggleHidden,
   onReorderPointerDown,
   bneiAkiva = false,
+  spar = false,
   locked = false,
 }: WalletOffersSliderProps = {}) {
   const { language } = useLanguage();
@@ -80,11 +98,18 @@ export default function WalletOffersSlider({
   // Active tenant — its logo is overlaid on a few of the cashback brands.
   const tenant = useTenantStore((s) => s.config);
 
-  // In the Bnei Akiva variant the badge is the movement logo; otherwise the
-  // active tenant's logo (if any).
-  const badgeLogo = bneiAkiva ? BNEI_AKIVA_LOGO : tenant?.logo;
+  // A branded gift variant (Bnei Akiva / SPAR) shows a fixed partner list,
+  // retitled and badged with that brand's logo.
+  const branded = bneiAkiva || spar;
+  // In a branded variant the badge is the gift's logo; otherwise the active
+  // tenant's logo (if any).
+  const badgeLogo = bneiAkiva ? BNEI_AKIVA_LOGO : spar ? SPAR_LOGO : tenant?.logo;
 
-  const title = bneiAkiva
+  const title = spar
+    ? isHe
+      ? 'ממשו בעשרות רשתות'
+      : 'Redeem at dozens of chains'
+    : bneiAkiva
     ? isHe
       ? 'ניתן לממש כאן'
       : 'Redeemable here'
@@ -160,9 +185,9 @@ export default function WalletOffersSlider({
     </button>
   );
 
-  // Bnei Akiva cashback card — a fixed brand (logo + name + %) with the Bnei
-  // Akiva badge, since these offers come with the Bnei Akiva gift card.
-  const renderBneiCard = (b: CashbackBrand) => (
+  // Branded cashback card — a fixed brand (logo + name + %) with the gift's
+  // badge (Bnei Akiva / SPAR), since these offers come with that gift card.
+  const renderBrandedCard = (b: CashbackBrand) => (
     <button
       key={b.id}
       onClick={locked ? undefined : goHome}
@@ -182,10 +207,12 @@ export default function WalletOffersSlider({
             </span>
           )}
         </div>
-        {/* Bnei Akiva badge */}
-        <div className="absolute -top-0.5 -right-0.5 w-[18px] h-[18px] rounded-full overflow-hidden border-[1.5px] border-white bg-white shadow-sm flex items-center justify-center">
-          <img src={BNEI_AKIVA_LOGO} alt="" className="w-full h-full object-contain p-px" />
-        </div>
+        {/* Gift badge — Bnei Akiva / SPAR logo */}
+        {badgeLogo && (
+          <div className="absolute -top-0.5 -right-0.5 w-[18px] h-[18px] rounded-full overflow-hidden border-[1.5px] border-white bg-white shadow-sm flex items-center justify-center">
+            <img src={badgeLogo} alt="" className="w-full h-full object-contain p-px" />
+          </div>
+        )}
       </div>
       <div>
         <p className="text-[13px] font-bold text-text-primary leading-tight line-clamp-1">
@@ -248,12 +275,12 @@ export default function WalletOffersSlider({
       {/* Collapsible — two horizontally-scrollable rows of cashback cards
           (grey rounded boxes: round logo + store name + cashback % in green). */}
       <div
-        className={`overflow-hidden transition-all duration-300 ease-in-out ${open ? 'max-h-[320px] opacity-100' : 'max-h-0 opacity-0'}`}
+        className={`overflow-hidden transition-all duration-300 ease-in-out ${open ? 'max-h-[480px] opacity-100' : 'max-h-0 opacity-0'}`}
       >
         <div className="flex flex-col gap-3 py-1">
-          {bneiAkiva ? (
+          {branded ? (
             <div className="flex gap-3 overflow-x-auto hide-scrollbar px-5">
-              {BNEI_CASHBACK_BRANDS.map(renderBneiCard)}
+              {(spar ? SPAR_CASHBACK_BRANDS : BNEI_CASHBACK_BRANDS).map(renderBrandedCard)}
             </div>
           ) : (
             rows.map((row, i) => (

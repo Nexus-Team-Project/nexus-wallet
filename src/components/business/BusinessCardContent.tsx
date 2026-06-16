@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { mockBusinesses } from '../../mock/data/businesses.mock';
@@ -19,6 +19,9 @@ import {
 
 interface BusinessCardContentProps {
   business: Business;
+  /** Optional store-action buttons rendered just under the offers slider.
+   *  Only the business page passes these; the search-sheet reuse omits them. */
+  storeActions?: ReactNode;
 }
 
 /**
@@ -27,7 +30,7 @@ interface BusinessCardContentProps {
  * (AiChatPage) and on the business page itself — single source of truth, so the
  * two never drift apart.
  */
-export default function BusinessCardContent({ business }: BusinessCardContentProps) {
+export default function BusinessCardContent({ business, storeActions }: BusinessCardContentProps) {
   const navigate = useNavigate();
   const { language } = useLanguage();
 
@@ -57,6 +60,9 @@ export default function BusinessCardContent({ business }: BusinessCardContentPro
           onSelect={(v: Voucher) => navigate(`/${language}/business/${business.id}/voucher/${v.id}`)}
         />
       </div>
+
+      {/* Store actions — sit directly under the offers (benefits) rows. */}
+      {storeActions}
 
       {/* Products — only if business has products */}
       {business.products && business.products.length > 0 && (

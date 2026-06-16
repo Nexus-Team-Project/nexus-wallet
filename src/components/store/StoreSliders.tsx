@@ -17,6 +17,7 @@ import { useState } from 'react';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { useVouchers } from '../../hooks/useVouchers';
 import VoucherDetail from './VoucherDetail';
+import CategoryRowStore, { type CategoryRowItem } from '../category/CategoryRowStore';
 import type { Voucher, StoreFilter } from '../../types/voucher.types';
 
 // ── Gradient label colours per slider ─────────────────────────────────────────
@@ -224,23 +225,37 @@ interface SliderProps {
   onSelectFilter: (filter: StoreFilter) => void;
 }
 
-// ── 1. הכי פופולרים ───────────────────────────────────────────────────────────
+// ── 1. הכי פופולרים — styled like "Especially for you" (CategoryRowStore) ─────
 export function PopularSlider({ onSelectFilter }: SliderProps) {
-  const { t, isHe, all, selectedVoucher, setSelectedVoucher } = useSlider();
+  const { t, all, selectedVoucher, setSelectedVoucher } = useSlider();
   const vouchers = all.filter((v) => v.popular).slice(0, 8);
+  if (!vouchers.length) return null;
+
+  const items: CategoryRowItem[] = vouchers
+    .filter((v) => v.imageUrl)
+    .map((v) => ({
+      id: v.id,
+      name: v.title,
+      nameHe: v.titleHe,
+      image: v.imageUrl as string,
+      price: v.discountedPrice,
+      currency: '₪',
+      onClick: () => setSelectedVoucher(v),
+    }));
+
   return (
     <>
-      <SliderSection
-        title={t.store.mostPopular}
-        gradient={GRADIENTS.popular}
-        vouchers={vouchers}
-        isHe={isHe}
-        filter="popular"
-        onSelectFilter={onSelectFilter}
-        onSelectVoucher={setSelectedVoucher}
-        comingSoonLabel={t.store.comingSoon}
-        outOfStockLabel={t.store.outOfStock}
-      />
+      <div className="mb-6">
+        <CategoryRowStore
+          title={t.store.mostPopular}
+          titleHe={t.store.mostPopular}
+          items={items}
+          accentColor="#1c1c1c"
+          bgGradient="linear-gradient(135deg, #ff7a18 0%, #ff2d55 32%, #b14bff 66%, #00d4ff 100%)"
+          aspectRatio="2 / 3"
+          onSeeAll={() => onSelectFilter('popular')}
+        />
+      </div>
       {selectedVoucher && (
         <VoucherDetail voucher={selectedVoucher} onClose={() => setSelectedVoucher(null)} />
       )}

@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, useRef } from 'react';
 import { useParams, Navigate, useNavigate } from 'react-router-dom';
 import { mockBusinesses } from '../mock/data/businesses.mock';
 import { useLanguage } from '../i18n/LanguageContext';
@@ -7,12 +7,13 @@ import BusinessStoreFilterSheet, {
   type StoreFilter,
   type StoreSort,
 } from '../components/business/BusinessStoreFilterSheet';
+import ProductPinView, { type OriginRect } from '../components/business/ProductPinView';
 import type { Product } from '../types/search.types';
 
 export default function BusinessStorePage() {
   const { businessId } = useParams<{ businessId: string }>();
   const navigate = useNavigate();
-  const { language } = useLanguage();
+  const { t, language } = useLanguage();
   const isHe = language === 'he';
 
   const business = useMemo(
@@ -26,6 +27,37 @@ export default function BusinessStorePage() {
   const [sort, setSort] = useState<StoreSort>('recommended');
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
+  // Long-press → "peek": the pressed image springs to the centre.
+  const [pin, setPin] = useState<{ product: Product; rect: OriginRect } | null>(null);
+  const pressTimer = useRef<number | null>(null);
+  const pressStart = useRef<{ x: number; y: number } | null>(null);
+  const pressRect = useRef<OriginRect | null>(null);
+  const longPressed = useRef(false);
+
+  const startPress = (product: Product, e: React.PointerEvent) => {
+    longPressed.current = false;
+    pressStart.current = { x: e.clientX, y: e.clientY };
+    // The image container is the card button's first child.
+    const el = (e.currentTarget as HTMLElement).firstElementChild as HTMLElement | null;
+    const r = el?.getBoundingClientRect();
+    pressRect.current = r ? { top: r.top, left: r.left, width: r.width, height: r.height } : null;
+    pressTimer.current = window.setTimeout(() => {
+      longPressed.current = true;
+      if (pressRect.current) setPin({ product, rect: pressRect.current });
+    }, 450);
+  };
+  const cancelPress = () => {
+    if (pressTimer.current) {
+      clearTimeout(pressTimer.current);
+      pressTimer.current = null;
+    }
+  };
+  const movePress = (e: React.PointerEvent) => {
+    if (!pressStart.current) return;
+    const dx = Math.abs(e.clientX - pressStart.current.x);
+    const dy = Math.abs(e.clientY - pressStart.current.y);
+    if (dx > 10 || dy > 10) cancelPress();
+  };
 
   // Collapse the big hero into a compact sticky bar once scrolled past it.
   useEffect(() => {
@@ -222,7 +254,7 @@ export default function BusinessStorePage() {
           style={{ top: collapsed ? 72 : 0 }}
         >
           <div className="relative flex items-center">
-            <div className="flex items-center gap-4 px-5 pe-16 overflow-x-auto hide-scrollbar text-sm font-bold">
+            <div className="flex items-center gap-4 px-5 pe-32 overflow-x-auto hide-scrollbar text-sm font-bold">
               {filterTabs.map((tab) => (
                 <button
                   key={tab.key}
@@ -237,13 +269,14 @@ export default function BusinessStorePage() {
                 </button>
               ))}
             </div>
-            {/* Floating filter/sort icon */}
+            {/* Floating filter button — same design as the category page's. */}
             <button
               onClick={() => setFilterSheetOpen(true)}
-              className="absolute end-5 bg-black rounded-full p-2.5 text-white shadow-lg active:scale-95 transition-transform"
-              aria-label="Filter"
+              className="absolute end-5 flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-surface border border-border text-sm font-medium text-text-primary transition-colors hover:bg-border/50 active:scale-95"
+              aria-label={t.category.filters}
             >
-              <span className="material-symbols-outlined block" style={{ fontSize: 18 }}>tune</span>
+              <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>tune</span>
+              <span>{t.category.filters}</span>
             </button>
           </div>
         </div>
@@ -274,10 +307,21 @@ export default function BusinessStorePage() {
               return (
                 <button
                   key={product.id}
-                  onClick={() => navigate(`/${language}/business/${business.id}/product/${product.id}`)}
+                  onClick={() => {
+                    if (longPressed.current) { longPressed.current = false; return; }
+                    navigate(`/${language}/business/${business.id}/product/${product.id}`);
+                  }}
+                  onPointerDown={(e) => startPress(product, e)}
+                  onPointerMove={movePress}
+                  onPointerUp={cancelPress}
+                  onPointerLeave={cancelPress}
+                  onContextMenu={(e) => e.preventDefault()}
                   className="text-start active:scale-[0.98] transition-transform"
                 >
-                  <div className="relative bg-gray-50 rounded-2xl aspect-[3/4] flex items-center justify-center overflow-hidden p-4">
+                  <div
+                    className="relative bg-gray-50 rounded-2xl aspect-[3/4] flex items-center justify-center overflow-hidden p-4 transition-opacity"
+                    style={{ opacity: pin?.product.id === product.id ? 0 : 1 }}
+                  >
                     {discountPercent > 0 && (
                       <span className="absolute top-2.5 start-2.5 z-10 bg-emerald-400/20 text-emerald-300 text-[10px] font-bold px-2 py-0.5 rounded-full">
                         -{discountPercent}% {isHe ? 'הנחה' : 'OFF'}
@@ -321,6 +365,21 @@ export default function BusinessStorePage() {
           </div>
         )}
       </div>
+
+      {/* Long-press peek */}
+      {pin && (
+        <ProductPinView
+          product={pin.product}
+          originRect={pin.rect}
+          isFav={favorites.has(pin.product.id)}
+          onToggleFav={() => toggleFav(pin.product.id)}
+          onOpenProduct={(productId) => {
+            setPin(null);
+            navigate(`/${language}/business/${business.id}/product/${productId}`);
+          }}
+          onClose={() => setPin(null)}
+        />
+      )}
 
       {/* Filter & sort sheet — unified floating-card design */}
       <BusinessStoreFilterSheet

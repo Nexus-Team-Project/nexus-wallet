@@ -10,10 +10,11 @@ export default function CategoryHeader({ categoryId }: CategoryHeaderProps) {
 
   const categoryName = t.store[categoryId as keyof typeof t.store] || categoryId;
 
-  // Back / chat / bell live in the global TopBar above this header,
-  // so we only render the large prominent title here.
+  // Back / chat / bell live in the global TopBar above this header, so we only
+  // render the large prominent title here. Not sticky — it scrolls away while
+  // the TopBar + filter bar stay pinned.
   return (
-    <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-sm shadow-sm">
+    <header>
       <div className="max-w-md mx-auto px-4 pt-2 pb-3">
         <h1
           className={`text-3xl font-extrabold text-text-primary leading-tight ${

@@ -32,9 +32,11 @@ const InsightsPage       = lazy(() => import('../pages/InsightsPage'));
 const StoriesPage        = lazy(() => import('../pages/StoriesPage'));
 const ReferralStoriesPage = lazy(() => import('../pages/ReferralStoriesPage'));
 const PremiumRevealPage  = lazy(() => import('../pages/PremiumRevealPage'));
+const PremiumPage        = lazy(() => import('../pages/PremiumPage'));
 const CategoryPage       = lazy(() => import('../pages/CategoryPage'));
 const BusinessPage       = lazy(() => import('../pages/BusinessPage'));
 const BusinessStorePage  = lazy(() => import('../pages/BusinessStorePage'));
+const BusinessSitePage   = lazy(() => import('../pages/BusinessSitePage'));
 const BusinessProductPage  = lazy(() => import('../pages/BusinessProductPage'));
 const BusinessReviewsPage  = lazy(() => import('../pages/BusinessReviewsPage'));
 const BusinessCheckoutPage = lazy(() => import('../pages/BusinessCheckoutPage'));
@@ -47,6 +49,7 @@ const VoucherPurchasePage = lazy(() => import('../pages/VoucherPurchasePage'));
 const NotificationsPage  = lazy(() => import('../pages/NotificationsPage'));
 const OrdersPage         = lazy(() => import('../pages/OrdersPage'));
 const OrderTrackingPage  = lazy(() => import('../pages/OrderTrackingPage'));
+const OrderTrackingLivePage = lazy(() => import('../pages/OrderTrackingLivePage'));
 
 // Wallet add-money flow
 const AddMoneyPage       = lazy(() => import('../pages/AddMoneyPage'));
@@ -79,7 +82,6 @@ const LifeStageSlide         = lazy(() => import('../pages/register/onboarding/L
 const BirthdaySlide          = lazy(() => import('../pages/register/onboarding/BirthdaySlide'));
 const GenderSlide            = lazy(() => import('../pages/register/onboarding/GenderSlide'));
 const BenefitCategoriesSlide = lazy(() => import('../pages/register/onboarding/BenefitCategoriesSlide'));
-const InviteFriendsSlide     = lazy(() => import('../pages/register/onboarding/InviteFriendsSlide'));
 
 // Card issuance onboarding flow
 const CardIssuanceStoriesPage = lazy(() => import('../pages/CardIssuanceStoriesPage'));
@@ -136,10 +138,12 @@ export const router = createBrowserRouter([
           { path: 'stories',          element: <S><StoriesPage /></S> },
           { path: 'referral-stories', element: <S><ReferralStoriesPage /></S> },
           { path: 'premium-reveal',   element: <S><PremiumRevealPage /></S> },
+          { path: 'premium',          element: <S><PremiumPage /></S> },
           { path: 'card-issuance',    element: <S><CardIssuanceStoriesPage /></S> },
           { path: 'category/:categoryId', element: <S><CategoryPage /></S> },
           { path: 'business/:businessId', element: <S><BusinessPage /></S> },
           { path: 'business/:businessId/store', element: <S><BusinessStorePage /></S> },
+          { path: 'business/:businessId/site', element: <S><BusinessSitePage /></S> },
           { path: 'business/:businessId/product/:productId', element: <S><BusinessProductPage /></S> },
           { path: 'business/:businessId/product/:productId/reviews', element: <S><BusinessReviewsPage /></S> },
           { path: 'business/:businessId/product/:productId/checkout', element: <S><BusinessCheckoutPage /></S> },
@@ -171,6 +175,7 @@ export const router = createBrowserRouter([
           { path: 'notifications',             element: <S><NotificationsPage /></S> },
           { path: 'orders',                    element: <S><OrdersPage /></S> },
           { path: 'orders/track',              element: <S><OrderTrackingPage /></S> },
+          { path: 'orders/track/live',         element: <S><OrderTrackingLivePage /></S> },
           // Standalone ready-made gift page (Bnei Akiva — Passover)
           { path: 'gift-sample',               element: <S><GiftSamplePage /></S> },
 
@@ -210,7 +215,6 @@ export const router = createBrowserRouter([
           { path: 'onboarding/birthday',           element: <S><BirthdaySlide /></S> },
           { path: 'onboarding/gender',             element: <S><GenderSlide /></S> },
           { path: 'onboarding/benefit-categories', element: <S><BenefitCategoriesSlide /></S> },
-          { path: 'onboarding/invite-friends',     element: <S><InviteFriendsSlide /></S> },
           { path: 'complete',    element: <S><RegistrationCompletePage /></S> },
         ],
       },

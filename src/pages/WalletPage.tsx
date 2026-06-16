@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useLayoutEffect, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, Reorder, useDragControls, type PanInfo } from 'framer-motion';
 import { GripVertical, Eye, EyeOff } from 'lucide-react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
@@ -27,6 +28,9 @@ interface WalletPageProps {
 // The Bnei Akiva gift voucher (added to the wallet mock); arriving from the
 // gift-sample redeem deep-links here with `?focus=` set to this id.
 const BNEI_VOUCHER_ID = 'uv_bnei_pesach';
+// The SPAR gift voucher — its redeemed wallet view also shows the Isracard
+// digital card beside the gift card in the deck.
+const SPAR_VOUCHER_ID = 'uv_spar_gift';
 
 export default function WalletPage({ embedded = false }: WalletPageProps) {
   const { t, language, isRTL } = useLanguage();
@@ -72,6 +76,8 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
   const [widgetsOpen, setWidgetsOpen] = useState(true);
   const [noCardBannerOpen, setNoCardBannerOpen] = useState(false);
   const [editBannerOpen, setEditBannerOpen] = useState(false);
+  // "How it works" explainer sheet, opened from the card's "?" button.
+  const [showCardHelp, setShowCardHelp] = useState(false);
 
   // ── Stacked card deck (Google-Wallet style) ──
   // The balance square and the digital payment card sit in a stack: the
@@ -84,10 +90,13 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
   const activeVouchers = (myVouchers ?? [])
     .filter((v) => v.status === 'active')
     .sort((a, b) => new Date(a.purchasedAt).getTime() - new Date(b.purchasedAt).getTime());
-  // In the gift view the deck holds ONLY the gift card — no other vouchers,
-  // balance, card or "add" stops.
+  // In the gift view the deck holds the gift card — no other vouchers,
+  // balance, or "add" stops. The SPAR gift additionally keeps the Isracard
+  // digital card in the deck, so the redeemed wallet shows it in the slider.
   const deckCards: string[] = cameFromGift
-    ? [`voucher:${focusVoucherId}`]
+    ? focusVoucherId === SPAR_VOUCHER_ID
+      ? [`voucher:${focusVoucherId}`, 'card']
+      : [`voucher:${focusVoucherId}`]
     : [
         ...activeVouchers.map((v) => `voucher:${v.id}`),
         'balance',
@@ -139,11 +148,20 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
   // so redeeming a gift lands on a wallet that immediately shows where to spend
   // it — branded for Bnei Akiva.
   const onBneiCard = deckCards[activeCard] === `voucher:${BNEI_VOUCHER_ID}`;
+  // The SPAR gift card carries the same "redeemable here" section, branded for
+  // SPAR — so the redeemed wallet shows where the card works.
+  const onSparCard = deckCards[activeCard] === `voucher:${SPAR_VOUCHER_ID}`;
   // Which cashback section the active card wants (null = none). Tracking the
   // *identity* (not just a boolean) lets the section animate closed→open even
-  // when switching between two cards that BOTH have cashback (balance ↔ Bnei).
-  type CashbackKey = 'balance' | 'bnei' | null;
-  const targetCashback: CashbackKey = onBalanceCard ? 'balance' : onBneiCard ? 'bnei' : null;
+  // when switching between two cards that BOTH have cashback (balance ↔ gift).
+  type CashbackKey = 'balance' | 'bnei' | 'spar' | null;
+  const targetCashback: CashbackKey = onBalanceCard
+    ? 'balance'
+    : onBneiCard
+      ? 'bnei'
+      : onSparCard
+        ? 'spar'
+        : null;
   const [cashback, setCashback] = useState<{
     phase: 'closed' | 'open' | 'closing';
     seq: number;
@@ -405,8 +423,22 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
     }
     return (
       /* ── DIGITAL CARD — real card artwork, centred in the deck slot at
-          the same height as the (taller) balance/pay card. ── */
-      <DigitalCard className="w-full" heightPx={deckHeight || undefined}>
+          the same height as the (taller) balance/pay card. In the SPAR gift
+          view it carries the SPAR co-brand logo above the NEXUS mark. ── */
+      <DigitalCard
+        className="w-full"
+        heightPx={deckHeight || undefined}
+        brandLogo={
+          cameFromGift && focusVoucherId === SPAR_VOUCHER_ID
+            ? '/tenants/spar-logo-black.png'
+            : undefined
+        }
+        onHelp={
+          cameFromGift && focusVoucherId === SPAR_VOUCHER_ID
+            ? () => setShowCardHelp(true)
+            : undefined
+        }
+      >
         {renderRipple('card')}
       </DigitalCard>
     );
@@ -606,7 +638,10 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
       )}
 
       {/* ══════ BALANCE CARD (Klarna-style) ══════ */}
-      <section className="relative mt-4 mb-8 px-5">
+      {/* mb is generous so the hanging dark CTA (issue-card / more-actions),
+          which protrudes -bottom-8 below the deck, has clearance and isn't
+          clipped by the section that follows. */}
+      <section className="relative mt-4 mb-16 px-5">
         {/* ── CARD DECK (Google-Wallet style) ──
             Every card is a persistent element that animates between the
             centre slot and a side slot. The active card sits crisp in the
@@ -715,6 +750,10 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
                           ) {
                             return;
                           }
+                          // Gift flow: the Isracard digital card is display-only
+                          // — it can still be swiped, but a tap does nothing;
+                          // only its "issue card" button is interactive.
+                          if (cameFromGift && cardId === 'card') return;
                           // Voucher: flip to its redemption side (tap again,
                           // off a button, to flip back).
                           if (cardId.startsWith('voucher:')) {
@@ -755,7 +794,21 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
         {deckCards[activeCard] === 'card' && (
           <div className="absolute inset-x-0 -bottom-8 flex justify-center z-40">
             <button
-              onClick={() => navigate(`/${lang}/card-issuance`)}
+              onClick={() => {
+                // SPAR hands off to Isracard's hosted issuance page — opened in
+                // a NEW TAB so the gift flow stays intact in this tab (no full
+                // navigation away that a back button can't restore). Other
+                // tenants go through the in-app issuance story flow.
+                if (tenantConfig?.id === 'spar') {
+                  window.open(
+                    'https://issuance.isracard.co.il/spar/CardsAuthentication',
+                    '_blank',
+                    'noopener,noreferrer',
+                  );
+                  return;
+                }
+                navigate(`/${lang}/card-issuance`);
+              }}
               className="px-6 py-3 rounded-full bg-bg-dark text-white font-bold text-sm active:scale-95 transition-transform shadow-md"
             >
               {t.wallet.issueCard}
@@ -966,7 +1019,11 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
             }
           }}
         >
-          <WalletOffersSlider bneiAkiva={cashback.key === 'bnei'} locked={cameFromGift} />
+          <WalletOffersSlider
+            bneiAkiva={cashback.key === 'bnei'}
+            spar={cashback.key === 'spar'}
+            locked={cameFromGift}
+          />
         </div>
       )}
       </div>{/* /relative gradient wrapper */}
@@ -1030,6 +1087,66 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
 
       {/* Notification auto-dismiss */}
       {showNotification && <NotificationAutoDismiss onDismiss={() => setShowNotification(false)} />}
+
+      {/* ══════ "HOW IT WORKS" SHEET — opened from the card's "?" button.
+          Same design as the card-back info sheet (PayCodeInfoSheet): a
+          slide-up rounded sheet, portalled to the body. ══════ */}
+      {showCardHelp &&
+        createPortal(
+          <>
+            <div
+              className="fixed inset-0 z-[150] bg-black/40 animate-fade-in"
+              onClick={() => setShowCardHelp(false)}
+            />
+            <div className="fixed inset-x-0 bottom-0 z-[150] max-w-md mx-auto px-4 pb-6 pointer-events-none">
+              <div
+                dir="rtl"
+                className="pointer-events-auto bg-white rounded-[28px] shadow-2xl flex flex-col overflow-hidden animate-slide-up"
+              >
+                {/* Drag handle + title + close */}
+                <div className="flex-shrink-0 px-6 pt-3 pb-4">
+                  <div className="flex justify-center pb-4">
+                    <div className="w-10 h-1.5 bg-border rounded-full" />
+                  </div>
+                  <div className="flex items-center justify-between gap-3">
+                    <h2 className="text-xl font-bold text-text-primary leading-tight">איך זה עובד?</h2>
+                    <button
+                      onClick={() => setShowCardHelp(false)}
+                      aria-label="סגירה"
+                      className="h-8 w-8 inline-flex items-center justify-center rounded-full bg-surface active:bg-border transition-colors flex-shrink-0"
+                    >
+                      <span className="material-symbols-rounded text-text-primary" style={{ fontSize: 20 }}>
+                        close
+                      </span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Content — issue a SPAR card and get the standard club-card
+                    benefits (same value list as the card-issuance page). */}
+                <div className="px-6 pb-8">
+                  <p className="text-sm text-text-secondary leading-relaxed mb-4">
+                    הנפק כרטיס SPAR בחינם — וקבל את כל ההטבות של כרטיס המועדון:
+                  </p>
+                  <div className="rounded-2xl bg-surface border border-border divide-y divide-border overflow-hidden">
+                    {[
+                      { title: 'גמישות אשראי נוספת', desc: 'קו אשראי חוץ-בנקאי נוסף להוצאות יומיומיות' },
+                      { title: 'תנאים מועדפים בחו"ל', desc: 'חיוב מועדף ברכישות בינלאומיות ואונליין' },
+                      { title: 'יתרונות במט"ח', desc: 'חיובים נדחים במט"ח ותנאי המרה משופרים' },
+                      { title: 'קאשבק', desc: '2%–5% קאשבק אצל בתי עסק שותפים נבחרים' },
+                    ].map((b) => (
+                      <div key={b.title} className="px-4 py-3.5">
+                        <p className="text-sm font-bold text-text-primary">{b.title}</p>
+                        <p className="mt-0.5 text-xs text-text-secondary leading-relaxed">{b.desc}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </>,
+          document.body,
+        )}
     </div>
   );
 }

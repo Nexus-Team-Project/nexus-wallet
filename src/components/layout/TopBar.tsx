@@ -5,12 +5,13 @@ import { useAuthStore } from '../../stores/authStore';
 import { useTenantStore } from '../../stores/tenantStore';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { useUser } from '../../hooks/useUser';
+import { useWallet } from '../../hooks/useWallet';
+import { formatCurrency } from '../../utils/formatCurrency';
 import { useUnreadNotificationCount } from '../../hooks/useNotifications';
 import { useNotificationToastStore } from '../../stores/notificationToastStore';
 import TenantSheet from './TenantSheet';
 import { useTopBarBadgeStore } from '../../stores/topBarBadgeStore';
 import AnimatedActionIcon from './AnimatedActionIcon';
-import chatUrl from '../../assets/animations/chat.json?url';
 import bellUrl from '../../assets/animations/notif-bell.json?url';
 import profileUrl from '../../assets/animations/profile.json?url';
 
@@ -42,6 +43,9 @@ export default function TopBar({ collapsed = false, showBack = false, hideGreeti
   const authFirstName = useAuthStore((s) => s.firstName);
   const tenantConfig = useTenantStore((s) => s.config);
   const { data: user } = useUser();
+  const { data: wallet } = useWallet({ enabled: isAuthenticated });
+  const locale = language === 'he' ? 'he-IL' : 'en-IL';
+  const balanceText = formatCurrency(wallet?.balance ?? 0, 'ILS', locale);
 
   const hasTenant = isAuthenticated && isOrgMember && !!tenantConfig;
   const logoSrc = hasTenant ? (tenantConfig?.logo ?? '/nexus-logo.png') : '/nexus-logo.png';
@@ -52,7 +56,6 @@ export default function TopBar({ collapsed = false, showBack = false, hideGreeti
   const greetingText = getGreeting(t);
 
   const { data: notificationCount = 0 } = useUnreadNotificationCount();
-  const chatCount = 1;
 
   // Subscribe to the bell-pulse trigger from the toast store. Every
   // time a toast finishes its fly-to-bell exit the counter ticks; we
@@ -171,6 +174,24 @@ export default function TopBar({ collapsed = false, showBack = false, hideGreeti
             )}
           </button>
 
+          {/* Total wallet balance — sits between the avatar and the name */}
+          {isAuthenticated && (
+            <button
+              onClick={() => navigate(`/${lang}/wallet`)}
+              aria-label={language === 'he' ? 'יתרה' : 'Balance'}
+              className={`rounded-full bg-white flex items-center shadow-[0_6px_16px_rgba(0,0,0,0.14)] active:scale-95 transition-all duration-300 ease-in-out ${
+                collapsed ? 'h-7 px-2.5' : 'h-9 px-3'
+              }`}
+            >
+              <span
+                className={`font-display font-semibold tracking-tight text-text-primary tabular-nums ${collapsed ? 'text-[11px]' : 'text-sm'}`}
+                dir="ltr"
+              >
+                {balanceText}
+              </span>
+            </button>
+          )}
+
           {/* Greeting — fades out on collapse */}
           {showGreeting && (
             <div className={`flex flex-col transition-all duration-300 ease-in-out ${collapsed ? 'opacity-0 -translate-x-2 pointer-events-none' : 'opacity-100 translate-x-0'}`}>
@@ -196,21 +217,6 @@ export default function TopBar({ collapsed = false, showBack = false, hideGreeti
 
         {/* Right: action buttons */}
         <div className="flex items-center gap-1.5">
-          <button
-            onClick={() => navigate(`/${lang}/chat`)}
-            className={`relative rounded-full bg-white flex items-center justify-center shadow-[0_6px_16px_rgba(0,0,0,0.14)] transition-all duration-300 ease-in-out ${btnSize}`}
-            aria-label="Chat"
-          >
-            <span className={`transition-transform duration-300 ${iconScale}`}>
-              <AnimatedActionIcon src={chatUrl} size={22} />
-            </span>
-            {chatCount > 0 && (
-              <span className="absolute -top-0.5 -left-0.5 w-[18px] h-[18px] bg-error rounded-full border-2 border-white flex items-center justify-center">
-                <span className="text-[10px] font-bold text-white leading-none">{chatCount > 9 ? '9+' : chatCount}</span>
-              </span>
-            )}
-          </button>
-
           <button
             onClick={handleNotifications}
             data-notif-bell
