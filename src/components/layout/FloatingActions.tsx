@@ -100,7 +100,16 @@ export default function FloatingActions({ force = false }: { force?: boolean } =
               ) : null
             }
           >
-            <AnimatedNavIcon src={navWalletUrl} boldSrc={navWalletBoldUrl} active={isWallet} />
+            <AnimatedNavIcon
+              src={navWalletUrl}
+              boldSrc={navWalletBoldUrl}
+              active={isWallet}
+              filledEl={
+                <svg viewBox="0 0 24 24" width={26} height={26} fill="#1c1c1c">
+                  <path d="M21 18v1c0 1.1-.9 2-2 2H5c-1.11 0-2-.9-2-2V5c0-1.1.89-2 2-2h14c1.1 0 2 .9 2 2v1h-9c-1.11 0-2 .9-2 2v8c0 1.1.89 2 2 2h9zm-9-2h10V8H12v8zm4-2.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/>
+                </svg>
+              }
+            />
           </PillButton>
 
           {/* Search */}
@@ -110,7 +119,16 @@ export default function FloatingActions({ force = false }: { force?: boolean } =
 
           {/* Home */}
           <PillButton onClick={() => navigate(`/${lang}`)} ariaLabel={t.nav.home}>
-            <AnimatedNavIcon src={navHomeUrl} boldSrc={navHomeBoldUrl} active={isHome} />
+            <AnimatedNavIcon
+              src={navHomeUrl}
+              boldSrc={navHomeBoldUrl}
+              active={isHome}
+              filledEl={
+                <svg viewBox="0 0 24 24" width={26} height={26} fill="#1c1c1c">
+                  <path d="M2 12 L12 3 L22 12 L22 20 Q22 22 20 22 L4 22 Q2 22 2 20 Z"/>
+                </svg>
+              }
+            />
           </PillButton>
         </nav>
         </div>

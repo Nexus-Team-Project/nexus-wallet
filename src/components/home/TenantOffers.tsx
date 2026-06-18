@@ -1,27 +1,15 @@
 import { useNavigate, useParams } from 'react-router-dom';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { useTenantStore } from '../../stores/tenantStore';
+import { mockBusinesses } from '../../mock/data/businesses.mock';
 import CategoryRowStore, { type CategoryRowItem } from '../category/CategoryRowStore';
 
-// Benefit icons cycling through a set (used when a benefit has no image).
-const BENEFIT_ICONS = ['⭐', '🎁', '💳', '🎫', '🏆', '🎉', '🛍️', '🎊'];
-
-const DEFAULT_BENEFITS_HE = [
-  'הנחות בלעדיות לחברים',
-  'מתנות ופרסים מיוחדים',
-  'יתרונות מיוחדים לחברים',
-];
-const DEFAULT_BENEFITS_EN = [
-  'Exclusive member discounts',
-  'Special gifts and prizes',
-  'Special member perks',
-];
-
 /**
- * TenantOffers ("הטבות הטננט") — the tenant's member benefits, presented as the
- * big CategoryRowStore card (same structure as the other home sections). The
- * title, the animated gradient background and the benefit list all derive from
- * the active tenant config, so the whole section is dynamic per tenant.
+ * TenantOffers ("מועדון <tenant>") — the tenant's member club, presented as the
+ * big CategoryRowStore card. The row shows the tenant's partner businesses (the
+ * stores its members can use), with the tenant brand lockup in the corner. The
+ * gradient derives from the tenant's brand colour, so the section is dynamic
+ * per tenant.
  */
 export default function TenantOffers() {
   const { language } = useLanguage();
@@ -34,18 +22,22 @@ export default function TenantOffers() {
   if (!config) return null;
 
   const tenantName = isHe ? config.nameHe : config.name;
+  const clubTitle = isHe ? `מועדון ${tenantName}` : `${tenantName} Club`;
 
-  const benefits = isHe
-    ? (config.membershipBenefitsHe?.length ? config.membershipBenefitsHe : DEFAULT_BENEFITS_HE)
-    : (config.membershipBenefits?.length ? config.membershipBenefits : DEFAULT_BENEFITS_EN);
-
-  const items: CategoryRowItem[] = benefits.map((label, idx) => ({
-    id: `benefit-${idx}`,
-    name: label,
-    nameHe: label,
-    emoji: BENEFIT_ICONS[idx % BENEFIT_ICONS.length],
-    onClick: () => navigate(`/${lang}/store`),
-  }));
+  // The tenant's partner businesses — prefer a product/atmosphere photo for the
+  // tile, falling back to the brand emoji.
+  const items: CategoryRowItem[] = mockBusinesses.map((biz) => {
+    const image =
+      biz.products?.find((p) => p.image)?.image ?? biz.heroImageUrl ?? biz.heroImages?.[0];
+    return {
+      id: biz.id,
+      name: biz.name,
+      nameHe: biz.nameHe,
+      image,
+      emoji: image ? undefined : biz.logo,
+      onClick: () => navigate(`/${lang}/business/${biz.id}`),
+    };
+  });
 
   // Animated gradient built from the tenant's brand colour → dynamic per tenant.
   const c = config.primaryColor;
@@ -54,11 +46,17 @@ export default function TenantOffers() {
   return (
     <div className="mb-6">
       <CategoryRowStore
-        title={isHe ? `הטבות ${tenantName}` : `${tenantName} Benefits`}
-        titleHe={isHe ? `הטבות ${tenantName}` : `${tenantName} Benefits`}
+        title={clubTitle}
+        titleHe={clubTitle}
         items={items}
         accentColor={c}
+        bgVideo="/tenant-sky.mp4"
         bgGradient={bgGradient}
+        titleInMedia
+        topLogo={config.logo}
+        topTitle={clubTitle}
+        topBadge={{ label: isHe ? 'למד עוד' : 'Learn more', onClick: () => navigate(`/${lang}/club`) }}
+        onTopClick={() => navigate(`/${lang}/club`)}
         aspectRatio="2 / 3"
         onSeeAll={() => navigate(`/${lang}/store`)}
       />

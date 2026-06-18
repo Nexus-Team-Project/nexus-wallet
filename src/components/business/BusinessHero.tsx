@@ -10,6 +10,11 @@ import navSearchBoldUrl from '../../assets/animations/nav-search-bold.json?url';
 
 interface BusinessHeroProps {
   business: Business;
+  /**
+   * Club-page variant. Hides the follow + search actions and the rating line
+   * (the club's stats / links / about all live in the white section below).
+   */
+  club?: boolean;
 }
 
 const categoryGradients: Record<string, string> = {
@@ -24,7 +29,7 @@ const categoryGradients: Record<string, string> = {
   'Supermarket': 'from-green-600 via-emerald-500 to-teal-600',
 };
 
-export default function BusinessHero({ business }: BusinessHeroProps) {
+export default function BusinessHero({ business, club }: BusinessHeroProps) {
   const { language } = useLanguage();
   const navigate = useNavigate();
   const isHe = language === 'he';
@@ -85,26 +90,31 @@ export default function BusinessHero({ business }: BusinessHeroProps) {
       <header className="absolute bottom-10 inset-x-0 z-30 flex items-center justify-start px-4">
         {/* End-side actions */}
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => setFollowing((f) => !f)}
-            className={`h-10 px-5 inline-flex items-center rounded-lg text-sm font-semibold active:scale-95 transition-all ${
-              following ? 'bg-white text-black' : 'bg-white/20 backdrop-blur-md text-white'
-            }`}
-          >
-            {following ? (isHe ? 'עוקב' : 'Following') : (isHe ? 'עקוב' : 'Follow')}
-          </button>
-          <button
-            onClick={() => navigate(`/${language}/search?store=${business.id}`)}
-            className="h-10 w-10 inline-flex items-center justify-center bg-white/20 backdrop-blur-md rounded-lg active:scale-95 transition-transform"
-            aria-label="Search"
-          >
-            {/* Same wired nav-search Lottie as the bottom-bar pill, forced
-                white (the icon's native ink is dark) so it reads on the dark
-                hero overlay. */}
-            <span className="leading-none" style={{ filter: 'brightness(0) invert(1)' }}>
-              <AnimatedNavIcon src={navSearchUrl} boldSrc={navSearchBoldUrl} active size={22} />
-            </span>
-          </button>
+          {/* Follow + search are hidden on the club variant. */}
+          {!club && (
+            <>
+              <button
+                onClick={() => setFollowing((f) => !f)}
+                className={`h-10 px-5 inline-flex items-center rounded-lg text-sm font-semibold active:scale-95 transition-all ${
+                  following ? 'bg-white text-black' : 'bg-white/20 backdrop-blur-md text-white'
+                }`}
+              >
+                {following ? (isHe ? 'עוקב' : 'Following') : (isHe ? 'עקוב' : 'Follow')}
+              </button>
+              <button
+                onClick={() => navigate(`/${language}/search?store=${business.id}`)}
+                className="h-10 w-10 inline-flex items-center justify-center bg-white/20 backdrop-blur-md rounded-lg active:scale-95 transition-transform"
+                aria-label="Search"
+              >
+                {/* Same wired nav-search Lottie as the bottom-bar pill, forced
+                    white (the icon's native ink is dark) so it reads on the dark
+                    hero overlay. */}
+                <span className="leading-none" style={{ filter: 'brightness(0) invert(1)' }}>
+                  <AnimatedNavIcon src={navSearchUrl} boldSrc={navSearchBoldUrl} active size={22} />
+                </span>
+              </button>
+            </>
+          )}
           <button
             onClick={() => setMenuOpen(true)}
             className="h-10 w-10 inline-flex items-center justify-center bg-white/20 backdrop-blur-md rounded-lg active:scale-95 transition-transform"
@@ -141,14 +151,17 @@ export default function BusinessHero({ business }: BusinessHeroProps) {
           </p>
         )}
 
-        {/* Rating — plain inline text, no badge plate */}
-        <div className="flex items-center justify-center gap-1.5 text-white">
-          <span className="text-white text-[15px]">★</span>
-          <span className="text-[15px] font-bold">{business.rating}</span>
-          <span className="text-[15px] font-medium opacity-90">
-            ({business.reviewCount.toLocaleString()})
-          </span>
-        </div>
+        {/* Rating — hidden on the club variant (stats live in the white
+            section below). */}
+        {!club && (
+          <div className="flex items-center justify-center gap-1.5 text-white">
+            <span className="text-white text-[15px]">★</span>
+            <span className="text-[15px] font-bold">{business.rating}</span>
+            <span className="text-[15px] font-medium opacity-90">
+              ({business.reviewCount.toLocaleString()})
+            </span>
+          </div>
+        )}
 
         {/* Carousel dots */}
         {images.length > 1 && (

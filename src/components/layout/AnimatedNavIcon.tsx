@@ -16,6 +16,8 @@ interface AnimatedNavIconProps {
   active: boolean;
   /** Rendered icon size in px. */
   size?: number;
+  /** When provided, fades in instead of the bold Lottie after animation completes. */
+  filledEl?: React.ReactNode;
 }
 
 /**
@@ -25,7 +27,7 @@ interface AnimatedNavIconProps {
  * once that animation completes does the bold layer fade in (the strokes
  * thicken). Pressing replays the same sequence.
  */
-export default function AnimatedNavIcon({ src, boldSrc, active, size = 26 }: AnimatedNavIconProps) {
+export default function AnimatedNavIcon({ src, boldSrc, active, size = 26, filledEl }: AnimatedNavIconProps) {
   const thinRef = useRef<DotLottie | null>(null);
   const boldRef = useRef<DotLottie | null>(null);
   const activeRef = useRef(active);
@@ -62,8 +64,15 @@ export default function AnimatedNavIcon({ src, boldSrc, active, size = 26 }: Ani
       className="relative grid place-items-center"
       style={{ width: size, height: size, opacity: 1, transition: 'opacity 300ms ease' }}
     >
-      {/* Normal weight — always shown; reveals the bold layer once it finishes. */}
-      <span className="absolute inset-0">
+      {/* Normal weight — fades out when the filledEl takes over. */}
+      <span
+        className="absolute inset-0"
+        style={{
+          opacity: bold && filledEl ? 0 : 1,
+          filter: bold && !filledEl ? 'brightness(0)' : 'none',
+          transition: 'opacity 350ms ease, filter 400ms ease',
+        }}
+      >
         <DotLottieReact
           src={src}
           autoplay
@@ -79,14 +88,16 @@ export default function AnimatedNavIcon({ src, boldSrc, active, size = 26 }: Ani
       </span>
 
       {/* Bold weight — fades in only after the animation, when selected. */}
-      <span className="absolute inset-0" style={{ opacity: bold ? 1 : 0, transition: 'opacity 350ms ease' }}>
-        <DotLottieReact
-          src={boldSrc}
-          autoplay
-          loop={false}
-          dotLottieRefCallback={(dot) => { boldRef.current = dot; }}
-          style={layer}
-        />
+      <span className="absolute inset-0 flex items-center justify-center" style={{ opacity: bold ? 1 : 0, transition: 'opacity 350ms ease' }}>
+        {filledEl ?? (
+          <DotLottieReact
+            src={boldSrc}
+            autoplay
+            loop={false}
+            dotLottieRefCallback={(dot) => { boldRef.current = dot; }}
+            style={layer}
+          />
+        )}
       </span>
     </span>
   );

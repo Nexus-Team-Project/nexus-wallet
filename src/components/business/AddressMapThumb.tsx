@@ -1,6 +1,9 @@
 import { useEffect, useRef, type ReactNode } from 'react';
 import { Map as MapLibreMap, Marker } from 'react-map-gl/maplibre';
 import type { MapRef } from 'react-map-gl/maplibre';
+import { initMapLibre } from '../../lib/maplibre-init';
+
+initMapLibre();
 import AnimatedLocationIcon from '../ui/AnimatedLocationIcon';
 
 /**

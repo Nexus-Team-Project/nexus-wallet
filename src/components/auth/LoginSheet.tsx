@@ -563,47 +563,36 @@ export default function LoginSheet() {
   // Inline phone-entry row. Opens in place of the SMS button once the user
   // taps "Continue with SMS". The send control reuses the animated chat icon.
   const phoneInput = (
-    <div className="animate-fade-in">
-      <div className="flex items-center gap-2 border-2 border-primary rounded-2xl px-3 py-2.5 transition-colors">
-        <span className="text-base flex-shrink-0">🇮🇱</span>
-        <span className="text-xs text-text-secondary font-medium flex-shrink-0">
-          +972
-        </span>
-        <div className="w-px h-4 bg-border flex-shrink-0" />
-        <input
-          ref={phoneInputRef}
-          type="tel"
-          value={phone}
-          onChange={(e) => setPhone(formatPhone(e.target.value))}
-          placeholder={t.auth.phonePlaceholder}
-          className="flex-1 bg-transparent border-none outline-none text-sm text-text-primary placeholder:text-text-muted min-w-0"
-          dir="ltr"
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && canSend) handleSendOtp();
-          }}
-        />
-        <button
-          onClick={handleSendOtp}
-          disabled={!canSend || isLoading}
-          className="flex-shrink-0 w-9 h-9 rounded-xl bg-primary flex items-center justify-center disabled:opacity-40 transition-opacity"
-        >
-          {isLoading ? (
-            <span
-              className="material-symbols-outlined text-white animate-spin"
-              style={{ fontSize: '18px' }}
-            >
-              progress_activity
-            </span>
-          ) : (
-            <span
-              className="material-symbols-outlined text-white"
-              style={{ fontSize: '22px' }}
-            >
-              chevron_right
-            </span>
-          )}
-        </button>
-      </div>
+    <div className="animate-fade-in w-full flex items-center gap-2 border-2 border-primary rounded-2xl px-3 py-2.5 transition-colors">
+      <button
+        onClick={handleSendOtp}
+        disabled={!canSend || isLoading}
+        className="flex-shrink-0 bg-primary text-white text-xs font-bold px-3 py-1.5 rounded-xl disabled:opacity-40 active:scale-95 transition-all whitespace-nowrap"
+      >
+        {isLoading ? (
+          <span className="material-symbols-outlined animate-spin" style={{ fontSize: '14px' }}>
+            progress_activity
+          </span>
+        ) : (
+          isHe ? 'שלח קוד' : 'Send code'
+        )}
+      </button>
+      <div className="w-px h-4 bg-border flex-shrink-0" />
+      <input
+        ref={phoneInputRef}
+        type="tel"
+        value={phone}
+        onChange={(e) => setPhone(formatPhone(e.target.value))}
+        placeholder={t.auth.phonePlaceholder}
+        className="flex-1 bg-transparent border-none outline-none text-sm text-text-primary placeholder:text-text-muted min-w-0"
+        dir="ltr"
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' && canSend) handleSendOtp();
+        }}
+      />
+      <div className="w-px h-4 bg-border flex-shrink-0" />
+      <span className="text-xs text-text-secondary font-medium flex-shrink-0">+972</span>
+      <span className="text-base flex-shrink-0">🇮🇱</span>
     </div>
   );
 

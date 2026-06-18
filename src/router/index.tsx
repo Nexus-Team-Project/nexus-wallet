@@ -35,6 +35,7 @@ const PremiumRevealPage  = lazy(() => import('../pages/PremiumRevealPage'));
 const PremiumPage        = lazy(() => import('../pages/PremiumPage'));
 const CategoryPage       = lazy(() => import('../pages/CategoryPage'));
 const BusinessPage       = lazy(() => import('../pages/BusinessPage'));
+const TenantPage         = lazy(() => import('../pages/TenantPage'));
 const BusinessStorePage  = lazy(() => import('../pages/BusinessStorePage'));
 const BusinessSitePage   = lazy(() => import('../pages/BusinessSitePage'));
 const BusinessProductPage  = lazy(() => import('../pages/BusinessProductPage'));
@@ -140,6 +141,7 @@ export const router = createBrowserRouter([
           { path: 'premium-reveal',   element: <S><PremiumRevealPage /></S> },
           { path: 'premium',          element: <S><PremiumPage /></S> },
           { path: 'card-issuance',    element: <S><CardIssuanceStoriesPage /></S> },
+          { path: 'club',             element: <S><TenantPage /></S> },
           { path: 'category/:categoryId', element: <S><CategoryPage /></S> },
           { path: 'business/:businessId', element: <S><BusinessPage /></S> },
           { path: 'business/:businessId/store', element: <S><BusinessStorePage /></S> },
@@ -152,6 +154,7 @@ export const router = createBrowserRouter([
           { path: 'business/:businessId/product/:productId/order-confirmed', element: <S><OrderConfirmationPage /></S> },
           { path: 'business/:businessId/product/:productId/receipt', element: <S><ReceiptPage /></S> },
           { path: 'business/:businessId/voucher/:voucherId', element: <S><VoucherPurchasePage /></S> },
+          { path: 'business/:businessId/voucher/:voucherId/gift', element: <S><GiftDetailsPage /></S> },
           { path: 'wallet/add-money',          element: <S><AddMoneyPage /></S> },
           { path: 'wallet/add-money/source',   element: <S><AddMoneySourcePage /></S> },
           { path: 'wallet/add-money/loading',  element: <S><AddMoneyLoadingPage /></S> },

@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { useInViewVideo } from '../../hooks/useInViewVideo';
 
@@ -30,8 +31,18 @@ interface CategoryRowStoreProps {
   variant?: 'light' | 'dark';
   /** Promo copy shown in the outer card's foot. */
   promo?: { saveLabel: string; condition: string };
+  /** Top-corner brand lockup: a square logo tile + title (e.g. a tenant club
+   *  header), pinned to the top-start corner of the card. */
+  topLogo?: string;
+  topTitle?: string;
+  /** Optional sky pill shown ABOVE the top title (e.g. "Learn more"). */
+  topBadge?: { label: string; onClick?: () => void };
+  /** When set, the top logo + title become a button (e.g. open the tenant page). */
+  onTopClick?: () => void;
   /** Background media for the inner card (video wins over image, image over gradient). */
   bgVideo?: string;
+  /** Playback speed for `bgVideo` (e.g. 2 = 2× / fast hyperlapse feel). */
+  bgVideoRate?: number;
   bgImage?: string;
   /** Animated colourful gradient background (CSS, no file) — drifts slowly. */
   bgGradient?: string;
@@ -50,6 +61,61 @@ interface CategoryRowStoreProps {
   cta?: { label: string; onClick: () => void };
   /** "See all" / "Shop all" handler. */
   onSeeAll?: () => void;
+}
+
+/**
+ * LazyProductTile — shows a skeleton placeholder until the tile enters the
+ * horizontal scroll container's visible area, then fades in the real content.
+ * The IntersectionObserver root is the scroll container, so items 1-2 tiles
+ * off-screen stay as skeleton and reveal as the user swipes right.
+ */
+function LazyProductTile({
+  children,
+  scrollRoot,
+  index,
+}: {
+  children: ReactNode
+  scrollRoot: RefObject<HTMLDivElement | null>
+  index: number
+}) {
+  const ref = useRef<HTMLDivElement>(null)
+  const [visible, setVisible] = useState(false)
+
+  useEffect(() => {
+    const el = ref.current
+    const root = scrollRoot.current
+    if (!el || !root) return
+    const obs = new IntersectionObserver(
+      ([e]) => {
+        if (e.isIntersecting) { setVisible(true); obs.disconnect() }
+      },
+      { root, rootMargin: '0px 80px 0px 80px', threshold: 0 },
+    )
+    obs.observe(el)
+    return () => obs.disconnect()
+  }, [scrollRoot])
+
+  return (
+    <div ref={ref} className="shrink-0 w-[132px]">
+      {visible ? (
+        <div
+          className="animate-fade-in"
+          style={{
+            animationDelay: `${Math.min(index, 5) * 40}ms`,
+            animationFillMode: 'backwards',
+          }}
+        >
+          {children}
+        </div>
+      ) : (
+        /* Skeleton matches the tile: 132px wide, 3/4 aspect image + text bar */
+        <div>
+          <div className="w-full aspect-[3/4] rounded-2xl bg-white/20 animate-pulse" />
+          <div className="mt-2 h-3 w-4/5 rounded bg-white/20 animate-pulse" />
+        </div>
+      )}
+    </div>
+  )
 }
 
 // Pick a legible text colour (near-black / white) for a given hex background.
@@ -84,7 +150,12 @@ export default function CategoryRowStore({
   accentColor = '#3a3a3a',
   variant = 'dark',
   promo,
+  topLogo,
+  topTitle,
+  topBadge,
+  onTopClick,
   bgVideo,
+  bgVideoRate,
   bgImage,
   bgGradient,
   mediaPosition = 'center',
@@ -97,8 +168,9 @@ export default function CategoryRowStore({
   const { language } = useLanguage();
   const isHe = language === 'he';
   const isDark = variant === 'dark';
-  // Background video only plays while the card is in view (see hook).
   const videoRef = useInViewVideo<HTMLVideoElement>();
+  // Root for per-tile IntersectionObserver — items outside this container stay as skeleton.
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   const outerText = readableText(accentColor);
   const arrow = isHe ? 'arrow_back' : 'arrow_forward';
@@ -134,6 +206,8 @@ export default function CategoryRowStore({
             aria-hidden
             className="absolute inset-0 w-full h-full object-cover"
             style={{ objectPosition: mediaPosition }}
+            onLoadedMetadata={bgVideoRate ? (e) => { e.currentTarget.playbackRate = bgVideoRate; } : undefined}
+            onPlay={bgVideoRate ? (e) => { e.currentTarget.playbackRate = bgVideoRate; } : undefined}
           />
         ) : bgImage ? (
           <img
@@ -155,6 +229,58 @@ export default function CategoryRowStore({
           />
         ) : null}
         <div className="absolute inset-0" aria-hidden style={{ background: overlay }} />
+
+        {/* Top brand lockup — an optional semi-transparent "learn more" pill
+            sits ABOVE the square logo tile + title, pinned top-start (so the
+            pill aligns to the logo's edge and can overflow toward the title). */}
+        {topTitle && (
+          <div className="absolute top-3 z-10 flex flex-col items-start gap-2" style={{ insetInlineStart: 16 }}>
+            {topBadge && (
+              <button
+                type="button"
+                onClick={topBadge.onClick}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-white/20 backdrop-blur-md text-white px-3.5 py-1.5 text-xs font-semibold shadow-sm active:scale-95 transition-transform"
+              >
+                <span className="material-symbols-rounded" style={{ fontSize: 15 }}>info</span>
+                {topBadge.label}
+              </button>
+            )}
+            {(() => {
+              const inner = (
+                <>
+                  {topLogo && (
+                    <span className="w-12 h-12 rounded-xl bg-white flex items-center justify-center overflow-hidden shadow-md shrink-0">
+                      <img
+                        src={topLogo}
+                        alt=""
+                        aria-hidden
+                        className="w-full h-full object-contain"
+                        onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                      />
+                    </span>
+                  )}
+                  <span
+                    className="text-lg font-bold text-white whitespace-nowrap"
+                    style={{ textShadow: '0 1px 8px rgba(0,0,0,0.45)' }}
+                  >
+                    {topTitle}
+                  </span>
+                </>
+              );
+              return onTopClick ? (
+                <button
+                  type="button"
+                  onClick={onTopClick}
+                  className="flex items-center gap-3 active:scale-95 transition-transform"
+                >
+                  {inner}
+                </button>
+              ) : (
+                <div className="flex items-center gap-3">{inner}</div>
+              );
+            })()}
+          </div>
+        )}
 
         {/* "More" affordance, top corner — kept when the title is in the media
             (there's no header row in that mode). */}
@@ -196,45 +322,45 @@ export default function CategoryRowStore({
           )}
 
           {/* Category ROW — horizontal scrolling product tiles */}
-          <div className="flex gap-3 overflow-x-auto hide-scrollbar -mx-1 px-1 pb-1">
-            {items.map((it) => (
-              <button
-                key={it.id}
-                type="button"
-                onClick={it.onClick}
-                className="shrink-0 w-[132px] text-start active:scale-[0.98] transition-transform"
-              >
-                <div className="relative w-full aspect-[3/4] rounded-2xl overflow-hidden bg-white/10 flex items-center justify-center">
-                  {it.image ? (
-                    <img
-                      src={it.image}
-                      alt={isHe ? it.nameHe : it.name}
-                      className={`w-full h-full object-cover ${blurItems ? 'blur-[10px] scale-110' : ''}`}
-                      onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
-                    />
-                  ) : it.emoji ? (
-                    <span aria-hidden style={{ fontSize: 44, lineHeight: 1, filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.25))' }}>
-                      {it.emoji}
-                    </span>
-                  ) : null}
-                  {/* Frosted-glass veil — locked teaser for unverified users. */}
-                  {blurItems && <div aria-hidden className="absolute inset-0 bg-white/15" />}
-                  {it.price != null && (
-                    <span
-                      className="absolute top-2 px-2 py-0.5 rounded bg-black/40 backdrop-blur-sm text-[10px] font-bold text-white"
-                      style={{ insetInlineStart: 8 }}
-                      dir="ltr"
-                    >
-                      {it.currency}{it.price}
-                    </span>
+          <div ref={scrollRef} className="flex gap-3 overflow-x-auto hide-scrollbar -mx-1 px-1 pb-1">
+            {items.map((it, index) => (
+              <LazyProductTile key={it.id} scrollRoot={scrollRef} index={index}>
+                <button
+                  type="button"
+                  onClick={it.onClick}
+                  className="w-[132px] text-start active:scale-[0.98] transition-transform"
+                >
+                  <div className="relative w-full aspect-[3/4] rounded-2xl overflow-hidden bg-white/10 flex items-center justify-center">
+                    {it.image ? (
+                      <img
+                        src={it.image}
+                        alt={isHe ? it.nameHe : it.name}
+                        className={`w-full h-full object-cover ${blurItems ? 'blur-[10px] scale-110' : ''}`}
+                        onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                      />
+                    ) : it.emoji ? (
+                      <span aria-hidden style={{ fontSize: 44, lineHeight: 1, filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.25))' }}>
+                        {it.emoji}
+                      </span>
+                    ) : null}
+                    {blurItems && <div aria-hidden className="absolute inset-0 bg-white/15" />}
+                    {it.price != null && (
+                      <span
+                        className="absolute top-2 px-2 py-0.5 rounded bg-black/40 backdrop-blur-sm text-[10px] font-bold text-white"
+                        style={{ insetInlineStart: 8 }}
+                        dir="ltr"
+                      >
+                        {it.currency}{it.price}
+                      </span>
+                    )}
+                  </div>
+                  {!blurItems && (
+                    <p className="mt-2 text-[13px] font-semibold text-white truncate leading-tight">
+                      {isHe ? it.nameHe : it.name}
+                    </p>
                   )}
-                </div>
-                {!blurItems && (
-                  <p className="mt-2 text-[13px] font-semibold text-white truncate leading-tight">
-                    {isHe ? it.nameHe : it.name}
-                  </p>
-                )}
-              </button>
+                </button>
+              </LazyProductTile>
             ))}
           </div>
 

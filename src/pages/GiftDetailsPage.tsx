@@ -36,7 +36,7 @@ export interface GiftDetails {
 const MAX_MESSAGE = 200;
 
 export default function GiftDetailsPage() {
-  const { businessId, productId } = useParams<{ businessId: string; productId: string }>();
+  const { businessId, productId, voucherId } = useParams<{ businessId: string; productId?: string; voucherId?: string }>();
   const navigate = useNavigate();
   const location = useLocation();
   const { language } = useLanguage();
@@ -90,7 +90,10 @@ export default function GiftDetailsPage() {
   const [previewOpen, setPreviewOpen] = useState(false);
   const [revealed, setRevealed] = useState(false);
 
-  if (!business || !product) return <Navigate to=".." replace />;
+  // Voucher context — no product needed; navigate back to voucher page instead
+  const isVoucherContext = !!voucherId;
+
+  if (!business || (!product && !isVoucherContext)) return <Navigate to=".." replace />;
 
   // The recipient name + a valid-ish phone are the gates for saving.
   const phoneDigits = recipientPhone.replace(/\D/g, '');
@@ -98,7 +101,11 @@ export default function GiftDetailsPage() {
 
   // The card the recipient will see — drives the preview screen.
   const selectedCard = cards.find((c) => c.id === cardId) ?? cards[0];
-  const productName = isHe ? product.nameHe : product.name;
+  const productName = product ? (isHe ? product.nameHe : product.name) : '';
+
+  const returnPath = isVoucherContext
+    ? `/${language}/business/${business!.id}/voucher/${voucherId}`
+    : `/${language}/business/${business!.id}/product/${product!.id}/checkout`;
 
   const handleSave = () => {
     if (!canSave) return;
@@ -109,10 +116,7 @@ export default function GiftDetailsPage() {
       recipientName: recipientName.trim(),
       recipientPhone,
     };
-    navigate(
-      `/${language}/business/${business.id}/product/${product.id}/checkout`,
-      { state: { qty, color, gift } },
-    );
+    navigate(returnPath, { state: { qty, color, gift } });
   };
 
   // Pick a recipient from the device contacts where the Contact Picker API is
@@ -133,12 +137,9 @@ export default function GiftDetailsPage() {
     }
   };
 
-  // Discard the gift entirely and return to checkout without it.
+  // Discard the gift entirely and return to the originating page without it.
   const handleDelete = () => {
-    navigate(
-      `/${language}/business/${business.id}/product/${product.id}/checkout`,
-      { state: { qty, color } },
-    );
+    navigate(returnPath, { state: { qty, color } });
   };
 
   const sectionTitle = 'text-xl font-extrabold text-text-primary mb-5';

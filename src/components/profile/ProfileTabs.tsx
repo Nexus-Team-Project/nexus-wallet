@@ -8,10 +8,8 @@ interface ProfileTabsProps {
   onChange: (tab: ProfileTab) => void;
 }
 
-const TABS: { key: ProfileTab; labelKey: 'tabActivity' | 'tabSaved' | 'tabHelp' | 'tabSettings' }[] = [
+const TABS: { key: ProfileTab; labelKey: 'tabActivity' | 'tabSettings' }[] = [
   { key: 'activity', labelKey: 'tabActivity' },
-  { key: 'saved',    labelKey: 'tabSaved' },
-  { key: 'help',     labelKey: 'tabHelp' },
   { key: 'settings', labelKey: 'tabSettings' },
 ];
 

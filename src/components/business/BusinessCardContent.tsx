@@ -22,6 +22,8 @@ interface BusinessCardContentProps {
   /** Optional store-action buttons rendered just under the offers slider.
    *  Only the business page passes these; the search-sheet reuse omits them. */
   storeActions?: ReactNode;
+  /** Club-page variant: omit the stories row and the offers (benefits) slider. */
+  club?: boolean;
 }
 
 /**
@@ -30,9 +32,10 @@ interface BusinessCardContentProps {
  * (AiChatPage) and on the business page itself — single source of truth, so the
  * two never drift apart.
  */
-export default function BusinessCardContent({ business, storeActions }: BusinessCardContentProps) {
+export default function BusinessCardContent({ business, storeActions, club }: BusinessCardContentProps) {
   const navigate = useNavigate();
   const { language } = useLanguage();
+  const isHe = language === 'he';
 
   const branches = useMemo(
     () => mockBranches.filter((b) => b.businessId === business.id),
@@ -42,6 +45,9 @@ export default function BusinessCardContent({ business, storeActions }: Business
     () => mockVouchers.filter((v) => v.merchantName === business.name),
     [business.name],
   );
+  // Club benefits = a spread of partner offers (the synthetic club name matches
+  // no merchant, so fall back to a sample of all vouchers).
+  const clubBenefits = useMemo(() => mockVouchers.slice(0, 8), []);
   const reviews = useMemo(
     () => mockReviews.filter((r) => r.businessId === business.id),
     [business.id],
@@ -49,14 +55,16 @@ export default function BusinessCardContent({ business, storeActions }: Business
 
   return (
     <>
-      {/* Stories row */}
-      <StoriesRow business={business} />
+      {/* Stories row — hidden on the club variant. */}
+      {!club && <StoriesRow business={business} />}
 
-      {/* Offers slider */}
+      {/* Offers slider. On the club variant it becomes the tenant's benefits,
+          titled "הטבות {tenant}" and fed with the partner offers. */}
       <div id="offers-section">
         <OffersSlider
-          vouchers={vouchers}
+          vouchers={club ? clubBenefits : vouchers}
           business={business}
+          title={club ? (isHe ? `הטבות ${business.nameHe}` : `${business.name} Benefits`) : undefined}
           onSelect={(v: Voucher) => navigate(`/${language}/business/${business.id}/voucher/${v.id}`)}
         />
       </div>

@@ -1,4 +1,4 @@
-import { createContext, useContext, useMemo, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useMemo, type ReactNode } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { translations } from './translations';
 import type { Language, Direction, TranslationKeys } from './types';
@@ -24,14 +24,26 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
 
   const t = useMemo(() => translations[language], [language]);
 
-  const setLanguage = (newLang: Language) => {
-    const currentPath = location.pathname;
-    const newPath = currentPath.replace(`/${language}`, `/${newLang}`);
-    navigate(newPath);
-  };
+  const setLanguage = useCallback(
+    (newLang: Language) => {
+      const currentPath = location.pathname;
+      const newPath = currentPath.replace(`/${language}`, `/${newLang}`);
+      navigate(newPath);
+    },
+    [language, location.pathname, navigate],
+  );
+
+  // Memoised so the context value is referentially stable across renders —
+  // otherwise every one of the ~120 `useLanguage()` consumers re-renders on
+  // any provider render (e.g. a route change), even when the language is
+  // unchanged.
+  const value = useMemo(
+    () => ({ language, direction, t, setLanguage, isRTL }),
+    [language, direction, t, setLanguage, isRTL],
+  );
 
   return (
-    <LanguageContext.Provider value={{ language, direction, t, setLanguage, isRTL }}>
+    <LanguageContext.Provider value={value}>
       <div dir={direction} className={isRTL ? 'font-hebrew' : 'font-sans'}>
         {children}
       </div>

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuthGate } from '../../hooks/useAuthGate';
 import { useAuthStore } from '../../stores/authStore';
@@ -30,7 +30,7 @@ interface TopBarProps {
   hideGreeting?: boolean;
 }
 
-export default function TopBar({ collapsed = false, showBack = false, hideGreeting = false }: TopBarProps) {
+function TopBar({ collapsed = false, showBack = false, hideGreeting = false }: TopBarProps) {
   const internalRef = useRef<HTMLElement>(null);
 
   const { lang = 'he' } = useParams();
@@ -254,3 +254,5 @@ export default function TopBar({ collapsed = false, showBack = false, hideGreeti
     </header>
   );
 }
+
+export default memo(TopBar);

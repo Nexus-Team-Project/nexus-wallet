@@ -19,18 +19,14 @@ export default function ProfileHeader() {
   // The name typed during login/registration is the source of truth —
   // it overrides whatever the mock /me endpoint returns.
   const authFirstName = useAuthStore((s) => s.firstName);
-  // Live-bound org name — updates instantly when the picker writes to
-  // the auth store, so the pill re-renders with the new selection.
-  const authOrgName = useAuthStore((s) => s.organizationName);
   const firstName = authFirstName ?? user?.firstName;
   const lastName = user?.lastName;
-  const orgName = authOrgName ?? user?.organizationName;
 
   const [pickerOpen, setPickerOpen] = useState(false);
 
   if (isLoading) {
     return (
-      <section className="px-4 pt-6 pb-16 flex flex-col items-center">
+      <section className="px-4 pt-6 pb-4 flex flex-col items-center">
         <Skeleton variant="circular" className="w-24 h-24 mb-4" />
         <Skeleton className="h-7 w-40 mb-2 rounded" />
         <Skeleton className="h-4 w-52 mb-4 rounded" />
@@ -43,7 +39,7 @@ export default function ProfileHeader() {
   const initials = `${firstName?.[0] ?? ''}${lastName?.[0] ?? ''}`.toUpperCase();
 
   return (
-    <section className="px-4 pt-6 pb-16 flex flex-col items-center">
+    <section className="px-4 pt-6 pb-4 flex flex-col items-center">
       <div className="relative mb-4">
         {/* 96px disc — thick white ring separates it from the page bg. */}
         <div className="w-24 h-24 rounded-full overflow-hidden ring-4 ring-white bg-primary/10 flex items-center justify-center">
@@ -74,32 +70,6 @@ export default function ProfileHeader() {
       {user?.email && (
         <p className="text-sm text-text-muted mt-1 text-center">{user.email}</p>
       )}
-      {/* Organization pill — opens the same picker the auth flow uses. */}
-      {orgName && (
-        <button
-          type="button"
-          aria-label="Switch organization"
-          onClick={() => setPickerOpen(true)}
-          className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white border border-border shadow-sm hover:bg-surface active:scale-[0.98] transition-all"
-        >
-          <span
-            className="material-symbols-outlined text-primary"
-            style={{ fontSize: 18, fontVariationSettings: "'FILL' 1" }}
-          >
-            apartment
-          </span>
-          <span className="text-sm font-semibold text-text-primary truncate max-w-[180px]">
-            {orgName}
-          </span>
-          <span
-            className="material-symbols-outlined text-text-muted"
-            style={{ fontSize: 18 }}
-          >
-            unfold_more
-          </span>
-        </button>
-      )}
-
       <OrgPickerSheet isOpen={pickerOpen} onClose={() => setPickerOpen(false)} />
     </section>
   );

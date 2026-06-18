@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Map as MapLibreMap, Marker, Popup, NavigationControl } from 'react-map-gl/maplibre';
 import type { MapRef, ViewStateChangeEvent } from 'react-map-gl/maplibre';
+import { initMapLibre } from '../../lib/maplibre-init';
+
+// Runs once when this lazy chunk first loads — before any Map instance renders.
+initMapLibre();
 import OfferPinMarker from './OfferPinMarker';
 import MapControls from './MapControls';
 import ClusterLayer from './ClusterLayer';

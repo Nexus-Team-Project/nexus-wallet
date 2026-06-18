@@ -313,21 +313,6 @@ export default function SupportChatButton({ variant, onClick, isTyping = true }:
                 reads as "AI is live and available". `pointer-events-none`
                 keeps it from being a stray flex item competing for
                 centring. */}
-            <span
-              aria-hidden="true"
-              // Sits on top of the FAB's top-right edge so it reads as
-              // a badge overlay, not a tag clipped inside the disc.
-              // Negative offsets push half of the dot beyond the
-              // FAB's bounding circle.
-              className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-violet-500 border-2 border-white shadow-sm pointer-events-none ai-fab-blink z-10"
-            />
-            <style>{`
-              @keyframes aiFabBlink {
-                0%, 100% { opacity: 1; transform: scale(1); }
-                50%      { opacity: 0.55; transform: scale(0.88); }
-              }
-              .ai-fab-blink { animation: aiFabBlink 1.6s ease-in-out infinite; }
-            `}</style>
           </>
         ) : (
           <>

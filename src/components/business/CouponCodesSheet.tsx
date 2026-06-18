@@ -9,6 +9,8 @@ interface CouponCodesSheetProps {
   codes: CouponCode[];
   /** Copy the code and jump to the embedded supplier site. */
   onUseCode: (code: CouponCode) => void;
+  /** Opens the "how it works" explainer. */
+  onHelp?: () => void;
 }
 
 /**
@@ -22,6 +24,7 @@ export default function CouponCodesSheet({
   onClose,
   codes,
   onUseCode,
+  onHelp,
 }: CouponCodesSheetProps) {
   const { language } = useLanguage();
   const isHe = language === 'he';
@@ -126,9 +129,21 @@ export default function CouponCodesSheet({
             <div className="flex justify-center pb-4">
               <div className="w-10 h-1.5 bg-border rounded-full" />
             </div>
-            <h2 className="text-lg font-bold text-text-primary leading-tight">
-              {isHe ? 'קודי קופון' : 'Coupon codes'}
-            </h2>
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-bold text-text-primary leading-tight">
+                {isHe ? 'קודי קופון' : 'Coupon codes'}
+              </h2>
+              {onHelp && (
+                <button
+                  type="button"
+                  onClick={onHelp}
+                  aria-label={isHe ? 'איך זה עובד' : 'How it works'}
+                  className="w-8 h-8 flex items-center justify-center active:scale-95 transition-transform"
+                >
+                  <span className="material-symbols-rounded text-text-muted" style={{ fontSize: 20 }}>help</span>
+                </button>
+              )}
+            </div>
             <p className="text-xs text-text-muted mt-1">
               {isHe
                 ? 'העתיקו קוד ועברו לאתר הספק כדי לממש'

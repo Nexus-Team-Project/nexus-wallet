@@ -31,3 +31,6 @@ scripts/serviceAccountKey.json
 
 # Python bytecode cache
 __pycache__/
+
+# Local media backups (pre-compression originals)
+.media-backup/

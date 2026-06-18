@@ -1,4 +1,53 @@
-import type { ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
+
+/**
+ * Samples the dominant colour of an image (downscaled to a tiny canvas,
+ * averaging the non-white / non-black / opaque pixels) so the tile's foot can
+ * fade into the image's own hue instead of a uniform white. Uses a detached
+ * crossOrigin image so a CORS failure just leaves the fade white (the visible
+ * <img> is unaffected). Returns a pale, text-safe tint mixed toward white.
+ */
+function useDominantTint(src?: string): { r: number; g: number; b: number } | null {
+  const [tint, setTint] = useState<{ r: number; g: number; b: number } | null>(null);
+  useEffect(() => {
+    setTint(null);
+    if (!src) return;
+    let cancelled = false;
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      try {
+        const S = 24;
+        const canvas = document.createElement('canvas');
+        canvas.width = S;
+        canvas.height = S;
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        if (!ctx) return;
+        ctx.drawImage(img, 0, 0, S, S);
+        const { data } = ctx.getImageData(0, 0, S, S);
+        let r = 0, g = 0, b = 0, n = 0;
+        for (let i = 0; i < data.length; i += 4) {
+          if (data[i + 3] < 128) continue;
+          const R = data[i], G = data[i + 1], B = data[i + 2];
+          const lum = (R * 299 + G * 587 + B * 114) / 1000;
+          if (lum > 242 || lum < 12) continue; // skip near-white / near-black
+          r += R; g += G; b += B; n++;
+        }
+        if (!n || cancelled) return;
+        // Pale, text-safe: 30% dominant hue mixed into 70% white.
+        const mix = (c: number) => Math.round((c / n) * 0.3 + 255 * 0.7);
+        setTint({ r: mix(r), g: mix(g), b: mix(b) });
+      } catch {
+        /* tainted canvas (CORS) — keep the white fade */
+      }
+    };
+    img.src = src;
+    return () => {
+      cancelled = true;
+    };
+  }, [src]);
+  return tint;
+}
 
 interface StoreTileProps {
   /** Background image (a single colourful item works best). */
@@ -32,6 +81,11 @@ export default function StoreTile({
   disabled,
   children,
 }: StoreTileProps) {
+  const tint = useDominantTint(image);
+  // Foot fade — the image's own dominant hue (pale, so dark foot text stays
+  // readable) instead of a uniform white for every tile.
+  const { r, g, b } = tint ?? { r: 240, g: 240, b: 240 };
+  const footFade = `linear-gradient(to top, rgba(${r},${g},${b},1) 0%, rgba(${r},${g},${b},1) 65%, rgba(${r},${g},${b},0.75) 82%, rgba(${r},${g},${b},0) 100%)`;
   return (
     <div
       onClick={disabled ? undefined : onClick}
@@ -54,12 +108,12 @@ export default function StoreTile({
 
       {/* Brand logo — cut-out, centered over the visible image area */}
       {logoUrl && (
-        <div className="absolute inset-x-0 top-0 bottom-[40%] flex items-center justify-center px-3">
+        <div className="absolute inset-x-0 top-[15%] bottom-[35%] flex items-center justify-center px-3 z-10">
           <img
             src={logoUrl}
             alt=""
             aria-hidden
-            className="max-h-[46px] max-w-[80%] object-contain"
+            className="max-h-[64px] max-w-[85%] object-contain"
             style={{ filter: 'drop-shadow(0 1px 4px rgba(0,0,0,0.35))' }}
           />
         </div>
@@ -77,14 +131,18 @@ export default function StoreTile({
         </button>
       )}
 
-      {/* Faded (white) bottom of the image */}
+      {/* Faded top — subtle vignette */}
       <div
         aria-hidden
-        className="absolute inset-x-0 bottom-0 h-2/5"
-        style={{
-          background:
-            'linear-gradient(to top, rgba(255,255,255,0.96) 0%, rgba(255,255,255,0.75) 38%, rgba(255,255,255,0) 100%)',
-        }}
+        className="absolute inset-x-0 top-0 h-1/3"
+        style={{ background: `linear-gradient(to bottom, rgba(${r},${g},${b},0.45) 0%, rgba(${r},${g},${b},0) 100%)` }}
+      />
+
+      {/* Faded bottom — the image's dominant hue */}
+      <div
+        aria-hidden
+        className="absolute inset-x-0 bottom-0 h-4/5"
+        style={{ background: footFade }}
       />
 
       {/* Bottom content */}

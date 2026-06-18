@@ -271,9 +271,9 @@ export default function AddressSheet({
           <AnimatePresence>
             {adding && formStep === 'country' && (
               <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto', transition: { duration: 0.22, ease: 'easeOut' } }}
-                exit={{ opacity: 0, height: 0, transition: { duration: 0.15, ease: 'easeIn' } }}
+                initial={{ opacity: 0, maxHeight: 0 }}
+                animate={{ opacity: 1, maxHeight: 500, transition: { duration: 0.22, ease: 'easeOut' } }}
+                exit={{ opacity: 0, maxHeight: 0, transition: { duration: 0.15, ease: 'easeIn' } }}
                 className="flex-shrink-0 overflow-hidden px-6 pb-3 border-b border-border/50"
               >
                 <div className="flex items-center gap-2 bg-surface rounded-2xl px-3 h-10">

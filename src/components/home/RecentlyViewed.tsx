@@ -172,8 +172,8 @@ export default function RecentlyViewed() {
 
       {/* Footer — big title + arrow */}
       <div className="mt-4 flex items-end justify-between">
-        <h2 className="text-[28px] font-semibold leading-[1.05] tracking-tight">
-          {isHe ? 'נצפו' : 'Recently'}<br />{isHe ? 'לאחרונה' : 'viewed'}
+        <h2 className="text-[28px] font-semibold leading-[1.05] tracking-tight whitespace-nowrap">
+          {isHe ? 'נצפו לאחרונה' : 'Recently viewed'}
         </h2>
         <button
           onClick={() => navigate(`/${lang}/store`)}

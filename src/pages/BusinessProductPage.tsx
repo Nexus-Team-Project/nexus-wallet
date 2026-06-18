@@ -317,11 +317,17 @@ export default function BusinessProductPage() {
           key={fl.id}
           src={product.image}
           aria-hidden
-          initial={{ top: fl.top, left: fl.left, width: fl.w, height: fl.h, borderRadius: 24, opacity: 1 }}
-          animate={{ top: fl.endY, left: fl.endX, width: 28, height: 28, borderRadius: 999, opacity: 0.35 }}
+          initial={{
+            x: fl.left + fl.w / 2 - (fl.endX + 14),
+            y: fl.top + fl.h / 2 - (fl.endY + 14),
+            scale: fl.w / 28,
+            borderRadius: 24,
+            opacity: 1,
+          }}
+          animate={{ x: 0, y: 0, scale: 1, borderRadius: 999, opacity: 0.35 }}
           transition={{ duration: 0.75, ease: [0.16, 1, 0.3, 1] }}
           onAnimationComplete={() => setFlyers((f) => f.filter((x) => x.id !== fl.id))}
-          style={{ position: 'fixed', zIndex: 70, objectFit: 'cover', pointerEvents: 'none' }}
+          style={{ position: 'fixed', left: fl.endX, top: fl.endY, width: 28, height: 28, zIndex: 70, objectFit: 'cover', pointerEvents: 'none' }}
         />
       ))}
 

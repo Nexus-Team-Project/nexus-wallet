@@ -1,4 +1,4 @@
-import {} from 'react';
+import { memo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { mockBusinesses } from '../../mock/data/businesses.mock';
@@ -39,17 +39,23 @@ function getUniqueCategories() {
   });
 }
 
+// `mockBusinesses` is a static import, so the unique-category list is constant
+// for the life of the bundle. Compute it once at module load instead of
+// re-filtering 50+ businesses on every render (this row re-renders on every
+// scroll tick via its `collapsed` prop).
+const CATEGORIES = getUniqueCategories();
+
 interface CategoryRowProps {
   collapsed?: boolean;
   loading?: boolean;
 }
 
-export default function CategoryRow({ collapsed = false, loading = false }: CategoryRowProps) {
+function CategoryRow({ collapsed = false, loading = false }: CategoryRowProps) {
   const { language } = useLanguage();
   const { lang = 'he' } = useParams();
   const navigate = useNavigate();
   const isHe = language === 'he';
-  const categories = getUniqueCategories();
+  const categories = CATEGORIES;
 
   if (loading) {
     return (
@@ -154,3 +160,5 @@ export default function CategoryRow({ collapsed = false, loading = false }: Cate
     </div>
   );
 }
+
+export default memo(CategoryRow);

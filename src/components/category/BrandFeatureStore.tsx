@@ -4,6 +4,7 @@ import { useLanguage } from '../../i18n/LanguageContext';
 import { useInViewVideo } from '../../hooks/useInViewVideo';
 import { brandBgColors } from '../../utils/brandColors';
 import StoreActionsSheet from '../home/StoreActionsSheet';
+import ProductPager from './ProductPager';
 import type { Business } from '../../types/search.types';
 
 interface BrandFeatureStoreProps {
@@ -16,6 +17,9 @@ interface BrandFeatureStoreProps {
   /** Short related background clip (muted, autoplay, looped). Falls back to the
    *  brand's hero image when not provided. */
   bgVideo?: string;
+  /** Force square product tiles (like the light/H&M layout) even in the dark
+   *  variant, instead of the default 3/4 portrait tiles. */
+  squareProducts?: boolean;
 }
 
 // Pick a legible text colour (near-black / white) for a given hex background.
@@ -35,7 +39,7 @@ function readableText(hex: string): string {
  * INNER card (the product grid + "Shop all"), with a promo line in the outer
  * card's foot — a card-within-a-card. The outer colour varies per store.
  */
-export default function BrandFeatureStore({ business, variant = 'light', promo, bgVideo }: BrandFeatureStoreProps) {
+export default function BrandFeatureStore({ business, variant = 'light', promo, bgVideo, squareProducts = false }: BrandFeatureStoreProps) {
   const navigate = useNavigate();
   const { lang = 'he' } = useParams();
   const { language } = useLanguage();
@@ -44,8 +48,10 @@ export default function BrandFeatureStore({ business, variant = 'light', promo, 
   // Background video only plays while the card is in view (see hook).
   const videoRef = useInViewVideo<HTMLVideoElement>();
   const [menuOpen, setMenuOpen] = useState(false);
+  // Follow state — same toggle logic as the business page's follow button.
+  const [following, setFollowing] = useState(false);
 
-  const products = (business.products ?? []).filter((p) => p.image).slice(0, 4);
+  const allProducts = (business.products ?? []).filter((p) => p.image);
   const arrow = isHe ? 'arrow_back' : 'arrow_forward';
 
   const openStore = () => navigate(`/${lang}/business/${business.id}/store`);
@@ -120,26 +126,42 @@ export default function BrandFeatureStore({ business, variant = 'light', promo, 
                 {business.name}
               </h2>
             )}
-            <button type="button" onClick={() => setMenuOpen(true)} aria-label={isHe ? 'פעולות' : 'Actions'} className="active:opacity-60">
-              <span className="material-symbols-rounded block" style={{ fontSize: 24 }}>more_horiz</span>
-            </button>
+            <div className="flex items-center gap-2">
+              {/* Follow — copied from the business page (same toggle logic). */}
+              <button
+                type="button"
+                onClick={() => setFollowing((f) => !f)}
+                className={`h-9 px-4 inline-flex items-center rounded-lg text-sm font-semibold active:scale-95 transition-all ${
+                  following ? 'bg-white text-black' : 'bg-white/20 backdrop-blur-md text-white'
+                }`}
+              >
+                {following ? (isHe ? 'עוקב' : 'Following') : (isHe ? 'עקוב' : 'Follow')}
+              </button>
+              <button type="button" onClick={() => setMenuOpen(true)} aria-label={isHe ? 'פעולות' : 'Actions'} className="active:opacity-60">
+                <span className="material-symbols-rounded block" style={{ fontSize: 24 }}>more_horiz</span>
+              </button>
+            </div>
           </div>
 
-          {/* Product grid */}
-          <div className={`grid grid-cols-2 gap-3 ${isDark ? 'mb-8' : ''}`}>
-            {products.map((p) => (
+          {/* Product pager — discrete batches of 4 (shared ProductPager). */}
+          <ProductPager
+            items={allProducts}
+            className={isDark ? 'mb-8' : 'mb-2'}
+            gridClassName="grid grid-cols-2 gap-3"
+            renderItem={(p) => (
               <button
                 key={p.id}
                 type="button"
                 onClick={() => openProduct(p.id)}
                 className={`relative overflow-hidden rounded-2xl active:scale-[0.98] transition-transform ${
-                  isDark ? 'aspect-[3/4]' : 'bg-white aspect-square'
+                  squareProducts ? 'aspect-square' : isDark ? 'aspect-[3/4]' : 'bg-white aspect-square'
                 }`}
               >
                 <img
                   src={p.image}
                   alt={isHe ? p.nameHe : p.name}
                   className="w-full h-full object-cover"
+                  draggable={false}
                   onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
                 />
                 <span className="absolute top-2 px-2 py-0.5 rounded bg-black/40 backdrop-blur-sm text-[10px] font-bold text-white" style={{ insetInlineStart: 8 }} dir="ltr">
@@ -149,8 +171,8 @@ export default function BrandFeatureStore({ business, variant = 'light', promo, 
                   <span className="material-symbols-rounded block" style={{ fontSize: 16, fontVariationSettings: isDark ? "'FILL' 0" : "'FILL' 1" }}>favorite</span>
                 </span>
               </button>
-            ))}
-          </div>
+            )}
+          />
 
           {/* Shop all */}
           <button type="button" onClick={openStore} className={`w-full flex items-center justify-between active:opacity-70 ${isDark ? '' : 'mt-7'}`}>

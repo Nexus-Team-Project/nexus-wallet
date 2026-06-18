@@ -130,9 +130,11 @@ interface OffersSectionProps {
   vouchers: Voucher[];
   business: Business;
   onSelect: (v: Voucher) => void;
+  /** Override the section heading (e.g. the club's "הטבות {tenant}"). */
+  title?: string;
 }
 
-export function OffersSlider({ vouchers, business, onSelect }: OffersSectionProps) {
+export function OffersSlider({ vouchers, business, onSelect, title }: OffersSectionProps) {
   const { t, language } = useLanguage();
   const isHe = language === 'he';
 
@@ -141,7 +143,7 @@ export function OffersSlider({ vouchers, business, onSelect }: OffersSectionProp
   return (
     <div className="pb-6">
       <div className="flex items-center justify-between px-6 mb-4">
-        <h2 className="text-2xl font-bold text-text-primary">{t.business.offers}</h2>
+        <h2 className="text-2xl font-bold text-text-primary">{title ?? t.business.offers}</h2>
         <button className="px-3 py-1 rounded-md bg-sky-100 text-sky-600 text-xs font-normal hover:bg-sky-200 transition-colors active:scale-95">
           {t.business.allOffers}
         </button>

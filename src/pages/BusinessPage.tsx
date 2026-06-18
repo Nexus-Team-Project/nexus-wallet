@@ -15,6 +15,9 @@ export default function BusinessPage() {
   const { language } = useLanguage();
   const isHe = language === 'he';
   const [couponsOpen, setCouponsOpen] = useState(false);
+  const [couponHelpOpen, setCouponHelpOpen] = useState(false);
+  const [dealHelpOpen, setDealHelpOpen] = useState(false);
+  const [aboutExpanded, setAboutExpanded] = useState(false);
 
   const business = useMemo(
     () => mockBusinesses.find((b) => b.id === businessId),
@@ -44,28 +47,50 @@ export default function BusinessPage() {
     navigate(`/${language}/business/${business.id}/site?code=${encodeURIComponent(c.code)}`);
   };
 
-  // TODO: wire to the "deal on your terms" flow once it exists.
   const handleCreateDeal = () => {
-    console.log('Create a deal on your terms', business.id);
+    const voucherId = vouchers[0]?.id;
+    if (voucherId) {
+      navigate(`/${language}/business/${business.id}/voucher/${voucherId}`);
+    }
   };
 
   // Gray pills (checkout-style), stacked one above the other — rendered just
   // under the offers (benefits) rows inside the business content.
   const storeActions = (
     <div className="px-5 pt-2 pb-1 flex flex-col gap-3">
-      <button
-        onClick={handleCreateDeal}
-        className="bg-surface rounded-2xl py-3.5 px-4 text-center text-sm font-semibold text-text-primary active:opacity-70 transition-opacity"
-      >
-        {isHe ? 'צור עסקה בתנאים שלך' : 'Make a deal on your terms'}
-      </button>
-      {hasCoupons && (
+      <div className="relative">
         <button
-          onClick={() => setCouponsOpen(true)}
-          className="bg-surface rounded-2xl py-3.5 px-4 text-center text-sm font-semibold text-text-primary active:opacity-70 transition-opacity"
+          onClick={handleCreateDeal}
+          className="w-full bg-surface rounded-2xl py-3.5 px-4 text-center text-sm font-semibold text-text-primary active:opacity-70 transition-opacity"
         >
-          {isHe ? 'קודי קופון' : 'Coupon codes'}
+          {isHe ? 'צור עסקה בתנאים שלך' : 'Make a deal on your terms'}
         </button>
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); setDealHelpOpen(true); }}
+          aria-label={isHe ? 'איך זה עובד' : 'How it works'}
+          className="absolute top-1/2 -translate-y-1/2 end-3 w-8 h-8 flex items-center justify-center active:scale-95 transition-transform"
+        >
+          <span className="material-symbols-rounded text-text-muted" style={{ fontSize: 20 }}>help</span>
+        </button>
+      </div>
+      {hasCoupons && (
+        <div className="relative">
+          <button
+            onClick={() => setCouponsOpen(true)}
+            className="w-full bg-surface rounded-2xl py-3.5 px-4 text-center text-sm font-semibold text-text-primary active:opacity-70 transition-opacity"
+          >
+            {isHe ? 'קודי קופון' : 'Coupon codes'}
+          </button>
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); setCouponHelpOpen(true); }}
+            aria-label={isHe ? 'איך זה עובד' : 'How it works'}
+            className="absolute top-1/2 -translate-y-1/2 end-3 w-8 h-8 flex items-center justify-center active:scale-95 transition-transform"
+          >
+            <span className="material-symbols-rounded text-text-muted" style={{ fontSize: 20 }}>help</span>
+          </button>
+        </div>
       )}
     </div>
   );
@@ -80,18 +105,151 @@ export default function BusinessPage() {
           style={{ marginTop: -30, borderTopLeftRadius: 30, borderTopRightRadius: 30 }}
         >
           <BusinessCardContent business={business} storeActions={storeActions} />
+
+          {/* ── About us ── */}
+          {(business.description || business.descriptionHe) && (
+            <section className="px-6 pb-8">
+              <h2 className="text-xl font-bold text-text-primary mb-2">
+                {isHe ? 'עלינו' : 'About us'}
+              </h2>
+              <p className={`text-sm text-text-secondary leading-relaxed whitespace-pre-line ${aboutExpanded ? '' : 'line-clamp-3'}`}>
+                {isHe ? business.descriptionHe : business.description}
+              </p>
+              <button
+                onClick={() => setAboutExpanded((v) => !v)}
+                className="mt-1.5 text-sm font-semibold text-primary active:opacity-70 transition-opacity"
+              >
+                {aboutExpanded ? (isHe ? 'פחות' : 'Less') : (isHe ? 'עוד' : 'More')}
+              </button>
+            </section>
+          )}
         </div>
 
         {/* Sticky CTA */}
         <StickyCTA business={business} firstVoucherId={vouchers[0]?.id} />
 
-        {/* Coupon codes sheet — copy a code and jump to the embedded supplier site */}
+        {/* Coupon codes sheet */}
         <CouponCodesSheet
           isOpen={couponsOpen}
           onClose={() => setCouponsOpen(false)}
           codes={couponCodes}
           onUseCode={handleUseCode}
+          onHelp={() => setCouponHelpOpen(true)}
         />
+
+        {/* How coupon codes work — explainer sheet */}
+        <CouponHelpSheet isOpen={couponHelpOpen} onClose={() => setCouponHelpOpen(false)} isHe={isHe} />
+
+        {/* How "deal on your terms" works — explainer sheet */}
+        <DealHelpSheet isOpen={dealHelpOpen} onClose={() => setDealHelpOpen(false)} isHe={isHe} />
       </div>
+  );
+}
+
+function DealHelpSheet({ isOpen, onClose, isHe }: { isOpen: boolean; onClose: () => void; isHe: boolean }) {
+  if (!isOpen) return null;
+  const steps = isHe
+    ? [
+        { icon: 'edit_note',     title: 'הגדירו את התנאים', body: 'ציינו את הכמות, המחיר, או כל תנאי שחשוב לכם.' },
+        { icon: 'send',          title: 'שלחו הצעה לעסק', body: 'ההצעה מגיעה ישירות לבעל העסק לאישור.' },
+        { icon: 'handshake',     title: 'קבלו אישור ובצעו', body: 'אושרה? תוכלו לממש את העסקה ישירות דרך האפליקציה.' },
+      ]
+    : [
+        { icon: 'edit_note',     title: 'Set your terms', body: 'Specify the quantity, price, or any condition that matters to you.' },
+        { icon: 'send',          title: 'Send your offer', body: 'The offer goes directly to the business for review.' },
+        { icon: 'handshake',     title: 'Get confirmed & pay', body: 'Once accepted, you can complete the deal right in the app.' },
+      ];
+
+  return (
+    <>
+      <div className="fixed inset-0 z-[1000] bg-black/40 animate-fade-in" onClick={onClose} />
+      <div className="fixed inset-x-0 bottom-0 z-[1000] max-w-md mx-auto px-4 pb-6 pointer-events-none">
+        <div
+          dir={isHe ? 'rtl' : 'ltr'}
+          className="pointer-events-auto bg-white rounded-[28px] shadow-2xl overflow-hidden animate-slide-up"
+        >
+          <div className="px-6 pt-5 pb-6">
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-lg font-bold text-text-primary">
+                {isHe ? 'איך זה עובד?' : 'How it works'}
+              </h2>
+              <button
+                onClick={onClose}
+                className="w-8 h-8 rounded-full bg-surface flex items-center justify-center active:scale-90 transition-transform"
+              >
+                <span className="material-symbols-outlined text-text-muted" style={{ fontSize: 18 }}>close</span>
+              </button>
+            </div>
+            <div className="space-y-4">
+              {steps.map((s, i) => (
+                <div key={i} className="flex items-start gap-4">
+                  <div className="w-10 h-10 rounded-2xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+                    <span className="material-symbols-rounded text-primary" style={{ fontSize: 20 }}>{s.icon}</span>
+                  </div>
+                  <div>
+                    <p className="text-[14px] font-bold text-text-primary">{s.title}</p>
+                    <p className="text-[13px] text-text-muted mt-0.5 leading-snug">{s.body}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function CouponHelpSheet({ isOpen, onClose, isHe }: { isOpen: boolean; onClose: () => void; isHe: boolean }) {
+  if (!isOpen) return null;
+  const steps = isHe
+    ? [
+        { icon: 'content_copy', title: 'העתיקו קוד', body: 'לחצו על "העתק" ליד הקוד שבחרתם.' },
+        { icon: 'language',     title: 'עברו לאתר הספק', body: 'לחצו "לאתר" — האתר ייפתח עם הקוד כבר מוכן.' },
+        { icon: 'sell',         title: 'הדביקו בצ׳קאוט', body: 'בסיום הרכישה הדביקו את הקוד בשדה הקופון.' },
+      ]
+    : [
+        { icon: 'content_copy', title: 'Copy a code', body: 'Tap "Copy" next to the code you want.' },
+        { icon: 'language',     title: 'Visit the store', body: 'Tap "Visit" — the site opens with the code ready.' },
+        { icon: 'sell',         title: 'Paste at checkout', body: 'Paste the code into the coupon field when you pay.' },
+      ];
+
+  return (
+    <>
+      <div className="fixed inset-0 z-[1000] bg-black/40 animate-fade-in" onClick={onClose} />
+      <div className="fixed inset-x-0 bottom-0 z-[1000] max-w-md mx-auto px-4 pb-6 pointer-events-none">
+        <div
+          dir={isHe ? 'rtl' : 'ltr'}
+          className="pointer-events-auto bg-white rounded-[28px] shadow-2xl overflow-hidden animate-slide-up"
+        >
+          <div className="px-6 pt-5 pb-6">
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-lg font-bold text-text-primary">
+                {isHe ? 'איך זה עובד?' : 'How it works'}
+              </h2>
+              <button
+                onClick={onClose}
+                className="w-8 h-8 rounded-full bg-surface flex items-center justify-center active:scale-90 transition-transform"
+              >
+                <span className="material-symbols-outlined text-text-muted" style={{ fontSize: 18 }}>close</span>
+              </button>
+            </div>
+            <div className="space-y-4">
+              {steps.map((s, i) => (
+                <div key={i} className="flex items-start gap-4">
+                  <div className="w-10 h-10 rounded-2xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+                    <span className="material-symbols-rounded text-primary" style={{ fontSize: 20 }}>{s.icon}</span>
+                  </div>
+                  <div>
+                    <p className="text-[14px] font-bold text-text-primary">{s.title}</p>
+                    <p className="text-[13px] text-text-muted mt-0.5 leading-snug">{s.body}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
   );
 }

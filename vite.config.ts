@@ -48,9 +48,6 @@ export default defineConfig({
           // Animation library — used by many pages but not critical for first load
           'vendor-motion': ['framer-motion'],
 
-          // Map — only used on NearYouMapPage
-          'vendor-leaflet': ['leaflet', 'react-leaflet'],
-
           // Data/state utilities
           'vendor-query': ['@tanstack/react-query', 'zustand'],
 

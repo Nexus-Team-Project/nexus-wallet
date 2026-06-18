@@ -14,6 +14,7 @@
  *   w-[75vw] max-w-[300px] · image area 20vh · sky-blue "More" button
  */
 import { useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { useVouchers } from '../../hooks/useVouchers';
 import VoucherDetail from './VoucherDetail';
@@ -251,7 +252,9 @@ export function PopularSlider({ onSelectFilter }: SliderProps) {
           titleHe={t.store.mostPopular}
           items={items}
           accentColor="#1c1c1c"
-          bgGradient="linear-gradient(135deg, #ff7a18 0%, #ff2d55 32%, #b14bff 66%, #00d4ff 100%)"
+          bgVideo="/popular-category.mp4"
+          titleInMedia
+          mediaPosition="bottom"
           aspectRatio="2 / 3"
           onSeeAll={() => onSelectFilter('popular')}
         />
@@ -265,23 +268,39 @@ export function PopularSlider({ onSelectFilter }: SliderProps) {
 
 // ── 2. מומלץ ──────────────────────────────────────────────────────────────────
 export function RecommendedSlider({ onSelectFilter }: SliderProps) {
-  const { t, isHe, all, selectedVoucher, setSelectedVoucher } = useSlider();
+  const { t, all, selectedVoucher, setSelectedVoucher } = useSlider();
   const vouchers = [...all]
     .sort((a, b) => b.discountPercent - a.discountPercent)
     .slice(0, 8);
+  if (!vouchers.length) return null;
+
+  const items: CategoryRowItem[] = vouchers.map((v) => ({
+    id: v.id,
+    name: v.title,
+    nameHe: v.titleHe,
+    image: v.imageUrl,
+    emoji: v.imageUrl ? undefined : v.image,
+    price: v.discountedPrice,
+    currency: '₪',
+    onClick: () => setSelectedVoucher(v),
+  }));
+
   return (
     <>
-      <SliderSection
-        title={t.store.recommended}
-        gradient={GRADIENTS.recommended}
-        vouchers={vouchers}
-        isHe={isHe}
-        filter="recommended"
-        onSelectFilter={onSelectFilter}
-        onSelectVoucher={setSelectedVoucher}
-        comingSoonLabel={t.store.comingSoon}
-        outOfStockLabel={t.store.outOfStock}
-      />
+      <div className="mb-6">
+        <CategoryRowStore
+          title={t.store.recommended}
+          titleHe={t.store.recommended}
+          items={items}
+          accentColor="#1c1c1c"
+          bgGradient={GRADIENTS.recommended}
+          titleInMedia
+          topTitle={t.store.recommended}
+          mediaPosition="bottom"
+          aspectRatio="2 / 3"
+          onSeeAll={() => onSelectFilter('recommended')}
+        />
+      </div>
       {selectedVoucher && (
         <VoucherDetail voucher={selectedVoucher} onClose={() => setSelectedVoucher(null)} />
       )}
@@ -291,26 +310,119 @@ export function RecommendedSlider({ onSelectFilter }: SliderProps) {
 
 // ── 3. חדש ────────────────────────────────────────────────────────────────────
 export function NewSlider({ onSelectFilter }: SliderProps) {
-  const { t, isHe, all, selectedVoucher, setSelectedVoucher } = useSlider();
+  const { t, all, selectedVoucher, setSelectedVoucher } = useSlider();
   const vouchers = all.filter((v) => v.isNew).slice(0, 8);
+  if (!vouchers.length) return null;
+
+  const items: CategoryRowItem[] = vouchers.map((v) => ({
+    id: v.id,
+    name: v.title,
+    nameHe: v.titleHe,
+    image: v.imageUrl,
+    emoji: v.imageUrl ? undefined : v.image,
+    price: v.discountedPrice,
+    currency: '₪',
+    onClick: () => setSelectedVoucher(v),
+  }));
+
   return (
     <>
-      <SliderSection
-        title={t.store.newDeals}
-        gradient={GRADIENTS.new}
-        vouchers={vouchers}
-        isHe={isHe}
-        filter="new"
-        onSelectFilter={onSelectFilter}
-        onSelectVoucher={setSelectedVoucher}
-        comingSoonLabel={t.store.comingSoon}
-        outOfStockLabel={t.store.outOfStock}
-      />
+      <div className="mb-6">
+        <CategoryRowStore
+          title={t.store.newDeals}
+          titleHe={t.store.newDeals}
+          items={items}
+          accentColor="#1c1c1c"
+          bgVideo="/new-category.mp4"
+          titleInMedia
+          mediaPosition="bottom"
+          aspectRatio="2 / 3"
+          onSeeAll={() => onSelectFilter('new')}
+        />
+      </div>
       {selectedVoucher && (
         <VoucherDetail voucher={selectedVoucher} onClose={() => setSelectedVoucher(null)} />
       )}
     </>
   );
+}
+
+// ── Curated browse categories (Women / Men / Pets) — new card design ──────────
+
+const WOMEN_GRADIENT = 'linear-gradient(135deg, #ec4899 0%, #db2777 42%, #1c1c1c 100%)';
+const MEN_GRADIENT = 'linear-gradient(135deg, #475569 0%, #334155 42%, #0f172a 100%)';
+const PETS_GRADIENT = 'linear-gradient(135deg, #f59e0b 0%, #d97706 42%, #1c1c1c 100%)';
+
+const IMG = (id: string) => `https://images.unsplash.com/photo-${id}?w=400&q=80`;
+
+function useBrowseNav() {
+  const { lang = 'he' } = useParams();
+  const navigate = useNavigate();
+  const { language } = useLanguage();
+  return { isHe: language === 'he', go: () => navigate(`/${lang}/store`) };
+}
+
+function BrowseCategory({
+  title,
+  titleHe,
+  gradient,
+  items,
+}: {
+  title: string;
+  titleHe: string;
+  gradient: string;
+  items: CategoryRowItem[];
+}) {
+  const { isHe, go } = useBrowseNav();
+  return (
+    <div className="mb-6">
+      <CategoryRowStore
+        title={title}
+        titleHe={titleHe}
+        items={items}
+        accentColor="#1c1c1c"
+        bgGradient={gradient}
+        titleInMedia
+        topTitle={isHe ? titleHe : title}
+        mediaPosition="bottom"
+        aspectRatio="2 / 3"
+        onSeeAll={go}
+      />
+    </div>
+  );
+}
+
+export function WomenSlider() {
+  const { go } = useBrowseNav();
+  const items: CategoryRowItem[] = [
+    { id: 'w1', name: 'Summer Dress', nameHe: 'שמלת קיץ', image: IMG('1595777457583-95e059d581b8'), price: 199, currency: '₪', onClick: go },
+    { id: 'w2', name: 'Handbag', nameHe: 'תיק יד', image: IMG('1591561954557-26941169b49e'), price: 249, currency: '₪', onClick: go },
+    { id: 'w3', name: 'Heels', nameHe: 'נעלי עקב', image: IMG('1543163521-1bf539c55dd2'), price: 179, currency: '₪', onClick: go },
+    { id: 'w4', name: 'Sunglasses', nameHe: 'משקפי שמש', image: IMG('1511499767150-a48a237f0083'), price: 129, currency: '₪', onClick: go },
+  ];
+  return <BrowseCategory title="Women" titleHe="נשים" gradient={WOMEN_GRADIENT} items={items} />;
+}
+
+export function MenSlider() {
+  const { go } = useBrowseNav();
+  const items: CategoryRowItem[] = [
+    { id: 'm1', name: 'Linen Shirt', nameHe: 'חולצת פשתן', image: IMG('1602810318383-e386cc2a3ccf'), price: 149, currency: '₪', onClick: go },
+    { id: 'm2', name: 'Watch', nameHe: 'שעון יד', image: IMG('1524805444758-089113d48a6d'), price: 399, currency: '₪', onClick: go },
+    { id: 'm3', name: 'Sneakers', nameHe: 'סניקרס', image: IMG('1542291026-7eec264c27ff'), price: 229, currency: '₪', onClick: go },
+    { id: 'm4', name: 'Trainers', nameHe: 'נעלי ספורט', image: IMG('1553062407-98eeb64c6a62'), price: 259, currency: '₪', onClick: go },
+  ];
+  return <BrowseCategory title="Men" titleHe="גברים" gradient={MEN_GRADIENT} items={items} />;
+}
+
+export function PetsSlider() {
+  const { go } = useBrowseNav();
+  const items: CategoryRowItem[] = [
+    { id: 'p1', name: 'Dog Essentials', nameHe: 'אביזרים לכלב', image: IMG('1543466835-00a7907e9de1'), price: 89, currency: '₪', onClick: go },
+    { id: 'p2', name: 'Cat Care', nameHe: 'טיפוח לחתול', image: IMG('1514888286974-6c03e2ca1dba'), price: 79, currency: '₪', onClick: go },
+    { id: 'p3', name: 'Pet Food', nameHe: 'מזון לחיות', image: IMG('1589924691995-400dc9ecc119'), price: 119, currency: '₪', onClick: go },
+    { id: 'p4', name: 'Accessories', nameHe: 'אביזרים', image: IMG('1601758228041-f3b2795255f1'), price: 59, currency: '₪', onClick: go },
+  ];
+  return <BrowseCategory title="Pets" titleHe="חיות מחמד" gradient={PETS_GRADIENT} items={items} />;
 }
 
 // ── 4. הטבות אונליין ──────────────────────────────────────────────────────────
@@ -339,21 +451,37 @@ export function OnlineSlider({ onSelectFilter }: SliderProps) {
 
 // ── 5. בקרוב ──────────────────────────────────────────────────────────────────
 export function ComingSoonSlider({ onSelectFilter }: SliderProps) {
-  const { t, isHe, all, selectedVoucher, setSelectedVoucher } = useSlider();
+  const { t, all, selectedVoucher, setSelectedVoucher } = useSlider();
   const vouchers = all.filter((v) => v.comingSoon).slice(0, 8);
+  if (!vouchers.length) return null;
+
+  // Coming-soon vouchers usually have no product photo — fall back to the
+  // emoji so the row still reads while the "בקרוב" video plays behind.
+  const items: CategoryRowItem[] = vouchers.map((v) => ({
+    id: v.id,
+    name: v.title,
+    nameHe: v.titleHe,
+    image: v.imageUrl,
+    emoji: v.imageUrl ? undefined : v.image,
+    currency: '₪',
+    onClick: () => setSelectedVoucher(v),
+  }));
+
   return (
     <>
-      <SliderSection
-        title={t.store.comingSoon}
-        gradient={GRADIENTS.comingSoon}
-        vouchers={vouchers}
-        isHe={isHe}
-        filter="coming-soon"
-        onSelectFilter={onSelectFilter}
-        onSelectVoucher={setSelectedVoucher}
-        comingSoonLabel={t.store.comingSoon}
-        outOfStockLabel={t.store.outOfStock}
-      />
+      <div className="mb-6">
+        <CategoryRowStore
+          title={t.store.comingSoon}
+          titleHe={t.store.comingSoon}
+          items={items}
+          accentColor="#1c1c1c"
+          bgVideo="/coming-soon-category.mp4"
+          titleInMedia
+          mediaPosition="bottom"
+          aspectRatio="2 / 3"
+          onSeeAll={() => onSelectFilter('coming-soon')}
+        />
+      </div>
       {selectedVoucher && (
         <VoucherDetail voucher={selectedVoucher} onClose={() => setSelectedVoucher(null)} />
       )}
