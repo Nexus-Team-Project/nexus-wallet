@@ -532,7 +532,7 @@ export default function GiftDetailsPage() {
                   <h3 className="text-xl font-bold text-text-primary mb-4 text-start">{isHe ? 'המתנה שלך' : 'Your gift'}</h3>
                   <div className="rounded-2xl overflow-hidden shadow-lg border border-border flex flex-col">
                     <div className="h-48 w-full overflow-hidden bg-surface">
-                      {product.image && (
+                      {product?.image && (
                         <img src={product.image} alt={productName} className="w-full h-full object-cover" />
                       )}
                     </div>

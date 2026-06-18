@@ -34,7 +34,6 @@ import {
   PetsSlider,
   ComingSoonSlider,
 } from '../components/store/StoreSliders';
-import { useAuthStore } from '../stores/authStore';
 import { useTenantStore } from '../stores/tenantStore';
 import { useAccessibilityStore } from '../stores/accessibilityStore';
 import { useVouchers } from '../hooks/useVouchers';
@@ -47,8 +46,6 @@ export default function HomePage() {
   const { lang = 'he' } = useParams();
   const { t, language } = useLanguage();
   const navigate = useNavigate();
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
-  const profileCompleted = useAuthStore((s) => s.profileCompleted);
   const tenantConfig = useTenantStore((s) => s.config);
   const logoSrc = tenantConfig?.logo ?? '/nexus-logo.png';
   const appName = tenantConfig
@@ -115,7 +112,6 @@ export default function HomePage() {
   // "במיוחד בשבילך" (ActiveOffers) position:
   //   hasProfile  → 2nd: right after TopStores (real personalized recommendations)
   //   !hasProfile → 3rd: after PopularSlider  (shows teaser card only)
-  const hasProfile = isAuthenticated && profileCompleted;
 
   const handleSelectFilter = (filter: StoreFilter) => {
     navigate(`/${lang}/store`, { state: { filter } });

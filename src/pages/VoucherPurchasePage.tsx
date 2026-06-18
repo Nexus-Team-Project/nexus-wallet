@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { motion, type PanInfo } from 'framer-motion';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useLanguage } from '../i18n/LanguageContext';
-import { mockVouchers, mockVoucherVariants, defaultVoucherVariants } from '../mock/data/vouchers.mock';
+import { mockVouchers } from '../mock/data/vouchers.mock';
 import { mockBusinesses } from '../mock/data/businesses.mock';
 import type { VoucherVariant } from '../types/voucher.types';
 import AnimatedActionIcon from '../components/layout/AnimatedActionIcon';
@@ -135,7 +135,7 @@ interface CardPreviewProps {
   isHe: boolean;
 }
 
-function VoucherCardPreview({ amount, tier, merchantName, merchantLogo, brandColor, isCustom: _isCustom, isHe }: CardPreviewProps) {
+function VoucherCardPreview({ amount, tier, merchantName, merchantLogo, brandColor: _brandColor, isCustom: _isCustom, isHe }: CardPreviewProps) {
   const bg = tier
     ? tier.gradient
     : `linear-gradient(135deg, #635bff 0%, #3a0ca3 100%)`;
@@ -549,16 +549,9 @@ export default function VoucherPurchasePage() {
   const voucher = useMemo(() => mockVouchers.find((v) => v.id === voucherId), [voucherId]);
   const business = useMemo(() => mockBusinesses.find((b) => b.id === businessId), [businessId]);
 
-  // Variants for this merchant
-  const variants = useMemo(() => {
-    if (!voucher) return defaultVoucherVariants;
-    return mockVoucherVariants[voucher.merchantName] || defaultVoucherVariants;
-  }, [voucher]);
-
   // State
   const navState = location.state as { gift?: GiftDetails } | null;
 
-  const [selectedVariant, setSelectedVariant] = useState<VoucherVariant>(variants[0]);
   const [sheetVariant, setSheetVariant] = useState<VoucherVariant | null>(null);
   const [selectedTierIdx, setSelectedTierIdx] = useState<number>(2); // default ₪300
   const [customAmount, setCustomAmount] = useState<string>('');
@@ -639,10 +632,6 @@ export default function VoucherPurchasePage() {
   const total = displayAmount * qty;
   const cashbackAmount = Math.round(total * cashbackRate / 100);
 
-  const handleVariantClick = (v: VoucherVariant) => {
-    setSelectedVariant(v);
-    setSheetVariant(v);
-  };
 
   const categoryGradients: Record<string, string> = {
     'Fast Food': 'from-orange-600 via-red-500 to-amber-600',
@@ -1328,7 +1317,7 @@ export default function VoucherPurchasePage() {
             currency="₪"
             total={total}
             count={paymentsCount}
-            onSelect={(n) => { setPaymentsCount(n); setPaymentsSheetOpen(false); }}
+            onSave={(n: number) => { setPaymentsCount(n); setPaymentsSheetOpen(false); }}
           />
         )}
 

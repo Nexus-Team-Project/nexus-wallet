@@ -1,6 +1,5 @@
 import { useNavigate, useParams } from 'react-router-dom';
 import {
-  Store,
   Globe,
   HelpCircle,
   User,
@@ -14,7 +13,6 @@ import {
   LogOut,
   ChevronRight,
   ChevronLeft,
-  Crown,
   type LucideIcon,
 } from 'lucide-react';
 import { useLanguage } from '../../i18n/LanguageContext';
