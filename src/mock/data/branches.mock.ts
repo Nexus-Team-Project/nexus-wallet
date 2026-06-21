@@ -221,8 +221,8 @@ export const mockBranches: Branch[] = [
   },
   {
     id: 'br_030', businessId: 'biz_009',
-    name: 'Shufersal Sheli Basel', nameHe: 'שופרסל שלי באזל',
-    address: '18 Basel St, Tel Aviv', addressHe: 'באזל 18, תל אביב',
+    name: 'Shufersal Sheli Basel', nameHe: 'שופרסל שלי באין',
+    address: '18 Basel St, Tel Aviv', addressHe: 'באין 18, תל אביב',
     lat: 32.0885, lng: 34.7792,
     openHour: 7, closeHour: 22,
   },

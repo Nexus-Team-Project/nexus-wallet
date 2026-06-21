@@ -42,7 +42,7 @@ export const storeTranslations = {
     education: 'לימודים',
     tech: 'טכנולוגיה',
     discount: 'הנחה',
-    outOfStock: 'אזל מהמלאי',
+    outOfStock: 'אין מהמלאי',
     popular: 'פופולרי',
     buyNow: 'קנה עכשיו',
     addToCart: 'הוסף לסל',
