@@ -1,8 +1,9 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Rubik:wght@300;400;500;600;700;800&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:wght,FILL@100..700,0..1&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Rubik:wght@300;400;500;600;700;800&family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&family=Material+Symbols+Rounded:wght,FILL@100..700,0..1&display=swap');
 @import "tailwindcss";
+
+/* Hide browser scrollbars — mobile app, scrollbars are not expected */
+* { scrollbar-width: none; -ms-overflow-style: none; }
+*::-webkit-scrollbar { display: none; }
 
 @theme {
   --color-primary: #635bff;
@@ -494,13 +495,16 @@ body {
   from {
     clip-path: circle(0px at 50% -150px);
     -webkit-clip-path: circle(0px at 50% -150px);
+    max-height: 0px;
   }
   to {
     clip-path: circle(1100px at 50% -150px);
     -webkit-clip-path: circle(1100px at 50% -150px);
+    max-height: 800px;
   }
 }
 .cashback-reveal {
+  overflow: hidden;
   animation: cashback-reveal 0.85s linear both;
 }
 
@@ -522,6 +526,25 @@ body {
 .cashback-collapse {
   overflow: hidden;
   animation: cashback-collapse 0.6s linear both;
+}
+
+@keyframes fadeInScale {
+  from { opacity: 0; transform: scale(0.75); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+/* Premium upsell peek — slides DOWN out of the purchased card. It starts fully
+   tucked behind the card (translated up by its own height, masked by the card's
+   higher z-index) and slides down until only the labelled sliver shows. */
+@keyframes upsellPeekIn {
+  0%   { transform: translateY(-100%); }
+  100% { transform: translateY(0); }
+}
+
+/* Gentle breathing on the collapsed peek — bobs down and back up to invite a tap. */
+@keyframes upsellBreathe {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(5px); }
 }
 
 /* ── Thin, subtle scrollbar (no arrows) ───────────────────────────────────── */
