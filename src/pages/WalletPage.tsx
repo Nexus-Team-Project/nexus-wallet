@@ -93,7 +93,7 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
   // cashback (+ which card was just bought) in sessionStorage; we read + clear
   // it once on mount. The balance counts up by the cashback, then the deck
   // slides to reveal the purchased card.
-  const [postTx, setPostTx] = useState<{ cashback: number; targetCardId: string | null } | null>(() => {
+  const [postTx] = useState<{ cashback: number; targetCardId: string | null } | null>(() => {
     try {
       const raw = sessionStorage.getItem('nexus_pending_wallet_anim');
       if (raw) {
@@ -117,6 +117,10 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
   const [showSparSuccess, setShowSparSuccess] = useState(false);
   const [sparUsed, setSparUsed] = useState(false);
   const [sparArchiveConfirming, setSparArchiveConfirming] = useState(false);
+  // Flips true when the gift is archived — the Nexus balance card then counts
+  // the cashback up from ₪0. Kept independent of the post-tx machinery so the
+  // SPAR demo's slide + count-up are fully self-contained.
+  const [sparAccrue, setSparAccrue] = useState(false);
   // SPAR demo: tapping the Nexus balance card opens the "Meet Nexus balance"
   // intro (read-only — only "back" is interactive).
   const [showNexusIntro, setShowNexusIntro] = useState(false);
@@ -306,11 +310,13 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
   const archiveSparGift = () => {
     setSparArchiveConfirming(false);
     setFlippedVoucherId(null);
-    setPostTx({ cashback: SPAR_DEMO_CASHBACK, targetCardId: 'balance' });
     userMovedDeck.current = true;
     setDeckSnap(false);
+    // Slide across to the Nexus balance card…
     const balIdx = deckCards.indexOf('balance');
     if (balIdx >= 0) setActiveCard(balIdx);
+    // …then start counting the cashback up from ₪0 once the slide is underway.
+    window.setTimeout(() => setSparAccrue(true), 450);
   };
 
   // ── Balance card flip = pay session ──
@@ -653,13 +659,14 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
       const ringOffset = ringC * (paySecondsLeft / PAY_SESSION_SECONDS);
       // SPAR gift demo: the recipient is a brand-new Nexus user, so the balance
       // starts at ₪0 and counts up ONLY the cashback just earned — not the mock
-      // user's ₪1,250.
+      // user's ₪1,250. The count-up fires when the gift is archived (sparAccrue).
       const isSparDemo = cameFromGift && focusVoucherId === SPAR_VOUCHER_ID;
-      const baseBalance = isSparDemo ? 0 : (wallet?.balance ?? 0);
-      const balanceValue =
-        postTxCashback != null && !walletLoading ? baseBalance + postTxCashback : baseBalance;
-      const balanceFrom =
-        postTxCashback != null && !walletLoading ? baseBalance : undefined;
+      const balanceValue = isSparDemo
+        ? (sparAccrue ? SPAR_DEMO_CASHBACK : 0)
+        : (postTxCashback != null && !walletLoading ? (wallet?.balance ?? 0) + postTxCashback : (wallet?.balance ?? 0));
+      const balanceFrom = isSparDemo
+        ? (sparAccrue ? 0 : undefined)
+        : (postTxCashback != null && !walletLoading ? (wallet?.balance ?? 0) : undefined);
       return (
         /* ── BALANCE CARD — flips to reveal the pay barcodes on the back ── */
         <div className="flip-perspective w-full">
