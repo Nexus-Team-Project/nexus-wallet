@@ -117,6 +117,9 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
   const [showSparSuccess, setShowSparSuccess] = useState(false);
   const [sparUsed, setSparUsed] = useState(false);
   const [sparArchiveConfirming, setSparArchiveConfirming] = useState(false);
+  // SPAR demo: tapping the Nexus balance card opens the "Meet Nexus balance"
+  // intro (read-only — only "back" is interactive).
+  const [showNexusIntro, setShowNexusIntro] = useState(false);
 
   // Collapsible section states.
   const [noCardBannerOpen, setNoCardBannerOpen] = useState(false);
@@ -1118,6 +1121,13 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
                             handleCardTap(cardId, e, info);
                             return;
                           }
+                          // SPAR demo: tapping the Nexus balance card shows the
+                          // read-only "Meet Nexus balance" intro instead of the
+                          // pay barcodes.
+                          if (cameFromGift && focusVoucherId === SPAR_VOUCHER_ID) {
+                            setShowNexusIntro(true);
+                            return;
+                          }
                           if (!showPaySheet) {
                             // First-ever tap on the balance card opens the pay
                             // intro (onboarding); every tap after that flips
@@ -1858,6 +1868,87 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
               </div>
             </div>
           </TransactionSuccessShell>
+        </div>
+      )}
+
+      {/* SPAR demo: read-only "Meet Nexus balance" intro. Only the back button
+          is interactive — the footer CTAs are shown but inert. */}
+      {showNexusIntro && (
+        <div
+          className="fixed inset-0 z-[150] mx-auto max-w-md bg-white flex flex-col"
+          dir={isRTL ? 'rtl' : 'ltr'}
+        >
+          {/* Back-only header */}
+          <div className="relative z-20 px-4 pt-5">
+            <button
+              onClick={() => setShowNexusIntro(false)}
+              aria-label={isRTL ? 'חזרה' : 'Back'}
+              className="w-10 h-10 rounded-full bg-surface border border-border flex items-center justify-center active:scale-95 transition-transform"
+            >
+              <span className="material-symbols-outlined text-text-primary" style={{ fontSize: '22px' }}>
+                {isRTL ? 'arrow_forward' : 'arrow_back'}
+              </span>
+            </button>
+          </div>
+
+          <main className="flex-grow overflow-y-auto px-6">
+            <section className="relative -mx-6 overflow-hidden">
+              <div
+                className="absolute inset-0 z-0"
+                style={{
+                  background:
+                    'radial-gradient(120% 80% at 50% 0%, rgba(156,136,255,0.18) 0%, rgba(128,222,234,0.12) 45%, rgba(255,255,255,0) 75%)',
+                }}
+              />
+              <img
+                src="/wallet-in-hand.png"
+                alt=""
+                aria-hidden
+                className="relative z-[1] mx-auto h-72 w-auto object-contain"
+              />
+            </section>
+
+            <section className="text-center mt-4 mb-9">
+              <h1 className="text-[32px] leading-tight font-extrabold tracking-tight" style={{ color: '#0a153f' }}>
+                {t.wallet.payIntroTitle}
+                <br />
+                {t.wallet.payIntroTitleHighlight}
+              </h1>
+            </section>
+
+            <section className="space-y-4 mb-10">
+              {[
+                { icon: 'account_balance_wallet', title: t.wallet.payIntroFeature1Title, body: t.wallet.payIntroFeature1Body },
+                { icon: 'savings', title: t.wallet.payIntroFeature2Title, body: t.wallet.payIntroFeature2Body },
+                { icon: 'near_me', title: t.wallet.payIntroFeature3Title, body: t.wallet.payIntroFeature3Body },
+              ].map((f, i, arr) => (
+                <div key={f.icon}>
+                  <div className="flex items-start gap-4">
+                    <span className="material-symbols-outlined flex-shrink-0 mt-0.5" style={{ fontSize: '26px', color: '#0a153f' }}>
+                      {f.icon}
+                    </span>
+                    <div>
+                      <h3 className="font-bold text-[17px]" style={{ color: '#0a153f' }}>{f.title}</h3>
+                      <p className="text-text-secondary text-[15px] leading-relaxed">{f.body}</p>
+                    </div>
+                  </div>
+                  {i < arr.length - 1 && <hr className="border-gray-100 mt-4" />}
+                </div>
+              ))}
+            </section>
+          </main>
+
+          {/* Footer CTAs — shown for realism but inert in the demo. */}
+          <footer className="p-6 pb-10 space-y-3 bg-white pointer-events-none select-none">
+            <div className="p-1 rounded-[28px]" style={{ border: '2px solid #3B82F6', boxShadow: '0 0 10px rgba(59,130,246,0.2)' }}>
+              <div className="w-full text-white font-bold py-4 rounded-[24px] text-[17px] text-center" style={{ backgroundColor: '#0a153f' }}>
+                {t.wallet.payIntroGetStarted}
+              </div>
+            </div>
+            <div className="w-full bg-white border border-gray-300 font-bold py-4 rounded-[28px] text-[17px] text-center" style={{ color: '#0a153f' }}>
+              {t.wallet.payIntroExplore}
+            </div>
+          </footer>
         </div>
       )}
     </div>
