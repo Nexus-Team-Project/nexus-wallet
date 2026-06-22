@@ -647,6 +647,15 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
       // Filling progress ring — empties→fills as the 30s session elapses.
       const ringC = 2 * Math.PI * 16;
       const ringOffset = ringC * (paySecondsLeft / PAY_SESSION_SECONDS);
+      // SPAR gift demo: the recipient is a brand-new Nexus user, so the balance
+      // starts at ₪0 and counts up ONLY the cashback just earned — not the mock
+      // user's ₪1,250.
+      const isSparDemo = cameFromGift && focusVoucherId === SPAR_VOUCHER_ID;
+      const baseBalance = isSparDemo ? 0 : (wallet?.balance ?? 0);
+      const balanceValue =
+        postTxCashback != null && !walletLoading ? baseBalance + postTxCashback : baseBalance;
+      const balanceFrom =
+        postTxCashback != null && !walletLoading ? baseBalance : undefined;
       return (
         /* ── BALANCE CARD — flips to reveal the pay barcodes on the back ── */
         <div className="flip-perspective w-full">
@@ -667,15 +676,11 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
               }}
             >
               <BalanceCard
-                balance={
-                  postTxCashback != null && !walletLoading
-                    ? (wallet?.balance ?? 0) + postTxCashback
-                    : (wallet?.balance ?? 0)
-                }
+                balance={balanceValue}
                 logoCorner
                 className="w-full"
                 style={{ aspectRatio: '1510 / 952' }}
-                countFrom={postTxCashback != null && !walletLoading ? (wallet?.balance ?? 0) : undefined}
+                countFrom={balanceFrom}
                 onCountComplete={handleBalanceCountComplete}
               />
             </div>
