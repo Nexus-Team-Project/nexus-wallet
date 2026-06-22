@@ -1,23 +1,34 @@
 import { useState, useRef, useCallback, useLayoutEffect, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { motion, Reorder, useDragControls, type PanInfo } from 'framer-motion';
+import { motion, AnimatePresence, Reorder, useDragControls, useReducedMotion, type PanInfo } from 'framer-motion';
 import { GripVertical, Eye, EyeOff } from 'lucide-react';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams, useLocation } from 'react-router-dom';
 import { useLanguage } from '../i18n/LanguageContext';
 import { useWallet } from '../hooks/useWallet';
 import { useMyVouchers } from '../hooks/useMyVouchers';
 import { usePaySession, PAY_SESSION_SECONDS } from '../hooks/usePaySession';
 import WalletPageSkeleton from '../components/wallet/WalletPageSkeleton';
 import PayCodesPanel from '../components/wallet/PayCodesPanel';
+import PayCodeInfoSheet from '../components/wallet/PayCodeInfoSheet';
 import WalletOffersSlider from '../components/wallet/WalletOffersSlider';
 import WidgetsGallery from '../components/wallet/WidgetsGallery';
 import BalanceCard from '../components/wallet/BalanceCard';
 import DigitalCard from '../components/wallet/DigitalCard';
 import VoucherCard from '../components/wallet/VoucherCard';
+import TransactionSuccessShell from '../components/ui/TransactionSuccessShell';
 import TopBar from '../components/layout/TopBar';
 import { useTenantStore } from '../stores/tenantStore';
 import { useWallpaperStore } from '../stores/wallpaperStore';
 import { useWalletLayoutStore, type WalletWidgetId } from '../stores/walletLayoutStore';
+import { useArchiveStore } from '../stores/archiveStore';
+import { DotLottieReact, setWasmUrl } from '@lottiefiles/dotlottie-react';
+import dotLottieWasmUrl from '@lottiefiles/dotlottie-web/dist/dotlottie-player.wasm?url';
+import tapAnimUrl from '../assets/animations/tap.lottie?url';
+
+// Serve the dotLottie player wasm from our own origin (same as the nav/action
+// icons) so the tap-to-pay coach mark renders even if the default CDN is
+// blocked. Runs once on import.
+setWasmUrl(dotLottieWasmUrl);
 
 interface WalletPageProps {
   // When embedded (e.g. inside the chat "pay in store" sheet) the dark
@@ -69,15 +80,64 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
   // puts the wallet into a focused, LOCKED "gift" view — only the gift card in
   // the deck, widgets collapsed, and toolbars / cashback non-interactive.
   const [searchParams] = useSearchParams();
+  const location = useLocation();
   const focusVoucherId = searchParams.get('focus');
   const cameFromGift = !!focusVoucherId;
+  const centerVoucherId = (location.state as { centerVoucherId?: string } | null)?.centerVoucherId;
+  // Pay-at-store flow: arriving with state.payMode shows only the card carousel
+  // (the rest of the wallet is hidden) with the Nexus balance card already
+  // flipped to its pay/barcode side.
+  const payMode = (location.state as { payMode?: boolean } | null)?.payMode === true;
+
+  // Post-transaction cashback animation: the success page stores the earned
+  // cashback (+ which card was just bought) in sessionStorage; we read + clear
+  // it once on mount. The balance counts up by the cashback, then the deck
+  // slides to reveal the purchased card.
+  const [postTx, setPostTx] = useState<{ cashback: number; targetCardId: string | null } | null>(() => {
+    try {
+      const raw = sessionStorage.getItem('nexus_pending_wallet_anim');
+      if (raw) {
+        sessionStorage.removeItem('nexus_pending_wallet_anim');
+        const parsed = JSON.parse(raw);
+        return { cashback: parsed.cashback as number, targetCardId: (parsed.targetCardId ?? null) as string | null };
+      }
+    } catch {}
+    return null;
+  });
+  const postTxCashback = postTx?.cashback ?? null;
+
+  // ── SPAR gift payment demo ──
+  // In the SPAR gift-redeemed wallet, flipping the gift card shows a
+  // "המחשת תשלום" (simulate payment) button. Tapping it plays a ₪150 purchase
+  // confirmation; closing it marks the card "used" — greyed-out + locked, with
+  // an archive action on the carousel. Archiving slides the deck to the Nexus
+  // balance card, which counts up the earned cashback.
+  const SPAR_DEMO_AMOUNT = 150;
+  const SPAR_DEMO_CASHBACK = 15;
+  const [showSparSuccess, setShowSparSuccess] = useState(false);
+  const [sparUsed, setSparUsed] = useState(false);
+  const [sparArchiveConfirming, setSparArchiveConfirming] = useState(false);
 
   // Collapsible section states.
-  const [widgetsOpen, setWidgetsOpen] = useState(true);
   const [noCardBannerOpen, setNoCardBannerOpen] = useState(false);
   const [editBannerOpen, setEditBannerOpen] = useState(false);
-  // "How it works" explainer sheet, opened from the card's "?" button.
+  // "How it works" explainer sheet, opened from the digital card's "?" button.
   const [showCardHelp, setShowCardHelp] = useState(false);
+  // Pay-code "how it works" sheet (the "?" on the Nexus balance card) — auto-
+  // opened when returning from the pay-intro → add-card onboarding flow
+  // (navigated here with state.openPayCodeHelp).
+  const [showPayCodeHelp, setShowPayCodeHelp] = useState<boolean>(
+    () => (location.state as { openPayCodeHelp?: boolean } | null)?.openPayCodeHelp === true,
+  );
+  // One-shot: the spotlight + sheet open ONLY when arriving from the pay-intro →
+  // add-card flow (which sets state.openPayCodeHelp). Clear that flag from the
+  // history entry once consumed so back/forward navigation can't re-trigger it.
+  useEffect(() => {
+    if ((location.state as { openPayCodeHelp?: boolean } | null)?.openPayCodeHelp) {
+      navigate(`${location.pathname}${location.search}`, { replace: true, state: null });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── Stacked card deck (Google-Wallet style) ──
   // The balance square and the digital payment card sit in a stack: the
@@ -87,33 +147,114 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
   // The carousel: the balance sits in the MIDDLE — the digital card on one
   // side, the active vouchers on the other (chronological).
   const { data: myVouchers } = useMyVouchers();
+  // Cards the user has moved to the archive — filtered out of the deck below.
+  const archivedIds = useArchiveStore((s) => s.archivedIds);
   const activeVouchers = (myVouchers ?? [])
-    .filter((v) => v.status === 'active')
+    .filter((v) => v.status === 'active' && !archivedIds.includes(`voucher:${v.id}`))
     .sort((a, b) => new Date(a.purchasedAt).getTime() - new Date(b.purchasedAt).getTime());
+  // Post-tx: the just-purchased voucher must sit adjacent to the balance card
+  // (opposite side from the digital 'card'), regardless of its mock date — so
+  // hoist it to the end of the voucher list.
+  const postTxVoucherId =
+    postTx?.targetCardId?.startsWith('voucher:') ? postTx.targetCardId.slice('voucher:'.length) : null;
+  if (postTxVoucherId) {
+    const i = activeVouchers.findIndex((v) => v.id === postTxVoucherId);
+    if (i >= 0) activeVouchers.push(activeVouchers.splice(i, 1)[0]);
+  }
   // In the gift view the deck holds the gift card — no other vouchers,
   // balance, or "add" stops. The SPAR gift additionally keeps the Isracard
   // digital card in the deck, so the redeemed wallet shows it in the slider.
   const deckCards: string[] = cameFromGift
     ? focusVoucherId === SPAR_VOUCHER_ID
-      ? [`voucher:${focusVoucherId}`, 'card']
+      ? // Once the gift card is "used", the Nexus balance card joins the deck so
+        // archiving the gift can slide across to it (counting up the cashback).
+        sparUsed
+        ? [`voucher:${focusVoucherId}`, 'balance', 'card']
+        : [`voucher:${focusVoucherId}`, 'card']
       : [`voucher:${focusVoucherId}`]
     : [
+        // Leading "add money" (+) stop — mirrors the trailing manage-methods
+        // stop on the opposite end of the carousel.
+        'plus',
         ...activeVouchers.map((v) => `voucher:${v.id}`),
-        'balance',
-        'card',
+        // The balance + digital cards drop out of the deck once archived.
+        ...(archivedIds.includes('balance') ? [] : ['balance']),
+        ...(archivedIds.includes('card') ? [] : ['card']),
         // Trailing "manage payment methods" stop: the final drag past the
         // digital card parks it to the side (its dimmed peek form) and anchors
         // the stripes circle beside it.
         'add',
       ];
   // Balance sits right after the vouchers; its index shifts as vouchers
-  // load async, so keep the deck centred on it until the user swipes.
-  const balanceIndex = activeVouchers.length;
+  // load async (and when cards are archived), so keep the deck centred on it
+  // until the user swipes. Falls back to the voucher count if archived.
+  const balanceIndex = (() => {
+    const i = deckCards.indexOf('balance');
+    // Fallback (balance archived): vouchers sit after the leading 'plus' stop.
+    return i >= 0 ? i : activeVouchers.length + (cameFromGift ? 0 : 1);
+  })();
   const [activeCard, setActiveCard] = useState(0);
+  // True while the centre card is being dragged — used to hide the upsell peek
+  // the instant the user grabs and moves the card (not only on swipe-commit).
+  const [cardDragging, setCardDragging] = useState(false);
+  // During the post-tx flow the deck must LAND directly on the balance card with
+  // no slide-in (the active index otherwise animates from 0 across to the balance
+  // index once the vouchers load async). While `deckSnap` is true, deck position
+  // changes are instant; we flip it off right before sliding to the purchased card.
+  const [deckSnap, setDeckSnap] = useState<boolean>(postTx != null);
+  // The premium upsell is revealed only AFTER the post-tx slide settles. With no
+  // post-tx flow (e.g. a reload while the upsell is still live) it's shown right
+  // away. The slide-out / retract animation itself is handled by AnimatePresence.
+  const [upsellReady, setUpsellReady] = useState<boolean>(postTx == null);
+  // The upsell opens straight into its full expanded form — no peek sliver and
+  // no tap required. Kept as state (rather than a constant) so the existing
+  // expand/collapse styling hooks keep working unchanged.
+  const [upsellExpanded, setUpsellExpanded] = useState<boolean>(true);
+  // Safety net: if the post-tx slide can't resolve (e.g. no card in the deck),
+  // still reveal the upsell after the animation window so it never gets stuck.
+  useEffect(() => {
+    if (!postTx) return;
+    const t = setTimeout(() => setUpsellReady(true), 4000);
+    return () => clearTimeout(t);
+  }, [postTx]);
   const userMovedDeck = useRef(false);
   useLayoutEffect(() => {
     if (!userMovedDeck.current && !cameFromGift) setActiveCard(balanceIndex);
   }, [balanceIndex, cameFromGift]);
+
+  // Post-tx: show the balance count-up first, then slide to reveal the card that
+  // was just purchased. The count-up can finish BEFORE the vouchers query loads,
+  // so we only record that it's done here — the actual slide happens in an
+  // effect below once the deck is ready. We keep `postTx` set so the pinned
+  // voucher (and topped-up balance) stay stable.
+  const didPostTxSlide = useRef(false);
+  const [countUpDone, setCountUpDone] = useState(false);
+  const handleBalanceCountComplete = useCallback(() => {
+    setCountUpDone(true);
+  }, []);
+  // Resolve which deck index to slide to. With a specific purchased card we wait
+  // for THAT exact card to appear (the vouchers query may first return stale
+  // cached data without it) — never fall back to an old card, which would slide
+  // to the wrong place and lock the one-shot guard. Without a target (e.g. a
+  // product purchase) we use the newest voucher adjacent to balance.
+  const postTxTargetIdx = postTx
+    ? postTx.targetCardId
+      ? deckCards.indexOf(postTx.targetCardId)
+      : (balanceIndex > 0 ? balanceIndex - 1 : -1)
+    : -1;
+  useEffect(() => {
+    if (!postTx || !countUpDone || didPostTxSlide.current) return;
+    if (postTxTargetIdx < 0) return; // purchased card not in the deck yet — wait
+    didPostTxSlide.current = true;
+    const t = setTimeout(() => {
+      userMovedDeck.current = true;
+      setDeckSnap(false); // re-enable animation so the move to the card slides
+      setActiveCard(postTxTargetIdx);
+    }, 800);
+    // Reveal the upsell (it then slides out of the card) once the slide settles.
+    const t2 = setTimeout(() => setUpsellReady(true), 1500);
+    return () => { clearTimeout(t); clearTimeout(t2); };
+  }, [postTx, countUpDone, postTxTargetIdx]);
   // Deep-link focus: centre + pin the deck on the gift voucher.
   const didFocus = useRef(false);
   useLayoutEffect(() => {
@@ -125,6 +266,22 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
       didFocus.current = true;
     }
   }, [focusVoucherId, deckCards]);
+  // Post-purchase center: arriving with state.centerVoucherId centres the deck
+  // on that voucher without locking the wallet into gift-only mode. EXCEPTION:
+  // during a post-transaction animation (postTx) we must FIRST land on the
+  // balance card and count up the cashback — the slide to the purchased card
+  // happens afterwards (see the post-tx slide effect). So skip this when postTx
+  // is active; otherwise it would jump straight onto the purchased card.
+  const didCenter = useRef(false);
+  useLayoutEffect(() => {
+    if (didCenter.current || !centerVoucherId || postTx) return;
+    const idx = deckCards.indexOf(`voucher:${centerVoucherId}`);
+    if (idx >= 0) {
+      userMovedDeck.current = true;
+      setActiveCard(idx);
+      didCenter.current = true;
+    }
+  }, [centerVoucherId, deckCards, postTx]);
   // Gift view: kill native pull-to-refresh so a long pull can't navigate away
   // (the page is already locked to the screen via overflow-hidden in AppLayout).
   // overscrollBehavior isn't touched by AppLayout's body self-heal, so it sticks.
@@ -139,6 +296,27 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
   }, [cameFromGift]);
   // Which voucher card is flipped to its redemption side (null = none).
   const [flippedVoucherId, setFlippedVoucherId] = useState<string | null>(null);
+
+  // SPAR demo: archive the "used" gift card and slide the deck across to the
+  // balance card, which counts up the earned cashback (reuses the post-tx
+  // balance count-up animation).
+  const archiveSparGift = () => {
+    setSparArchiveConfirming(false);
+    setFlippedVoucherId(null);
+    setPostTx({ cashback: SPAR_DEMO_CASHBACK, targetCardId: 'balance' });
+    userMovedDeck.current = true;
+    setDeckSnap(false);
+    const balIdx = deckCards.indexOf('balance');
+    if (balIdx >= 0) setActiveCard(balIdx);
+  };
+
+  // ── Balance card flip = pay session ──
+  // Tapping the balance card flips it (gift-card style) to reveal the in-store
+  // pay barcodes on the back and starts a 30s session; a ring on the back fills
+  // as the session elapses, then auto-closes (flips back). Declared here (above
+  // the cashback section) so the cashback reveal can key off the flip state.
+  const pay = usePaySession();
+  const { showPaySheet, paySecondsLeft, openPay, closePay } = pay;
   // Cashback section phases. We don't unmount immediately on leaving the
   // balance card — we play a reverse pulse + height-collapse first so the
   // section below (widgets) rises up gradually. `seq` bumps on each open so
@@ -155,11 +333,14 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
   // *identity* (not just a boolean) lets the section animate closed→open even
   // when switching between two cards that BOTH have cashback (balance ↔ gift).
   type CashbackKey = 'balance' | 'bnei' | 'spar' | null;
-  const targetCashback: CashbackKey = onBalanceCard
+  // The cashback / "redeemable here" section only reveals once the active card
+  // is flipped to its back — the pay-barcode side for the balance card, the
+  // redemption side for the gift cards — not while a card's front is showing.
+  const targetCashback: CashbackKey = (onBalanceCard && showPaySheet)
     ? 'balance'
-    : onBneiCard
+    : (onBneiCard && flippedVoucherId === deckCards[activeCard])
       ? 'bnei'
-      : onSparCard
+      : (onSparCard && flippedVoucherId === deckCards[activeCard])
         ? 'spar'
         : null;
   const [cashback, setCashback] = useState<{
@@ -298,12 +479,76 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
   // overlaps it the same way in both cases.
   const showTopStrip = showNoCardBanner || showEditBanner;
 
-  // ── Balance card flip = pay session ──
-  // Tapping the balance card flips it (gift-card style) to reveal the
-  // in-store pay barcodes on the back and starts a 30s session; a ring on
-  // the back fills as the session elapses, then auto-closes (flips back).
-  const pay = usePaySession();
-  const { showPaySheet, paySecondsLeft, openPay, closePay } = pay;
+
+  // ── Tap-to-pay coach mark ──
+  // A white hand tapping the balance card on entry, hinting "tap to pay".
+  // It's a one-shot: the moment the user opens the pay session (or flips a
+  // voucher) we dismiss it for good so it never nags again.
+  const prefersReduced = useReducedMotion();
+  // Playback speed of the tap-coach Lottie (<1 = slower taps). The wrapper lift
+  // derives its loop duration from this (TAP_LOOP_SEC) so the two stay in sync.
+  const TAP_SPEED = 0.6;
+  const TAP_LOOP_SEC = 1.18 / TAP_SPEED; // base loop is 1.18s at speed 1
+  const [coachDismissed, setCoachDismissed] = useState(false);
+  useEffect(() => {
+    if (showPaySheet || flippedVoucherId) setCoachDismissed(true);
+  }, [showPaySheet, flippedVoucherId]);
+
+  // Pay-at-store: land centred on the Nexus balance card and flip it straight to
+  // the pay/barcode side.
+  const didPayMode = useRef(false);
+  useLayoutEffect(() => {
+    if (!payMode || didPayMode.current) return;
+    didPayMode.current = true;
+    userMovedDeck.current = true;
+    setActiveCard(balanceIndex);
+    openPay();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [payMode, balanceIndex]);
+
+  // Onboarding return (state.openPayCodeHelp): flip the balance card to its pay
+  // side so the "?" info sheet sits over the live pay-codes view. Closing the
+  // sheet (see onClose) flips the card back. The auto-center effect keeps the
+  // balance card centred, so the flip lands on the right card.
+  const didPayCodeHelp = useRef(false);
+  useLayoutEffect(() => {
+    if (!showPayCodeHelp || didPayCodeHelp.current) return;
+    didPayCodeHelp.current = true;
+    openPay();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showPayCodeHelp]);
+
+  // Spotlight rect — the balance card's on-screen box, so an overlay can dim
+  // everything EXCEPT the card (a lit cut-out) while its info sheet is open.
+  const [spotRect, setSpotRect] = useState<
+    { top: number; left: number; width: number; height: number } | null
+  >(null);
+  useLayoutEffect(() => {
+    if (!showPayCodeHelp) {
+      setSpotRect(null);
+      return;
+    }
+    // Track the card every frame while the sheet is open — the card flips and
+    // the deck springs into place on arrival, so a one-shot measure lands on a
+    // mid-animation position. Continuous tracking keeps the frame glued to the
+    // card's final resting box (and follows any scroll/resize).
+    let raf = 0;
+    const tick = () => {
+      const el = cardWrapRefs.current.balance;
+      if (el) {
+        const r = el.getBoundingClientRect();
+        setSpotRect((prev) =>
+          prev && prev.top === r.top && prev.left === r.left && prev.width === r.width && prev.height === r.height
+            ? prev
+            : { top: r.top, left: r.left, width: r.width, height: r.height },
+        );
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showPayCodeHelp]);
 
   // Measure the balance card so the deck reserves the right height and
   // the digital card can stretch to match it.
@@ -311,6 +556,47 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
     const el = cardWrapRefs.current.balance;
     if (el) setDeckHeight(el.offsetHeight);
   }, [language, wallet?.balance]);
+
+  // Premium upsell card — purchase-driven. Each completed purchase writes an
+  // upsell payload (with an expiry) to localStorage; a NEW purchase overwrites
+  // the previous one. The card shows only while a non-expired payload exists, so
+  // it appears after a purchase and stays until its timer runs out.
+  const UPSELL_COUNTDOWN = 300;
+  type UpsellData = {
+    cashback: number;
+    total?: number;
+    productName?: string;
+    businessName?: string;
+    businessLogo?: string | null;
+    cardColor?: string;
+    targetCardId?: string | null;
+    expiresAt: number;
+  };
+  const [upsellData, setUpsellData] = useState<UpsellData | null>(() => {
+    try {
+      const raw = localStorage.getItem('nexus_premium_upsell');
+      if (raw) {
+        const d = JSON.parse(raw) as UpsellData;
+        if (d.expiresAt && d.expiresAt > Date.now()) return d;
+        localStorage.removeItem('nexus_premium_upsell');
+      }
+    } catch {}
+    return null;
+  });
+  const [upsellCountdown, setUpsellCountdown] = useState<number>(() =>
+    upsellData ? Math.max(0, Math.round((upsellData.expiresAt - Date.now()) / 1000)) : 0,
+  );
+  const showUpsell = upsellData != null && upsellCountdown > 0;
+  const dismissUpsell = useCallback(() => {
+    setUpsellData(null);
+    try { localStorage.removeItem('nexus_premium_upsell'); } catch {}
+  }, []);
+  useEffect(() => {
+    if (!showUpsell) return;
+    if (upsellCountdown <= 0) { dismissUpsell(); return; }
+    const t = setTimeout(() => setUpsellCountdown((c) => c - 1), 1000);
+    return () => clearTimeout(t);
+  }, [showUpsell, upsellCountdown, dismissUpsell]);
 
   // Notification state
   const [showNotification, setShowNotification] = useState(false);
@@ -320,16 +606,41 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
   // Renders the inner box for a deck card. Used for both the crisp active
   // card on top and the faded side-peek copies behind it, so the markup
   // lives in one place.
-  const renderDeckCard = (cardId: string) => {
+  const renderDeckCard = (cardId: string, isCenter = false) => {
     if (cardId.startsWith('voucher:')) {
       const uv = activeVouchers.find((v) => `voucher:${v.id}` === cardId);
       if (!uv) return null;
+      // SPAR demo: once paid, the gift card reads as "used" — greyed-out and
+      // locked (same treatment as a frozen digital card).
+      const isUsedSpar = cardId === `voucher:${SPAR_VOUCHER_ID}` && sparUsed;
       return (
-        <VoucherCard
-          userVoucher={uv}
-          flipped={flippedVoucherId === cardId}
-          onExpire={() => setFlippedVoucherId(null)}
-        />
+        <div className="relative w-full">
+          <VoucherCard
+            userVoucher={uv}
+            flipped={flippedVoucherId === cardId && !isUsedSpar}
+            onExpire={() => setFlippedVoucherId(null)}
+          />
+          {isUsedSpar && (
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <div
+                className="w-full rounded-xl flex items-center justify-center"
+                style={{
+                  aspectRatio: '1.586 / 1',
+                  background: 'rgba(55,65,81,0.55)',
+                  backdropFilter: 'grayscale(0.6)',
+                  WebkitBackdropFilter: 'grayscale(0.6)',
+                }}
+              >
+                <span
+                  className="material-symbols-rounded text-white"
+                  style={{ fontSize: 44, filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.4))' }}
+                >
+                  lock
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
       );
     }
     if (cardId === 'balance') {
@@ -356,10 +667,16 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
               }}
             >
               <BalanceCard
-                balance={wallet?.balance ?? 0}
+                balance={
+                  postTxCashback != null && !walletLoading
+                    ? (wallet?.balance ?? 0) + postTxCashback
+                    : (wallet?.balance ?? 0)
+                }
                 logoCorner
                 className="w-full"
                 style={{ aspectRatio: '1510 / 952' }}
+                countFrom={postTxCashback != null && !walletLoading ? (wallet?.balance ?? 0) : undefined}
+                onCountComplete={handleBalanceCountComplete}
               />
             </div>
 
@@ -401,6 +718,26 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
         </div>
       );
     }
+    if (cardId === 'plus') {
+      // ── "+" stop (leading end of the carousel) — mirrors the trailing
+      //    manage-methods stop on the opposite side. The neighbouring voucher
+      //    peeks on one side; the "+" circle is anchored on the OPPOSITE side.
+      //    Tapping it → the stores list. ──
+      return (
+        <div className="relative w-full" style={{ minHeight: deckHeight || 264 }}>
+          <button
+            onClick={() => navigate(`/${lang}/wallet/deal-intro`)}
+            aria-label={language === 'he' ? 'צור עסקה בתנאים שלך' : 'Create a deal on your terms'}
+            className="absolute top-1/2 -translate-y-1/2 z-10 w-16 h-16 rounded-full shadow-[0_6px_16px_rgba(0,0,0,0.14)] flex items-center justify-center active:scale-95 transition-transform"
+            style={{ ...(isRTL ? { right: '-2%' } : { left: '-2%' }), backgroundColor: '#ffffff' }}
+          >
+            <span className="material-symbols-rounded text-text-secondary" style={{ fontSize: 34 }}>
+              add
+            </span>
+          </button>
+        </div>
+      );
+    }
     if (cardId === 'add') {
       // ── Manage-payment-methods stop. The digital card ('card') is the
       //    previous neighbour, so it auto-parks to one side in its dimmed
@@ -433,11 +770,9 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
             ? '/tenants/spar-logo-black.png'
             : undefined
         }
-        onHelp={
-          cameFromGift && focusVoucherId === SPAR_VOUCHER_ID
-            ? () => setShowCardHelp(true)
-            : undefined
-        }
+        onHelp={() => setShowCardHelp(true)}
+        locked
+        lockActive={isCenter}
       >
         {renderRipple('card')}
       </DigitalCard>
@@ -654,7 +989,7 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
             (top-1/2 + y:-50%) so the peek lines up with the card's middle.
             The wrapper is also the positioning context for the issue-card
             button. ── */}
-        <div className="relative">
+        <div className="relative z-10">
         <div className="relative" style={{ height: deckHeight ? deckHeight * 0.9 : undefined }}>
           {deckCards.map((cardId, i) => {
             const rel = i - activeCard;
@@ -690,7 +1025,7 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
                 }}
                 initial={false}
                 animate={pose}
-                transition={{ type: 'spring', stiffness: 320, damping: 32 }}
+                transition={deckSnap ? { duration: 0 } : { type: 'spring', stiffness: 320, damping: 32 }}
               >
                 {/* Inner drag layer — kept SEPARATE from the carousel
                     transform above. Dragging here only moves x (px) and never
@@ -711,9 +1046,11 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
                   onPointerDown={(e) => {
                     pressStart.current = { x: e.clientX, y: e.clientY };
                   }}
+                  onDragStart={isCenter ? () => setCardDragging(true) : undefined}
                   onDragEnd={
                     isCenter
                       ? (e, info) => {
+                          setCardDragging(false);
                           // A drag NEVER triggers a press — only switches cards
                           // (or closes the pay side). Presses are handled solely
                           // by onTap, keeping scroll/drag and tap cleanly apart.
@@ -755,21 +1092,37 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
                           // only its "issue card" button is interactive.
                           if (cameFromGift && cardId === 'card') return;
                           // Voucher: flip to its redemption side (tap again,
-                          // off a button, to flip back).
+                          // off a button, to flip back). A "used" SPAR gift card
+                          // is locked — it no longer flips.
                           if (cardId.startsWith('voucher:')) {
+                            if (cardId === `voucher:${SPAR_VOUCHER_ID}` && sparUsed) return;
                             const onBtn = (e.target as HTMLElement | null)?.closest('button');
                             if (flippedVoucherId === cardId && onBtn) return;
                             setFlippedVoucherId((prev) => (prev === cardId ? null : cardId));
                             return;
                           }
-                          // Manage-methods stop: the circle button owns the
-                          // tap; ignore taps elsewhere on the slot.
-                          if (cardId === 'add') return;
+                          // Manage-methods / "+" stops: the circle button owns
+                          // the tap; ignore taps elsewhere on the slot.
+                          if (cardId === 'add' || cardId === 'plus') return;
                           if (cardId !== 'balance') {
+                            // A tap on an on-card control (e.g. the "?" help
+                            // button) opens its own sheet — it must NOT count as
+                            // a card tap that navigates to the card page.
+                            if ((e.target as HTMLElement | null)?.closest('button')) return;
                             handleCardTap(cardId, e, info);
                             return;
                           }
                           if (!showPaySheet) {
+                            // First-ever tap on the balance card opens the pay
+                            // intro (onboarding); every tap after that flips
+                            // straight to the in-store pay barcodes.
+                            let introSeen = false;
+                            try { introSeen = localStorage.getItem('nexus_pay_intro_seen') === '1'; } catch {}
+                            if (!introSeen) {
+                              try { localStorage.setItem('nexus_pay_intro_seen', '1'); } catch {}
+                              navigate(`/${lang}/wallet/pay-intro`);
+                              return;
+                            }
                             openPay();
                             return;
                           }
@@ -782,11 +1135,71 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
                       : undefined
                   }
                 >
-                  {renderDeckCard(cardId)}
+                  {renderDeckCard(cardId, isCenter)}
                 </motion.div>
               </motion.div>
             );
           })}
+
+          {/* ══════ TAP-TO-PAY COACH MARK ══════
+              A white hand tapping the balance card, shown on entry until the
+              user opens the pay session (one-shot, see coachDismissed). It sits
+              in the empty upper area of the card so it never covers the balance,
+              and is pointer-events-none so the tap still lands on the card
+              underneath. Honors prefers-reduced-motion. */}
+          <AnimatePresence>
+            {!coachDismissed && !cameFromGift && !postTx && !cardDragging &&
+              deckCards[activeCard] === 'balance' && !showPaySheet && (
+              <motion.div
+                key="tap-coach"
+                aria-hidden
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.35 }}
+                className="pointer-events-none absolute top-[5%] start-[2%] z-[36]"
+              >
+                {/* White "tap" Lottie (LottieFiles — "Tap" by Arun KP), tucked
+                    into the top corner and tilted on a slight diagonal so it
+                    reads like a hand reaching in to tap the card. Loops while
+                    visible; holds the static first frame under reduced-motion. */}
+                {/* Holds the 18° tilt. At rest the hand sits low; on the tap it
+                    lifts up, then drops back down. The lift is synced to the
+                    Lottie's own loop — duration matches its 1.18s cycle (frames
+                    50–109 @ 50fps) and the peak lands at ~20%, the press moment. */}
+                <motion.div
+                  className="w-36 h-36"
+                  style={{ filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.4))' }}
+                  animate={
+                    prefersReduced
+                      ? { rotate: 18 }
+                      : {
+                          rotate: 18,
+                          y: [6, 6, -8, 6, 6],
+                        }
+                  }
+                  transition={
+                    prefersReduced
+                      ? { duration: 0 }
+                      : {
+                          duration: TAP_LOOP_SEC,
+                          times: [0, 0.06, 0.2, 0.62, 1],
+                          ease: 'easeInOut',
+                          repeat: Infinity,
+                        }
+                  }
+                >
+                  <DotLottieReact
+                    src={tapAnimUrl}
+                    autoplay={!prefersReduced}
+                    loop={!prefersReduced}
+                    speed={TAP_SPEED}
+                    style={{ width: '100%', height: '100%' }}
+                  />
+                </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>{/* /deck */}
 
         {/* Issue-card action — only when the digital card is on top,
@@ -829,24 +1242,71 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
           </div>
         )}
 
-        {/* More-actions for a flipped voucher → that voucher's page. */}
-        {flippedVoucherId && deckCards[activeCard] === flippedVoucherId && (
+        {/* More-actions for a flipped voucher. For the SPAR gift card this is the
+            "simulate payment" button that drives the demo; every other voucher
+            keeps the usual "more actions" link to its page. */}
+        {flippedVoucherId && deckCards[activeCard] === flippedVoucherId && !sparUsed && (
           <div className="absolute inset-x-0 -bottom-8 flex justify-center z-40">
-            <button
-              onClick={() =>
-                navigate(`/${lang}/wallet/voucher/${flippedVoucherId.slice('voucher:'.length)}`)
-              }
-              className="px-6 py-3 rounded-full bg-bg-dark text-white font-bold text-sm active:scale-95 transition-transform shadow-md"
-            >
-              {language === 'he' ? 'פעולות נוספות' : 'More actions'}
-            </button>
+            {flippedVoucherId === `voucher:${SPAR_VOUCHER_ID}` ? (
+              <button
+                onClick={() => setShowSparSuccess(true)}
+                className="px-6 py-3 rounded-full bg-bg-dark text-white font-bold text-sm active:scale-95 transition-transform shadow-md"
+              >
+                {language === 'he' ? 'המחשת תשלום' : 'Simulate payment'}
+              </button>
+            ) : (
+              <button
+                onClick={() =>
+                  navigate(`/${lang}/wallet/voucher/${flippedVoucherId.slice('voucher:'.length)}`)
+                }
+                className="px-6 py-3 rounded-full bg-bg-dark text-white font-bold text-sm active:scale-95 transition-transform shadow-md"
+              >
+                {language === 'he' ? 'פעולות נוספות' : 'More actions'}
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Archive action — hangs below the "used" (greyed-out) SPAR gift card.
+            Confirming archives the card and slides the deck across to the Nexus
+            balance card, which counts up the earned cashback. */}
+        {deckCards[activeCard] === `voucher:${SPAR_VOUCHER_ID}` && sparUsed && (
+          <div className="absolute inset-x-0 -bottom-8 flex justify-center z-40 px-6 w-full">
+            {!sparArchiveConfirming ? (
+              <button
+                onClick={() => setSparArchiveConfirming(true)}
+                className="flex items-center justify-center gap-2 px-6 py-3 rounded-full bg-surface border border-border text-text-secondary font-bold text-sm active:scale-95 transition-transform shadow-md"
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: 20 }}>inventory_2</span>
+                {language === 'he' ? 'העבר לארכיון' : 'Move to archive'}
+              </button>
+            ) : (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={archiveSparGift}
+                  className="flex items-center justify-center gap-2 px-5 py-3 rounded-full bg-bg-dark text-white font-bold text-sm active:scale-95 transition-transform shadow-md"
+                >
+                  <span className="material-symbols-outlined" style={{ fontSize: 20 }}>inventory_2</span>
+                  {language === 'he' ? 'אישור' : 'Confirm'}
+                </button>
+                <button
+                  onClick={() => setSparArchiveConfirming(false)}
+                  className="px-5 py-3 rounded-full bg-surface border border-border text-text-secondary font-bold text-sm active:scale-95 transition-transform shadow-md"
+                >
+                  {language === 'he' ? 'ביטול' : 'Cancel'}
+                </button>
+              </div>
+            )}
           </div>
         )}
         </div>{/* /deck wrapper */}
 
         {/* Tap-to-pay CTA — under every card EXCEPT the digital card and the
-            manage-methods stop (which navigate); fades while flipped. */}
-        {deckCards[activeCard] !== 'card' && deckCards[activeCard] !== 'add' && (
+            manage-methods stop (which navigate); fades while flipped. Hidden
+            while the post-purchase upsell peeks under the card. The balance
+            card ALSO gets the on-card hand coach mark (see deck) on top of this
+            hint. */}
+        {deckCards[activeCard] !== 'card' && deckCards[activeCard] !== 'add' && deckCards[activeCard] !== 'plus' && !(showUpsell && upsellReady) && !(deckCards[activeCard] === `voucher:${SPAR_VOUCHER_ID}` && sparUsed) && (
         <div
           className={`flex items-center justify-center gap-2 mt-4 transition-opacity duration-300 ${
             (deckCards[activeCard] === 'balance' && showPaySheet) ||
@@ -880,6 +1340,166 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
         </div>
         )}
 
+        {/* ══════ PREMIUM UPSELL — opens straight into its full expanded form
+            below the purchased card (no peek, no tap). It's bound to the card it
+            relates to: only shown while that card is centred, so swiping to
+            another card retracts it (fast exit) and unmounts it. ══════ */}
+        <AnimatePresence>
+        {showUpsell && upsellReady && upsellData && upsellData.targetCardId?.startsWith('voucher:')
+          && deckCards[activeCard] === upsellData.targetCardId
+          && !cardDragging
+          // Hide (retract) while the bound card is flipped — voucher flipped or
+          // balance card in its pay-session flip.
+          && !(flippedVoucherId === deckCards[activeCard])
+          && !(deckCards[activeCard] === 'balance' && showPaySheet)
+          && (() => {
+          const cb = Math.round(upsellData.cashback * 100) / 100;
+          const premiumCb = Math.round(cb * 2 * 100) / 100;
+          const fmtCb = (n: number) => `₪${n.toFixed(2)}`;
+          const R = 14; const CIRC = 2 * Math.PI * R;
+          const dashOffset = CIRC * (1 - upsellCountdown / UPSELL_COUNTDOWN);
+          const mmss = `${Math.floor(upsellCountdown / 60)}:${String(upsellCountdown % 60).padStart(2, '0')}`;
+          return (
+            <motion.div
+              key="premium-upsell-peek"
+              initial={{ y: '-100%', opacity: 0 }}
+              animate={{ y: 0, opacity: 1, scaleY: 1 }}
+              exit={{ scaleY: 0, opacity: 0, transition: { duration: 0 } }}
+              transition={{ type: 'tween', ease: 'easeOut', duration: 0.7 }}
+              style={{ transformOrigin: 'top' }}
+              className={`relative z-0 transition-[margin] duration-500 ease-out ${upsellExpanded ? 'mx-0' : 'mx-8'}`}
+            >
+              <div
+                role={upsellExpanded ? undefined : 'button'}
+                onClick={upsellExpanded ? undefined : () => setUpsellExpanded(true)}
+                className={`relative overflow-hidden rounded-3xl transition-all duration-500 ease-out outline-none ${upsellExpanded ? 'shadow-sm' : 'shadow-md balance-gradient'}`}
+                style={{
+                  background: upsellExpanded ? 'rgba(255,255,255,0.92)' : undefined,
+                  backdropFilter: upsellExpanded ? 'blur(16px)' : undefined,
+                  WebkitBackdropFilter: upsellExpanded ? 'blur(16px)' : undefined,
+                  border: 'none',
+                  WebkitTapHighlightColor: 'transparent',
+                  maxHeight: upsellExpanded ? 480 : 56,
+                  // Collapsed: tuck the top behind the card so only a sliver with
+                  // the label peeks out beneath it (the card sits at a higher z).
+                  marginTop: upsellExpanded ? 12 : -28,
+                  cursor: upsellExpanded ? 'default' : 'pointer',
+                  // Gentle breathing while collapsed — invites a tap.
+                  animation: upsellExpanded ? undefined : 'upsellBreathe 2.2s ease-in-out infinite',
+                }}
+              >
+                {!upsellExpanded ? (
+                  /* PEEK — bottom-aligned label inside the visible sliver */
+                  <div className="h-14 flex items-end justify-center pb-2.5 px-5">
+                    <p className="text-white text-[13px] font-bold flex items-center gap-2 leading-none">
+                      <span className="relative flex-shrink-0 w-7 h-7">
+                        <svg viewBox="0 0 36 36" className="w-full h-full -rotate-90">
+                          <circle cx="18" cy="18" r={R} fill="none" stroke="rgba(255,255,255,0.25)" strokeWidth="3" />
+                          <circle cx="18" cy="18" r={R} fill="none" stroke="white" strokeWidth="3" strokeLinecap="round"
+                            strokeDasharray={`${CIRC}`} strokeDashoffset={dashOffset}
+                            style={{ transition: 'stroke-dashoffset 1s linear' }}
+                          />
+                        </svg>
+                        <span className="absolute inset-0 flex items-center justify-center text-[8px] font-bold tabular-nums">{mmss}</span>
+                      </span>
+                      {isRTL ? 'עם פרימיום היית צובר פי 2' : 'With Premium you get 2×'}
+                      <span className="material-symbols-outlined text-white/90" style={{ fontSize: 18 }}>expand_less</span>
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    {/* Close — gray circle, top-right */}
+                    <button
+                      onClick={(e) => { e.stopPropagation(); dismissUpsell(); }}
+                      aria-label={isRTL ? 'סגור' : 'Close'}
+                      className="absolute top-3 right-3 z-20 w-8 h-8 rounded-full bg-[#e5e7eb] text-slate-600 flex items-center justify-center active:scale-90 transition-transform"
+                    >
+                      <span className="material-symbols-outlined" style={{ fontSize: 18 }}>close</span>
+                    </button>
+                    <div aria-hidden className="pointer-events-none absolute -top-3 end-[-36px] w-44 h-28 rotate-[-15deg] rounded-2xl balance-gradient shadow-lg flex items-center justify-center">
+                      <img src="/nexus-logo-animated-white.gif" alt="" className="h-14 w-auto object-contain" draggable={false} />
+                    </div>
+                    <div className="relative px-5 pt-4 pb-3">
+                      <p className="text-[15px] font-bold text-text-primary flex items-center gap-1.5 mb-3">
+                        <span className="material-symbols-outlined text-yellow-500" style={{ fontSize: 17, fontVariationSettings: "'FILL' 1" }}>bolt</span>
+                        {isRTL ? 'עם פרימיום היית צובר פי 2' : 'With Premium you get 2×'}
+                      </p>
+
+                      <div className="flex items-center gap-3 ps-32 mb-4" dir="ltr">
+                        <div className="flex-1 text-center">
+                          <p className="text-[11px] font-semibold text-primary mb-0.5">{isRTL ? 'פרימיום' : 'Premium'}</p>
+                          <p className="text-2xl font-bold text-primary tabular-nums">{fmtCb(premiumCb)}</p>
+                        </div>
+                        <span className="material-symbols-outlined text-text-muted" style={{ fontSize: 20 }}>arrow_back</span>
+                        <div className="flex-1 text-center">
+                          <p className="text-[11px] font-semibold text-text-muted mb-0.5">{isRTL ? 'קיבלת' : 'You got'}</p>
+                          <p className="text-2xl font-bold text-text-primary tabular-nums">{fmtCb(cb)}</p>
+                        </div>
+                      </div>
+                      <p className="text-[14px] font-bold text-text-primary leading-tight">
+                        {isRTL ? 'שדרג עכשיו והכפל את הרווח שלך' : 'Upgrade now & double your earnings'}
+                      </p>
+                    </div>
+                    <div className="px-5 pb-4 flex flex-row-reverse gap-3">
+                      {/* Gray — Learn more → premium */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/${lang}/premium`, {
+                            state: {
+                              countdown: upsellCountdown,
+                              total: upsellData.total,
+                              cashback: cb,
+                              productName: upsellData.productName,
+                              businessName: upsellData.businessName,
+                              businessLogo: upsellData.businessLogo ?? null,
+                            },
+                          });
+                        }}
+                        className="flex-1 py-3.5 rounded-full font-semibold text-base bg-[#e5e7eb] text-slate-900 active:scale-95 transition-transform"
+                      >
+                        {isRTL ? 'למד עוד' : 'Learn more'}
+                      </button>
+                      {/* Black — Upgrade (with countdown ring) → premium */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/${lang}/premium`, {
+                            state: {
+                              countdown: upsellCountdown,
+                              total: upsellData.total,
+                              cashback: cb,
+                              productName: upsellData.productName,
+                              businessName: upsellData.businessName,
+                              businessLogo: upsellData.businessLogo ?? null,
+                            },
+                          });
+                        }}
+                        className="flex-1 flex items-center justify-center gap-2 bg-[#0a0a0b] text-white py-3.5 rounded-full font-semibold text-base active:scale-95 transition-transform"
+                      >
+                        <span className="relative flex-shrink-0 w-7 h-7">
+                          <svg viewBox="0 0 36 36" className="w-full h-full -rotate-90">
+                            <circle cx="18" cy="18" r={R} fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="3" />
+                            <circle cx="18" cy="18" r={R} fill="none" stroke="white" strokeWidth="3" strokeLinecap="round"
+                              strokeDasharray={`${CIRC}`} strokeDashoffset={dashOffset}
+                              style={{ transition: 'stroke-dashoffset 1s linear' }}
+                            />
+                          </svg>
+                          <span className="absolute inset-0 flex items-center justify-center text-[9px] font-bold tabular-nums">
+                            {`${Math.floor(upsellCountdown / 60)}:${String(upsellCountdown % 60).padStart(2, '0')}`}
+                          </span>
+                        </span>
+                        <span>{isRTL ? 'שדרג' : 'Upgrade'}</span>
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            </motion.div>
+          );
+        })()}
+        </AnimatePresence>
+
       </section>
 
       {/* ══════ REORDERABLE SECTIONS — Framer-motion Reorder.Group on
@@ -895,6 +1515,8 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
       >
       {sectionOrder.map((sectionId) => {
         const isHidden = hiddenSections.includes(sectionId);
+        // Pay-at-store: show only the card carousel — drop every section.
+        if (payMode) return null;
         // Outside edit mode hidden sections disappear entirely; inside
         // edit mode they show dimmed so the user can bring them back.
         if (isHidden && !editEnabled) return null;
@@ -910,20 +1532,9 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
         className={`mb-6 transition-opacity ${isHidden ? 'opacity-40' : ''}`}
       >
         <div className="flex items-center justify-between w-full px-5 mb-3">
-          <button
-            onClick={() => setWidgetsOpen(!widgetsOpen)}
-            className="flex items-center gap-1 active:opacity-70 transition-opacity"
-          >
-            <h2 className="text-lg font-bold text-text-primary">
-              {t.wallet.widgetsTitle}
-            </h2>
-            <span
-              className={`material-symbols-outlined text-text-muted transition-transform duration-300 ${widgetsOpen ? 'rotate-180' : ''}`}
-              style={{ fontSize: '20px' }}
-            >
-              expand_more
-            </span>
-          </button>
+          <h2 className="text-lg font-bold text-text-primary">
+            {t.wallet.widgetsTitle}
+          </h2>
           <div className="flex items-center gap-2">
             <button
               type="button"
@@ -954,7 +1565,7 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
           </div>
         </div>
 
-        <div className={`overflow-hidden transition-all duration-300 ease-in-out ${widgetsOpen ? 'max-h-[700px] opacity-100' : 'max-h-0 opacity-0'}`}>
+        <div>
           {/* Single-row gallery of circular icon widgets. In edit mode you
               grab a widget and it lifts under your finger; the others slide
               apart and a dashed-circle placeholder opens at the drop slot. */}
@@ -1023,6 +1634,7 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
             bneiAkiva={cashback.key === 'bnei'}
             spar={cashback.key === 'spar'}
             locked={cameFromGift}
+            payHere={payMode}
           />
         </div>
       )}
@@ -1141,12 +1753,107 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
                       </div>
                     ))}
                   </div>
+
+                  {/* Maximize cashback section */}
+                  <div className="mt-5 rounded-2xl overflow-hidden" style={{ background: 'linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%)', border: '1px solid #86efac' }}>
+                    <div className="px-4 pt-4 pb-3">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-xl">💡</span>
+                        <p className="text-sm font-bold text-green-900">רוצה למקסם קאשבק?</p>
+                      </div>
+                      <p className="text-sm font-semibold text-green-800 mb-1">צור עסקה בתנאים שלך</p>
+                      <p className="text-xs text-green-700 leading-relaxed">
+                        לפני כל רכישה — בחר את בית העסק, קבע את הסכום, ובחר את שיעור הקאשבק שתרצה לקבל. העסקה תיצור לך וואוצר ייעודי עם ההטבה שבחרת, ותוכל לממש אותו בקנייה הבאה.
+                      </p>
+                    </div>
+                    <div className="px-4 pb-4 pt-1 flex flex-col gap-2 text-xs text-green-700">
+                      {[
+                        { icon: 'storefront',     text: 'בחר בית עסק שותף' },
+                        { icon: 'tune',           text: 'קבע סכום ואחוז קאשבק' },
+                        { icon: 'confirmation_number', text: 'קבל וואוצר מותאם אישית' },
+                        { icon: 'payments',       text: 'מממש בקנייה — וחוזר חלילה' },
+                      ].map(({ icon, text }) => (
+                        <div key={icon} className="flex items-center gap-2">
+                          <span className="material-symbols-outlined text-green-600" style={{ fontSize: 16 }}>{icon}</span>
+                          <span className="font-medium">{text}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
           </>,
           document.body,
         )}
+
+      {/* Pay-code "how it works" sheet — opened from the "?" on the Nexus
+          balance card, and auto-opened after the add-card onboarding flow. */}
+      {/* Spotlight — dims the whole screen except the balance card (via the
+          giant box-shadow trick), with a lit cyan frame around it, so the
+          "how it works" sheet visibly points at the card. Purely visual; the
+          sheet's transparent backdrop handles tap-to-close. */}
+      {showPayCodeHelp && spotRect &&
+        createPortal(
+          <div
+            aria-hidden
+            style={{
+              position: 'fixed',
+              top: spotRect.top - 6,
+              left: spotRect.left - 6,
+              width: spotRect.width + 12,
+              height: spotRect.height + 12,
+              borderRadius: 26,
+              zIndex: 55,
+              pointerEvents: 'none',
+              boxShadow:
+                'inset 0 0 0 2px rgba(125,211,252,0.95), 0 0 30px 8px rgba(125,211,252,0.65), 0 0 0 9999px rgba(0,0,0,0.55)',
+            }}
+          />,
+          document.body,
+        )}
+
+      <PayCodeInfoSheet
+        isOpen={showPayCodeHelp}
+        dim={false}
+        onClose={() => {
+          setShowPayCodeHelp(false);
+          closePay();
+        }}
+      />
+
+      {/* SPAR demo: ₪150 purchase confirmation. Closing marks the gift card
+          "used" (greyed-out + locked) and surfaces the archive action. */}
+      {showSparSuccess && (
+        <div className="fixed inset-0 z-[140] mx-auto max-w-md bg-white overflow-y-auto">
+          <TransactionSuccessShell
+            cashback={SPAR_DEMO_CASHBACK}
+            isHe={language === 'he'}
+            autoMs={0}
+            iconUrl="/tenants/spar-official.svg"
+            onClose={() => {
+              setShowSparSuccess(false);
+              setSparUsed(true);
+              setFlippedVoucherId(null);
+            }}
+          >
+            <div className="px-5 pt-4 divide-y divide-border text-[15px]" dir={language === 'he' ? 'rtl' : 'ltr'}>
+              <div className="flex justify-between items-center py-3">
+                <span className="text-text-secondary">{language === 'he' ? 'בית עסק' : 'Merchant'}</span>
+                <span className="font-semibold">SPAR</span>
+              </div>
+              <div className="flex justify-between items-center py-3">
+                <span className="text-text-secondary">{language === 'he' ? 'סכום עסקה' : 'Amount'}</span>
+                <span className="font-semibold" dir="ltr">₪{SPAR_DEMO_AMOUNT}.00</span>
+              </div>
+              <div className="flex justify-between items-center py-3">
+                <span className="text-text-secondary">{language === 'he' ? 'קאשבק שנצבר' : 'Cashback earned'}</span>
+                <span className="font-semibold text-green-600" dir="ltr">+₪{SPAR_DEMO_CASHBACK}.00</span>
+              </div>
+            </div>
+          </TransactionSuccessShell>
+        </div>
+      )}
     </div>
   );
 }
@@ -1222,7 +1929,7 @@ function renderWidgetBody(
         return (
           <button
             type="button"
-            onClick={() => navigate(`/${lang}/profile`)}
+            onClick={() => navigate(`/${lang}/club`)}
             aria-label={t.wallet.widgetMyOrganization}
             className="flex flex-col items-center gap-1.5 w-full"
           >
@@ -1245,23 +1952,15 @@ function renderWidgetBody(
         );
       }
       return circle('🏟️', t.wallet.widgetMyOrganization, {
-        onClick: () => navigate(`/${lang}/profile`),
+        onClick: () => navigate(`/${lang}/club`),
       });
     case 'best-offers':
       return circle('🏷️', t.wallet.widgetBestOffers, {
         onClick: () => navigate(`/${lang}`),
       });
-    case 'refer-friends':
-      return circle('🤝', t.wallet.widgetReferFriends, {
-        onClick: () => navigate(`/${lang}/referral-stories`),
-      });
-    case 'my-profile':
-      return circle('🪪', t.wallet.widgetMyProfile, {
-        onClick: () => navigate(`/${lang}/profile`),
-      });
-    case 'my-orders':
-      return circle('🧾', t.wallet.widgetMyOrders, {
-        onClick: () => navigate(`/${lang}/activity`),
+    case 'more-actions':
+      return circle('+', isRTL ? 'פעולות נוספות' : 'More actions', {
+        onClick: () => navigate(`/${lang}/wallet/actions`),
       });
   }
 }

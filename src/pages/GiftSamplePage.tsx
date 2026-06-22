@@ -3,13 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { PremiumRevealContent } from './PremiumRevealPage';
 import VoucherCard from '../components/wallet/VoucherCard';
-import BalanceCard from '../components/wallet/BalanceCard';
-import TransactionSuccessShell from '../components/ui/TransactionSuccessShell';
 import { mockUserVouchers } from '../mock/data/vouchers.mock';
 import { useAuthStore } from '../stores/authStore';
 import { useTenantStore } from '../stores/tenantStore';
-
-type DemoPhase = 'gift' | 'success' | 'used' | 'balance';
 
 /**
  * GiftSamplePage — a standalone, ready-made gift page (no form / no checkout).
@@ -131,20 +127,14 @@ export default function GiftSamplePage() {
   const tenantId = useTenantStore((s) => s.tenantId);
   const [revealed, setRevealed] = useState(false);
   const [redeeming, setRedeeming] = useState(false);
-  const [demoPhase, setDemoPhase] = useState<DemoPhase>('gift');
-  const [archiveConfirming, setArchiveConfirming] = useState(false);
 
-  const isSpar = tenantId === 'spar';
   const variant = (tenantId && VARIANTS[tenantId]) || VARIANTS.default;
   const userVoucher = mockUserVouchers.find((v) => v.id === variant.redeemVoucherId)!;
 
-  const startRedeem = () => {
-    if (isSpar) {
-      setDemoPhase('success');
-    } else {
-      setRedeeming(true);
-    }
-  };
+  // "למימוש המתנה" — play the same reveal celebration as the "הכל מוכן"
+  // onboarding finale (PremiumRevealContent); its onReveal hands off to the
+  // wallet with the gift card centred in the deck.
+  const startRedeem = () => setRedeeming(true);
 
   // When the celebration ends, land on the WALLET (not home). The wallet is a
   // protected route, so claiming the gift signs the recipient in first —
@@ -328,8 +318,11 @@ export default function GiftSamplePage() {
         ) : null}
       </footer>
 
-      {/* ── Non-SPAR: celebration overlay (PremiumRevealContent) ── */}
-      {!isSpar && redeeming && (
+      {/* ── Redeem celebration ── the same reveal experience as the "הכל מוכן"
+          onboarding finale: animated gradient + flash/ripple/particles + brand
+          logos rising as bubbles. On reveal it hands off to the wallet with the
+          gift card centred in the deck. */}
+      {redeeming && (
         <div
           className="fixed inset-0 z-[140] mx-auto max-w-md overflow-hidden"
           style={{ background: '#f6f9fc' }}
@@ -340,6 +333,8 @@ export default function GiftSamplePage() {
             revealHoldMs={4200}
             onReveal={finishRedeem}
           />
+          {/* The gift card rises into the centre of the screen, with the line
+              printed beneath it, over the celebration. */}
           <div className="absolute inset-0 z-[60] flex flex-col items-center justify-center px-8 pointer-events-none">
             <div className="w-[300px] animate-gift-rise-center">
               <VoucherCard userVoucher={userVoucher} flipped={false} onExpire={() => {}} />
@@ -353,139 +348,6 @@ export default function GiftSamplePage() {
           </div>
         </div>
       )}
-
-      {/* ── SPAR demo phase: payment success ── */}
-      {isSpar && demoPhase === 'success' && (
-        <div className="fixed inset-0 z-[140] mx-auto max-w-md overflow-y-auto" dir="rtl">
-          <TransactionSuccessShell
-            cashback={15}
-            isHe
-            autoMs={0}
-            iconUrl="/tenants/spar-official.svg"
-            onClose={() => setDemoPhase('used')}
-          >
-            <div className="px-5 pt-4 divide-y divide-border text-[15px]">
-              <div className="flex justify-between items-center py-3">
-                <span className="text-text-secondary">בית עסק</span>
-                <span className="font-semibold">SPAR</span>
-              </div>
-              <div className="flex justify-between items-center py-3">
-                <span className="text-text-secondary">סכום עסקה</span>
-                <span className="font-semibold" dir="ltr">₪150.00</span>
-              </div>
-              <div className="flex justify-between items-center py-3">
-                <span className="text-text-secondary">קאשבק שנצבר</span>
-                <span className="font-semibold text-green-600" dir="ltr">+₪15.00</span>
-              </div>
-            </div>
-          </TransactionSuccessShell>
-        </div>
-      )}
-
-      {/* ── SPAR demo phases: used card → balance ── */}
-      <AnimatePresence mode="wait">
-        {isSpar && demoPhase === 'used' && (
-          <motion.div
-            key="used"
-            className="fixed inset-0 z-[140] mx-auto max-w-md bg-white flex flex-col"
-            dir="rtl"
-            exit={{ x: -420, opacity: 0 }}
-            transition={{ duration: 0.45, ease: [0.4, 0, 0.2, 1] }}
-          >
-            <div className="px-5 pt-10 pb-4">
-              <h2 className="text-xl font-bold text-text-primary">כרטיס המתנה</h2>
-              <p className="text-text-secondary text-sm mt-1">הכרטיס מומש בהצלחה</p>
-            </div>
-
-            <div className="flex-1 flex flex-col items-center justify-center px-5 gap-5">
-              {/* VoucherCard + gray lock overlay */}
-              <div className="relative w-full">
-                <VoucherCard userVoucher={userVoucher} flipped={false} onExpire={() => {}} />
-                <div
-                  className="absolute inset-0 z-10 flex items-center justify-center rounded-xl"
-                  style={{
-                    background: 'rgba(55,65,81,0.55)',
-                    backdropFilter: 'grayscale(0.5)',
-                    WebkitBackdropFilter: 'grayscale(0.5)',
-                  }}
-                >
-                  <span
-                    className="material-symbols-rounded text-white"
-                    style={{ fontSize: 44, filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.4))' }}
-                  >
-                    lock
-                  </span>
-                </div>
-              </div>
-
-              {/* Inline archive button (demo: confirm → balance phase) */}
-              {!archiveConfirming ? (
-                <button
-                  onClick={() => setArchiveConfirming(true)}
-                  className="w-full flex items-center justify-center gap-2 rounded-2xl bg-surface border border-border text-text-secondary py-3.5 font-semibold text-sm active:scale-[0.98] transition-transform"
-                >
-                  <span className="material-symbols-outlined" style={{ fontSize: 20 }}>inventory_2</span>
-                  העבר לארכיון
-                </button>
-              ) : (
-                <div className="flex items-center gap-3 w-full">
-                  <button
-                    onClick={() => { setArchiveConfirming(false); setDemoPhase('balance'); }}
-                    className="flex-1 flex items-center justify-center gap-2 rounded-2xl bg-bg-dark text-white py-3.5 font-semibold text-sm active:scale-[0.98] transition-transform"
-                  >
-                    <span className="material-symbols-outlined" style={{ fontSize: 20 }}>inventory_2</span>
-                    אישור העברה לארכיון
-                  </button>
-                  <button
-                    onClick={() => setArchiveConfirming(false)}
-                    className="px-5 rounded-2xl bg-surface border border-border text-text-secondary py-3.5 font-semibold text-sm active:scale-[0.98] transition-transform"
-                  >
-                    ביטול
-                  </button>
-                </div>
-              )}
-            </div>
-          </motion.div>
-        )}
-
-        {isSpar && demoPhase === 'balance' && (
-          <motion.div
-            key="balance"
-            className="fixed inset-0 z-[140] mx-auto max-w-md bg-white flex flex-col items-center justify-center px-6"
-            dir="rtl"
-            initial={{ x: 420, opacity: 0 }}
-            animate={{ x: 0, opacity: 1 }}
-            transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
-          >
-            <motion.div
-              className="w-full flex flex-col gap-6"
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2, duration: 0.4 }}
-            >
-              <div className="text-center">
-                <h2 className="text-2xl font-bold text-text-primary">קאשבק נצבר!</h2>
-                <p className="text-text-secondary mt-1 text-sm">מ-SPAR ישראל</p>
-              </div>
-
-              <BalanceCard
-                balance={15}
-                countFrom={0}
-                className="w-full"
-                style={{ aspectRatio: '1 / 1' }}
-              />
-
-              <button
-                type="button"
-                onClick={finishRedeem}
-                className="w-full bg-bg-dark text-white py-4 rounded-full font-bold text-base shadow-lg shadow-bg-dark/30 transition-all active:scale-[0.98]"
-              >
-                לארנק שלי
-              </button>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
   );
 }
