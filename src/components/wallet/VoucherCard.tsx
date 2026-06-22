@@ -11,6 +11,8 @@ interface VoucherCardProps {
   flipped: boolean;
   /** Called when the redemption session times out, to flip back. */
   onExpire: () => void;
+  /** Overrides the displayed balance (e.g. ₪0 once the gift has been spent). */
+  balanceOverride?: number;
 }
 
 /** Perceived-luminance check so we pick readable ink on the brand colour. */
@@ -40,7 +42,7 @@ export function voucherStacks(id: string): boolean {
  * the SAME structure as the balance pay side (shared PayCodesPanel + 30s
  * session ring) wired to this voucher's code + QR.
  */
-export default function VoucherCard({ userVoucher, flipped, onExpire }: VoucherCardProps) {
+export default function VoucherCard({ userVoucher, flipped, onExpire, balanceOverride }: VoucherCardProps) {
   const { t, language } = useLanguage();
   const locale = language === 'he' ? 'he-IL' : 'en-IL';
   const { voucher, redemptionCode, qrCode } = userVoucher;
@@ -162,7 +164,7 @@ export default function VoucherCard({ userVoucher, flipped, onExpire }: VoucherC
                 {language === 'he' ? 'יתרה' : 'Balance'}
               </span>
               <span className="font-bold tracking-tight text-4xl" style={{ color: ink }}>
-                {formatCurrency(voucher.originalPrice || 0, 'ILS', locale)
+                {formatCurrency(balanceOverride ?? voucher.originalPrice ?? 0, 'ILS', locale)
                   .split(/(₪)/)
                   .map((part, i) =>
                     part === '₪' ? (

@@ -619,6 +619,7 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
             userVoucher={uv}
             flipped={flippedVoucherId === cardId && !isUsedSpar}
             onExpire={() => setFlippedVoucherId(null)}
+            balanceOverride={isUsedSpar ? 0 : undefined}
           />
           {isUsedSpar && (
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
