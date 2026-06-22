@@ -102,7 +102,7 @@ export default function PaymentIntroPage() {
           style={{ border: '2px solid #3B82F6', boxShadow: '0 0 10px rgba(59,130,246,0.2)' }}
         >
           <button
-            onClick={() => navigate(`/${lang}/wallet`)}
+            onClick={() => navigate(`/${lang}/wallet/add-payment-method`, { state: { entry: 'pay-intro' } })}
             className="w-full text-white font-bold py-4 rounded-[24px] text-[17px] active:opacity-90 transition-opacity"
             style={{ backgroundColor: NAVY }}
           >

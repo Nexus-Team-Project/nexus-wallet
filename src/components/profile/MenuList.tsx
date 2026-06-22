@@ -2,7 +2,6 @@ import { useNavigate, useParams } from 'react-router-dom';
 import {
   Globe,
   HelpCircle,
-  User,
   Lock,
   Languages,
   Bell,
@@ -109,11 +108,6 @@ export default function MenuList() {
           Icon: ShoppingBag,
           label: language === 'he' ? 'ההזמנות שלי' : 'My orders',
           onClick: () => navigate(`/${lang}/orders`),
-        },
-        {
-          Icon: User,
-          label: t.profile.settingsAccountInfo,
-          onClick: () => {},
         },
         {
           Icon: Lock,

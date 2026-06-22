@@ -46,7 +46,10 @@ export default function TopStores() {
         titleHe={t.home.reorder}
         items={items}
         accentColor="#1c1c1c"
-        bgGradient="linear-gradient(135deg, #3b82f6 0%, #635bff 35%, #9333ea 70%, #00d4ff 100%)"
+        bgVideo="/reorder-category-v2.mp4"
+        titleInMedia
+        topTitle={t.home.reorder}
+        mediaPosition="center"
         aspectRatio="2 / 3"
         onSeeAll={() => navigate(`/${lang}/store`)}
       />

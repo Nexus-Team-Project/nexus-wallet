@@ -18,6 +18,23 @@ export default function BusinessPage() {
   const [couponHelpOpen, setCouponHelpOpen] = useState(false);
   const [dealHelpOpen, setDealHelpOpen] = useState(false);
   const [aboutExpanded, setAboutExpanded] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const handleShare = async () => {
+    const url = window.location.href;
+    const title = isHe ? business?.nameHe ?? '' : business?.name ?? '';
+    try {
+      if (navigator.share) {
+        await navigator.share({ title, url });
+      } else {
+        await navigator.clipboard.writeText(url);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      }
+    } catch {
+      /* user dismissed */
+    }
+  };
 
   const business = useMemo(
     () => mockBusinesses.find((b) => b.id === businessId),
@@ -102,13 +119,53 @@ export default function BusinessPage() {
         {/* Main content area with rounded top — like Tabby/Bloomingdale's mockup */}
         <div
           className="relative z-20 bg-white"
-          style={{ marginTop: -30, borderTopLeftRadius: 30, borderTopRightRadius: 30 }}
+          style={{ marginTop: -30, borderTopLeftRadius: 36, borderTopRightRadius: 36, willChange: 'transform' }}
         >
-          <BusinessCardContent business={business} storeActions={storeActions} />
+          {/* ── Social links ── */}
+          <section className="px-6 pt-5 pb-2">
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleShare}
+                aria-label={isHe ? 'שיתוף' : 'Share'}
+                className="h-10 w-10 inline-flex items-center justify-center rounded-full bg-surface border border-border/60 text-text-primary active:scale-95 transition-transform"
+              >
+                <span className="material-symbols-outlined leading-none" style={{ fontSize: 20 }}>ios_share</span>
+              </button>
+              {business.website && (
+                <a href={business.website} target="_blank" rel="noopener noreferrer" aria-label="Website"
+                  className="h-10 w-10 inline-flex items-center justify-center rounded-full bg-surface border border-border/60 text-text-primary active:scale-95 transition-transform">
+                  <span className="material-symbols-outlined leading-none" style={{ fontSize: 20 }}>language</span>
+                </a>
+              )}
+              {business.instagram && (
+                <a href={business.instagram} target="_blank" rel="noopener noreferrer" aria-label="Instagram"
+                  className="h-10 w-10 inline-flex items-center justify-center rounded-full bg-surface border border-border/60 text-text-primary active:scale-95 transition-transform">
+                  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="2" y="2" width="20" height="20" rx="5.5" />
+                    <circle cx="12" cy="12" r="4" />
+                    <circle cx="17.5" cy="6.5" r="1.1" fill="currentColor" stroke="none" />
+                  </svg>
+                </a>
+              )}
+              {business.facebook && (
+                <a href={business.facebook} target="_blank" rel="noopener noreferrer" aria-label="Facebook"
+                  className="h-10 w-10 inline-flex items-center justify-center rounded-full bg-surface border border-border/60 text-text-primary active:scale-95 transition-transform">
+                  <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                    <path d="M22 12c0-5.52-4.48-10-10-10S2 6.48 2 12c0 4.99 3.66 9.13 8.44 9.88v-6.99H7.9V12h2.54V9.8c0-2.5 1.49-3.89 3.78-3.89 1.09 0 2.24.2 2.24.2v2.46h-1.26c-1.24 0-1.63.77-1.63 1.56V12h2.78l-.44 2.89h-2.34v6.99C18.34 21.13 22 16.99 22 12Z" />
+                  </svg>
+                </a>
+              )}
+              {copied && (
+                <span className="text-xs font-medium text-text-muted">
+                  {isHe ? 'הקישור הועתק' : 'Link copied'}
+                </span>
+              )}
+            </div>
+          </section>
 
           {/* ── About us ── */}
           {(business.description || business.descriptionHe) && (
-            <section className="px-6 pb-8">
+            <section className="px-6 pb-4">
               <h2 className="text-xl font-bold text-text-primary mb-2">
                 {isHe ? 'עלינו' : 'About us'}
               </h2>
@@ -123,6 +180,8 @@ export default function BusinessPage() {
               </button>
             </section>
           )}
+
+          <BusinessCardContent business={business} storeActions={storeActions} />
         </div>
 
         {/* Sticky CTA */}

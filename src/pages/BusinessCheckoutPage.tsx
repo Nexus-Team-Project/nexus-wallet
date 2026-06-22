@@ -215,13 +215,19 @@ export default function BusinessCheckoutPage() {
     if (paying) return;
     setPaying(true);
     window.setTimeout(() => {
-      navigate(`/${language}/business/${business.id}/product/${product.id}/order-confirmed`, {
+      navigate(`/${language}/pay/store-success`, {
         replace: true,
         state: {
-          qty,
-          total,
-          shippingLabel,
-          address: selectedAddress?.line,
+          amount: total,
+          cashback: cashbackAmount,
+          merchantName: business.name,
+          merchantNameHe: business.nameHe,
+          merchantLogo: business.logoUrl,
+          productName: product.name,
+          productNameHe: (product as { nameHe?: string }).nameHe,
+          paymentMethodId: selectedPayMethod?.id,
+          returnTo: `/${language}/business/${business.id}/product/${product.id}/order-confirmed`,
+          returnToState: { qty, total, shippingLabel, address: selectedAddress?.line },
         },
       });
     }, 1200);

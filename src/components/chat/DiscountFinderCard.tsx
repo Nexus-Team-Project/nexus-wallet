@@ -34,6 +34,15 @@ interface DiscountFinderCardProps {
    *  category page, we seed the category chip so they don't have to pick
    *  it again. */
   initialCategory?: VoucherCategory;
+  /** Optional pre-selected item type for the header button (deals / products /
+   *  businesses / places). Defaults to 'deals'. The store page seeds this to
+   *  'businesses' so the finder reads "מצא לי … עסקים …" out of the box. */
+  initialItemType?: ItemType;
+  /** Fired when the user changes the category chip (the "בקטגוריות [הכל]"
+   *  selector). Lets a host page react to category changes directly — the
+   *  store page uses it to switch between the Nexus-picks view (when 'all')
+   *  and a category-filtered list. */
+  onCategoryChange?: (category: VoucherCategory | 'all') => void;
 }
 
 // Palette borrowed from the iOS picker mockup
@@ -48,7 +57,7 @@ const ADD_FILTER_TEXT = '#1E5C9E';
 
 // What kind of thing is the user searching for? Drives the "הטבות" button
 // in the header (which switches between deals / products / businesses / places).
-type ItemType = 'deals' | 'products' | 'businesses' | 'places';
+export type ItemType = 'deals' | 'products' | 'businesses' | 'places';
 const ITEM_TYPE_META: Record<ItemType, { he: string; en: string; emoji: string }> = {
   deals:      { he: 'הטבות',  en: 'Deals',      emoji: '🎁' },
   products:   { he: 'מוצרים', en: 'Products',   emoji: '🛍️' },
@@ -140,6 +149,8 @@ export default function DiscountFinderCard({
   popularSearches,
   onSearchQuery,
   initialCategory,
+  initialItemType = 'deals',
+  onCategoryChange,
 }: DiscountFinderCardProps) {
   const { language } = useLanguage();
   const isHe = language === 'he';
@@ -163,7 +174,7 @@ export default function DiscountFinderCard({
 
   // Item-type filter — what kind of thing is being searched. Defaults to
   // "deals". The "הטבות" button in the header opens its picker.
-  const [itemType, setItemType] = useState<ItemType>('deals');
+  const [itemType, setItemType] = useState<ItemType>(initialItemType);
   const [typePickerOpen, setTypePickerOpen] = useState(false);
 
   // User-added extra filters. Each entry shows as another chip in the
@@ -408,6 +419,7 @@ export default function DiscountFinderCard({
               onClick={() => {
                 setCategoryFilter('all');
                 setCategoryPickerOpen(false);
+                onCategoryChange?.('all');
               }}
             />
             {CATEGORY_ORDER.map((cat) => {
@@ -420,6 +432,7 @@ export default function DiscountFinderCard({
                     onInteract?.();
                     setCategoryFilter(cat);
                     setCategoryPickerOpen(false);
+                    onCategoryChange?.(cat);
                   }}
                 />
               );

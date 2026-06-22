@@ -3,13 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { mockBusinesses } from '../../mock/data/businesses.mock';
 import { mockBranches } from '../../mock/data/branches.mock';
-import { mockVouchers } from '../../mock/data/vouchers.mock';
 import { mockReviews } from '../../mock/data/reviews.mock';
 import type { Business } from '../../types/search.types';
-import type { Voucher } from '../../types/voucher.types';
 import {
   StoriesRow,
-  OffersSlider,
   ProductsSection,
   ServicesSection,
   BuyInStoreSection,
@@ -35,19 +32,11 @@ interface BusinessCardContentProps {
 export default function BusinessCardContent({ business, storeActions, club }: BusinessCardContentProps) {
   const navigate = useNavigate();
   const { language } = useLanguage();
-  const isHe = language === 'he';
 
   const branches = useMemo(
     () => mockBranches.filter((b) => b.businessId === business.id),
     [business.id],
   );
-  const vouchers = useMemo(
-    () => mockVouchers.filter((v) => v.merchantName === business.name),
-    [business.name],
-  );
-  // Club benefits = a spread of partner offers (the synthetic club name matches
-  // no merchant, so fall back to a sample of all vouchers).
-  const clubBenefits = useMemo(() => mockVouchers.slice(0, 8), []);
   const reviews = useMemo(
     () => mockReviews.filter((r) => r.businessId === business.id),
     [business.id],
@@ -58,18 +47,7 @@ export default function BusinessCardContent({ business, storeActions, club }: Bu
       {/* Stories row — hidden on the club variant. */}
       {!club && <StoriesRow business={business} />}
 
-      {/* Offers slider. On the club variant it becomes the tenant's benefits,
-          titled "הטבות {tenant}" and fed with the partner offers. */}
-      <div id="offers-section">
-        <OffersSlider
-          vouchers={club ? clubBenefits : vouchers}
-          business={business}
-          title={club ? (isHe ? `הטבות ${business.nameHe}` : `${business.name} Benefits`) : undefined}
-          onSelect={(v: Voucher) => navigate(`/${language}/business/${business.id}/voucher/${v.id}`)}
-        />
-      </div>
-
-      {/* Store actions — sit directly under the offers (benefits) rows. */}
+      {/* Store actions — sit directly under stories. */}
       {storeActions}
 
       {/* Products — only if business has products */}

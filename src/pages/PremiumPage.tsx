@@ -1,8 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import {
-  Crown,
   Zap,
   Gift,
   Heart,
@@ -15,6 +14,8 @@ import { useLanguage } from '../i18n/LanguageContext';
 import { formatCurrency } from '../utils/formatCurrency';
 import { cn } from '../utils/cn';
 import TopBar from '../components/layout/TopBar';
+import { usePaymentMethods } from '../hooks/usePaymentMethods';
+import PaymentBrandMark from '../components/wallet/PaymentBrandMark';
 
 // Single Premium plan, first month free. Billed monthly (₪25) or yearly.
 // NOTE: the yearly price is a placeholder — confirm before launch.
@@ -42,11 +43,52 @@ export default function PremiumPage() {
   const { t, language, isRTL } = useLanguage();
   const { lang = 'he' } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const orderState = location.state as {
+    countdown?: number;
+    total?: number;
+    cashback?: number;
+    productImage?: string | null;
+    productName?: string;
+    businessName?: string;
+    businessLogo?: string | null;
+  } | null;
   const tp = t.premium;
   const locale = language === 'he' ? 'he-IL' : 'en-IL';
   const money = (n: number) => formatCurrency(n, 'ILS', locale);
 
+  const COUNTDOWN_START = 300;
+  const [countdown, setCountdown] = useState<number | null>(
+    orderState?.countdown != null ? orderState.countdown : null
+  );
+  useEffect(() => {
+    if (countdown === null || countdown <= 0) return;
+    const t = setTimeout(() => setCountdown((c) => (c !== null ? c - 1 : null)), 1000);
+    return () => clearTimeout(t);
+  }, [countdown]);
+
+  // Detect when the bonus card is pinned (sticky) so we can ring it in the
+  // brand blue, matching the plan cards below. Observed against the scroll
+  // container: ratio < 1 means its top is clipped at the sticky offset.
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const stickyCardRef = useRef<HTMLDivElement>(null);
+  const [cardStuck, setCardStuck] = useState(false);
+  useEffect(() => {
+    const el = stickyCardRef.current;
+    const root = scrollRef.current;
+    if (!el || !root) return;
+    const obs = new IntersectionObserver(
+      ([e]) => setCardStuck(e.intersectionRatio < 1),
+      { root, threshold: [1], rootMargin: '-13px 0px 0px 0px' },
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [orderState?.cashback]);
+
   const [period, setPeriod] = useState<BillingPeriod>('monthly');
+  const { data: paymentMethods } = usePaymentMethods();
+  const [payMethodId, setPayMethodId] = useState<string | null>(null);
+  const selectedMethod = paymentMethods.find((m) => m.id === payMethodId) ?? paymentMethods[0];
   const isYearly = period === 'yearly';
   const price = money(isYearly ? YEARLY_PRICE : MONTHLY_PRICE);
   const perLabel = isYearly ? tp.perYear : tp.perMonth;
@@ -117,20 +159,93 @@ export default function PremiumPage() {
         />
       </div>
 
-      {/* ── Standard app TopBar — our routine strip (logo / avatar / chat /
-          bell + back). The -mx-5 cancels the page's px-5 so TopBar keeps its
-          own horizontal padding, exactly like the other core surfaces. ───── */}
-      <div className="relative z-10 -mx-5 flex-shrink-0">
-        <TopBar showBack />
-      </div>
+      {/* ── Scrollable middle — the top strip now lives INSIDE this scroll
+          area so it scrolls away with the content (not pinned). pb clears the
+          floating glass panel so content can scroll up from behind it. ─────── */}
+      <div ref={scrollRef} className="relative z-10 flex-1 overflow-y-auto no-scrollbar pb-[330px]">
+        {/* Top strip — scrolls away with the content (not sticky). The -mx-5
+            cancels the page's px-5 so TopBar keeps its own horizontal padding. */}
+        <div className="-mx-5">
+          <TopBar showBack />
+        </div>
 
-      {/* ── Scrollable middle — pb clears the floating glass panel so all
-          content can scroll up from behind it. ───────────────────────────── */}
-      <div className="relative z-10 flex-1 overflow-y-auto no-scrollbar pb-[330px]">
         {/* Page title */}
         <h1 className="text-[28px] font-extrabold text-text-primary tracking-tight pt-3">
           {tp.selectPlan}
         </h1>
+
+        {/* Cashback-bonus card (shown when arriving from a purchase) + the
+            "And also" heading — now sits ABOVE the special-offer card. */}
+        {orderState?.cashback != null && (
+          <>
+          {/* Sticky — pins near the top of the screen (small top gap) when
+              scrolled; frosted/translucent like the plan cards, sitting above
+              the cards that scroll under it via z-20. */}
+          <div
+            ref={stickyCardRef}
+            className={cn(
+              'sticky top-3 z-20 overflow-hidden rounded-3xl bg-white/65 backdrop-blur-md p-5 mt-5 transition-all duration-300',
+              cardStuck
+                ? 'border-[1.5px] border-primary shadow-[0_6px_20px_rgba(99,91,255,0.12)]'
+                : 'border border-white/60 shadow-sm',
+            )}
+          >
+            <div className="flex items-center gap-4">
+              {/* Mini card */}
+              <div
+                className="flex-shrink-0 w-24 rounded-xl overflow-hidden shadow-md flex items-center justify-center p-2.5"
+                style={{ aspectRatio: '1.586 / 1', background: '#e8242a' }}
+              >
+                {orderState.businessLogo ? (
+                  <img src={orderState.businessLogo} alt="" draggable={false} className="h-10 w-auto object-contain" />
+                ) : (
+                  <span className="text-white font-bold text-[11px] leading-tight text-center">
+                    {orderState.businessName ?? orderState.productName}
+                  </span>
+                )}
+              </div>
+              {/* Text */}
+              <div className="flex-1 min-w-0">
+                <p className="text-[12px] font-semibold text-text-muted mb-0.5 truncate">
+                  {orderState.businessName ?? orderState.productName}
+                </p>
+                <p className="text-[15px] font-bold text-text-primary leading-snug mb-2">
+                  {isRTL
+                    ? 'שדרג עכשיו ונכפיל לך את ה-CashBack כבר על עסקה זו'
+                    : 'Upgrade now and double your CashBack on this order'}
+                </p>
+                <div className="flex items-baseline gap-1.5">
+                  <span className="text-[12px] font-bold text-primary">CashBack</span>
+                  <span className="text-[18px] font-extrabold text-primary tabular-nums" dir="ltr">
+                    ₪{(orderState.cashback * 2).toFixed(2)}
+                  </span>
+                  <span className="text-[11px] text-text-muted line-through tabular-nums" dir="ltr">
+                    ₪{orderState.cashback.toFixed(2)}
+                  </span>
+                </div>
+              </div>
+              {/* Countdown clock — parked on the card's outer (left in RTL) edge,
+                  vertically centred; mirrors the clock on the bottom CTA. */}
+              {countdown !== null && (
+                <span className="relative flex-shrink-0 w-11 h-11">
+                  <svg viewBox="0 0 36 36" className="w-full h-full -rotate-90">
+                    <circle cx="18" cy="18" r="14" fill="none" stroke="var(--color-primary)" strokeOpacity="0.2" strokeWidth="3" />
+                    <circle cx="18" cy="18" r="14" fill="none" stroke="var(--color-primary)" strokeWidth="3" strokeLinecap="round"
+                      strokeDasharray={`${2 * Math.PI * 14}`}
+                      strokeDashoffset={2 * Math.PI * 14 * (1 - countdown / COUNTDOWN_START)}
+                      style={{ transition: 'stroke-dashoffset 1s linear' }}
+                    />
+                  </svg>
+                  <span className="absolute inset-0 flex items-center justify-center text-[11px] font-bold tabular-nums text-primary">
+                    {`${Math.floor(countdown / 60)}:${String(countdown % 60).padStart(2, '0')}`}
+                  </span>
+                </span>
+              )}
+            </div>
+          </div>
+          <h2 className="text-lg font-bold text-text-primary text-start mt-4 mb-3">{isRTL ? 'וגם' : 'And also'}</h2>
+          </>
+        )}
 
         {/* "Special offer" featured card */}
         <motion.div
@@ -144,7 +259,12 @@ export default function PremiumPage() {
             aria-hidden
             className="pointer-events-none absolute -top-3 end-[-28px] w-44 h-28 rotate-[-15deg] rounded-2xl balance-gradient shadow-lg flex items-center justify-center"
           >
-            <Crown size={34} strokeWidth={1.6} className="text-white/90" />
+            <img
+              src="/nexus-logo-animated-white.gif"
+              alt=""
+              className="h-14 w-auto object-contain"
+              draggable={false}
+            />
           </div>
 
           <div className="relative z-10">
@@ -256,6 +376,60 @@ export default function PremiumPage() {
             </div>
           </div>
         </section>
+
+        {/* Payment method */}
+        {paymentMethods.length > 0 && (
+          <div className="mt-6">
+            <h3 className="text-[13px] font-bold text-text-primary mb-3">
+              {isRTL ? 'אמצעי תשלום' : 'Payment method'}
+            </h3>
+            <div className="rounded-2xl bg-surface border border-border overflow-hidden">
+              {/* Selected method row */}
+              <div className="flex items-center gap-3 px-4 py-3 border-b border-border/60">
+                <PaymentBrandMark brand={selectedMethod?.brand} />
+                <div className="flex-1 min-w-0">
+                  <p className="text-[14px] font-semibold text-text-primary truncate">
+                    {isRTL ? selectedMethod?.labelHe : selectedMethod?.label}
+                  </p>
+                  {selectedMethod?.last4 && (
+                    <p className="text-[11px] text-text-muted" dir="ltr">···· {selectedMethod.last4}</p>
+                  )}
+                </div>
+                <span className="w-5 h-5 rounded-full bg-primary text-white flex items-center justify-center flex-shrink-0">
+                  <Check size={11} strokeWidth={3} />
+                </span>
+              </div>
+              {/* Horizontal picker */}
+              <div className="flex overflow-x-auto gap-2 px-3 py-3 scrollbar-hide snap-x snap-proximity scroll-px-3">
+                {paymentMethods.map((m) => {
+                  const active = m.id === selectedMethod?.id;
+                  return (
+                    <button
+                      key={m.id}
+                      onClick={() => setPayMethodId(m.id)}
+                      className={cn(
+                        'flex-none snap-start rounded-xl border px-3 py-2 flex flex-col items-center gap-1.5 bg-white transition-colors min-w-[72px]',
+                        active ? 'border-primary shadow-sm' : 'border-border',
+                      )}
+                    >
+                      <PaymentBrandMark brand={m.brand} />
+                      <span className="text-[10px] font-medium text-text-secondary text-center leading-tight truncate w-full" dir="ltr">
+                        {m.last4 ? `···· ${m.last4}` : (isRTL ? m.labelHe : m.label)}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Fine print */}
+        <p className="mt-6 text-[10px] leading-relaxed text-text-muted px-1">
+          {tp.fineprint
+            .replace('{price}', price)
+            .replace('{period}', isYearly ? tp.periodYearly : tp.periodMonthly)}
+        </p>
       </div>
 
       {/* ── Floating action area — no backing panel. Each control is its own
@@ -330,12 +504,32 @@ export default function PremiumPage() {
         </div>
 
         {/* CTA — solid navy pill (matches the business store "Buy now") */}
-        <button
-          onClick={() => navigate(`/${lang}/premium-reveal`)}
-          className="w-full bg-bg-dark text-white py-3.5 rounded-full font-bold text-base shadow-lg active:scale-[0.98] transition-transform"
-        >
-          {tp.cta}
-        </button>
+        {(() => {
+          const R_btn = 14; const CIRC_btn = 2 * Math.PI * R_btn;
+          const dashOffset = countdown !== null ? CIRC_btn * (1 - countdown / COUNTDOWN_START) : 0;
+          return (
+            <button
+              onClick={() => navigate(`/${lang}/premium-reveal`)}
+              className="w-full flex items-center justify-center gap-3 bg-bg-dark text-white py-3.5 rounded-full font-bold text-base shadow-lg active:scale-[0.98] transition-transform"
+            >
+              {countdown !== null && (
+                <span className="relative flex-shrink-0 w-8 h-8">
+                  <svg viewBox="0 0 36 36" className="w-full h-full -rotate-90">
+                    <circle cx="18" cy="18" r={R_btn} fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="3" />
+                    <circle cx="18" cy="18" r={R_btn} fill="none" stroke="white" strokeWidth="3" strokeLinecap="round"
+                      strokeDasharray={`${CIRC_btn}`} strokeDashoffset={dashOffset}
+                      style={{ transition: 'stroke-dashoffset 1s linear' }}
+                    />
+                  </svg>
+                  <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold tabular-nums">
+                    {`${Math.floor(countdown / 60)}:${String(countdown % 60).padStart(2, '0')}`}
+                  </span>
+                </span>
+              )}
+              <span>{isRTL ? 'התחילו חודש חינם' : 'Start your free month'}</span>
+            </button>
+          );
+        })()}
 
         {/* Legal */}
         <p className="mt-3 text-center text-[11px] leading-relaxed text-text-secondary px-2">

@@ -46,7 +46,7 @@ export default function AppLayout() {
     // bottom-nav padding, and chat FABs are all suppressed so the page can
     // own its own header / fixed CTA / chrome.
     const isFullScreenForm =
-      /^\/[a-z]{2}\/wallet\/(add-payment-method|pay-intro|card|balance|voucher\/[^/]+)\/?$/.test(pathname) ||
+      /^\/[a-z]{2}\/wallet\/(add-payment-method|pay-intro|deal-intro|card|balance|voucher\/[^/]+)\/?$/.test(pathname) ||
       /^\/[a-z]{2}\/gift-sample\/?$/.test(pathname) ||
       /^\/[a-z]{2}\/premium\/?$/.test(pathname) ||
       /^\/[a-z]{2}\/business\/[^/]+\/site\/?$/.test(pathname);

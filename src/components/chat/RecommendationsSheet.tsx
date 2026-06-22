@@ -1,9 +1,10 @@
-import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef, type ReactNode } from 'react';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { useAuthGate } from '../../hooks/useAuthGate';
 import { formatCurrency } from '../../utils/formatCurrency';
 import MaskedPrice from '../ui/MaskedPrice';
 import GradientSkeletonCard from '../ui/GradientSkeletonCard';
+import StoreRow from '../store/StoreRow';
 import OffersMap from '../map/OffersMap';
 import type { OfferPin, OfferCategory } from '../../types/map';
 import type { Voucher, VoucherCategory } from '../../types/voucher.types';
@@ -45,6 +46,15 @@ interface RecommendationsContentProps {
    *  store-scoped search — an online store has no spatial dimension, so the
    *  location switcher is meaningless there. */
   hideMap?: boolean;
+  /** List rendering style. 'picks' (default) = the rich image cards used in
+   *  chat. 'stores' = the compact cashback-style business rows used on the
+   *  store page (logo circle + name + discount line). The header, map toggle
+   *  and category squares are identical in both. */
+  variant?: 'picks' | 'stores';
+  /** Optional content rendered directly below the category squares row and
+   *  above the list (list mode only). The store page uses it for the
+   *  "My Brands" slider. */
+  afterCategories?: ReactNode;
 }
 
 // Category style matches the collapsed pill row on the home page (CategoryRow):
@@ -182,6 +192,8 @@ export default function RecommendationsContent({
   onSelect,
   onViewModeChange,
   hideMap = false,
+  variant = 'picks',
+  afterCategories,
 }: RecommendationsContentProps) {
   const { language, t } = useLanguage();
   const isHe = language === 'he';
@@ -647,13 +659,21 @@ export default function RecommendationsContent({
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
             <h3 className="text-lg font-bold text-text-primary">
-              {isHe ? 'ההמלצות של Nexus' : "Nexus picks"}
+              {variant === 'stores'
+                ? (isHe ? 'Nexus עובד בחנויות הבאות' : 'Nexus works at these stores')
+                : (isHe ? 'ההמלצות של Nexus' : 'Nexus picks')}
             </h3>
             {intro ? (
               <p className="text-xs text-text-muted mt-1 leading-relaxed line-clamp-2">{intro}</p>
             ) : loading ? (
               <p className="text-xs text-text-muted mt-1 leading-relaxed">
                 {isHe ? 'מחפש המלצות בשבילך…' : 'Finding picks for you…'}
+              </p>
+            ) : variant === 'stores' ? (
+              <p className="text-xs text-text-muted mt-1 leading-relaxed">
+                {isHe
+                  ? 'שלמו עם Nexus וצברו קאשבק — כפול עם Premium'
+                  : 'Pay with Nexus and earn cashback — double with Premium'}
               </p>
             ) : null}
           </div>
@@ -699,27 +719,54 @@ export default function RecommendationsContent({
         </div>
       )}
 
+      {/* Slot directly below the category squares (e.g. the store page's
+          "My Brands" slider). Full-width so a horizontal slider can bleed to
+          the card edges. */}
+      {afterCategories && <div className="flex-shrink-0">{afterCategories}</div>}
+
       {/* Scrollable list — one card per row. overscrollContain prevents the
-          scroll from bleeding into the page when reaching the edges. */}
+          scroll from bleeding into the page when reaching the edges. The
+          'stores' variant swaps the rich cards for the compact cashback-style
+          business rows. */}
       <div
         dir={isHe ? 'rtl' : 'ltr'}
-        className="flex-1 overflow-y-auto subtle-scrollbar px-5 pt-2 pb-8 space-y-3"
+        className={`flex-1 overflow-y-auto subtle-scrollbar px-5 pt-2 pb-8 ${
+          variant === 'stores' ? 'space-y-6' : 'space-y-3'
+        }`}
         style={{ overscrollBehavior: 'contain' }}
       >
-        {loading
-          ? [0, 1, 2, 3].map((i) => (
+        {loading ? (
+          variant === 'stores' ? (
+            [0, 1, 2, 3, 4].map((i) => (
+              <div key={i} className="flex items-center gap-4">
+                <div className="w-14 h-14 rounded-full bg-border animate-pulse flex-shrink-0" />
+                <div className="flex-1 space-y-2">
+                  <div className="h-4 w-1/3 bg-border rounded animate-pulse" />
+                  <div className="h-3 w-1/2 bg-border rounded animate-pulse" />
+                </div>
+              </div>
+            ))
+          ) : (
+            [0, 1, 2, 3].map((i) => (
               <GradientSkeletonCard key={i} index={i} className="w-full" imageHeight="20vh" />
             ))
-          : filteredVouchers.map((voucher) => (
-              <ResultCard
-                key={voucher.id}
-                voucher={voucher}
-                isHe={isHe}
-                onSelect={onSelect}
-                comingSoonLabel={t.store.comingSoon}
-                outOfStockLabel={t.store.outOfStock}
-              />
-            ))}
+          )
+        ) : variant === 'stores' ? (
+          filteredVouchers.map((voucher) => (
+            <StoreRow key={voucher.id} voucher={voucher} onSelect={onSelect} />
+          ))
+        ) : (
+          filteredVouchers.map((voucher) => (
+            <ResultCard
+              key={voucher.id}
+              voucher={voucher}
+              isHe={isHe}
+              onSelect={onSelect}
+              comingSoonLabel={t.store.comingSoon}
+              outOfStockLabel={t.store.outOfStock}
+            />
+          ))
+        )}
       </div>
     </div>
   );

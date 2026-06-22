@@ -13,6 +13,8 @@ export interface Business {
   description?: string;
   descriptionHe?: string;
   website?: string;
+  instagram?: string;
+  facebook?: string;
   phone?: string;
   whatsapp?: string;
   logoUrl?: string;

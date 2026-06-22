@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useLanguage } from '../i18n/LanguageContext';
 import DigitalCard from '../components/wallet/DigitalCard';
 import WalletCardActions from '../components/wallet/WalletCardActions';
+import ArchiveCardButton from '../components/wallet/ArchiveCardButton';
 
 /**
  * Card-detail page. Reached by tapping the digital card on the wallet —
@@ -107,6 +108,9 @@ export default function CardDetailPage() {
           className="mt-5"
           onTransfer={() => navigate(`/${lang}/wallet/balance`)}
         />
+
+        {/* Move this card to the archive (hides it from the wallet deck) */}
+        <ArchiveCardButton cardId="card" className="mt-3" />
       </motion.div>
     </div>
   );

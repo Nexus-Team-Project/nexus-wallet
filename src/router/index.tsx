@@ -65,7 +65,12 @@ const WalletActionsPage = lazy(() => import('../pages/WalletActionsPage'));
 const CardDetailPage = lazy(() => import('../pages/CardDetailPage'));
 const BalanceDetailPage = lazy(() => import('../pages/BalanceDetailPage'));
 const VoucherDetailPage  = lazy(() => import('../pages/VoucherDetailPage'));
-const PaymentIntroPage   = lazy(() => import('../pages/PaymentIntroPage'));
+const PaymentIntroPage            = lazy(() => import('../pages/PaymentIntroPage'));
+const DealIntroPage               = lazy(() => import('../pages/DealIntroPage'));
+const PaymentSuccessPage          = lazy(() => import('../pages/PaymentSuccessPage'));
+const StorePaymentSuccessPage     = lazy(() => import('../pages/StorePaymentSuccessPage'));
+const VoucherSuccessPage          = lazy(() => import('../pages/VoucherSuccessPage'));
+const BusinessPaymentSuccessPage  = lazy(() => import('../pages/BusinessPaymentSuccessPage'));
 
 // Registration flow — single chunk (user goes through all slides sequentially)
 const RegisterMembershipPage   = lazy(() => import('../pages/RegisterMembershipPage'));
@@ -161,6 +166,11 @@ export const router = createBrowserRouter([
           { path: 'wallet/add-payment-method', element: <S><AddPaymentMethodPage /></S> },
           { path: 'wallet/payment-methods',    element: <S><PaymentMethodsPage /></S> },
           { path: 'wallet/pay-intro',          element: <S><PaymentIntroPage /></S> },
+          { path: 'wallet/deal-intro',         element: <S><DealIntroPage /></S> },
+          { path: 'pay/success',               element: <S><PaymentSuccessPage /></S> },
+          { path: 'pay/store-success',         element: <S><StorePaymentSuccessPage /></S> },
+          { path: 'pay/voucher-success',       element: <S><VoucherSuccessPage /></S> },
+          { path: 'pay/business-success',      element: <S><BusinessPaymentSuccessPage /></S> },
           { path: 'wallpaper',                 element: <S><WallpaperPage /></S> },
           { path: 'wallet/customize',          element: <S><WalletCustomizePage /></S> },
           { path: 'wallet/actions',            element: <S><WalletActionsPage /></S> },

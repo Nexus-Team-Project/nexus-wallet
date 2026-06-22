@@ -44,7 +44,6 @@ export default function VoucherSuccessPage() {
     tier,
     paymentMethodId,
     userVoucherId,
-    returnTo,
   } = state;
 
   const { data: paymentMethods } = usePaymentMethods();
@@ -182,7 +181,7 @@ export default function VoucherSuccessPage() {
           { label: isHe ? 'תאריך'      : 'Date',  value: dateStr,                   green: false },
           { label: isHe ? 'שעה'        : 'Time',  value: timeStr,                   green: false },
           { label: isHe ? 'מספר אישור' : 'Ref',   value: confirmId.current,         green: false },
-        ].filter(Boolean).map(({ label, value, green }) => (
+        ].filter((r): r is { label: string; value: string; green: boolean } => r !== null).map(({ label, value, green }) => (
           <div key={label} className="flex items-center justify-between text-[14px]">
             <span className="text-text-secondary">{label}</span>
             <span className={`font-medium ${green ? 'text-green-600' : 'text-text-primary'}`} dir="ltr">

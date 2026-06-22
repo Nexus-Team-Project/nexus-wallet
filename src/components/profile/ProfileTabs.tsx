@@ -1,16 +1,17 @@
 import { useLanguage } from '../../i18n/LanguageContext';
 import { cn } from '../../utils/cn';
 
-export type ProfileTab = 'activity' | 'saved' | 'help' | 'settings';
+export type ProfileTab = 'activity' | 'saved' | 'help' | 'settings' | 'account';
 
 interface ProfileTabsProps {
   selected: ProfileTab;
   onChange: (tab: ProfileTab) => void;
 }
 
-const TABS: { key: ProfileTab; labelKey: 'tabActivity' | 'tabSettings' }[] = [
+const TABS: { key: ProfileTab; labelKey: 'tabActivity' | 'tabSettings' | 'tabAccount' }[] = [
   { key: 'activity', labelKey: 'tabActivity' },
   { key: 'settings', labelKey: 'tabSettings' },
+  { key: 'account', labelKey: 'tabAccount' },
 ];
 
 /**

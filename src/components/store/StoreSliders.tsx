@@ -293,7 +293,7 @@ export function RecommendedSlider({ onSelectFilter }: SliderProps) {
           titleHe={t.store.recommended}
           items={items}
           accentColor="#1c1c1c"
-          bgGradient={GRADIENTS.recommended}
+          bgVideo="/recommended-category.mp4"
           titleInMedia
           topTitle={t.store.recommended}
           mediaPosition="bottom"

@@ -48,6 +48,19 @@ interface CategoryRowStoreProps {
   bgGradient?: string;
   /** object-position for the background media (e.g. 'center', 'top'). */
   mediaPosition?: string;
+  /** object-fit for the background media. 'cover' (default) fills + crops;
+   *  'contain' fits the whole frame inside the card (no cropping) — use it
+   *  for landscape clips whose baked-in text would otherwise be cropped. */
+  mediaFit?: 'cover' | 'contain';
+  /** Padding around the media element (CSS padding string, e.g. '0 20px'),
+   *  insetting the clip from the card edges so its baked-in text gets margin.
+   *  The accent background shows in the gap. */
+  mediaInset?: string;
+  /** Vertical shift for the media (CSS translateY value, e.g. '-16%'). Use a
+   *  negative value to push the clip up so its centered text clears the
+   *  product slider that sits over the card's foot. The revealed bottom is
+   *  covered by the slider + wash. */
+  mediaShiftY?: string;
   /** When the title is baked into the media: hide the overlaid title and keep
    *  the wash to the bottom only, so the media's text stays visible. */
   titleInMedia?: boolean;
@@ -159,6 +172,9 @@ export default function CategoryRowStore({
   bgImage,
   bgGradient,
   mediaPosition = 'center',
+  mediaFit = 'cover',
+  mediaInset,
+  mediaShiftY,
   titleInMedia = false,
   aspectRatio,
   blurItems = false,
@@ -204,8 +220,8 @@ export default function CategoryRowStore({
             playsInline
             preload="metadata"
             aria-hidden
-            className="absolute inset-0 w-full h-full object-cover"
-            style={{ objectPosition: mediaPosition }}
+            className={`absolute inset-0 w-full h-full ${mediaFit === 'contain' ? 'object-contain' : 'object-cover'}`}
+            style={{ objectPosition: mediaPosition, padding: mediaInset, boxSizing: mediaInset ? 'border-box' : undefined, transform: mediaShiftY ? `translateY(${mediaShiftY})` : undefined }}
             onLoadedMetadata={bgVideoRate ? (e) => { e.currentTarget.playbackRate = bgVideoRate; } : undefined}
             onPlay={bgVideoRate ? (e) => { e.currentTarget.playbackRate = bgVideoRate; } : undefined}
           />
@@ -214,8 +230,8 @@ export default function CategoryRowStore({
             src={bgImage}
             alt=""
             aria-hidden
-            className="absolute inset-0 w-full h-full object-cover"
-            style={{ objectPosition: mediaPosition }}
+            className={`absolute inset-0 w-full h-full ${mediaFit === 'contain' ? 'object-contain' : 'object-cover'}`}
+            style={{ objectPosition: mediaPosition, padding: mediaInset, boxSizing: mediaInset ? 'border-box' : undefined, transform: mediaShiftY ? `translateY(${mediaShiftY})` : undefined }}
           />
         ) : bgGradient ? (
           <div

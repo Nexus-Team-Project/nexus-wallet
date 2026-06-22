@@ -19,7 +19,8 @@ function darkenColor(hex: string, percent: number): string {
 export default function LanguageRouter() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { pathname } = useLocation();
+  const location = useLocation();
+  const { pathname } = location;
   const { tenantId, config, setTenant, clearTenant } = useTenantStore();
 
   // Hide the dev simulator overlays (tenant / user-type switchers) in the
@@ -45,7 +46,7 @@ export default function LanguageRouter() {
       // Tenant is active but missing from URL → restore it silently
       const next = new URLSearchParams(searchParams);
       next.set('tenant', tenantId);
-      navigate({ search: next.toString() }, { replace: true });
+      navigate({ search: next.toString() }, { replace: true, state: location.state });
     } else {
       // No tenant anywhere → clear (ensures Nexus colors on plain home)
       clearTenant();

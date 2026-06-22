@@ -2,8 +2,9 @@ import { useState, useMemo, useRef, useCallback, useLayoutEffect, useEffect } fr
 import { createPortal } from 'react-dom';
 import { motion, type PanInfo } from 'framer-motion';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { useLanguage } from '../i18n/LanguageContext';
-import { mockVouchers } from '../mock/data/vouchers.mock';
+import { mockVouchers, mockUserVouchers } from '../mock/data/vouchers.mock';
 import { mockBusinesses } from '../mock/data/businesses.mock';
 import type { VoucherVariant } from '../types/voucher.types';
 import AnimatedActionIcon from '../components/layout/AnimatedActionIcon';
@@ -542,6 +543,7 @@ export default function VoucherPurchasePage() {
   const { lang = 'he', businessId, voucherId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
+  const queryClient = useQueryClient();
   const { language, isRTL } = useLanguage();
   const isHe = language === 'he';
 
@@ -565,6 +567,8 @@ export default function VoucherPurchasePage() {
   const [cashbackDismissed, setCashbackDismissed] = useState(false);
   const [caresDismissed, setCaresDismissed] = useState(false);
   const [roundUp, setRoundUp] = useState(false);
+  const [summaryOpen, setSummaryOpen] = useState(true);
+  const [couponCode, setCouponCode] = useState('');
   const { data: paymentMethods } = usePaymentMethods();
   const [payMethodId, setPayMethodId] = useState(paymentMethods[0]?.id ?? '');
   const [paymentOpen, setPaymentOpen] = useState(true);
@@ -1080,27 +1084,95 @@ export default function VoucherPurchasePage() {
 
         {/* ── Order summary ── */}
         <section className="px-5 pt-6">
-          <h2 className="text-xl font-bold text-text-primary mb-4">
-            {isHe ? 'סיכום הזמנה' : 'Order summary'}
-          </h2>
-          <div className="space-y-3">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-text-secondary">{isHe ? 'שווי הכרטיס' : 'Card value'}</span>
-              <span className="font-semibold text-text-primary">₪{displayAmount}</span>
+          {/* Collapsible header */}
+          <button
+            onClick={() => setSummaryOpen((v) => !v)}
+            aria-expanded={summaryOpen}
+            className="w-full flex items-center justify-between gap-3 mb-4"
+          >
+            <span
+              className="material-symbols-rounded text-text-muted transition-transform duration-200"
+              style={{ fontSize: 22, transform: summaryOpen ? 'none' : 'rotate(180deg)' }}
+            >
+              expand_less
+            </span>
+            <h2 className="text-xl font-bold text-text-primary">{isHe ? 'סיכום הזמנה' : 'Order summary'}</h2>
+          </button>
+
+          {summaryOpen && (
+            <div className="border border-border rounded-2xl bg-white overflow-hidden">
+              {/* Product row */}
+              <div className="flex items-center gap-3 px-4 py-3" dir={isRTL ? 'rtl' : 'ltr'}>
+                {business.logoUrl && (
+                  <div className="w-12 h-12 rounded-xl overflow-hidden border border-border/60 shrink-0 bg-surface">
+                    <img src={business.logoUrl} alt="" draggable={false} className="w-full h-full object-contain" />
+                  </div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-[14px] font-semibold text-text-primary truncate">
+                      {isHe ? business.nameHe : business.name}
+                    </span>
+                    {currentTier && (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-bold text-white bg-gray-700 shrink-0">
+                        {isHe ? currentTier.tierLabelHe : currentTier.tierLabelEn}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <span className="text-sm font-bold text-text-primary shrink-0">₪{displayAmount * qty}</span>
+              </div>
+
+              <div className="border-t border-border/60" />
+
+              {/* Coupon code input */}
+              <div className="flex items-center px-4 py-3" dir={isRTL ? 'rtl' : 'ltr'}>
+                <input
+                  type="text"
+                  value={couponCode}
+                  onChange={(e) => setCouponCode(e.target.value)}
+                  placeholder={isHe ? 'קוד הנחה או שובר' : 'Discount or voucher code'}
+                  className="flex-1 bg-transparent text-sm text-text-primary placeholder:text-text-muted/50 focus:outline-none"
+                />
+                <div className="w-px h-4 bg-border/70 mx-3 shrink-0" />
+                <button
+                  type="button"
+                  className="shrink-0 text-sm font-bold text-primary active:opacity-60 transition-opacity"
+                >
+                  {isHe ? 'חל' : 'Apply'}
+                </button>
+              </div>
+
+              <div className="border-t border-border/60" />
+
+              {/* Line items */}
+              <div className="px-4 py-3 space-y-2.5" dir={isRTL ? 'rtl' : 'ltr'}>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="font-medium text-text-primary">₪{displayAmount}</span>
+                  <span className="text-text-secondary">{isHe ? 'סכום ביניים' : 'Subtotal'}</span>
+                </div>
+                {qty > 1 && (
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="font-medium text-text-primary">×{qty}</span>
+                    <span className="text-text-secondary">{isHe ? 'כמות' : 'Quantity'}</span>
+                  </div>
+                )}
+                <div className="flex items-center justify-between text-sm">
+                  <span className="font-medium text-green-600">+₪{cashbackAmount}</span>
+                  <div className="flex items-center gap-1">
+                    <button className="w-4 h-4 rounded-full border border-border/70 inline-flex items-center justify-center shrink-0">
+                      <span className="material-symbols-rounded text-text-muted" style={{ fontSize: 11 }}>question_mark</span>
+                    </button>
+                    <span className="text-text-secondary">{isHe ? `קאשבק (${cashbackRate}%)` : `Cashback (${cashbackRate}%)`}</span>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between pt-2 border-t border-border/60">
+                  <span className="text-base font-bold text-text-primary">₪{total}</span>
+                  <span className="text-base font-bold text-text-primary">{isHe ? 'לתשלום' : 'Total'}</span>
+                </div>
+              </div>
             </div>
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-text-secondary">{isHe ? 'כמות' : 'Quantity'}</span>
-              <span className="font-semibold text-text-primary">{qty}</span>
-            </div>
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-text-secondary">{isHe ? `קאשבק (${cashbackRate}%)` : `Cashback (${cashbackRate}%)`}</span>
-              <span className="font-semibold text-green-600">+₪{cashbackAmount}</span>
-            </div>
-            <div className="flex items-center justify-between border-t border-border/60 pt-3">
-              <span className="text-base font-bold text-text-primary">{isHe ? 'לתשלום' : 'Total'}</span>
-              <span className="text-lg font-bold text-text-primary">₪{total}</span>
-            </div>
-          </div>
+          )}
         </section>
 
 
@@ -1419,6 +1491,39 @@ export default function VoucherPurchasePage() {
 
             <button
               className="relative z-10 w-full bg-bg-dark text-white py-2.5 rounded-full font-bold text-sm active:scale-[0.98] transition-transform shadow-lg shadow-bg-dark/30 flex items-center justify-center gap-0"
+              onClick={() => {
+                // Persist a freshly-purchased active voucher so it shows up as a
+                // brand-new card in the wallet deck (mock create — pushed to the
+                // shared array + cache invalidated so the wallet refetches it).
+                const newUserVoucher = {
+                  id: `uv_${Date.now()}`,
+                  voucherId: voucher.id,
+                  voucher,
+                  purchasedAt: new Date().toISOString(),
+                  expiresAt: voucher.validUntil + 'T23:59:59Z',
+                  status: 'active' as const,
+                  redemptionCode: `NXS-${Math.random().toString(36).substring(2, 6).toUpperCase()}`,
+                  qrCode: `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=NXS-${Date.now()}`,
+                };
+                mockUserVouchers.push(newUserVoucher);
+                queryClient.invalidateQueries({ queryKey: ['userVouchers'] });
+                navigate(`/${lang}/pay/voucher-success`, {
+                  state: {
+                    voucherValue: displayAmount,
+                    amountPaid: displayAmount,
+                    cashback: cashbackAmount,
+                    merchantName: business.name,
+                    merchantNameHe: business.nameHe,
+                    merchantLogo: business.logoUrl,
+                    brandColor: voucher.brandColor ?? '#0a2540',
+                    discountPercent: voucher?.discountPercent,
+                    tier: currentTier ? (isHe ? currentTier.tierLabelHe : currentTier.tierLabelEn) : undefined,
+                    paymentMethodId: selectedPayMethod?.id,
+                    userVoucherId: newUserVoucher.id,
+                    returnTo: `/${lang}/business/${businessId}`,
+                  },
+                });
+              }}
             >
             <span className="inline-flex items-center gap-0 leading-none">
               <span>{isHe ? 'צור כרטיס עם' : 'Create card with'}</span>

@@ -216,32 +216,43 @@ export function ProductImage({ src }: { src: string }) {
 
   useEffect(() => {
     let cancelled = false;
+    let idleId: ReturnType<typeof requestIdleCallback> | undefined;
     const img = new Image();
     img.crossOrigin = 'anonymous';
     img.onload = () => {
       if (cancelled) return;
-      try {
-        const size = 24;
-        const canvas = document.createElement('canvas');
-        canvas.width = size;
-        canvas.height = size;
-        const ctx = canvas.getContext('2d', { willReadFrequently: true });
-        if (!ctx) { setFit('cover'); return; }
-        ctx.drawImage(img, 0, 0, size, size);
-        const pts: Array<[number, number]> = [
-          [0, 0], [size - 1, 0], [0, size - 1], [size - 1, size - 1],
-          [size >> 1, 0], [0, size >> 1], [size - 1, size >> 1], [size >> 1, size - 1],
-        ];
-        const transparent = pts.some(([x, y]) => ctx.getImageData(x, y, 1, 1).data[3] < 250);
-        setFit(transparent ? 'contain' : 'cover');
-      } catch {
-        // Tainted canvas (CORS) — assume it's a full photo.
-        setFit('cover');
+      const analyse = () => {
+        if (cancelled) return;
+        try {
+          const size = 24;
+          const canvas = document.createElement('canvas');
+          canvas.width = size;
+          canvas.height = size;
+          const ctx = canvas.getContext('2d', { willReadFrequently: true });
+          if (!ctx) { setFit('cover'); return; }
+          ctx.drawImage(img, 0, 0, size, size);
+          const pts: Array<[number, number]> = [
+            [0, 0], [size - 1, 0], [0, size - 1], [size - 1, size - 1],
+            [size >> 1, 0], [0, size >> 1], [size - 1, size >> 1], [size >> 1, size - 1],
+          ];
+          const transparent = pts.some(([x, y]) => ctx.getImageData(x, y, 1, 1).data[3] < 250);
+          setFit(transparent ? 'contain' : 'cover');
+        } catch {
+          setFit('cover');
+        }
+      };
+      if ('requestIdleCallback' in window) {
+        idleId = requestIdleCallback(analyse);
+      } else {
+        analyse();
       }
     };
     img.onerror = () => { if (!cancelled) setFit('cover'); };
     img.src = src;
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      if (idleId !== undefined) cancelIdleCallback(idleId);
+    };
   }, [src]);
 
   if (fit === 'cover') {
@@ -460,21 +471,25 @@ export function BuyInStoreSection({ branches, business }: MapSectionProps) {
   }, [branches.length]);
 
   // Scroll-spy: whichever card is centered becomes the active branch.
+  const rafRef = useRef<number>(0);
   const onCarouselScroll = useCallback(() => {
     if (programmaticScroll.current) return;
-    const el = carouselRef.current;
-    if (!el) return;
-    const rect = el.getBoundingClientRect();
-    const center = rect.left + rect.width / 2;
-    let closest = 0;
-    let min = Infinity;
-    Array.from(el.children).forEach((child, i) => {
-      const r = (child as HTMLElement).getBoundingClientRect();
-      const c = r.left + r.width / 2;
-      const d = Math.abs(center - c);
-      if (d < min) { min = d; closest = i; }
+    cancelAnimationFrame(rafRef.current);
+    rafRef.current = requestAnimationFrame(() => {
+      const el = carouselRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      const center = rect.left + rect.width / 2;
+      let closest = 0;
+      let min = Infinity;
+      Array.from(el.children).forEach((child, i) => {
+        const r = (child as HTMLElement).getBoundingClientRect();
+        const c = r.left + r.width / 2;
+        const d = Math.abs(center - c);
+        if (d < min) { min = d; closest = i; }
+      });
+      if (closest !== activeIndexRef.current) focusBranch(closest);
     });
-    if (closest !== activeIndexRef.current) focusBranch(closest);
   }, [focusBranch]);
 
   // Center a card in the carousel (used when a pin is tapped on the map).
@@ -643,7 +658,7 @@ export function ReviewsSection({ reviews, business }: ReviewsSectionProps) {
   }));
 
   return (
-    <section className="px-6 pt-2 pb-8">
+    <section className="px-6 pt-2 pb-8" style={{ contentVisibility: 'auto', containIntrinsicSize: '0 600px' }}>
       <h2 className="text-xl font-bold text-text-primary mb-5">
         {isHe ? 'דירוגים וביקורות' : 'Ratings & reviews'}
       </h2>
@@ -719,7 +734,7 @@ export function SimilarBusinesses({ business, allBusinesses, onSelect }: Similar
   if (similar.length === 0) return null;
 
   return (
-    <div className="pb-6">
+    <div className="pb-6" style={{ contentVisibility: 'auto', containIntrinsicSize: '0 400px' }}>
       <div className="flex items-center justify-between px-6 mb-4">
         <h2 className="text-2xl font-bold text-text-primary">{t.business.similarBusinesses}</h2>
       </div>
@@ -841,9 +856,10 @@ export function StickyCTA({ business, firstVoucherId }: StickyCTAProps) {
           onPanEnd={handlePanEnd}
           onClick={() => {
             if (draggedRef.current) return;
-            navigate(`/${language}/wallet`);
+            navigate(`/${language}/wallet`, { state: { payMode: true } });
           }}
-          className="relative w-full overflow-hidden bg-bg-dark text-white py-3.5 rounded-full font-bold text-base shadow-lg shadow-bg-dark/30 flex items-center justify-center gap-0 touch-pan-y"
+          style={{ touchAction: 'pan-y' }}
+          className="relative w-full overflow-hidden bg-bg-dark text-white py-3.5 rounded-full font-bold text-base shadow-lg shadow-bg-dark/30 flex items-center justify-center gap-0"
         >
           {/* Sky-blue fill — grows horizontally, tracking the finger along
               the button. Anchored to the swipe-start edge (right in RTL,

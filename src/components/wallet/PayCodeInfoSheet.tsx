@@ -5,6 +5,9 @@ import { useLanguage } from '../../i18n/LanguageContext';
 interface PayCodeInfoSheetProps {
   isOpen: boolean;
   onClose: () => void;
+  /** When false, the backdrop is a transparent click-catcher instead of a dark
+   *  scrim — so the page (e.g. a highlighted card) shows through undimmed. */
+  dim?: boolean;
 }
 
 /**
@@ -12,7 +15,7 @@ interface PayCodeInfoSheetProps {
  * sheet matching the checkout's fees explainer. Holds the help text plus a
  * teal "more" link that opens the full pay-intro page.
  */
-export default function PayCodeInfoSheet({ isOpen, onClose }: PayCodeInfoSheetProps) {
+export default function PayCodeInfoSheet({ isOpen, onClose, dim = true }: PayCodeInfoSheetProps) {
   const { t, language } = useLanguage();
   const { lang = 'he' } = useParams();
   const navigate = useNavigate();
@@ -28,7 +31,7 @@ export default function PayCodeInfoSheet({ isOpen, onClose }: PayCodeInfoSheetPr
 
   return createPortal(
     <>
-      <div className="fixed inset-0 z-[60] bg-black/40 animate-fade-in" onClick={onClose} />
+      <div className={`fixed inset-0 z-[60] animate-fade-in ${dim ? 'bg-black/40' : ''}`} onClick={onClose} />
 
       <div className="fixed inset-x-0 bottom-0 z-[60] max-w-md mx-auto px-4 pb-6 pointer-events-none">
         <div

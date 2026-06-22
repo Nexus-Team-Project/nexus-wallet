@@ -28,6 +28,12 @@ interface DigitalCardProps {
   /** When set, renders a "?" help button (top-right) that opens a
    *  "how it works" explainer. */
   onHelp?: () => void;
+  /** Renders a grey, desaturated "locked" overlay with a lock icon over the
+   *  card artwork — used while the card is not yet issued/active. */
+  locked?: boolean;
+  /** Fades the locked overlay in/out — pass the deck's centred state so the
+   *  grey cover + lock ease in as the card slides to the centre. */
+  lockActive?: boolean;
 }
 
 /**
@@ -36,7 +42,7 @@ interface DigitalCardProps {
  * the user taps matches the one that opens. The shadow uses drop-shadow
  * so it follows the card's rounded silhouette instead of a box.
  */
-export default function DigitalCard({ className = '', style, children, heightPx, brandLogo, onHelp }: DigitalCardProps) {
+export default function DigitalCard({ className = '', style, children, heightPx, brandLogo, onHelp, locked = false, lockActive = true }: DigitalCardProps) {
   return (
     <div
       className={`relative ${className}`}
@@ -65,6 +71,36 @@ export default function DigitalCard({ className = '', style, children, heightPx,
           style={{ left: '0%', bottom: '18%', width: '42%' }}
           draggable={false}
         />
+      )}
+      {/* Locked overlay — a grey, desaturated wrapper hugging the card artwork
+          (mirrors the img's object-contain bounds via the same aspect) with a
+          centred lock icon. Purely visual (pointer-events-none) so the "?" and
+          the card tap still work. */}
+      {locked && (
+        <div
+          className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none"
+          style={{ opacity: lockActive ? 1 : 0, transition: 'opacity 0.5s ease' }}
+        >
+          <div
+            className="flex items-center justify-center"
+            style={{
+              width: '100%',
+              aspectRatio: `${CARD_ASPECT}`,
+              maxHeight: '100%',
+              borderRadius: 18,
+              background: 'rgba(55,65,81,0.55)',
+              backdropFilter: 'grayscale(0.5)',
+              WebkitBackdropFilter: 'grayscale(0.5)',
+            }}
+          >
+            <span
+              className="material-symbols-rounded text-white"
+              style={{ fontSize: 44, filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.4))' }}
+            >
+              lock
+            </span>
+          </div>
+        </div>
       )}
       {/* Help — opens a "how it works" explainer. Same treatment as the help
           button on the card backs (white circle + Material "help" glyph), in

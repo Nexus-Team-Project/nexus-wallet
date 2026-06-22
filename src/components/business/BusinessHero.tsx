@@ -43,6 +43,34 @@ export default function BusinessHero({ business, club }: BusinessHeroProps) {
   const [currentSlide, setCurrentSlide] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval>>(undefined);
 
+  // Scroll-linked fade: as the hero scrolls up, a white veil over it grows so
+  // the ambiance image dissolves into the white content section below.
+  const heroRef = useRef<HTMLElement>(null);
+  const [scrollFade, setScrollFade] = useState(0);
+  useEffect(() => {
+    const el = heroRef.current;
+    if (!el) return;
+    let raf = 0;
+    const update = () => {
+      const rect = el.getBoundingClientRect();
+      // 0 while pinned at the top → 1 once scrolled ~80% of the hero height.
+      setScrollFade(Math.min(1, Math.max(0, -rect.top / (rect.height * 0.8))));
+    };
+    const onScroll = () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(update);
+    };
+    update();
+    // capture:true so it also fires when an inner element is the scroller.
+    window.addEventListener('scroll', onScroll, { passive: true, capture: true });
+    window.addEventListener('resize', onScroll, { passive: true });
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener('scroll', onScroll, true);
+      window.removeEventListener('resize', onScroll);
+    };
+  }, []);
+
   const goToSlide = useCallback((index: number) => {
     setCurrentSlide(index);
   }, []);
@@ -57,7 +85,7 @@ export default function BusinessHero({ business, club }: BusinessHeroProps) {
   }, [images.length]);
 
   return (
-    <section className="relative w-full h-[460px] overflow-hidden">
+    <section ref={heroRef} className="relative z-0 w-full h-[460px] overflow-hidden">
       {/* Background gradient fallback */}
       <div className={`absolute inset-0 bg-gradient-to-br ${gradient}`} />
 
@@ -69,8 +97,9 @@ export default function BusinessHero({ business, club }: BusinessHeroProps) {
               key={i}
               src={img}
               alt=""
+              loading={i === 0 ? 'eager' : 'lazy'}
               className="absolute inset-0 w-full h-full object-cover transition-opacity duration-700"
-              style={{ opacity: i === currentSlide ? 1 : 0 }}
+              style={{ opacity: i === currentSlide ? 1 : 0, willChange: 'opacity' }}
             />
           ))}
         </div>
@@ -180,6 +209,15 @@ export default function BusinessHero({ business, club }: BusinessHeroProps) {
           </div>
         )}
       </div>
+
+      {/* Scroll-linked white veil — fades the whole hero to white as the page
+          scrolls down, blending into the white content below. Above everything
+          in the hero; pointer-events-none so controls stay tappable at the top. */}
+      <div
+        aria-hidden
+        className="absolute inset-0 z-40 bg-white pointer-events-none"
+        style={{ opacity: scrollFade }}
+      />
 
       {/* Three-dots action menu — slides up from the bottom */}
       <BusinessMenuSheet

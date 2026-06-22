@@ -59,6 +59,8 @@ export const premiumTranslations = {
     cta: 'Start your free month',
     disclaimer:
       'First month free, then {price} billed {period}. Auto-renews until cancelled.',
+    fineprint:
+      'After the 30-day trial, your payment method will be charged {price} {period}. You may cancel at any time before the trial ends to avoid charges. Nexus Premium benefits are available only to active subscribers. During the trial, you enjoy full Nexus Premium member discounts and benefits at select merchants and restaurants, within a maximum delivery radius of 4 km (6 km in supported areas) as specified in the Nexus app. Minimum order value is ₪60 and up to ₪140 for supermarkets. Benefits may be cancelled at any time. In case of cancellation, your monthly subscription fee will be refunded on a pro-rated basis (by the day) up to the maximum refund allowed. You must pay for delivery using your Nexus account payment method. Nexus delivery service fee applies to orders. Subject to the full Terms of Service and limitations of Nexus.',
     terms: 'Terms of Service',
     privacy: 'Privacy Policy',
   },
@@ -122,6 +124,8 @@ export const premiumTranslations = {
     cta: 'התחילו חודש חינם',
     disclaimer:
       'חודש ראשון חינם, ולאחר מכן {price} בחיוב {period}. מתחדש אוטומטית עד לביטול.',
+    fineprint:
+      'לאחר תקופת הניסיון של 30 יום, נחייב את אמצעי התשלום שלך ב-{price} {period}. ניתן לבטל בכל עת לפני סיום תקופת הניסיון כדי להימנע מחיוב. הטבות Nexus Premium זמינות למנויים פעילים בלבד. בתקופת הניסיון ניתן להשתמש בכל הטבות Nexus Premium בחנויות ומסעדות נבחרות, במרחק משלוחים מקסימלי של 4 ק"מ (6 ק"מ באזורים נתמכים) כמסומן בלוגו Nexus+ באפליקציה. הזמנה מינימלית היא ₪60 ועד ₪140 לסופרמרקטים. ההטבות תקפות בישראל בלבד. במקרה של ביטול, דמי המנוי החודשיים יוחזרו לך בניכוי עלות שירותי המנוי שצרכת — חלקי המנוי (חיסכון מנוי), עד לסכום המקסימלי של דמי המנוי שלך. ניתן לחייב את דמי המנוי מכל אחד מאמצעי התשלום השמורים בחשבון Nexus. דמי שירות על הזמנות משלוחים חלים. בכפוף לתנאים והגבלות של Nexus.',
     terms: 'תנאי שימוש',
     privacy: 'מדיניות פרטיות',
   },

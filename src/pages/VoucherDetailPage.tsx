@@ -7,6 +7,7 @@ import { formatDate } from '../utils/formatDate';
 import PayCodesPanel from '../components/wallet/PayCodesPanel';
 import { voucherStacks } from '../components/wallet/VoucherCard';
 import WalletCardActions from '../components/wallet/WalletCardActions';
+import ArchiveCardButton from '../components/wallet/ArchiveCardButton';
 
 /** Perceived-luminance check so we pick readable ink on the brand colour. */
 function isDarkColor(hex: string): boolean {
@@ -214,6 +215,9 @@ export default function VoucherDetailPage() {
           onTransfer={() => navigate(`/${lang}/wallet/balance`)}
           transferDisabled={uv.id === 'uv_spar_gift'}
         />
+
+        {/* Move this voucher to the archive (hides it from the wallet deck) */}
+        <ArchiveCardButton cardId={`voucher:${uv.id}`} className="mt-3" />
       </motion.div>
     </div>
   );

@@ -74,6 +74,8 @@ interface WalletOffersSliderProps {
   spar?: boolean;
   /** Locked (gift) view — the whole section is shown but non-interactive. */
   locked?: boolean;
+  /** Pay-at-store view — retitle to "You can pay here" and show a single row. */
+  payHere?: boolean;
 }
 
 /**
@@ -89,6 +91,7 @@ export default function WalletOffersSlider({
   bneiAkiva = false,
   spar = false,
   locked = false,
+  payHere = false,
 }: WalletOffersSliderProps = {}) {
   const { language } = useLanguage();
   const { lang = 'he' } = useParams();
@@ -105,7 +108,11 @@ export default function WalletOffersSlider({
   // tenant's logo (if any).
   const badgeLogo = bneiAkiva ? BNEI_AKIVA_LOGO : spar ? SPAR_LOGO : tenant?.logo;
 
-  const title = spar
+  const title = payHere
+    ? isHe
+      ? 'ניתן לשלם כאן'
+      : 'You can pay here'
+    : spar
     ? isHe
       ? 'ממשו בעשרות רשתות'
       : 'Redeem at dozens of chains'
@@ -134,9 +141,8 @@ export default function WalletOffersSlider({
 
   if (!mockBusinesses.length) return null;
 
-  // Two horizontally-scrollable rows.
-  const half = Math.ceil(mockBusinesses.length / 2);
-  const rows = [mockBusinesses.slice(0, half), mockBusinesses.slice(half)];
+  // A single horizontally-scrollable row of cashback cards.
+  const rows = [mockBusinesses];
 
   const renderCard = (biz: (typeof mockBusinesses)[number]) => (
     <button
