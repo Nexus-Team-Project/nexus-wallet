@@ -1,9 +1,12 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Rubik:wght@300;400;500;600;700;800&family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&family=Material+Symbols+Rounded:wght,FILL@100..700,0..1&display=swap');
 @import "tailwindcss";
 
-/* Hide browser scrollbars — mobile app, scrollbars are not expected */
-* { scrollbar-width: none; -ms-overflow-style: none; }
-*::-webkit-scrollbar { display: none; }
+/* Thin styled scrollbar */
+* { scrollbar-width: thin; scrollbar-color: rgba(0,0,0,0.18) transparent; }
+*::-webkit-scrollbar { width: 4px; height: 4px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.18); border-radius: 2px; }
+*::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.32); }
 
 @theme {
   --color-primary: #635bff;
