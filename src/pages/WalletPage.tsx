@@ -117,10 +117,15 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
   const [showSparSuccess, setShowSparSuccess] = useState(false);
   const [sparUsed, setSparUsed] = useState(false);
   const [sparArchiveConfirming, setSparArchiveConfirming] = useState(false);
-  // Flips true when the gift is archived — the Nexus balance card then counts
-  // the cashback up from ₪0. Kept independent of the post-tx machinery so the
-  // SPAR demo's slide + count-up are fully self-contained.
+  // Flips true after the payment lands — the deck slides to the Nexus card and
+  // its balance counts the cashback up from ₪0. Kept independent of the post-tx
+  // machinery so the SPAR demo's slide + count-up are fully self-contained.
   const [sparAccrue, setSparAccrue] = useState(false);
+  // Flips true once the used gift card is archived — it then drops out of the
+  // deck entirely. The ref mirrors it so the pending auto-slide timers can bail
+  // out if the user archives before they fire.
+  const [sparArchived, setSparArchived] = useState(false);
+  const sparArchivedRef = useRef(false);
   // SPAR demo: tapping the Nexus balance card opens the "Meet Nexus balance"
   // intro (read-only — only "back" is interactive).
   const [showNexusIntro, setShowNexusIntro] = useState(false);
@@ -174,10 +179,13 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
   const deckCards: string[] = cameFromGift
     ? focusVoucherId === SPAR_VOUCHER_ID
       ? // Once the gift card is "used", the Nexus balance card joins the deck so
-        // archiving the gift can slide across to it (counting up the cashback).
-        sparUsed
-        ? [`voucher:${focusVoucherId}`, 'balance', 'card']
-        : [`voucher:${focusVoucherId}`, 'card']
+        // the deck can slide across to it (counting up the cashback). Archiving
+        // then drops the spent gift card out of the deck entirely.
+        sparArchived
+        ? ['balance', 'card']
+        : sparUsed
+          ? [`voucher:${focusVoucherId}`, 'balance', 'card']
+          : [`voucher:${focusVoucherId}`, 'card']
       : [`voucher:${focusVoucherId}`]
     : [
         // Leading "add money" (+) stop — mirrors the trailing manage-methods
@@ -304,20 +312,41 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
   // Which voucher card is flipped to its redemption side (null = none).
   const [flippedVoucherId, setFlippedVoucherId] = useState<string | null>(null);
 
-  // SPAR demo: archive the "used" gift card and slide the deck across to the
-  // balance card, which counts up the earned cashback (reuses the post-tx
-  // balance count-up animation).
+  // SPAR demo: archiving the spent gift card drops it out of the deck for good,
+  // leaving the Nexus balance card (which has already counted up the cashback).
   const archiveSparGift = () => {
     setSparArchiveConfirming(false);
     setFlippedVoucherId(null);
+    sparArchivedRef.current = true;
+    setSparArchived(true);
+    setSparAccrue(true);
     userMovedDeck.current = true;
     setDeckSnap(false);
-    // Slide across to the Nexus balance card…
-    const balIdx = deckCards.indexOf('balance');
-    if (balIdx >= 0) setActiveCard(balIdx);
-    // …then start counting the cashback up from ₪0 once the slide is underway.
-    window.setTimeout(() => setSparAccrue(true), 450);
+    // Once the gift card is gone the balance card sits at index 0.
+    setActiveCard(0);
   };
+
+  // SPAR demo: as soon as the payment confirmation closes (we "land" back on the
+  // wallet showing the spent ₪0 gift card), the deck slides over to the Nexus
+  // balance card and counts the cashback up from ₪0 — no archive step required.
+  useEffect(() => {
+    if (!(cameFromGift && focusVoucherId === SPAR_VOUCHER_ID)) return;
+    if (!sparUsed || sparArchived) return;
+    const balIdx = deckCards.indexOf('balance');
+    if (balIdx < 0) return;
+    userMovedDeck.current = true;
+    const t1 = window.setTimeout(() => {
+      if (sparArchivedRef.current) return;
+      setDeckSnap(false);
+      setActiveCard(balIdx);
+    }, 650);
+    const t2 = window.setTimeout(() => setSparAccrue(true), 1150);
+    return () => {
+      window.clearTimeout(t1);
+      window.clearTimeout(t2);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sparUsed]);
 
   // ── Balance card flip = pay session ──
   // Tapping the balance card flips it (gift-card style) to reveal the in-store
@@ -1293,7 +1322,7 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
         {/* Archive action — hangs below the "used" (greyed-out) SPAR gift card.
             Confirming archives the card and slides the deck across to the Nexus
             balance card, which counts up the earned cashback. */}
-        {deckCards[activeCard] === `voucher:${SPAR_VOUCHER_ID}` && sparUsed && (
+        {deckCards[activeCard] === `voucher:${SPAR_VOUCHER_ID}` && sparUsed && !sparArchived && (
           <div className="absolute inset-x-0 -bottom-8 flex justify-center z-40 px-6 w-full">
             {!sparArchiveConfirming ? (
               <button
