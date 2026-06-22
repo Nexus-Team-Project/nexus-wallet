@@ -30,7 +30,6 @@ serviceAccountKey.json
 scripts/serviceAccountKey.json
 
 .env
-CLAUDE.md
 .claude/
 # Python bytecode cache
 __pycache__/
