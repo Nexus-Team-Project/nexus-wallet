@@ -6,6 +6,7 @@ import { useRegistrationStore } from '../stores/registrationStore';
 import { useAuthStore } from '../stores/authStore';
 import { processMembershipFee } from '../services/registration.service';
 import { getFirstOnboardingSlide } from '../utils/onboardingNavigation';
+import TenantViaNexusCard from '../components/register/TenantViaNexusCard';
 
 export default function RegisterMembershipPage() {
   const { lang = 'he' } = useParams();
@@ -83,6 +84,9 @@ export default function RegisterMembershipPage() {
 
         {/* Benefits */}
         <div className="flex-1 overflow-y-auto px-5 pb-4">
+          {/* "two in one" — frames the org membership as delivered through Nexus */}
+          <TenantViaNexusCard tenant={tenantConfig} isHe={isHe} />
+
           <h3 className="text-sm font-semibold text-text-primary mb-3">
             {t.registration.membershipBenefitsTitle}
           </h3>

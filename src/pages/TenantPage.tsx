@@ -6,13 +6,7 @@ import BusinessHero from '../components/business/BusinessHero';
 import BusinessCardContent from '../components/business/BusinessCardContent';
 import ClubInfoSection from '../components/business/ClubInfoSection';
 import type { Business } from '../types/search.types';
-
-// Lifestyle covers for the club hero carousel (no per-tenant cover asset yet).
-const HERO_IMAGES = [
-  'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=900&q=80',
-  'https://images.unsplash.com/photo-1483985988355-763728e1935b?w=900&q=80',
-  'https://images.unsplash.com/photo-1519567241046-7f570eee3ce6?w=900&q=80',
-];
+import { TENANT_HERO_IMAGES } from '../data/tenantHeroImages';
 
 // Headline club stats (no per-tenant figures yet). `cashback` is the total
 // amount (₪) accumulated so far — it animates / ticks up in the UI.
@@ -72,7 +66,7 @@ export default function TenantPage() {
       descriptionHe:
         config.flowOverrides?.customWelcomeMessageHe ?? `ברוכים הבאים למועדון ${config.nameHe}.`,
       logoUrl: config.logo,
-      heroImages: HERO_IMAGES,
+      heroImages: TENANT_HERO_IMAGES,
       products,
     };
   }, [config]);

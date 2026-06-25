@@ -16,6 +16,8 @@ import { cn } from '../utils/cn';
 import TopBar from '../components/layout/TopBar';
 import { usePaymentMethods } from '../hooks/usePaymentMethods';
 import PaymentBrandMark from '../components/wallet/PaymentBrandMark';
+import { useTenantStore } from '../stores/tenantStore';
+import TenantViaNexusCard from '../components/register/TenantViaNexusCard';
 
 // Single Premium plan, first month free. Billed monthly (₪25) or yearly.
 // NOTE: the yearly price is a placeholder — confirm before launch.
@@ -54,6 +56,8 @@ export default function PremiumPage() {
     businessLogo?: string | null;
   } | null;
   const tp = t.premium;
+  const isHe = language === 'he';
+  const tenantConfig = useTenantStore((s) => s.config);
   const locale = language === 'he' ? 'he-IL' : 'en-IL';
   const money = (n: number) => formatCurrency(n, 'ILS', locale);
 
@@ -317,6 +321,17 @@ export default function PremiumPage() {
             ))}
           </div>
         </section>
+
+        {/* "two in one" — when arriving with an active tenant, frame Premium as
+            also delivering the org membership, themed from the tenant. */}
+        {tenantConfig && (
+          <section className="mt-10">
+            <h2 className="text-lg font-bold text-text-primary text-start mb-3">
+              {isHe ? 'המנוי שלך כולל גם' : 'Your subscription also includes'}
+            </h2>
+            <TenantViaNexusCard tenant={tenantConfig} isHe={isHe} />
+          </section>
+        )}
 
         {/* Plan comparison table — free Nexus vs Premium */}
         <section className="mt-10">
