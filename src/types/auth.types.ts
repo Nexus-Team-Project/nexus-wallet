@@ -40,4 +40,13 @@ export interface OtpVerifyResult {
     profileComplete: boolean;
     missingFields: string[];
   };
+  /**
+   * Wallet Plan #2: set when the phone was verified but no NexusIdentity
+   * owns it yet. Caller (LoginSheet) routes to /:lang/auth/email-required
+   * with this ticket id so the user can supply email and finish signup.
+   */
+  needsEmail?: {
+    signupTicketId: string;
+    phone: string;
+  };
 }

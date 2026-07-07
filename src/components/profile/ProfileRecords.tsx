@@ -1,4 +1,5 @@
 import { useLanguage } from '../../i18n/LanguageContext';
+import ComingSoonBadge from '../ui/ComingSoonBadge';
 
 /**
  * Two side-by-side stat cards highlighting the user's personal-best
@@ -45,10 +46,13 @@ export default function ProfileRecords() {
 
   return (
     <section className="px-4 mt-6">
-      <h3 className="text-base font-bold text-text-primary mb-3">
-        {t.profile.records}
-      </h3>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="flex items-center gap-2 mb-3">
+        <h3 className="text-base font-bold text-text-primary">{t.profile.records}</h3>
+        <ComingSoonBadge />
+      </div>
+      {/* Mock placeholder data — greyed + non-interactive until the activity
+          feed lands. */}
+      <div className="grid grid-cols-2 gap-3 opacity-60 pointer-events-none select-none">
         <RecordCard
           icon="local_fire_department"
           iconColor="text-orange-500"

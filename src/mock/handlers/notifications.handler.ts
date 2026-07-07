@@ -17,5 +17,11 @@ export async function mockGetNotifications(group?: NotificationGroup): Promise<N
 }
 
 export async function mockGetUnreadCount(): Promise<number> {
-  return mockNotifications.filter(n => !n.isRead).length;
+  // The TopBar bell badge must reflect the REAL signed-in user's unread
+  // notifications. There is no notifications backend yet, so a real user has
+  // none — return 0 rather than counting the demo fixtures (which would show a
+  // fake "7" in the store after a real login). The mock list on the
+  // /notifications page is still served by mockGetNotifications for demo only.
+  // Swap this for the real unread-count endpoint when the backend lands.
+  return 0;
 }

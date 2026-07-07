@@ -5,7 +5,7 @@
  * Visibility rules:
  *  • isAuthenticated = true
  *  • preferencesIncomplete = true  (set on login when missingFields contains
- *    any of purpose / lifeStage / birthday / gender / benefitCategories)
+ *    any of purpose / lifeStage / birthday / gender)
  *  • user is NOT currently in the registration flow (isRegistering = false)
  *  • user has NOT dismissed the banner this session
  *

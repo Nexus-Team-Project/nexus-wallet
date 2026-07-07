@@ -1,5 +1,6 @@
 import type React from 'react';
 import type { StoryStep } from './types';
+import { StoryJoinOtherLink } from './StoryJoinOtherLink';
 
 interface StoryCTABarProps {
   isOrgFlow: boolean;
@@ -9,9 +10,14 @@ interface StoryCTABarProps {
   setCurrent: React.Dispatch<React.SetStateAction<number>>;
   goTo: (index: number) => void;
   orgColor: string;
-  onChangeOrg: () => void;
   /** Called when the primary "קליק להמשך" button is tapped in new-user flow */
   onNewUserContinue: () => void;
+  /** When provided, shows a "continue with another organization" text link
+      under the primary CTA that opens the tenant-join discovery sheet. */
+  onJoinOtherOrg?: () => void;
+  /** When true, the primary CTA goes straight to the questions (skips the
+      match-screen) — set after the user joined an org via the bottom link. */
+  skipToQuestions?: boolean;
 }
 
 export function StoryCTABar({
@@ -19,34 +25,39 @@ export function StoryCTABar({
   steps,
   goTo,
   orgColor,
-  onChangeOrg,
   onNewUserContinue,
+  onJoinOtherOrg,
+  skipToQuestions = false,
 }: StoryCTABarProps) {
   return (
     <div className="absolute bottom-0 inset-x-0 z-30 pointer-events-none">
       {/* Gradient fade */}
       <div className="h-24 bg-gradient-to-t from-black/70 to-transparent" />
       <div className="bg-black/70 backdrop-blur-sm px-6 pb-6 pt-1 pointer-events-auto" dir="rtl">
-        <div className="flex items-center gap-4">
-
-          {/* Secondary links */}
-          <div className="flex-1 flex flex-col gap-2 text-right">
-            <button
-              onClick={(e) => { e.stopPropagation(); onChangeOrg(); }}
-              className="text-right active:opacity-70 transition-opacity"
-            >
-              <p className="text-white/75 text-xs leading-snug">רוצה להתחבר עם ארגון אחר?</p>
-              <span className="text-white text-xs font-bold border-b border-white/60 pb-px">הכניסה מכאן</span>
-            </button>
-          </div>
-
-          {/* Primary CTA */}
+        {/* Primary CTA. The "רוצה להתחבר עם ארגון אחר?" secondary link
+            was removed - the post-login routing in lib/postLogin.ts is
+            now the single place where users switch context, and exposing
+            a duplicate switch from inside the story chain confused
+            first-time users. */}
+        {/* Right-aligned in RTL (justify-start) so the CTA clears the
+            accessibility widget pinned in the bottom-left corner. */}
+        <div className="flex items-center justify-start">
           <button
             onClick={(e) => {
               e.stopPropagation();
-              if (isOrgFlow) {
-                const matchIdx = steps.findIndex(s => s.id === 'match-screen');
-                if (matchIdx !== -1) goTo(matchIdx);
+              // Already chose an org via the bottom link -> straight to questions.
+              if (skipToQuestions) {
+                onNewUserContinue();
+                return;
+              }
+              // Otherwise jump to the terminal interactive slide if the chain
+              // has one: match-screen (matched member) or join-prompt
+              // (non-member of ?tenant=X). Else go straight to onboarding.
+              const targetIdx = steps.findIndex(
+                (s) => s.id === 'match-screen' || s.id === 'join-prompt',
+              );
+              if (targetIdx !== -1) {
+                goTo(targetIdx);
               } else {
                 onNewUserContinue();
               }
@@ -61,6 +72,14 @@ export function StoryCTABar({
             קליק להמשך
           </button>
         </div>
+
+        {/* Secondary: continue with another organization → opens the join
+            picker. Reusable link so the wording matches every other step. */}
+        {onJoinOtherOrg && (
+          <div className="mt-2">
+            <StoryJoinOtherLink onClick={onJoinOtherOrg} />
+          </div>
+        )}
 
         {/* Powered by Nexus — org flow only */}
         {isOrgFlow && (

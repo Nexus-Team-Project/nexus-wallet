@@ -1,7 +1,13 @@
 /**
- * ConsentsSlide — mandatory slide collecting notification consents.
- * Shows title + subtitle (with colon) + icon-row list describing what we notify about.
- * "Later" button appears top-right (via canSkip/onSkip), Continue is the primary CTA.
+ * ConsentsSlide — the marketing-consent question for new users (replaces the old
+ * LoginSheet opt-in checkbox; this is the ONLY place consent is collected at
+ * signup). Title + subtitle + icon-row list of what we'd send, then an explicit
+ * choice: Yes (opt in) / No (opt out) / Skip (top-right, treated as opt out).
+ * A note tells the user they can change it later in their profile.
+ *
+ * The choice writes registrationStore.consents.marketing, which the registration-
+ * complete flush persists via PATCH /api/v1/wallet/marketing-consent — which in
+ * turn mirrors a "Marketing consent" column onto the member's tenant contacts.
  */
 import { useNavigate, useParams } from 'react-router-dom';
 import { useLanguage } from '../../../i18n/LanguageContext';
@@ -45,12 +51,14 @@ export default function ConsentsSlide() {
     }
   };
 
-  const handleContinue = () => {
+  /** Opt in to marketing. */
+  const handleYes = () => {
     reg.setConsents({ marketing: true, pushNotifications: false, analytics: false });
     advance();
   };
 
-  const handleLater = () => {
+  /** Opt out (explicit "No" or top-right "Skip" — both record consent = false). */
+  const handleDecline = () => {
     reg.setConsents({ marketing: false, pushNotifications: false, analytics: false });
     advance();
   };
@@ -70,9 +78,11 @@ export default function ConsentsSlide() {
       canSkip={true}
       canContinue={true}
       onBack={hasPrev ? handleBack : undefined}
-      onSkip={handleLater}
-      skipLabel={t.registration.consentsLater}
-      onContinue={handleContinue}
+      onSkip={handleDecline}
+      skipLabel={t.registration.onboardingSkip}
+      onContinue={handleYes}
+      continueLabel={t.registration.consentsYes}
+      secondaryCta={{ label: t.registration.consentsNo, onClick: handleDecline }}
       footerExtra={changeNote}
     >
       <div className="pt-6 pb-2">

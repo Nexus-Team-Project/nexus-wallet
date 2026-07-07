@@ -9,7 +9,7 @@
  * Instead we mark the profile complete, clear the registration session, and
  * navigate straight back to home.
  */
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useRegistrationStore } from '../../stores/registrationStore';
@@ -17,19 +17,40 @@ import { useAuthStore } from '../../stores/authStore';
 import { useTenantStore } from '../../stores/tenantStore';
 import { getOnboardingTotalWithComplete } from '../../utils/onboardingNavigation';
 import { PremiumRevealContent } from '../PremiumRevealPage';
+import { saveWalletProfile, saveMarketingConsent, type WalletProfilePatch } from '../../services/walletProfile.service';
+import { useAuth } from '../../contexts/AuthContext';
+import { useLanguage } from '../../i18n/LanguageContext';
+import { consumePostLoginReturn, isCatalogReturn } from '../../lib/postLogin';
+import { finishWalletRegistration, setRegistrationCompleting } from '../../lib/registrationAffiliation';
+import HomePageSkeleton from '../../components/home/HomePageSkeleton';
+import Skeleton from '../../components/ui/Skeleton';
 
 export default function RegistrationCompletePage() {
   const { lang = 'he' } = useParams();
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const returnTo             = useRegistrationStore((s) => s.returnTo);
   const completeRegistration = useRegistrationStore((s) => s.completeRegistration);
   const setProfileCompleted  = useAuthStore((s) => s.setProfileCompleted);
+  const { reload }           = useAuth();
 
   // Snapshot the path at mount — completeRegistration() clears it, so we
   // need the value before it's wiped.
   const [pathOnMount] = useState(
     () => useRegistrationStore.getState().registrationPath,
   );
+
+  // finish() is wired to BOTH the X button and the reveal's onReveal, so it can
+  // fire twice. The first call consumes the affiliation stash and navigates; a
+  // second call would read an empty stash and re-navigate to the ecosystem
+  // catalog, clobbering the joined-org landing. Guard it to run exactly once.
+  const finishedRef = useRef(false);
+
+  // Once X (or the reveal) fires, swap the page for a store-shaped skeleton for
+  // the WHOLE finish() duration (profile save + /api/me reload + navigation), so
+  // the user never sees a frozen reveal while the APIs run. The store page then
+  // continues the skeleton via its own Suspense fallback + per-section loaders.
+  const [completing, setCompleting] = useState(false);
 
   // Snapshot total ONCE at mount — avoids the bar shrinking when
   // completeRegistration() fires (which clears isOrgFlow/orgMember) right
@@ -75,11 +96,77 @@ export default function RegistrationCompletePage() {
     };
   }, []);
 
-  const finish = () => {
+  /**
+   * Flush every slide answer from registrationStore to the backend in
+   * one PATCH, then navigate onward (a stashed gated-action return if
+   * one was set, otherwise the ecosystem catalog). Best-effort: if the
+   * save fails we still let the user proceed - the next login will
+   * retry (profile.completedAt won't be set, so the slides run again).
+   *
+   * Plan #3: replaces the legacy navigate-to-home behavior.
+   */
+  const finish = async () => {
+    if (finishedRef.current) return;
+    finishedRef.current = true;
+    setCompleting(true); // immediately show the loading skeleton
     setProfileCompleted(true);
+
+    try {
+      const rs = useRegistrationStore.getState();
+      const patch: WalletProfilePatch = { complete: true };
+      if (rs.profileData.firstName) patch.firstName = rs.profileData.firstName;
+      if (rs.profileData.lastName) patch.lastName = rs.profileData.lastName;
+      if (rs.profileData.birthday) patch.birthday = rs.profileData.birthday;
+      const od = rs.onboardingData;
+      if (od) {
+        if (od.birthday) patch.birthday = od.birthday;
+        if (od.gender) patch.gender = od.gender as WalletProfilePatch['gender'];
+        if (od.lifeStage) patch.lifeStage = od.lifeStage;
+        if (od.purpose?.length) patch.purpose = od.purpose;
+      }
+      await saveWalletProfile(patch);
+      if (rs.consents) {
+        await saveMarketingConsent(rs.consents.marketing, 'wallet_signup');
+      }
+      await reload();
+    } catch (err) {
+      // Best-effort: don't block the user. Next login retries.
+      console.error('[registration-complete] profile save failed:', err);
+    }
+
+    // End of new-user onboarding: route + fire the single welcome toast from
+    // the affiliation chosen during the stories (joined / pending / member /
+    // none). A stashed gated-action return wins ONLY when it points at a
+    // specific page; a bare catalog/front-door stash (e.g. the "Log in" front
+    // door) must NOT override landing on the joined org's catalog.
+    const ret = consumePostLoginReturn();
+    const actionableRet = ret && !isCatalogReturn(ret) ? ret : undefined;
+    // Mark the completion in flight so RegistrationGuard does NOT redirect to
+    // /:lang (-> ecosystem) when completeRegistration() flips isRegistering off
+    // while the transition to the joined org's catalog is still committing.
+    setRegistrationCompleting(true);
     completeRegistration();
-    navigate(`/${returnTo ?? lang}`, { replace: true });
+    await finishWalletRegistration({ navigate, lang, t, overridePath: actionableRet, reload });
   };
+
+  // While finish() runs (and until the navigation unmounts this page), show a
+  // store-shaped skeleton instead of the frozen reveal. Mirrors the store header
+  // (avatar + greeting) above the shared HomePageSkeleton so the hand-off to the
+  // store page reads as one continuous load.
+  if (completing) {
+    return (
+      <div className="fixed inset-0 max-w-md mx-auto z-[100] bg-white overflow-hidden">
+        <div className="flex items-center gap-3 px-5 pt-6 pb-3">
+          <Skeleton variant="circular" width="40px" height="40px" />
+          <div className="flex flex-col gap-1.5">
+            <Skeleton className="h-3 w-14" />
+            <Skeleton className="h-4 w-24" />
+          </div>
+        </div>
+        <HomePageSkeleton />
+      </div>
+    );
+  }
 
   return (
     <motion.div

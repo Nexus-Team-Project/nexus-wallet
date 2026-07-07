@@ -1,5 +1,6 @@
 import { useLanguage } from '../../i18n/LanguageContext';
 import { cn } from '../../utils/cn';
+import ComingSoonBadge from '../ui/ComingSoonBadge';
 
 /**
  * Grid of achievement medallions. Each badge is a 96px circle with a
@@ -35,10 +36,12 @@ export default function ProfileBadges() {
 
   return (
     <section className="px-4 mt-6">
-      <h3 className="text-base font-bold text-text-primary mb-3">
-        {t.profile.badges}
-      </h3>
-      <div className="grid grid-cols-2 gap-x-4 gap-y-5">
+      <div className="flex items-center gap-2 mb-3">
+        <h3 className="text-base font-bold text-text-primary">{t.profile.badges}</h3>
+        <ComingSoonBadge />
+      </div>
+      {/* Mock achievement medallions — greyed + non-interactive for now. */}
+      <div className="grid grid-cols-2 gap-x-4 gap-y-5 opacity-60 pointer-events-none select-none">
         {BADGES.map((badge) => (
           <div key={badge.labelKey} className="flex flex-col items-center">
             <div

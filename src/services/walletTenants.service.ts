@@ -1,0 +1,136 @@
+/**
+ * Wallet tenant-discovery + join-request API wrappers.
+ *
+ * Spec: docs/superpowers/specs/2026-05-25-nexus-wallet-auth-design.md section 6
+ */
+import { api } from '../lib/api';
+import { fetchPublicTenant } from './publicTenant.service';
+
+/** Outcome of sending a single join request at the end of registration. */
+export interface JoinOutcome {
+  kind: 'joined' | 'pending' | 'none';
+  tenantId: string;
+  orgName?: string;
+}
+
+export interface DiscoverableTenant {
+  tenantId: string;
+  tenantName: string;
+  logoUrl?: string;
+  /**
+   * Whether the tenant has an active Benefits Catalog. Tenants without it are
+   * still listed but cannot be joined yet — the modal shows a "soon" badge and
+   * disables the row, and the backend rejects a join request to them.
+   */
+  catalogActive: boolean;
+}
+
+export interface JoinRequestRecord {
+  id: string;
+  tenantId: string;
+  tenantName?: string;
+  status: 'pending' | 'approved' | 'denied' | 'auto_accepted';
+  createdAt: string;
+  decidedAt?: string;
+  denyReason?: string;
+}
+
+export interface CreateJoinResult {
+  created: string[];
+  autoAccepted: string[];
+  skipped: Array<{ tenantId: string; reason: string }>;
+}
+
+/** Search tenants that have activated Benefits Catalog. */
+export async function discoverTenants(query?: string): Promise<DiscoverableTenant[]> {
+  const qs = query?.trim() ? `?q=${encodeURIComponent(query.trim())}` : '';
+  const r = await api<{ tenants: DiscoverableTenant[] }>(`/api/v1/wallet/tenants/discover${qs}`);
+  return r.tenants;
+}
+
+/** POST one or more join requests in one call. */
+export async function createJoinRequests(tenantIds: string[]): Promise<CreateJoinResult> {
+  return api<CreateJoinResult>('/api/v1/wallet/join-requests', {
+    method: 'POST',
+    body: { tenantIds },
+  });
+}
+
+/**
+ * Set the member's default landing context (the tenant or ecosystem they
+ * land on at login when no ?tenant is in the URL). Pass a tenantId the
+ * caller belongs to, or null for the Nexus (ecosystem) catalog.
+ */
+export async function setDefaultTenant(tenantId: string | null): Promise<void> {
+  await api('/api/v1/wallet/default-tenant', { method: 'PATCH', body: { tenantId } });
+}
+
+/** List the caller's own join requests. */
+export async function listMyJoinRequests(): Promise<JoinRequestRecord[]> {
+  const r = await api<{ requests: JoinRequestRecord[] }>('/api/v1/wallet/join-requests/mine');
+  return r.requests;
+}
+
+/** Ecosystem-approved offers excluding offers adopted by user's tenants. */
+export async function fetchEcosystemOffers(query?: string, limit = 50): Promise<{
+  items: Array<{
+    id: string;
+    title: string;
+    description?: string;
+    category?: string;
+    imageUrls?: string[];
+    imageUrl?: string;
+    member_price?: number;
+    market_price?: number;
+    displayPrice?: number;
+    validUntil?: string;
+    tags?: string[];
+  }>;
+  total: number;
+}> {
+  const params = new URLSearchParams();
+  if (query?.trim()) params.set('q', query.trim());
+  params.set('limit', String(limit));
+  return api(`/api/v1/wallet/ecosystem-offers?${params.toString()}`);
+}
+
+/**
+ * Send a single join request and resolve its outcome + the org name for the
+ * welcome/pending toast. Called at the END of registration (so the user's phone
+ * and profile are already saved and travel to the tenant). On auto-accept the
+ * caller's session is refreshed and the org becomes the default landing tenant.
+ *
+ * @param tenantId the org to join.
+ * @param opts.reload refreshes /api/me; used to read the joined org's name.
+ * @returns 'joined' (auto-accepted) / 'pending' (awaiting approval) / 'none'
+ *          (e.g. the tenant's catalog is not active, so nothing was created).
+ */
+export async function sendJoinRequest(
+  tenantId: string,
+  opts: { reload?: () => Promise<{ memberships?: Array<{ tenantId: string; tenantName: string }> } | null> },
+): Promise<JoinOutcome> {
+  const result = await createJoinRequests([tenantId]);
+
+  if (result.autoAccepted.length > 0) {
+    const joinedId = result.autoAccepted[0]!;
+    const updated = await opts.reload?.();
+    const orgName =
+      (updated?.memberships ?? []).find((m) => m.tenantId === joinedId)?.tenantName ??
+      (await fetchPublicTenant(joinedId).catch(() => null))?.organizationName;
+    try {
+      await setDefaultTenant(joinedId);
+    } catch (e) {
+      console.error('[wallet-join] set default on auto-join failed (non-fatal):', e);
+    }
+    return { kind: 'joined', tenantId: joinedId, orgName };
+  }
+
+  const pendingId =
+    result.created[0] ??
+    result.skipped.find((s) => s.reason === 'already_pending')?.tenantId;
+  if (pendingId) {
+    const orgName = (await fetchPublicTenant(pendingId).catch(() => null))?.organizationName;
+    return { kind: 'pending', tenantId: pendingId, orgName };
+  }
+  return { kind: 'none', tenantId };
+}

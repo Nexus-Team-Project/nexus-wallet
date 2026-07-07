@@ -29,6 +29,8 @@ dist-ssr
 serviceAccountKey.json
 scripts/serviceAccountKey.json
 
+.env
+.claude/
 # Python bytecode cache
 __pycache__/
 
