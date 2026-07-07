@@ -60,7 +60,7 @@ export default function VoucherDetail({ voucher, onClose }: VoucherDetailProps) 
 
           {/* Badges */}
           <div className="flex gap-2 justify-center mb-4">
-            <Badge variant="pink" size="md">{voucher.discountPercent}% {t.store.discount}</Badge>
+            <Badge variant="emerald" size="md">{voucher.discountPercent}% {t.store.discount}</Badge>
             {voucher.popular && <Badge variant="purple" size="md">🔥 {t.store.popular}</Badge>}
           </div>
 

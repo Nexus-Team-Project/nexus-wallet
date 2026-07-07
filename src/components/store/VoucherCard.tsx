@@ -36,7 +36,7 @@ export default function VoucherCard({ voucher, onSelect }: VoucherCardProps) {
 
         {/* Discount badge — top end */}
         <div className="absolute top-2 end-2">
-          <Badge variant="pink" size="sm">
+          <Badge variant="emerald" size="sm">
             {voucher.discountPercent}% {t.store.discount}
           </Badge>
         </div>

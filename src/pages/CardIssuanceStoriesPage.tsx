@@ -678,6 +678,7 @@ export default function CardIssuanceStoriesPage() {
   const { language } = useLanguage();
   const isHe = language === 'he';
   const tenantConfig = useTenantStore((s) => s.config);
+  const tenantId = useTenantStore((s) => s.tenantId);
   const brandName = (isHe ? tenantConfig?.nameHe : null) || tenantConfig?.name || 'Nexus';
 
   const [currentStory, setCurrentStory] = useState(0);
@@ -740,6 +741,16 @@ export default function CardIssuanceStoriesPage() {
   };
 
   const handleContinueToIssuance = () => {
+    // SPAR card issuance hands off to Isracard's hosted authentication flow,
+    // opened in a new tab so the in-app flow stays intact.
+    if (tenantId === 'spar') {
+      window.open(
+        'https://issuance.isracard.co.il/spar/CardsAuthentication',
+        '_blank',
+        'noopener,noreferrer',
+      );
+      return;
+    }
     navigate(`/${lang}/wallet`);
   };
 

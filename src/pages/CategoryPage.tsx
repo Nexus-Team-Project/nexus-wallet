@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useLanguage } from '../i18n/LanguageContext';
 import { useVouchers } from '../hooks/useVouchers';
 import { mockBusinesses } from '../mock/data/businesses.mock';
@@ -15,6 +15,9 @@ import FeaturedStoresCarousel from '../components/category/FeaturedStoresCarouse
 import BestDealsGrid from '../components/category/BestDealsGrid';
 import StoresWithProducts from '../components/category/StoresWithProducts';
 import TrendingProductsGrid from '../components/category/TrendingProductsGrid';
+import BrandFeatureStore from '../components/category/BrandFeatureStore';
+import CategoryRowStore, { type CategoryRowItem } from '../components/category/CategoryRowStore';
+import PopularProductsRail from '../components/category/PopularProductsRail';
 import CategoryFilterSheet from '../components/category/CategoryFilterSheet';
 import VoucherDetail from '../components/store/VoucherDetail';
 
@@ -30,9 +33,11 @@ const CATEGORY_TO_BIZ: Record<VoucherCategory, string[]> = {
 };
 
 export default function CategoryPage() {
-  const { categoryId: rawCategoryId } = useParams<{ categoryId: string }>();
+  const { categoryId: rawCategoryId, lang = 'he' } = useParams<{ categoryId: string; lang: string }>();
   const categoryId = (rawCategoryId || 'food') as VoucherCategory;
-  useLanguage();
+  const navigate = useNavigate();
+  const { language } = useLanguage();
+  const isHe = language === 'he';
 
   const { data: allVouchers } = useVouchers();
 
@@ -95,6 +100,24 @@ export default function CategoryPage() {
     return mockBusinesses.filter((b) => bizCategories.includes(b.category));
   }, [categoryId]);
 
+  // Fashion "category row" store — placeholder items aggregated across the
+  // fashion stores' products. STRUCTURE ONLY: swap the source/title/promo for
+  // real category data later.
+  const fashionRowItems = useMemo<CategoryRowItem[]>(() => {
+    return categoryStores
+      .flatMap((b) => (b.products ?? []).filter((p) => p.image).map((p) => ({ b, p })))
+      .slice(0, 8)
+      .map(({ b, p }) => ({
+        id: `${b.id}-${p.id}`,
+        name: p.name,
+        nameHe: p.nameHe,
+        image: p.image,
+        price: p.price,
+        currency: p.currency,
+        onClick: () => navigate(`/${lang}/business/${b.id}/product/${p.id}`),
+      }));
+  }, [categoryStores, lang, navigate]);
+
   // Vouchers grouped by merchant
   const vouchersByMerchant = useMemo(() => {
     const map = new Map<string, Voucher[]>();
@@ -120,7 +143,21 @@ export default function CategoryPage() {
     // overlay (avatar + chat/bell buttons sitting at viewport y=0).
     // CategoryHeader stays `sticky top-0` so once the user scrolls past
     // the TopBar area, the header pins to the very top normally.
-    <div className="min-h-screen bg-white animate-fade-in pt-20">
+    <div className="relative isolate min-h-screen bg-white animate-fade-in pt-20">
+      {/* Decorative home-page gradient glow at the top, fading into the page.
+          `isolate` makes this root its own stacking context so the -z-10
+          gradient paints above the white background (not behind it). */}
+      <div className="absolute top-0 inset-x-0 h-[280px] -z-10 pointer-events-none" aria-hidden>
+        <div
+          className="w-full h-full opacity-[0.18]"
+          style={{ background: 'linear-gradient(135deg, #ffb74d 0%, #ff91b8 35%, #9c88ff 65%, #80deea 100%)' }}
+        />
+        <div
+          className="absolute inset-0"
+          style={{ background: 'linear-gradient(to bottom, rgba(255,255,255,0) 0%, rgba(255,255,255,0) 55%, #ffffff 100%)' }}
+        />
+      </div>
+
       <CategoryHeader categoryId={categoryId} />
       <SubcategoryGrid categoryId={categoryId} onSubcategorySelect={setSelectedSubcategory} />
       <FilterSortBar
@@ -128,22 +165,73 @@ export default function CategoryPage() {
         sortOption={sortOption}
         onSortChange={setSortOption}
         onFilterOpen={() => setFilterOpen(true)}
+        showSort={categoryId !== 'shopping'}
       />
 
       <div className="py-6 space-y-8">
-        {/* Discovery Block 1: Highlight Banner */}
-        <HighlightBanner categoryId={categoryId} />
+        {/* Discovery Block 1: Highlight Banner — hidden on fashion, where the
+            brand feature cards lead instead. */}
+        {categoryId !== 'shopping' && <HighlightBanner categoryId={categoryId} />}
 
-        {/* Discovery Block 2: Featured Stores */}
-        {categoryStores.length > 0 && (
+        {/* Discovery Block 2: Featured Stores — hidden on fashion (the brands
+            already appear as full feature cards below). */}
+        {categoryId !== 'shopping' && categoryStores.length > 0 && (
           <FeaturedStoresCarousel stores={categoryStores} />
         )}
 
-        {/* Discovery Block 3: Best Deals */}
-        <BestDealsGrid vouchers={filteredVouchers} categoryId={categoryId} onSelect={setSelectedVoucher} />
+        {/* Fashion only: in-page brand "mini stores" (light + dark cards). */}
+        {categoryId === 'shopping' && categoryStores.length > 0 && (
+          <div className="space-y-4">
+            {categoryStores[0] && (
+              <BrandFeatureStore
+                business={categoryStores[0]}
+                variant="light"
+                bgVideo="/couple-exit-store.mp4"
+                promo={{
+                  saveLabel: isHe ? 'חסכו ₪15' : 'Save ₪15',
+                  condition: isHe ? 'בהזמנות מעל ₪150' : 'on orders over ₪150',
+                }}
+              />
+            )}
+            {categoryStores[1] && (
+              <BrandFeatureStore
+                business={categoryStores[1]}
+                variant="dark"
+                bgVideo="/couple-exit-store.mp4"
+                promo={{
+                  saveLabel: isHe ? 'חסכו ₪40' : 'Save ₪40',
+                  condition: isHe ? 'בהזמנות מעל ₪300' : 'on orders over ₪300',
+                }}
+              />
+            )}
 
-        {/* Discovery Block 4: Stores With Products */}
-        {categoryStores.length > 0 && (
+            {/* Additional "store" — built as a CATEGORY ROW. The title lives in
+                the background video; sized to the Castro card's proportions.
+                Placeholder data — fill in the real category later. */}
+            {fashionRowItems.length > 0 && (
+              <CategoryRowStore
+                title="Style"
+                titleHe="סטייל"
+                items={fashionRowItems}
+                accentColor="#1c1c1c"
+                bgVideo="/style-category.mp4"
+                titleInMedia
+                mediaPosition="bottom"
+                aspectRatio="2 / 3"
+                onSeeAll={() => navigate(`/${lang}/store`)}
+              />
+            )}
+          </div>
+        )}
+
+        {/* Discovery Block 3: Best Deals — hidden on fashion. */}
+        {categoryId !== 'shopping' && (
+          <BestDealsGrid vouchers={filteredVouchers} categoryId={categoryId} onSelect={setSelectedVoucher} />
+        )}
+
+        {/* Discovery Block 4: Stores With Products — hidden on fashion (the
+            brands already appear as full feature cards above). */}
+        {categoryId !== 'shopping' && categoryStores.length > 0 && (
           <StoresWithProducts
             stores={categoryStores}
             vouchersByMerchant={vouchersByMerchant}
@@ -151,8 +239,13 @@ export default function CategoryPage() {
           />
         )}
 
-        {/* Discovery Block 5: Trending Products */}
-        <TrendingProductsGrid vouchers={filteredVouchers} categoryId={categoryId} onSelect={setSelectedVoucher} />
+        {/* Discovery Block 5: Trending — fashion shows real products from
+            several stores; other categories keep the voucher-based slider. */}
+        {categoryId === 'shopping' ? (
+          <PopularProductsRail />
+        ) : (
+          <TrendingProductsGrid vouchers={filteredVouchers} categoryId={categoryId} onSelect={setSelectedVoucher} />
+        )}
       </div>
 
       {/* Voucher Detail bottom sheet */}
@@ -168,6 +261,8 @@ export default function CategoryPage() {
           onApply={setFilters}
           categoryId={categoryId}
           resultCount={filteredVouchers.length}
+          sortOption={sortOption}
+          onSortChange={setSortOption}
         />
       )}
     </div>

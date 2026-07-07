@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import { motion } from 'framer-motion';
+import { X } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 import { useCartStore, cartCount } from '../../stores/cartStore';
 import { useLanguage } from '../../i18n/LanguageContext';
@@ -47,14 +48,14 @@ export default function CartFab() {
             left: '50%',
             transform: `translateX(-50%) scale(${overTrash ? 1.1 : 1})`,
             background: overTrash ? 'rgba(220,38,38,0.95)' : 'rgba(15,23,42,0.7)',
-            color: '#fff',
+            color: 'rgba(255,255,255,0.92)',
             backdropFilter: 'blur(12px)',
             WebkitBackdropFilter: 'blur(12px)',
             boxShadow: '0 8px 22px rgba(0,0,0,0.22)',
             transition: 'transform 0.18s ease-out, background 0.18s',
           }}
         >
-          <span className="material-symbols-rounded" style={{ fontSize: 24 }}>close</span>
+          <X size={20} strokeWidth={2} />
         </div>
       )}
 

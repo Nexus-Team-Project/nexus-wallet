@@ -459,7 +459,14 @@ export default function AddPaymentMethodPage() {
     // Biometric gate ONLY for actual payments (Pay X ₪). For just adding a
     // card to the wallet there's no money movement, so we skip verification.
     if (!isPaymentFlow) {
-      navigate(-1);
+      // Onboarding flow (pay-intro → add card): land back on the wallet with
+      // the balance card's pay-code "how it works" sheet open. Any other entry
+      // just goes back.
+      if (state?.entry === 'pay-intro') {
+        navigate(`/${lang}/wallet`, { state: { openPayCodeHelp: true } });
+      } else {
+        navigate(-1);
+      }
       return;
     }
 
@@ -520,6 +527,19 @@ export default function AddPaymentMethodPage() {
         {/* Google Pay + divider */}
         <div className="mb-6 space-y-4">
           <GooglePayButton label={t.wallet.payWithGooglePay} />
+
+          {/* Why we ask — short reassurance line, prefixed with a help (?) icon */}
+          <div className="flex items-start gap-1.5 text-text-muted">
+            <span
+              className="material-symbols-outlined flex-shrink-0 mt-0.5"
+              style={{ fontSize: '18px' }}
+              aria-hidden
+            >
+              help
+            </span>
+            <p className="text-sm leading-relaxed">{t.wallet.addPaymentWhy}</p>
+          </div>
+
           <div className="flex items-center gap-3 text-sm font-medium text-text-muted">
             <span className="flex-1 h-px bg-border" />
             <span className="px-1">{t.wallet.orPayWithCard}</span>

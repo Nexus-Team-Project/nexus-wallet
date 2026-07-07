@@ -2,264 +2,11 @@ import { useState, useRef, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { useNearbyDeals } from '../../hooks/useNearbyDeals';
-import { formatDistance } from '../../utils/haversine';
 import Skeleton from '../ui/Skeleton';
 import SectionError from '../ui/SectionError';
-import type { NearbyDeal } from '../../types/branch.types';
+import CategoryRowStore, { type CategoryRowItem } from '../category/CategoryRowStore';
 
-const categoryGradients: Record<string, string> = {
-  food: 'from-orange-400 to-orange-600',
-  shopping: 'from-pink-400 to-pink-600',
-  entertainment: 'from-purple-400 to-purple-600',
-  tech: 'from-blue-400 to-blue-600',
-  travel: 'from-sky-400 to-sky-600',
-  health: 'from-emerald-400 to-emerald-600',
-  education: 'from-amber-400 to-amber-600',
-};
-
-const categoryLabels: Record<string, { en: string; he: string }> = {
-  food: { en: 'Food', he: 'אוכל' },
-  shopping: { en: 'Shopping', he: 'קניות' },
-  entertainment: { en: 'Entertainment', he: 'בידור' },
-  tech: { en: 'Tech', he: 'טכנולוגיה' },
-  travel: { en: 'Travel', he: 'טיולים' },
-  health: { en: 'Health', he: 'בריאות' },
-  education: { en: 'Education', he: 'לימודים' },
-};
-
-// ── Map tile helpers ──
-
-/**
- * Convert lat/lng → OSM tile coordinates at a given zoom level.
- * Returns fractional x, y so we can compute pixel offsets.
- */
-function latLngToTile(lat: number, lng: number, zoom: number) {
-  const n = 2 ** zoom;
-  const x = ((lng + 180) / 360) * n;
-  const latRad = (lat * Math.PI) / 180;
-  const y = ((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2) * n;
-  return { x, y };
-}
-
-/**
- * Build an array of OSM tile URLs that cover a 3×2 grid around the given lat/lng.
- * Returns tile URLs + CSS background-position offsets to compose a map image.
- */
-function getMapTiles(lat: number, lng: number): {
-  tiles: { url: string; x: number; y: number }[];
-  offsetX: number;
-  offsetY: number;
-} {
-  const zoom = 16;
-  const { x, y } = latLngToTile(lat, lng, zoom);
-  const tileX = Math.floor(x);
-  const tileY = Math.floor(y);
-  // Fractional offset within the center tile (0-1)
-  const offsetX = (x - tileX) * 256;
-  const offsetY = (y - tileY) * 256;
-
-  const tiles: { url: string; x: number; y: number }[] = [];
-  // 3 columns × 2 rows grid centered on the point
-  for (let dy = -1; dy <= 0; dy++) {
-    for (let dx = -1; dx <= 1; dx++) {
-      tiles.push({
-        url: `https://a.basemaps.cartocdn.com/rastertiles/voyager/${zoom}/${tileX + dx}/${tileY + dy}@2x.png`,
-        x: dx,
-        y: dy,
-      });
-    }
-  }
-  return { tiles, offsetX, offsetY };
-}
-
-// ── NearYou Card ──
-
-function NearYouCard({
-  deal,
-  isHe,
-  onNavigate,
-}: {
-  deal: NearbyDeal;
-  isHe: boolean;
-  onNavigate: () => void;
-}) {
-  const v = deal.voucher;
-  const catLabel = categoryLabels[v.category] || { en: v.category, he: v.category };
-  const distanceText = formatDistance(deal.distanceKm, isHe);
-
-  return (
-    <button
-      onClick={onNavigate}
-      className="flex-none w-[75vw] max-w-[300px] bg-white border border-border rounded-lg shadow-sm overflow-hidden text-start snap-start active:scale-[0.97] transition-transform duration-150"
-    >
-      {/* Atmosphere image area */}
-      <div
-        className="relative overflow-hidden bg-surface"
-        style={{ height: '20vh' }}
-      >
-        {v.imageUrl ? (
-          <img src={v.imageUrl} alt={v.title} className="absolute inset-0 w-full h-full object-cover" />
-        ) : (
-          <div className="absolute inset-0 flex items-center justify-center">
-            <span className="text-7xl">{v.image}</span>
-          </div>
-        )}
-
-        {/* Dark gradient overlay */}
-        <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/30 to-transparent" />
-
-        {/* Brand logo circle — top-end */}
-        {v.brandLogo && (
-          <div
-            className="absolute top-2.5 end-2.5 z-10 w-10 h-10 rounded-full shadow-md border-2 border-white flex items-center justify-center overflow-hidden"
-            style={{ backgroundColor: v.brandColor || '#FFFFFF' }}
-          >
-            <img src={v.brandLogo} alt={v.merchantName} className="w-[80%] h-[80%] object-contain" />
-          </div>
-        )}
-
-        {/* Distance badge — top-start */}
-        <div className="absolute top-2.5 start-2.5 z-10 bg-white/90 backdrop-blur-sm rounded-full px-2.5 py-1 flex items-center gap-1">
-          <span
-            className="material-symbols-outlined text-primary"
-            style={{ fontSize: '12px' }}
-          >
-            location_on
-          </span>
-          <span className="text-[10px] font-bold text-primary">
-            {distanceText}
-          </span>
-        </div>
-      </div>
-
-      {/* Bottom info */}
-      <div className="w-full px-3 py-4 flex items-center justify-between">
-        <div className="flex flex-col">
-          <span className="text-sm font-bold text-text-primary">
-            {isHe ? v.titleHe : v.title}
-          </span>
-          <span className="text-[10px] text-text-muted">
-            {isHe ? deal.branch.addressHe : deal.branch.address}
-          </span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="text-[10px] text-primary bg-primary/10 px-1.5 py-0.5 rounded font-semibold">
-            {isHe ? catLabel.he : catLabel.en}
-          </span>
-          {v.discountPercent > 0 && (
-            <span className="text-[10px] text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded font-semibold">
-              {v.discountPercent}%−
-            </span>
-          )}
-        </div>
-      </div>
-    </button>
-  );
-}
-
-// ── Location Teaser Card ──
-
-// Tel Aviv center coordinates for the teaser map
-const TEASER_MAP_CENTER = { lat: 32.0853, lng: 34.7818 };
-
-function LocationTeaserCard({
-  onRequestLocation,
-  subtitle,
-  ctaLabel,
-}: {
-  onRequestLocation: () => void;
-  subtitle: string;
-  ctaLabel: string;
-}) {
-  const { tiles, offsetX, offsetY } = getMapTiles(TEASER_MAP_CENTER.lat, TEASER_MAP_CENTER.lng);
-
-  return (
-    <div className="flex-none w-[75vw] max-w-[300px] bg-white border border-border rounded-lg shadow-sm overflow-hidden text-start snap-start flex flex-col">
-      {/* Map image area */}
-      <div
-        className="relative overflow-hidden bg-gray-100"
-        style={{ height: '20vh' }}
-      >
-        {/* OSM tile grid — map of Tel Aviv center */}
-        <div
-          className="absolute inset-0"
-          style={{
-            transform: `translate(${-offsetX + 150}px, ${-offsetY + 60}px)`,
-          }}
-        >
-          {tiles.map((tile) => (
-            <img
-              key={tile.url}
-              src={tile.url}
-              alt=""
-              width={256}
-              height={256}
-              loading="lazy"
-              className="absolute"
-              style={{
-                left: `${(tile.x + 1) * 256}px`,
-                top: `${(tile.y + 1) * 256}px`,
-              }}
-            />
-          ))}
-        </div>
-
-        {/* Semi-transparent overlay for readability */}
-        <div className="absolute inset-0 bg-white/40 backdrop-blur-[1px]" />
-
-        {/* Brand circles scattered on the map */}
-        {[
-          { src: '/brands/mcdonalds.png', bg: '#FFFFFF', top: '20%', left: '25%', size: 44 },
-          { src: '/brands/aroma.png', bg: '#000000', top: '50%', left: '60%', size: 44 },
-          { src: '/brands/ksp.png', bg: '#3478BE', top: '25%', left: '70%', size: 44 },
-        ].map((brand) => (
-          <div
-            key={brand.src}
-            className="absolute z-10 rounded-full shadow-md border border-white/60 flex items-center justify-center overflow-hidden"
-            style={{
-              top: brand.top,
-              left: brand.left,
-              width: brand.size,
-              height: brand.size,
-              backgroundColor: brand.bg,
-            }}
-          >
-            <img
-              src={brand.src}
-              alt=""
-              className={brand.src.includes('ksp') ? 'w-full h-full object-cover' : 'w-[70%] h-[70%] object-contain'}
-            />
-          </div>
-        ))}
-
-        {/* Semi-transparent black bar at the bottom with descriptive text */}
-        <div className="absolute bottom-0 left-0 right-0 bg-black/50 backdrop-blur-sm py-2 px-3">
-          <p className="text-white text-[11px] text-center leading-relaxed">
-            {subtitle}
-          </p>
-        </div>
-      </div>
-
-      {/* Bottom white area with CTA button */}
-      <div className="px-3 py-3 flex items-center justify-center">
-        <button
-          onClick={onRequestLocation}
-          className="px-5 py-2 rounded-full bg-primary text-white text-xs font-semibold active:scale-[0.97] transition-transform flex items-center gap-1.5"
-        >
-          <span
-            className="material-symbols-outlined text-white"
-            style={{ fontSize: '14px' }}
-          >
-            location_on
-          </span>
-          {ctaLabel}
-        </button>
-      </div>
-    </div>
-  );
-}
-
-// ── Location Denied Bottom Sheet ──
+// ── Location-denied bottom sheet ──────────────────────────────────────────────
 
 function LocationDeniedSheet({
   isOpen,
@@ -279,10 +26,7 @@ function LocationDeniedSheet({
   return (
     <>
       {/* Backdrop */}
-      <div
-        className="fixed inset-0 bg-black/40 z-50 animate-fade-in"
-        onClick={onClose}
-      />
+      <div className="fixed inset-0 bg-black/40 z-50 animate-fade-in" onClick={onClose} />
       {/* Sheet */}
       <div
         className="fixed bottom-0 left-0 right-0 max-w-md mx-auto z-50 bg-white rounded-t-2xl shadow-xl px-6 pt-5 pb-8 animate-slide-up"
@@ -299,9 +43,7 @@ function LocationDeniedSheet({
         </div>
 
         {/* Title */}
-        <h3 className="text-base font-bold text-center mb-2">
-          {t.home.nearYouDeniedTitle}
-        </h3>
+        <h3 className="text-base font-bold text-center mb-2">{t.home.nearYouDeniedTitle}</h3>
 
         {/* Body */}
         <p className="text-sm text-text-secondary text-center leading-relaxed mb-4">
@@ -341,55 +83,16 @@ function LocationDeniedSheet({
   );
 }
 
-// ── Arrow Bubble ──
-
-function MoreBubble({ onNavigate }: { onNavigate: () => void }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [visible, setVisible] = useState(false);
-
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting && !visible) setVisible(true);
-        else if (!entry.isIntersecting && visible) setVisible(false);
-      },
-      { threshold: 0.3 },
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [visible]);
-
-  return (
-    <div ref={ref} className="flex-none flex items-center justify-center px-1">
-      <button
-        onClick={onNavigate}
-        className="w-10 h-10 bg-sky-100 flex items-center justify-center active:scale-90"
-        style={{
-          opacity: visible ? 1 : 0,
-          borderRadius: visible ? '50%' : '20% 50% 50% 20%',
-          transform: visible ? 'none' : 'translateX(-16px) scaleX(0.2) scaleY(0.5)',
-          animation: visible
-            ? 'drip-in 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) forwards'
-            : 'none',
-        }}
-      >
-        <span
-          className="material-symbols-outlined text-sky-600"
-          style={{ fontSize: '20px' }}
-        >
-          chevron_left
-        </span>
-      </button>
-    </div>
-  );
-}
-
 // ═══════════════════════════════════════
 //  MAIN COMPONENT
 // ═══════════════════════════════════════
 
+/**
+ * NearYou ("קרוב אליך") — presented as the big CategoryRowStore card with a
+ * first-person street-walk video behind the nearby deals (matching the other
+ * home categories). Until the user shares their location it shows the same card
+ * with a blurred teaser row + a "share location" CTA.
+ */
 export default function NearYou() {
   const { t, language } = useLanguage();
   const { lang = 'he' } = useParams();
@@ -399,7 +102,7 @@ export default function NearYou() {
   const [showDeniedSheet, setShowDeniedSheet] = useState(false);
   const prevPermission = useRef(permission);
 
-  // Show denied sheet only when permission *transitions* to denied (user clicked → got denied)
+  // Show denied sheet only when permission *transitions* to denied.
   useEffect(() => {
     if (permission === 'denied' && prevPermission.current !== 'denied') {
       setShowDeniedSheet(true);
@@ -430,89 +133,36 @@ export default function NearYou() {
     return null;
   }
 
-  const hasDeals = deals.length > 0;
   const showTeaser = permission === 'prompt' || permission === 'denied';
 
-  // Determine gradient from top deal's category
-  const topCategory = deals[0]?.voucher.category || 'food';
-  const topCategoryLabel = categoryLabels[topCategory] || { en: 'Near You', he: 'קרוב אליך' };
-  const gradient = categoryGradients[topCategory] || 'from-primary to-primary-dark';
+  const items: CategoryRowItem[] = deals.map((deal) => ({
+    id: deal.voucher.id,
+    name: deal.voucher.title,
+    nameHe: deal.voucher.titleHe,
+    image: deal.voucher.imageUrl,
+    emoji: deal.voucher.imageUrl ? undefined : deal.voucher.image,
+    price: deal.voucher.discountedPrice,
+    currency: '₪',
+    onClick: () => navigate(`/${lang}/store`),
+  }));
 
   return (
-    <section className="mb-6">
-      <div className="flex items-center justify-between px-5 mb-3">
-        <div className="flex items-center gap-1.5">
-          <h3 className="text-base font-bold">{t.home.nearYouTitle}</h3>
-          <span
-            className="material-symbols-outlined text-primary"
-            style={{ fontSize: '16px' }}
-          >
-            location_on
-          </span>
-        </div>
-        <div className="flex items-center gap-2">
-          {/* Map view button */}
-          {hasDeals && (
-            <button
-              onClick={() => navigate(`/${lang}/near-you-map`)}
-              className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center hover:bg-primary/20 transition-colors active:scale-90"
-            >
-              <span
-                className="material-symbols-outlined text-primary"
-                style={{ fontSize: '16px' }}
-              >
-                map
-              </span>
-            </button>
-          )}
-          <button
-            onClick={() => navigate(`/${lang}/store`)}
-            className="px-3 py-1 rounded-md bg-sky-100 text-sky-600 text-xs font-normal hover:bg-sky-200 transition-colors active:scale-95"
-          >
-            {isHe ? 'עוד' : 'More'}
-          </button>
-        </div>
-      </div>
-
-      <div className="flex overflow-x-auto hide-scrollbar gap-3 px-5 snap-x snap-mandatory items-stretch">
-        {/* Category gradient label — only when cards are visible */}
-        {hasDeals && !showTeaser && (
-          <div
-            className={`flex-none w-[120px] rounded-lg bg-gradient-to-b ${gradient} flex items-center justify-center`}
-          >
-            <span
-              className="text-white text-sm font-bold whitespace-nowrap"
-              style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}
-            >
-              {isHe ? topCategoryLabel.he : topCategoryLabel.en}
-            </span>
-          </div>
-        )}
-
-        {/* Teaser card when location not yet shared */}
-        {showTeaser && (
-          <LocationTeaserCard
-            onRequestLocation={requestLocation}
-            subtitle={t.home.nearYouLocationCtaSubtitle}
-            ctaLabel={t.home.nearYouShareLocation}
-          />
-        )}
-
-        {/* Deal cards — hidden until user grants location */}
-        {!showTeaser && deals.map((deal) => (
-          <NearYouCard
-            key={deal.voucher.id}
-            deal={deal}
-            isHe={isHe}
-            onNavigate={() => navigate(`/${lang}/store`)}
-          />
-        ))}
-
-        {/* Arrow bubble at the end */}
-        {hasDeals && !showTeaser && <MoreBubble onNavigate={() => navigate(`/${lang}/store`)} />}
-      </div>
-
-      {/* Denied bottom sheet */}
+    <div className="mb-6">
+      <CategoryRowStore
+        title={t.home.nearYouTitle}
+        titleHe={t.home.nearYouTitle}
+        items={items}
+        accentColor="#1c1c1c"
+        bgVideo="/near-you-category.mp4"
+        bgVideoRate={2}
+        titleInMedia
+        topTitle={t.home.nearYouTitle}
+        mediaPosition="center"
+        aspectRatio="2 / 3"
+        blurItems={showTeaser}
+        cta={showTeaser ? { label: t.home.nearYouShareLocation, onClick: requestLocation } : undefined}
+        onSeeAll={() => navigate(`/${lang}/near-you-map`)}
+      />
       <LocationDeniedSheet
         isOpen={showDeniedSheet}
         onClose={() => setShowDeniedSheet(false)}
@@ -520,6 +170,6 @@ export default function NearYou() {
         isHe={isHe}
         t={t}
       />
-    </section>
+    </div>
   );
 }

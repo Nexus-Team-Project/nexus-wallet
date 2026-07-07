@@ -51,6 +51,7 @@ export const profileTranslations = {
     tabSaved: 'Saved',
     tabHelp: 'Help',
     tabSettings: 'Settings',
+    tabAccount: 'Account',
     // Extra menu items (new flat list)
     rewards: 'Rewards',
     community: 'Community',
@@ -155,6 +156,7 @@ export const profileTranslations = {
     tabSaved: 'שמורים',
     tabHelp: 'עזרה',
     tabSettings: 'הגדרות',
+    tabAccount: 'חשבון',
     // Extra menu items (new flat list)
     rewards: 'תגמולים',
     community: 'קהילה',

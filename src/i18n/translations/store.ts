@@ -29,6 +29,14 @@ export const storeTranslations = {
     newDeals: 'New',
     mostPopular: 'Most Popular',
     recommended: 'Recommended',
+    // Store browse (Klarna-style list)
+    featured: 'Featured',
+    stores: 'stores',
+    cashback: 'cashback',
+    upTo: 'Up to',
+    sortNewest: 'Newest',
+    sortBiggestDiscount: 'Biggest discount',
+    sortAZ: 'A–Z',
   },
   he: {
     title: 'חנות שוברים',
@@ -60,5 +68,13 @@ export const storeTranslations = {
     newDeals: 'חדש',
     mostPopular: 'הכי פופולרים',
     recommended: 'מומלץ',
+    // Store browse (Klarna-style list)
+    featured: 'מובחרים',
+    stores: 'חנויות',
+    cashback: 'קאשבק',
+    upTo: 'עד',
+    sortNewest: 'החדשים ביותר',
+    sortBiggestDiscount: 'ההנחה הגדולה ביותר',
+    sortAZ: 'א׳–ת׳',
   },
 };

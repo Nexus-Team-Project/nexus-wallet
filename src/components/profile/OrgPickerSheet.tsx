@@ -102,10 +102,11 @@ export default function OrgPickerSheet({ isOpen, onClose }: OrgPickerSheetProps)
           onClick={onClose}
         />
 
-        {/* Sheet — same look as the auth-flow SlideSelectOrg picker. */}
+        {/* Floating sheet — doesn't touch screen edges */}
+        <div className="fixed inset-x-0 bottom-0 z-[70] max-w-md mx-auto px-4 pb-6 pointer-events-none">
         <motion.div
           key="sheet"
-          className="fixed bottom-0 left-0 right-0 max-w-md mx-auto z-[70] flex flex-col rounded-t-3xl bg-white"
+          className="pointer-events-auto flex flex-col rounded-[28px] bg-white shadow-2xl overflow-hidden"
           style={{ maxHeight: '82vh' }}
           initial={{ y: '100%' }}
           animate={{ y: 0 }}
@@ -226,6 +227,7 @@ export default function OrgPickerSheet({ isOpen, onClose }: OrgPickerSheetProps)
             </div>
           </div>
         </motion.div>
+        </div>
       </>
     </AnimatePresence>,
     document.body,

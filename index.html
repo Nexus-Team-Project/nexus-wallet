@@ -3,11 +3,14 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <!-- Preload critical auth-flow assets to eliminate load delay -->
-    <link rel="preload" href="/gemini-hero.png" as="image" />
-    <link rel="preload" href="/man_women_shop.jpg" as="image" />
-    <link rel="preload" href="/nexus-logo-animated.gif" as="image" />
-    <link rel="preload" href="/nexus-logo-animated-white.gif" as="image" />
+    <!-- Auth-flow / stories assets (~6MB incl. two 2MB GIFs). These are NOT on
+         the home screen, so they're prefetched (idle, low priority) rather than
+         preloaded — preload competes with the critical JS/CSS on every boot and
+         delays first paint for every user, even those who never hit auth. -->
+    <link rel="prefetch" href="/gemini-hero.png" as="image" />
+    <link rel="prefetch" href="/man_women_shop.jpg" as="image" />
+    <link rel="prefetch" href="/nexus-logo-animated.gif" as="image" />
+    <link rel="prefetch" href="/nexus-logo-animated-white.gif" as="image" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />

@@ -23,17 +23,13 @@ export type WalletWidgetId =
   | 'nearby-cashback'
   | 'my-organization'
   | 'best-offers'
-  | 'refer-friends'
-  | 'my-profile'
-  | 'my-orders';
+  | 'more-actions';
 
 export const DEFAULT_WIDGET_ORDER: WalletWidgetId[] = [
   'my-organization',
   'nearby-cashback',
   'best-offers',
-  'refer-friends',
-  'my-profile',
-  'my-orders',
+  'more-actions',
 ];
 
 interface WalletLayoutState {
@@ -60,7 +56,7 @@ interface WalletLayoutState {
 const STORAGE_KEY = 'nexus_wallet_layout';
 const EDIT_KEY = 'nexus_wallet_edit_enabled';
 const HIDDEN_KEY = 'nexus_wallet_hidden_sections';
-const WIDGET_KEY = 'nexus_wallet_widget_order_v2';
+const WIDGET_KEY = 'nexus_wallet_widget_order_v3';
 const WIDGET_HIDDEN_KEY = 'nexus_wallet_hidden_widgets';
 
 function loadPersisted(): WalletSectionId[] {

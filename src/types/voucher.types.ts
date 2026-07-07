@@ -24,6 +24,14 @@ export interface Voucher {
   termsAndConditionsHe: string;
   brandColor?: string;
   brandLogo?: string;
+  /**
+   * Full-bleed card artwork. When set, the wallet card face renders this
+   * image edge-to-edge (object-cover) instead of the brandColor + centred
+   * brandLogo composition — used for gift cards whose card *is* the artwork.
+   */
+  cardImage?: string;
+  /** object-position for `cardImage` (e.g. 'left center' to keep a corner logo). */
+  cardImagePosition?: string;
   inStock: boolean;
   popular: boolean;
   isOnline?: boolean;

@@ -12,7 +12,8 @@ export const ONBOARDING_SLIDE_ORDER = [
   'life-stage',          // optional — user can skip
   'birthday',            // optional — user can skip
   'gender',              // optional — user can skip
-  // 'invite-friends' removed from the flow for now (route + slide kept).
+  // 'invite-friends' removed from the flow (slide deleted; invite lives in the
+  // Edit Profile page's InviteFriendsCard instead).
   'benefit-categories',  // LAST step — mock "coming soon" businesses teaser.
 ] as const;
 

@@ -7,6 +7,9 @@ interface FilterSortBarProps {
   sortOption: SortOption;
   onSortChange: (option: SortOption) => void;
   onFilterOpen: () => void;
+  /** Show the "sort by" dropdown (e.g. "Most popular"). Hidden on pages that
+   *  don't render a sortable list. */
+  showSort?: boolean;
 }
 
 export default function FilterSortBar({
@@ -14,11 +17,12 @@ export default function FilterSortBar({
   sortOption,
   onSortChange,
   onFilterOpen,
+  showSort = true,
 }: FilterSortBarProps) {
   const { t } = useLanguage();
 
   return (
-    <div className="sticky top-14 z-40 bg-white/95 backdrop-blur-sm border-b border-border">
+    <div className="sticky top-16 z-40 bg-white/95 backdrop-blur-sm">
       <div className="max-w-md mx-auto px-4 py-2.5 flex items-center justify-between">
         {/* Filter button */}
         <button
@@ -37,8 +41,11 @@ export default function FilterSortBar({
         </button>
 
         {/* Sort dropdown */}
-        <SortDropdown value={sortOption} onChange={onSortChange} />
+        {showSort && <SortDropdown value={sortOption} onChange={onSortChange} />}
       </div>
+      {/* Very light white fade just below the bar so content scrolls under it
+          softly instead of hard-cutting at the edge. */}
+      <div className="pointer-events-none absolute inset-x-0 top-full h-5 bg-gradient-to-b from-white/70 to-transparent" aria-hidden />
     </div>
   );
 }

@@ -8,6 +8,7 @@ import type { Voucher } from '../../types/voucher.types';
 import type { Review } from '../../mock/data/reviews.mock';
 import OffersMap from '../map/OffersMap';
 import RatingBars from '../ui/RatingBars';
+import AnimatedLocationIcon from '../ui/AnimatedLocationIcon';
 import type { OfferPin, OfferCategory } from '../../types/map';
 
 /* ─── Stories Row Section ─────────────────────────────────────────── */
@@ -101,7 +102,7 @@ export function StoriesRow({ business }: StoriesRowProps) {
 
   return (
     <div className="px-6 py-4">
-      <h3 className="text-sm font-bold text-text-primary mb-3">{t.business.stories}</h3>
+      <h2 className="text-2xl font-bold text-text-primary mb-4">{t.business.stories}</h2>
       <div className="flex overflow-x-auto hide-scrollbar gap-3">
         {stories.map((story) => (
           <button
@@ -129,9 +130,11 @@ interface OffersSectionProps {
   vouchers: Voucher[];
   business: Business;
   onSelect: (v: Voucher) => void;
+  /** Override the section heading (e.g. the club's "הטבות {tenant}"). */
+  title?: string;
 }
 
-export function OffersSlider({ vouchers, business, onSelect }: OffersSectionProps) {
+export function OffersSlider({ vouchers, business, onSelect, title }: OffersSectionProps) {
   const { t, language } = useLanguage();
   const isHe = language === 'he';
 
@@ -140,8 +143,8 @@ export function OffersSlider({ vouchers, business, onSelect }: OffersSectionProp
   return (
     <div className="pb-6">
       <div className="flex items-center justify-between px-6 mb-4">
-        <h2 className="text-2xl font-bold text-text-primary">{t.business.offers}</h2>
-        <button className="text-sm font-semibold text-primary active:opacity-70 transition-opacity">
+        <h2 className="text-2xl font-bold text-text-primary">{title ?? t.business.offers}</h2>
+        <button className="px-3 py-1 rounded-md bg-sky-100 text-sky-600 text-xs font-normal hover:bg-sky-200 transition-colors active:scale-95">
           {t.business.allOffers}
         </button>
       </div>
@@ -175,8 +178,8 @@ export function OffersSlider({ vouchers, business, onSelect }: OffersSectionProp
 
               {/* Discount badge — top end */}
               <div className="absolute top-2.5 end-2.5 z-10">
-                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-pink-100 text-pink-700">
-                  {v.discountPercent}%
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-400/20 text-emerald-300">
+                  {v.discountPercent}% {isHe ? 'הנחה' : 'OFF'}
                 </span>
               </div>
             </div>
@@ -213,32 +216,43 @@ export function ProductImage({ src }: { src: string }) {
 
   useEffect(() => {
     let cancelled = false;
+    let idleId: ReturnType<typeof requestIdleCallback> | undefined;
     const img = new Image();
     img.crossOrigin = 'anonymous';
     img.onload = () => {
       if (cancelled) return;
-      try {
-        const size = 24;
-        const canvas = document.createElement('canvas');
-        canvas.width = size;
-        canvas.height = size;
-        const ctx = canvas.getContext('2d', { willReadFrequently: true });
-        if (!ctx) { setFit('cover'); return; }
-        ctx.drawImage(img, 0, 0, size, size);
-        const pts: Array<[number, number]> = [
-          [0, 0], [size - 1, 0], [0, size - 1], [size - 1, size - 1],
-          [size >> 1, 0], [0, size >> 1], [size - 1, size >> 1], [size >> 1, size - 1],
-        ];
-        const transparent = pts.some(([x, y]) => ctx.getImageData(x, y, 1, 1).data[3] < 250);
-        setFit(transparent ? 'contain' : 'cover');
-      } catch {
-        // Tainted canvas (CORS) — assume it's a full photo.
-        setFit('cover');
+      const analyse = () => {
+        if (cancelled) return;
+        try {
+          const size = 24;
+          const canvas = document.createElement('canvas');
+          canvas.width = size;
+          canvas.height = size;
+          const ctx = canvas.getContext('2d', { willReadFrequently: true });
+          if (!ctx) { setFit('cover'); return; }
+          ctx.drawImage(img, 0, 0, size, size);
+          const pts: Array<[number, number]> = [
+            [0, 0], [size - 1, 0], [0, size - 1], [size - 1, size - 1],
+            [size >> 1, 0], [0, size >> 1], [size - 1, size >> 1], [size >> 1, size - 1],
+          ];
+          const transparent = pts.some(([x, y]) => ctx.getImageData(x, y, 1, 1).data[3] < 250);
+          setFit(transparent ? 'contain' : 'cover');
+        } catch {
+          setFit('cover');
+        }
+      };
+      if ('requestIdleCallback' in window) {
+        idleId = requestIdleCallback(analyse);
+      } else {
+        analyse();
       }
     };
     img.onerror = () => { if (!cancelled) setFit('cover'); };
     img.src = src;
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      if (idleId !== undefined) cancelIdleCallback(idleId);
+    };
   }, [src]);
 
   if (fit === 'cover') {
@@ -267,7 +281,7 @@ export function ProductsSection({ products, business }: ProductsSectionProps) {
         <h2 className="text-2xl font-bold text-text-primary">{t.business.products}</h2>
         <button
           onClick={() => navigate(`/${language}/business/${business.id}/store`)}
-          className="text-sm font-semibold text-primary active:opacity-70 transition-opacity"
+          className="px-3 py-1 rounded-md bg-sky-100 text-sky-600 text-xs font-normal hover:bg-sky-200 transition-colors active:scale-95"
         >
           {t.business.allProducts}
         </button>
@@ -288,8 +302,8 @@ export function ProductsSection({ products, business }: ProductsSectionProps) {
               {/* Square image area */}
               <div className="bg-gray-50 rounded-2xl p-4 relative aspect-square flex items-center justify-center overflow-hidden">
                 {discountPercent > 0 && (
-                  <span className="absolute top-2 start-2 z-10 bg-pink-100 text-pink-600 text-[10px] font-bold px-2 py-0.5 rounded-full">
-                    -{discountPercent}%
+                  <span className="absolute top-2 start-2 z-10 bg-emerald-400/20 text-emerald-300 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                    -{discountPercent}% {isHe ? 'הנחה' : 'OFF'}
                   </span>
                 )}
                 <ProductImage src={product.image} />
@@ -401,6 +415,9 @@ export function BuyInStoreSection({ branches, business }: MapSectionProps) {
   const navigate = useNavigate();
   const isHe = language === 'he';
   const [activeIndex, setActiveIndex] = useState(0);
+  // Per-branch replay counter — bumped only for the branch that just became
+  // selected, so its location pin re-animates on selection.
+  const [branchAnimTick, setBranchAnimTick] = useState<Record<string, number>>({});
   const [mapReady, setMapReady] = useState(false);
   const [flyTarget, setFlyTarget] = useState<{ lng: number; lat: number; zoom?: number } | null>(null);
   const carouselRef = useRef<HTMLDivElement>(null);
@@ -431,6 +448,7 @@ export function BuyInStoreSection({ branches, business }: MapSectionProps) {
       if (!branch) return;
       activeIndexRef.current = index;
       setActiveIndex(index);
+      setBranchAnimTick((m) => ({ ...m, [branch.id]: (m[branch.id] ?? 0) + 1 }));
       setFlyTarget({ lng: branch.lng, lat: branch.lat, zoom: 15 });
     },
     [branches],
@@ -453,21 +471,25 @@ export function BuyInStoreSection({ branches, business }: MapSectionProps) {
   }, [branches.length]);
 
   // Scroll-spy: whichever card is centered becomes the active branch.
+  const rafRef = useRef<number>(0);
   const onCarouselScroll = useCallback(() => {
     if (programmaticScroll.current) return;
-    const el = carouselRef.current;
-    if (!el) return;
-    const rect = el.getBoundingClientRect();
-    const center = rect.left + rect.width / 2;
-    let closest = 0;
-    let min = Infinity;
-    Array.from(el.children).forEach((child, i) => {
-      const r = (child as HTMLElement).getBoundingClientRect();
-      const c = r.left + r.width / 2;
-      const d = Math.abs(center - c);
-      if (d < min) { min = d; closest = i; }
+    cancelAnimationFrame(rafRef.current);
+    rafRef.current = requestAnimationFrame(() => {
+      const el = carouselRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      const center = rect.left + rect.width / 2;
+      let closest = 0;
+      let min = Infinity;
+      Array.from(el.children).forEach((child, i) => {
+        const r = (child as HTMLElement).getBoundingClientRect();
+        const c = r.left + r.width / 2;
+        const d = Math.abs(center - c);
+        if (d < min) { min = d; closest = i; }
+      });
+      if (closest !== activeIndexRef.current) focusBranch(closest);
     });
-    if (closest !== activeIndexRef.current) focusBranch(closest);
   }, [focusBranch]);
 
   // Center a card in the carousel (used when a pin is tapped on the map).
@@ -591,9 +613,7 @@ export function BuyInStoreSection({ branches, business }: MapSectionProps) {
                   }}
                   className="w-9 h-9 bg-primary/10 rounded-xl flex items-center justify-center shrink-0 active:scale-95 transition-transform"
                 >
-                  <span className="material-symbols-outlined text-primary" style={{ fontSize: 18 }}>
-                    navigation
-                  </span>
+                  <AnimatedLocationIcon size={18} className="text-primary" playKey={branchAnimTick[branch.id] ?? 0} />
                 </span>
               </div>
             </button>
@@ -638,7 +658,7 @@ export function ReviewsSection({ reviews, business }: ReviewsSectionProps) {
   }));
 
   return (
-    <section className="px-6 pt-2 pb-8">
+    <section className="px-6 pt-2 pb-8" style={{ contentVisibility: 'auto', containIntrinsicSize: '0 600px' }}>
       <h2 className="text-xl font-bold text-text-primary mb-5">
         {isHe ? 'דירוגים וביקורות' : 'Ratings & reviews'}
       </h2>
@@ -714,7 +734,7 @@ export function SimilarBusinesses({ business, allBusinesses, onSelect }: Similar
   if (similar.length === 0) return null;
 
   return (
-    <div className="pb-6">
+    <div className="pb-6" style={{ contentVisibility: 'auto', containIntrinsicSize: '0 400px' }}>
       <div className="flex items-center justify-between px-6 mb-4">
         <h2 className="text-2xl font-bold text-text-primary">{t.business.similarBusinesses}</h2>
       </div>
@@ -836,9 +856,10 @@ export function StickyCTA({ business, firstVoucherId }: StickyCTAProps) {
           onPanEnd={handlePanEnd}
           onClick={() => {
             if (draggedRef.current) return;
-            navigate(`/${language}/wallet`);
+            navigate(`/${language}/wallet`, { state: { payMode: true } });
           }}
-          className="relative w-full overflow-hidden bg-bg-dark text-white py-3.5 rounded-full font-bold text-base shadow-lg shadow-bg-dark/30 flex items-center justify-center gap-0 touch-pan-y"
+          style={{ touchAction: 'pan-y' }}
+          className="relative w-full overflow-hidden bg-bg-dark text-white py-3.5 rounded-full font-bold text-base shadow-lg shadow-bg-dark/30 flex items-center justify-center gap-0"
         >
           {/* Sky-blue fill — grows horizontally, tracking the finger along
               the button. Anchored to the swipe-start edge (right in RTL,

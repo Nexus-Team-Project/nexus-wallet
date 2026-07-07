@@ -473,7 +473,7 @@ export default function FlowTestPage() {
                 { label: 'life-stage', path: 'life-stage' },
                 { label: 'birthday', path: 'birthday' },
                 { label: 'gender', path: 'gender' },
-                { label: 'invite-friends',    path: 'invite-friends' },
+                { label: 'benefit-categories', path: 'benefit-categories' },
               ].map(({ label, path }) => (
                 <button
                   key={path}

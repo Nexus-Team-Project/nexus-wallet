@@ -211,6 +211,28 @@ export const mockVouchers: Voucher[] = [
     brandColor: '#dc2626', brandLogo: '/tenants/hapoel-logo.svg',
     inStock: true, popular: true,
   },
+  {
+    id: 'v_bnei_pesach', title: 'Bnei Akiva Passover Gift Card', titleHe: 'גיפט קארד בני עקיבא — פסח',
+    description: '₪100 Passover gift from Bnei Akiva, redeemable at dozens of businesses', descriptionHe: 'מתנת חג פסח בשווי ₪100 מבני עקיבא, למימוש בעשרות בתי עסק',
+    merchantName: 'בני עקיבא', merchantLogo: '🎁', category: 'shopping',
+    originalPrice: 100, discountedPrice: 0, discountPercent: 0, currency: 'ILS',
+    image: '🎁', imageUrl: '/gift-cards/pesach.png', validUntil: '2026-12-31',
+    termsAndConditions: 'Redeemable at dozens of partner businesses.', termsAndConditionsHe: 'למימוש בעשרות בתי עסק שותפים.',
+    brandColor: '#1b4f91', brandLogo: '/bnei-akiva-logo-white.png',
+    inStock: true, popular: false,
+  },
+  {
+    id: 'v_spar_gift', title: 'SPAR Gift Card', titleHe: 'גיפט קארד SPAR',
+    description: '₪150 SPAR gift card, redeemable across the chain', descriptionHe: 'גיפט קארד SPAR בשווי ₪150, למימוש בכל סניפי הרשת',
+    merchantName: 'SPAR', merchantLogo: '🛒', category: 'food',
+    originalPrice: 150, discountedPrice: 0, discountPercent: 0, currency: 'ILS',
+    image: '🛒', imageUrl: '/gift-cards/spar.png', validUntil: '2026-12-31',
+    termsAndConditions: 'Redeemable at all SPAR branches.', termsAndConditionsHe: 'למימוש בכל סניפי SPAR.',
+    // The card *is* the SPAR artwork — full-bleed, logo kept by anchoring left.
+    brandColor: '#0f6b34', brandLogo: '/tenants/spar-logo.svg',
+    cardImage: '/gift-cards/spar.png', cardImagePosition: 'left center',
+    inStock: true, popular: false,
+  },
 ];
 
 export const mockUserVouchers: UserVoucher[] = [
@@ -263,6 +285,24 @@ export const mockUserVouchers: UserVoucher[] = [
     purchasedAt: '2026-03-15T12:00:00Z', expiresAt: '2026-12-31T23:59:59Z',
     status: 'active', redemptionCode: 'NXS-HPL-5678',
     qrCode: 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=NXS-HPL-5678',
+  },
+  {
+    // Bnei Akiva Passover gift — the card the gift-sample page redeems into.
+    // Purchased "today", so it sorts last among the active vouchers (it sits
+    // right beside the balance card in the deck).
+    id: 'uv_bnei_pesach', voucherId: 'v_bnei_pesach',
+    voucher: mockVouchers.find((v) => v.id === 'v_bnei_pesach')!,
+    purchasedAt: '2026-06-10T08:00:00Z', expiresAt: '2026-12-31T23:59:59Z',
+    status: 'active', redemptionCode: 'NXS-BNA-2649',
+    qrCode: 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=NXS-BNA-2649',
+  },
+  {
+    // SPAR gift — the card the gift-sample page redeems into for ?tenant=spar.
+    id: 'uv_spar_gift', voucherId: 'v_spar_gift',
+    voucher: mockVouchers.find((v) => v.id === 'v_spar_gift')!,
+    purchasedAt: '2026-06-12T08:00:00Z', expiresAt: '2026-12-31T23:59:59Z',
+    status: 'active', redemptionCode: 'NXS-SPR-7140',
+    qrCode: 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=NXS-SPR-7140',
   },
 ];
 

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams, useLocation } from 'react-router-dom';
 import { useAuthGate } from '../../hooks/useAuthGate';
 import { useAuth } from '../../contexts/AuthContext';
@@ -6,10 +6,15 @@ import { useAuthStore } from '../../stores/authStore';
 import { useTenantStore } from '../../stores/tenantStore';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { useUser } from '../../hooks/useUser';
+import { useWallet } from '../../hooks/useWallet';
+import { formatCurrency } from '../../utils/formatCurrency';
 import { tenantColor } from '../../lib/tenantColor';
 import TenantSwitchSheet from '../wallet/TenantSwitchSheet';
 import { useUnreadNotificationCount } from '../../hooks/useNotifications';
 import { useNotificationToastStore } from '../../stores/notificationToastStore';
+import AnimatedActionIcon from './AnimatedActionIcon';
+import bellUrl from '../../assets/animations/notif-bell.json?url';
+import profileUrl from '../../assets/animations/profile.json?url';
 
 function getGreeting(t: { home: { goodMorning: string; goodAfternoon: string; goodEvening: string; goodNight: string } }) {
   const hour = new Date().getHours();
@@ -46,7 +51,7 @@ interface TopBarProps {
   hideGreeting?: boolean;
 }
 
-export default function TopBar({ collapsed = false, showBack = false, hideGreeting = false }: TopBarProps) {
+function TopBar({ collapsed = false, showBack = false, hideGreeting = false }: TopBarProps) {
   const internalRef = useRef<HTMLElement>(null);
 
   const { lang = 'he' } = useParams();
@@ -61,6 +66,9 @@ export default function TopBar({ collapsed = false, showBack = false, hideGreeti
   const tenantConfig = useTenantStore((s) => s.config);
   const { data: user } = useUser();
   const { me } = useAuth();
+  const { data: wallet } = useWallet({ enabled: isAuthenticated });
+  const locale = language === 'he' ? 'he-IL' : 'en-IL';
+  const balanceText = formatCurrency(wallet?.balance ?? 0, 'ILS', locale);
 
   // Ecosystem (Nexus-Catalog) is picked via the TenantSwitchSheet (org chip)
   // by adding ?ecosystem=1 to the URL. While that flag is set, the
@@ -201,10 +209,10 @@ export default function TopBar({ collapsed = false, showBack = false, hideGreeti
           {showBack && (
             <button
               onClick={() => navigate(-1)}
-              className="w-9 h-9 rounded-full bg-white flex items-center justify-center shadow-[0_6px_16px_rgba(0,0,0,0.14)] active:scale-95 transition-transform"
+              className="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-[0_6px_16px_rgba(0,0,0,0.14)] active:scale-95 transition-transform"
               aria-label={t.common?.back ?? 'Back'}
             >
-              <span className="material-symbols-outlined text-text-primary" style={{ fontSize: 24 }}>
+              <span className="material-symbols-rounded text-text-primary" style={{ fontSize: 24 }}>
                 {language === 'he' ? 'chevron_right' : 'chevron_left'}
               </span>
             </button>
@@ -267,10 +275,28 @@ export default function TopBar({ collapsed = false, showBack = false, hideGreeti
               </div>
             ) : (
               <div className="relative z-10 w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-[0_6px_16px_rgba(0,0,0,0.14)]">
-                <span style={{ fontSize: '22px', lineHeight: 1 }}>👤</span>
+                <AnimatedActionIcon src={profileUrl} size={24} />
               </div>
             )}
           </button>
+
+          {/* Total wallet balance — sits between the avatar and the name */}
+          {isAuthenticated && (
+            <button
+              onClick={() => navigate(`/${lang}/wallet`)}
+              aria-label={language === 'he' ? 'יתרה' : 'Balance'}
+              className={`rounded-full bg-white flex items-center shadow-[0_6px_16px_rgba(0,0,0,0.14)] active:scale-95 transition-all duration-300 ease-in-out ${
+                collapsed ? 'h-7 px-2.5' : 'h-9 px-3'
+              }`}
+            >
+              <span
+                className={`font-display font-semibold tracking-tight text-text-primary tabular-nums ${collapsed ? 'text-[11px]' : 'text-sm'}`}
+                dir="ltr"
+              >
+                {balanceText}
+              </span>
+            </button>
+          )}
 
           {/* Greeting — fades out on collapse */}
           {showGreeting && (
@@ -300,9 +326,10 @@ export default function TopBar({ collapsed = false, showBack = false, hideGreeti
           </div>
         )}
 
-        {/* Action buttons (chat + notifications) — main's white/shadow + emoji
-            design, but pinned to the far end of the bar (ms-auto) so they never
-            collide with the centered tenant chip on collapse. Member-only. */}
+        {/* Action buttons (chat + notifications) — pinned to the far end of
+            the bar (ms-auto) so they never collide with the centered tenant
+            chip on collapse. Member-only (auth-gated). The bell keeps the
+            animated Lottie icon. */}
         {isAuthenticated && (
           <div className="relative z-10 flex items-center gap-1.5 ms-auto">
             <button
@@ -325,7 +352,9 @@ export default function TopBar({ collapsed = false, showBack = false, hideGreeti
               style={{ transformOrigin: 'top center' }}
               aria-label="Notifications"
             >
-              <span className={`transition-transform duration-300 ${iconScale}`} style={{ fontSize: '22px', lineHeight: 1 }}>🔔</span>
+              <span className={`transition-transform duration-300 ${iconScale}`}>
+                <AnimatedActionIcon src={bellUrl} size={22} playKey={bellPulseCount} />
+              </span>
               {notificationCount > 0 && (
                 <span className="absolute -top-0.5 -left-0.5 w-[18px] h-[18px] bg-error rounded-full border-2 border-white flex items-center justify-center">
                   <span className="text-[10px] font-bold text-white leading-none">{notificationCount > 9 ? '9+' : notificationCount}</span>
@@ -357,3 +386,5 @@ export default function TopBar({ collapsed = false, showBack = false, hideGreeti
     </header>
   );
 }
+
+export default memo(TopBar);

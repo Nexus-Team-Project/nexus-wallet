@@ -2,7 +2,8 @@ import { useRef, useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { mockBusinesses } from '../../mock/data/businesses.mock';
-import { brandBgColors, FULL_BLEED_LOGOS } from '../../utils/brandColors';
+import { brandBgColors } from '../../utils/brandColors';
+import StoreTile, { StoreNameRating } from './StoreTile';
 
 function ArrowBubble({ onNavigate }: { onNavigate: () => void }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -50,6 +51,76 @@ export default function BrandSlider() {
   const { lang = 'he' } = useParams();
   const navigate = useNavigate();
   const isHe = language === 'he';
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Gentle auto-scroll (marquee) that yields fully to the user. It ping-pongs
+  // between the ends; any manual scroll / drag / momentum / hover pauses it and
+  // it resumes only after the activity has been idle for a moment — so it never
+  // fights the user. Honours reduced-motion.
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+    if (el.scrollWidth <= el.clientWidth + 4) return; // nothing to scroll
+
+    const STEP = 0.4; // px per frame (~24px/s) — slow drift
+    let dir = isHe ? -1 : 1; // numeric direction; the bounds below handle RTL sign
+    let pos = el.scrollLeft; // FLOAT accumulator — never read back (scrollLeft may round)
+    let paused = false;
+    let resumeTimer = 0;
+    let expected = el.scrollLeft; // the (rounded) position our own write left it at
+    let raf = 0;
+
+    const scheduleResume = (delay = 2000) => {
+      if (resumeTimer) clearTimeout(resumeTimer);
+      resumeTimer = window.setTimeout(() => { paused = false; pos = el.scrollLeft; }, delay);
+    };
+    const pauseNow = () => {
+      paused = true;
+      scheduleResume();
+    };
+
+    // Distinguish the user's scroll (drag / momentum / wheel) from our own
+    // sub-pixel writes by comparing against the position we last set.
+    const onScroll = () => {
+      if (Math.abs(el.scrollLeft - expected) <= 2) return;
+      pos = el.scrollLeft; // continue from where the user left it
+      pauseNow();
+    };
+    const onPointerDown = () => pauseNow();
+    const onEnter = () => { paused = true; if (resumeTimer) { clearTimeout(resumeTimer); resumeTimer = 0; } };
+    const onLeave = () => scheduleResume(600);
+
+    el.addEventListener('scroll', onScroll, { passive: true });
+    el.addEventListener('pointerdown', onPointerDown);
+    el.addEventListener('mouseenter', onEnter);
+    el.addEventListener('mouseleave', onLeave);
+
+    const loop = () => {
+      if (!paused) {
+        const maxScroll = el.scrollWidth - el.clientWidth;
+        const minSL = isHe ? -maxScroll : 0;
+        const maxSL = isHe ? 0 : maxScroll;
+        pos += dir * STEP;
+        // Ping-pong on the numeric bounds (works for both LTR and RTL).
+        if (pos <= minSL) { pos = minSL; dir = 1; }
+        else if (pos >= maxSL) { pos = maxSL; dir = -1; }
+        el.scrollLeft = pos;
+        expected = el.scrollLeft;
+      }
+      raf = requestAnimationFrame(loop);
+    };
+    raf = requestAnimationFrame(loop);
+
+    return () => {
+      cancelAnimationFrame(raf);
+      if (resumeTimer) clearTimeout(resumeTimer);
+      el.removeEventListener('scroll', onScroll);
+      el.removeEventListener('pointerdown', onPointerDown);
+      el.removeEventListener('mouseenter', onEnter);
+      el.removeEventListener('mouseleave', onLeave);
+    };
+  }, [isHe]);
 
   return (
     <section className="mb-5">
@@ -63,28 +134,30 @@ export default function BrandSlider() {
         </button>
       </div>
 
-      <div className="flex overflow-x-auto hide-scrollbar gap-4 px-5 items-center">
-        {mockBusinesses.map((biz) => (
-          <button
-            key={biz.id}
-            onClick={() => navigate(`/${lang}/business/${biz.id}`)}
-            className="flex flex-col items-center gap-1.5 shrink-0 active:scale-95 transition-transform duration-100"
-          >
-            <div
-              className="w-[60px] h-[60px] rounded-full overflow-hidden shadow-sm flex items-center justify-center"
-              style={{ backgroundColor: brandBgColors[biz.id] || '#FFFFFF' }}
+      <div ref={scrollRef} className="flex overflow-x-auto hide-scrollbar gap-4 px-5 items-center">
+        {mockBusinesses.map((biz) => {
+          // Prefer a single product shot (one item, cleaner + more colourful)
+          // over the busier atmosphere/hero image.
+          const image =
+            biz.products?.find((p) => p.image)?.image ??
+            biz.heroImageUrl ??
+            biz.heroImages?.[0];
+          return (
+            <StoreTile
+              key={biz.id}
+              image={image}
+              logoUrl={biz.logoUrl}
+              bg={brandBgColors[biz.id]}
+              onClick={() => navigate(`/${lang}/business/${biz.id}`)}
             >
-              {biz.logoUrl ? (
-                <img src={biz.logoUrl} alt={biz.name} className={FULL_BLEED_LOGOS.has(biz.id) ? 'w-full h-full object-cover' : 'w-[85%] h-[85%] object-contain'} />
-              ) : (
-                <span className="text-2xl">{biz.logo}</span>
-              )}
-            </div>
-            <span className="text-[10px] font-semibold text-text-primary leading-tight text-center max-w-[60px] line-clamp-1">
-              {isHe ? biz.nameHe : biz.name}
-            </span>
-          </button>
-        ))}
+              <StoreNameRating
+                name={isHe ? biz.nameHe : biz.name}
+                rating={biz.rating}
+                reviewCount={biz.reviewCount}
+              />
+            </StoreTile>
+          );
+        })}
 
         {/* Arrow circle at the end */}
         <ArrowBubble onNavigate={() => navigate(`/${lang}/store`)} />

@@ -12,9 +12,13 @@ import PaymentsSchedule from '../components/business/PaymentsSchedule';
 import { usePaymentMethods } from '../hooks/usePaymentMethods';
 import PaymentBrandMark from '../components/wallet/PaymentBrandMark';
 import AutoCarousel from '../components/ui/AutoCarousel';
+import groupsAnim from '../assets/animations/action-groups.json?url';
 import { resolveGiftCard } from '../data/giftCards';
 import { useTenantStore } from '../stores/tenantStore';
 import type { GiftDetails } from './GiftDetailsPage';
+import AnimatedActionIcon from '../components/layout/AnimatedActionIcon';
+import giftActionUrl from '../assets/animations/action-gift.json?url';
+import AnimatedLocationIcon from '../components/ui/AnimatedLocationIcon';
 
 /**
  * BusinessCheckoutPage — "Review & Pay" screen.
@@ -71,6 +75,9 @@ export default function BusinessCheckoutPage() {
     { id: 'gym', label: isHe ? 'חדר כושר' : 'Gym', line: isHe ? 'ויצמן 15, חיפה' : '15 Weizmann St, Haifa', coords: { lng: 34.9896, lat: 32.7940 } },
   ]);
   const [selectedAddressId, setSelectedAddressId] = useState('home');
+  // Per-address replay counter — bumped only for the address the user just
+  // tapped, so only that pin re-animates (not the one being deselected).
+  const [addrAnimTick, setAddrAnimTick] = useState<Record<string, number>>({});
   const [addressSheetOpen, setAddressSheetOpen] = useState(false);
   const [mapReady, setMapReady] = useState(false);
   const [customerOpen, setCustomerOpen] = useState(true);
@@ -208,13 +215,19 @@ export default function BusinessCheckoutPage() {
     if (paying) return;
     setPaying(true);
     window.setTimeout(() => {
-      navigate(`/${language}/business/${business.id}/product/${product.id}/order-confirmed`, {
+      navigate(`/${language}/pay/store-success`, {
         replace: true,
         state: {
-          qty,
-          total,
-          shippingLabel,
-          address: selectedAddress?.line,
+          amount: total,
+          cashback: cashbackAmount,
+          merchantName: business.name,
+          merchantNameHe: business.nameHe,
+          merchantLogo: business.logoUrl,
+          productName: product.name,
+          productNameHe: (product as { nameHe?: string }).nameHe,
+          paymentMethodId: selectedPayMethod?.id,
+          returnTo: `/${language}/business/${business.id}/product/${product.id}/order-confirmed`,
+          returnToState: { qty, total, shippingLabel, address: selectedAddress?.line },
         },
       });
     }, 1200);
@@ -307,11 +320,10 @@ export default function BusinessCheckoutPage() {
               className="w-full flex items-stretch text-sm font-semibold active:bg-black/[0.03] transition-colors"
             >
               <span className="flex-1 min-w-0 flex items-center gap-2 px-4 py-3 text-text-primary">
-                <span
-                  className="material-symbols-rounded shrink-0"
-                  style={{ fontSize: 20, fontVariationSettings: giftMode ? "'FILL' 1" : "'FILL' 0" }}
-                >
-                  celebration
+                {/* Wired gift Lottie (same artwork as the chat "send a gift"
+                    quick action) — plays on mount and replays on press. */}
+                <span className="shrink-0">
+                  <AnimatedActionIcon src={giftActionUrl} size={22} />
                 </span>
                 <span className="flex flex-col min-w-0 text-start">
                   <span className="text-[15px] font-bold truncate">
@@ -428,15 +440,16 @@ export default function BusinessCheckoutPage() {
                   return (
                     <button
                       key={addr.id}
-                      onClick={() => setSelectedAddressId(addr.id)}
+                      onClick={() => {
+                        setSelectedAddressId(addr.id);
+                        setAddrAnimTick((m) => ({ ...m, [addr.id]: (m[addr.id] ?? 0) + 1 }));
+                      }}
                       className={`flex-none w-48 snap-start text-start rounded-2xl border-2 p-3 transition-colors active:scale-[0.99] ${
                         active ? 'border-primary shadow-md bg-primary/5' : 'border-border/40 shadow-sm bg-white'
                       }`}
                     >
                       <span className="flex items-center justify-between gap-2 mb-1.5">
-                        <span className="material-symbols-rounded text-text-muted" style={{ fontSize: 18 }}>
-                          location_on
-                        </span>
+                        <AnimatedLocationIcon size={18} className={active ? 'text-primary' : 'text-text-muted'} playKey={addrAnimTick[addr.id] ?? 0} />
                         {active && (
                           <span className="material-symbols-rounded text-primary" style={{ fontSize: 18, fontVariationSettings: "'FILL' 1" }}>
                             check_circle
@@ -522,21 +535,25 @@ export default function BusinessCheckoutPage() {
                 <button
                   key={opt.id}
                   onClick={() => setShipping(opt.id)}
-                  className={`w-full flex items-center justify-between gap-3 p-4 text-start transition-colors ${
+                  className={`w-full flex items-center justify-between gap-3 p-4 text-start transition-colors first:rounded-t-2xl last:rounded-b-2xl ${
                     active
-                      ? 'border-2 border-bg-dark'
+                      ? 'ring-2 ring-inset ring-bg-dark rounded-2xl border-b border-transparent last:border-b-0'
                       : 'border-b border-border/60 last:border-b-0 active:bg-surface'
                   }`}
                 >
                   <span className="flex items-center gap-3 min-w-0">
-                    {/* Radio indicator */}
-                    <span
-                      className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${
-                        active ? 'border-bg-dark' : 'border-border'
-                      }`}
-                    >
-                      {active && <span className="w-2.5 h-2.5 rounded-full bg-bg-dark" />}
-                    </span>
+                    {/* Selection mark — the same check_circle used in the other
+                        sections (address, payment) so it reads consistently. */}
+                    {active ? (
+                      <span
+                        className="material-symbols-rounded text-primary shrink-0"
+                        style={{ fontSize: 18, fontVariationSettings: "'FILL' 1" }}
+                      >
+                        check_circle
+                      </span>
+                    ) : (
+                      <span className="w-[18px] h-[18px] shrink-0" aria-hidden />
+                    )}
                     <span className="flex flex-col min-w-0">
                       <span className="flex items-center gap-2 flex-wrap">
                         <span className="font-bold text-sm text-text-primary">{opt.label}</span>
@@ -818,7 +835,9 @@ export default function BusinessCheckoutPage() {
               </span>
 
               <span className="flex items-center gap-3 min-w-0">
-                <span className="material-symbols-rounded text-primary shrink-0" style={{ fontSize: 24 }}>group</span>
+                <span className="shrink-0">
+                  <AnimatedActionIcon src={groupsAnim} size={24} playOnView />
+                </span>
                 <span className="flex flex-col min-w-0">
                   <span className="text-[15px] font-bold text-text-primary">
                     {isHe ? 'פיצול עסקה זו למספר משתתפים' : 'Split this order between people'}

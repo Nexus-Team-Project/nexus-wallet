@@ -1,6 +1,10 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import { Map as MapLibreMap, Marker } from 'react-map-gl/maplibre';
 import type { MapRef } from 'react-map-gl/maplibre';
+import { initMapLibre } from '../../lib/maplibre-init';
+
+initMapLibre();
+import AnimatedLocationIcon from '../ui/AnimatedLocationIcon';
 
 /**
  * AddressMapThumb — a real map zoomed in on a single delivery address, used
@@ -34,6 +38,9 @@ interface AddressMapThumbProps {
   interactive?: boolean;
   /** Fires once the base map style + tiles have finished loading. */
   onLoad?: () => void;
+  /** Extra map content (e.g. additional <Marker>s) rendered inside the map on
+   *  top of the default destination pin. */
+  children?: ReactNode;
 }
 
 export default function AddressMapThumb({
@@ -44,6 +51,7 @@ export default function AddressMapThumb({
   avatarUrl,
   interactive = true,
   onLoad,
+  children,
 }: AddressMapThumbProps) {
   const mapRef = useRef<MapRef | null>(null);
 
@@ -87,14 +95,10 @@ export default function AddressMapThumb({
               <span className="absolute bottom-0 w-2.5 h-1 rounded-full bg-black/30 blur-[1px]" />
             </span>
           ) : (
-            <span
-              className="material-symbols-rounded text-primary drop-shadow"
-              style={{ fontSize: 36, fontVariationSettings: "'FILL' 1" }}
-            >
-              location_on
-            </span>
+            <AnimatedLocationIcon size={36} className="text-primary drop-shadow" />
           )}
         </Marker>
+        {children}
       </MapLibreMap>
     </div>
   );

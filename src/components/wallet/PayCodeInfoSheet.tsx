@@ -1,10 +1,13 @@
 import { createPortal } from 'react-dom';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useLanguage } from '../../i18n/LanguageContext';
 
 interface PayCodeInfoSheetProps {
   isOpen: boolean;
   onClose: () => void;
+  /** When false, the backdrop is a transparent click-catcher instead of a dark
+   *  scrim — so the page (e.g. a highlighted card) shows through undimmed. */
+  dim?: boolean;
 }
 
 /**
@@ -12,17 +15,23 @@ interface PayCodeInfoSheetProps {
  * sheet matching the checkout's fees explainer. Holds the help text plus a
  * teal "more" link that opens the full pay-intro page.
  */
-export default function PayCodeInfoSheet({ isOpen, onClose }: PayCodeInfoSheetProps) {
+export default function PayCodeInfoSheet({ isOpen, onClose, dim = true }: PayCodeInfoSheetProps) {
   const { t, language } = useLanguage();
   const { lang = 'he' } = useParams();
   const navigate = useNavigate();
+  const { pathname, search } = useLocation();
   const isHe = language === 'he';
+
+  // In the locked gift wallet view (deep-link `?focus=`) the "More" link, which
+  // navigates off to the pay-intro page, is hidden so it can't move pages.
+  const giftLocked =
+    /\/wallet\/?$/.test(pathname) && new URLSearchParams(search).has('focus');
 
   if (!isOpen) return null;
 
   return createPortal(
     <>
-      <div className="fixed inset-0 z-[60] bg-black/40 animate-fade-in" onClick={onClose} />
+      <div className={`fixed inset-0 z-[60] animate-fade-in ${dim ? 'bg-black/40' : ''}`} onClick={onClose} />
 
       <div className="fixed inset-x-0 bottom-0 z-[60] max-w-md mx-auto px-4 pb-6 pointer-events-none">
         <div
@@ -64,16 +73,18 @@ export default function PayCodeInfoSheet({ isOpen, onClose }: PayCodeInfoSheetPr
               </p>
             </div>
 
-            <button
-              type="button"
-              onClick={() => {
-                onClose();
-                navigate(`/${lang}/wallet/pay-intro`);
-              }}
-              className="text-sky-500 font-semibold underline"
-            >
-              {isHe ? 'עוד' : 'More'}
-            </button>
+            {!giftLocked && (
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  navigate(`/${lang}/wallet/pay-intro`);
+                }}
+                className="text-sky-500 font-semibold underline"
+              >
+                {isHe ? 'עוד' : 'More'}
+              </button>
+            )}
           </div>
         </div>
       </div>

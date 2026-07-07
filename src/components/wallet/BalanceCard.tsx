@@ -1,6 +1,7 @@
-import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { formatCurrency } from '../../utils/formatCurrency';
+import { useCardImageStore } from '../../stores/cardImageStore';
 
 interface BalanceCardProps {
   balance: number;
@@ -18,6 +19,10 @@ interface BalanceCardProps {
    * balance-detail page.
    */
   logoCorner?: boolean;
+  /** When set, animate from this value up to balance (post-transaction reveal). */
+  countFrom?: number;
+  /** Called once the count-up animation completes. */
+  onCountComplete?: () => void;
 }
 
 /**
@@ -31,30 +36,39 @@ export default function BalanceCard({
   style,
   children,
   logoCorner = false,
+  countFrom,
+  onCountComplete,
 }: BalanceCardProps) {
   const { t, language } = useLanguage();
   const locale = language === 'he' ? 'he-IL' : 'en-IL';
+  // User-chosen card artwork (set from balance settings); null → default art.
+  const cardImage = useCardImageStore((s) => s.cardImage);
 
-  // Count-up: the amount rolls from 0 to the balance when it first loads.
   const target = balance || 0;
-  const [display, setDisplay] = useState(0);
+  const from = countFrom ?? 0;
+  const [display, setDisplay] = useState(from);
+  const onCompleteRef = useRef(onCountComplete);
+  useEffect(() => { onCompleteRef.current = onCountComplete; });
+
   useEffect(() => {
-    if (target <= 0) {
-      setDisplay(0);
-      return;
-    }
+    if (target <= 0) { setDisplay(0); return; }
     let raf = 0;
     let startTs = 0;
     const duration = 1100;
     const tick = (now: number) => {
       if (!startTs) startTs = now;
-      const t = Math.min(1, (now - startTs) / duration);
-      const eased = 1 - Math.pow(1 - t, 3); // easeOutCubic
-      setDisplay(Math.round(target * eased));
-      if (t < 1) raf = requestAnimationFrame(tick);
+      const p = Math.min(1, (now - startTs) / duration);
+      const eased = 1 - Math.pow(1 - p, 3);
+      setDisplay(Math.round(from + (target - from) * eased));
+      if (p < 1) {
+        raf = requestAnimationFrame(tick);
+      } else {
+        onCompleteRef.current?.();
+      }
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [target]);
 
   return (
@@ -75,9 +89,38 @@ export default function BalanceCard({
             }
       }
     >
-      {/* Deck front: the real Nexus card artwork (transparent rounded
-          corners) floating behind the labels, with a shape-following shadow. */}
-      {logoCorner && (
+      {/* Deck front: the card artwork floating behind the labels. The default
+          Nexus art has transparent rounded corners (object-contain + shape
+          shadow). A user-chosen image fills the card (object-cover, rounded)
+          with a dark scrim so the white labels stay legible over any photo. */}
+      {logoCorner && (cardImage ? (
+        <>
+          <img
+            src={cardImage}
+            alt=""
+            aria-hidden
+            draggable={false}
+            className="absolute inset-0 -z-10 w-full h-full object-cover rounded-[18px] pointer-events-none"
+            style={{ filter: 'drop-shadow(0 12px 24px rgba(0,0,0,0.3))' }}
+          />
+          <div
+            aria-hidden
+            className="absolute inset-0 -z-10 rounded-[18px] pointer-events-none"
+            style={{
+              background:
+                'linear-gradient(to top, rgba(10,21,63,0.7) 0%, rgba(10,21,63,0.2) 55%, rgba(10,21,63,0.35) 100%)',
+            }}
+          />
+          {/* The default art has the Nexus mark baked in; a custom image doesn't,
+              so re-add the white Nexus logo (top-left) to keep the card branded. */}
+          <img
+            src="/nexus-white-wide-logo.png"
+            alt="Nexus"
+            className="absolute top-4 left-4 h-8 w-auto object-contain pointer-events-none"
+            draggable={false}
+          />
+        </>
+      ) : (
         <img
           src="/cards/nexus-balance-card.png"
           alt=""
@@ -86,7 +129,7 @@ export default function BalanceCard({
           className="absolute inset-0 -z-10 w-full h-full object-contain pointer-events-none"
           style={{ filter: 'drop-shadow(0 12px 24px rgba(0,0,0,0.3))' }}
         />
-      )}
+      ))}
 
       {/* New badge — top-start corner (detail-page variant only; the deck
           front shows it paired with cashback at the bottom-left). */}

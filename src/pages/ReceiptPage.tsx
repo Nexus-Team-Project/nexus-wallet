@@ -59,6 +59,27 @@ export default function ReceiptPage() {
   const tax = extra - shipping;
   const cashback = Math.max(1, Math.round(total * 0.01));
 
+  // Share the receipt — native share sheet where available (mobile), with a
+  // copy-link fallback on browsers without the Web Share API (desktop).
+  const handleShare = async () => {
+    const shareData = {
+      title: isHe ? `קבלה — הזמנה #${orderNumber}` : `Receipt — Order #${orderNumber}`,
+      text: isHe
+        ? `הקבלה שלך מ${brandName} על סך ${fmt(total)}`
+        : `Your ${brandName} receipt for ${fmt(total)}`,
+      url: window.location.href,
+    };
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData);
+      } else if (navigator.clipboard) {
+        await navigator.clipboard.writeText(shareData.url);
+      }
+    } catch {
+      /* user dismissed the share sheet — no-op */
+    }
+  };
+
   const Row = ({ label, value, bold }: { label: string; value: string; bold?: boolean }) => (
     <div className={`flex justify-between items-center ${bold ? 'text-lg font-bold pt-4' : 'text-[15px]'}`}>
       <span className={bold ? '' : 'text-text-primary'}>{label}</span>
@@ -74,7 +95,7 @@ export default function ReceiptPage() {
       {/* Receipt title + share */}
       <header className="flex items-center justify-between px-5 pt-3 pb-1">
         <h1 className="text-xl font-bold text-text-primary">{isHe ? 'קבלה' : 'Receipt'}</h1>
-        <button aria-label={isHe ? 'שיתוף' : 'Share'} className="p-1 -m-1 active:opacity-60">
+        <button type="button" onClick={handleShare} aria-label={isHe ? 'שיתוף' : 'Share'} className="p-1 -m-1 active:opacity-60">
           <span className="material-symbols-rounded text-text-primary" style={{ fontSize: 24 }}>ios_share</span>
         </button>
       </header>
@@ -183,6 +204,18 @@ export default function ReceiptPage() {
           </div>
         </div>
       </section>
+
+      {/* Download as PDF */}
+      <div className="px-5 pb-4">
+        <button
+          type="button"
+          onClick={() => window.print()}
+          className="w-full bg-surface text-text-primary font-semibold py-3.5 rounded-xl text-sm flex items-center justify-center gap-2 active:opacity-70 transition-opacity"
+        >
+          <span className="material-symbols-rounded" style={{ fontSize: 20 }}>download</span>
+          {isHe ? 'הורדה כ-PDF' : 'Download as PDF'}
+        </button>
+      </div>
 
       {/* Standard bottom toolbar */}
       <FloatingActions force />

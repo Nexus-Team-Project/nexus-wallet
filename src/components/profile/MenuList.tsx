@@ -1,9 +1,7 @@
 import { useNavigate, useParams } from 'react-router-dom';
 import {
-  Store,
   Globe,
   HelpCircle,
-  User,
   Lock,
   Languages,
   Bell,
@@ -11,6 +9,7 @@ import {
   Image as ImageIcon,
   LayoutGrid,
   ShoppingBag,
+  User,
   LogOut,
   ChevronRight,
   ChevronLeft,
@@ -77,12 +76,6 @@ export default function MenuList() {
       title: t.profile.settingsMakeItYours,
       rows: [
         {
-          Icon: Store,
-          label: t.profile.settingsBrandsAndStores,
-          chips: ['FF', 'FF'],
-          onClick: () => navigate(`/${lang}/store`),
-        },
-        {
           Icon: Globe,
           label: t.profile.interests,
           onClick: () => {},
@@ -118,8 +111,7 @@ export default function MenuList() {
         {
           Icon: ShoppingBag,
           label: language === 'he' ? 'ההזמנות שלי' : 'My orders',
-          onClick: () => {},
-          comingSoon: true,
+          onClick: () => navigate(`/${lang}/orders`),
         },
         {
           Icon: User,

@@ -71,4 +71,16 @@ export const mockTenants: Record<string, TenantConfig> = {
     primaryColor: '#dc2626',
     requiresMembershipFee: false,
   },
+  'spar': {
+    id: 'spar',
+    name: 'SPAR Israel',
+    nameHe: 'ספאר',
+    logo: '/tenants/spar-logo.svg',
+    primaryColor: '#008A3C',
+    requiresMembershipFee: false,
+    flowOverrides: {
+      customWelcomeMessage: 'Welcome to SPAR!',
+      customWelcomeMessageHe: 'ברוכים הבאים ל-SPAR!',
+    },
+  },
 };

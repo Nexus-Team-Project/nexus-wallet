@@ -130,10 +130,10 @@ export default function HeroBanner() {
   const touchStartX = useRef<number>(0);
   const touchEndX = useRef<number>(0);
 
-  const slides: Slide[] = useMemo(
-    () => (tenantConfig ? [{ type: 'tenant' as const }, ...baseSlides] : baseSlides),
-    [tenantConfig],
-  );
+  // The tenant ("מועדון תאגיד אקמה") slide is intentionally NOT included here —
+  // the tenant club lives in its own section below, so the hero slider stays
+  // generic.
+  const slides: Slide[] = useMemo(() => baseSlides, []);
 
   const tenantName = tenantConfig
     ? (language === 'he' ? tenantConfig.nameHe : tenantConfig.name)

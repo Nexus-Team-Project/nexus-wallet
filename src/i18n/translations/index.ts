@@ -10,6 +10,7 @@ import { authFlowTranslations } from './authFlow';
 import { categoryTranslations } from './category';
 import { businessTranslations } from './business';
 import { notificationsTranslations } from './notifications';
+import { premiumTranslations } from './premium';
 
 const navTranslations = {
   en: {
@@ -43,6 +44,7 @@ export const translations = {
     category: categoryTranslations.en,
     business: businessTranslations.en,
     notifications: notificationsTranslations.en,
+    premium: premiumTranslations.en,
   },
   he: {
     common: commonTranslations.he,
@@ -58,5 +60,6 @@ export const translations = {
     category: categoryTranslations.he,
     business: businessTranslations.he,
     notifications: notificationsTranslations.he,
+    premium: premiumTranslations.he,
   },
 };

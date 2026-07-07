@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { Outlet, useNavigate, useSearchParams, useNavigationType } from 'react-router-dom';
+import { Outlet, useNavigate, useSearchParams, useNavigationType, useLocation } from 'react-router-dom';
 import { LanguageProvider } from '../i18n/LanguageContext';
 import LoginSheet from '../components/auth/LoginSheet';
 import { useAuth } from '../contexts/AuthContext';
@@ -56,6 +56,7 @@ function darkenColor(hex: string, percent: number): string {
 export default function LanguageRouter() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const navigationType = useNavigationType();
   const { me, loading } = useAuth();
   const { tenantId, config, setTenant, clearTenant } = useTenantStore();
@@ -166,14 +167,15 @@ export default function LanguageRouter() {
       // A persisted tenant is set but missing from the URL. Only auto-restore
       // it when the user is actually a MEMBER of it — a remembered non-member /
       // pending tenant view must NOT silently re-enter on reload/navigation; it
-      // falls back to the Nexus catalog instead.
+      // falls back to the Nexus catalog instead. The restore preserves any
+      // in-flight navigation state (e.g. gift-flow state) across the rewrite.
       const isMember = (me?.memberships ?? []).some(
         (m) => m.tenantId === tenantId && m.isMember,
       );
       if (isMember) {
         const next = new URLSearchParams(searchParams);
         next.set('tenant', tenantId);
-        navigate({ search: next.toString() }, { replace: true });
+        navigate({ search: next.toString() }, { replace: true, state: location.state });
       } else {
         clearTenant();
       }

@@ -9,6 +9,8 @@ import AddressSheet, { type Address } from '../components/business/AddressSheet'
 import RatingBars from '../components/ui/RatingBars';
 import { useInViewOnce } from '../hooks/useInViewOnce';
 import { useUIStore } from '../stores/uiStore';
+import AnimatedActionIcon from '../components/layout/AnimatedActionIcon';
+import linkAnim from '../assets/animations/action-link.json?url';
 
 /**
  * BusinessProductPage — Rhode-style product detail screen.
@@ -315,11 +317,17 @@ export default function BusinessProductPage() {
           key={fl.id}
           src={product.image}
           aria-hidden
-          initial={{ top: fl.top, left: fl.left, width: fl.w, height: fl.h, borderRadius: 24, opacity: 1 }}
-          animate={{ top: fl.endY, left: fl.endX, width: 28, height: 28, borderRadius: 999, opacity: 0.35 }}
+          initial={{
+            x: fl.left + fl.w / 2 - (fl.endX + 14),
+            y: fl.top + fl.h / 2 - (fl.endY + 14),
+            scale: fl.w / 28,
+            borderRadius: 24,
+            opacity: 1,
+          }}
+          animate={{ x: 0, y: 0, scale: 1, borderRadius: 999, opacity: 0.35 }}
           transition={{ duration: 0.75, ease: [0.16, 1, 0.3, 1] }}
           onAnimationComplete={() => setFlyers((f) => f.filter((x) => x.id !== fl.id))}
-          style={{ position: 'fixed', zIndex: 70, objectFit: 'cover', pointerEvents: 'none' }}
+          style={{ position: 'fixed', left: fl.endX, top: fl.endY, width: 28, height: 28, zIndex: 70, objectFit: 'cover', pointerEvents: 'none' }}
         />
       ))}
 
@@ -565,8 +573,8 @@ export default function BusinessProductPage() {
             <div key={`${src}-${i}`} className="flex-shrink-0 w-[93%] snap-start">
               <div className="relative bg-[#F7F7F7] rounded-3xl aspect-[4/5] flex items-center justify-center overflow-hidden p-6">
                 {discountPercent > 0 && (
-                  <span className="absolute top-4 start-4 z-10 bg-pink-100 text-pink-600 text-xs font-bold px-2.5 py-1 rounded-full">
-                    -{discountPercent}%
+                  <span className="absolute top-4 start-4 z-10 bg-emerald-400/20 text-emerald-300 text-xs font-bold px-2.5 py-1 rounded-full">
+                    -{discountPercent}% {isHe ? 'הנחה' : 'OFF'}
                   </span>
                 )}
                 <ProductImage src={src} />
@@ -801,7 +809,7 @@ export default function BusinessProductPage() {
           onClick={() => navigate(`/${language}/business/${business.id}/store`)}
           className="w-full bg-surface rounded-2xl py-3.5 px-4 flex items-center justify-center gap-2 text-sm font-semibold text-text-primary active:opacity-70 transition-opacity"
         >
-          <span className="material-symbols-outlined text-text-muted" style={{ fontSize: 18 }}>link</span>
+          <AnimatedActionIcon src={linkAnim} size={18} playOnView />
           {isHe ? `ביקור ב${brandName}` : `Visit ${brandName}`}
         </button>
       </section>

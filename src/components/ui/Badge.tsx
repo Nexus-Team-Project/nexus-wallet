@@ -3,7 +3,7 @@ import { cn } from '../../utils/cn';
 
 interface BadgeProps {
   children: ReactNode;
-  variant?: 'default' | 'success' | 'warning' | 'error' | 'pink' | 'purple';
+  variant?: 'default' | 'success' | 'warning' | 'error' | 'pink' | 'purple' | 'emerald';
   size?: 'sm' | 'md';
   className?: string;
 }
@@ -19,6 +19,7 @@ export default function Badge({ children, variant = 'default', size = 'sm', clas
         variant === 'warning' && 'bg-warning/10 text-warning',
         variant === 'error' && 'bg-error/10 text-error',
         variant === 'pink' && 'bg-primary-light text-primary-dark',
+        variant === 'emerald' && 'bg-emerald-400/20 text-emerald-300',
         variant === 'purple' && 'bg-primary/10 text-primary',
         // Sizes
         size === 'sm' && 'px-2 py-0.5 text-xs',

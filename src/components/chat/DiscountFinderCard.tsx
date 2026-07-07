@@ -3,6 +3,9 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useLanguage } from '../../i18n/LanguageContext';
 import type { VoucherCategory } from '../../types/voucher.types';
 import { mockBusinesses } from '../../mock/data/businesses.mock';
+import AnimatedNavIcon from '../layout/AnimatedNavIcon';
+import navSearchUrl from '../../assets/animations/nav-search.json?url';
+import navSearchBoldUrl from '../../assets/animations/nav-search-bold.json?url';
 
 // "Find me deals" autocomplete. Starts as a white search-bubble button with
 // a magnifying glass icon. Tapping it morphs the bubble into a chat-input
@@ -31,6 +34,15 @@ interface DiscountFinderCardProps {
    *  category page, we seed the category chip so they don't have to pick
    *  it again. */
   initialCategory?: VoucherCategory;
+  /** Optional pre-selected item type for the header button (deals / products /
+   *  businesses / places). Defaults to 'deals'. The store page seeds this to
+   *  'businesses' so the finder reads "מצא לי … עסקים …" out of the box. */
+  initialItemType?: ItemType;
+  /** Fired when the user changes the category chip (the "בקטגוריות [הכל]"
+   *  selector). Lets a host page react to category changes directly — the
+   *  store page uses it to switch between the Nexus-picks view (when 'all')
+   *  and a category-filtered list. */
+  onCategoryChange?: (category: VoucherCategory | 'all') => void;
 }
 
 // Palette borrowed from the iOS picker mockup
@@ -45,7 +57,7 @@ const ADD_FILTER_TEXT = '#1E5C9E';
 
 // What kind of thing is the user searching for? Drives the "הטבות" button
 // in the header (which switches between deals / products / businesses / places).
-type ItemType = 'deals' | 'products' | 'businesses' | 'places';
+export type ItemType = 'deals' | 'products' | 'businesses' | 'places';
 const ITEM_TYPE_META: Record<ItemType, { he: string; en: string; emoji: string }> = {
   deals:      { he: 'הטבות',  en: 'Deals',      emoji: '🎁' },
   products:   { he: 'מוצרים', en: 'Products',   emoji: '🛍️' },
@@ -137,6 +149,8 @@ export default function DiscountFinderCard({
   popularSearches,
   onSearchQuery,
   initialCategory,
+  initialItemType = 'deals',
+  onCategoryChange,
 }: DiscountFinderCardProps) {
   const { language } = useLanguage();
   const isHe = language === 'he';
@@ -160,7 +174,7 @@ export default function DiscountFinderCard({
 
   // Item-type filter — what kind of thing is being searched. Defaults to
   // "deals". The "הטבות" button in the header opens its picker.
-  const [itemType, setItemType] = useState<ItemType>('deals');
+  const [itemType, setItemType] = useState<ItemType>(initialItemType);
   const [typePickerOpen, setTypePickerOpen] = useState(false);
 
   // User-added extra filters. Each entry shows as another chip in the
@@ -405,6 +419,7 @@ export default function DiscountFinderCard({
               onClick={() => {
                 setCategoryFilter('all');
                 setCategoryPickerOpen(false);
+                onCategoryChange?.('all');
               }}
             />
             {CATEGORY_ORDER.map((cat) => {
@@ -417,6 +432,7 @@ export default function DiscountFinderCard({
                     onInteract?.();
                     setCategoryFilter(cat);
                     setCategoryPickerOpen(false);
+                    onCategoryChange?.(cat);
                   }}
                 />
               );
@@ -638,13 +654,9 @@ function SearchBubble({ label, onClick }: { label: string; onClick: () => void }
       aria-label={label}
       className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white border border-gray-200 shadow-sm hover:bg-gray-50 active:scale-95 transition-all"
     >
-      <span
-        className="material-symbols-outlined"
-        style={{ fontSize: '16px', color: HEADER_MAIN }}
-        aria-hidden="true"
-      >
-        search
-      </span>
+      {/* Same wired Lottie search icon used by the floating nav pill, so the
+          finder's search bubble matches the bottom-bar search button exactly. */}
+      <AnimatedNavIcon src={navSearchUrl} boldSrc={navSearchBoldUrl} active size={18} />
       <span className="text-[14px] font-medium" style={{ color: HEADER_MAIN }}>
         {label}
       </span>
@@ -713,13 +725,10 @@ const SearchPillInput = ({
     className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full shadow-sm"
     style={{ backgroundColor: CHIP_BLUE }}
   >
-    <span
-      className="material-symbols-outlined text-white/90"
-      style={{ fontSize: '16px' }}
-      aria-hidden="true"
-    >
-      search
-    </span>
+    {/* Same wired nav-search Lottie as the bubble — replays its animation on
+        mount, so tapping the bubble (which swaps it for this pill) plays the
+        animation again, not only on the card's initial entry. */}
+    <AnimatedNavIcon src={navSearchUrl} boldSrc={navSearchBoldUrl} active size={18} />
     <input
       ref={ref}
       type="text"

@@ -1,4 +1,4 @@
-import {} from 'react';
+import { memo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { mockBusinesses } from '../../mock/data/businesses.mock';
@@ -39,17 +39,42 @@ function getUniqueCategories() {
   });
 }
 
+// `mockBusinesses` is a static import, so the unique-category list is constant
+// for the life of the bundle. Compute it once at module load instead of
+// re-filtering 50+ businesses on every render (this row re-renders on every
+// scroll tick via its `collapsed` prop).
+const CATEGORIES = getUniqueCategories();
+
 interface CategoryRowProps {
   collapsed?: boolean;
   loading?: boolean;
+  /**
+   * When provided, tapping a category calls this (passing both the business
+   * category label and its mapped voucher category) instead of navigating to
+   * the category page — lets the store page reuse this exact row as an
+   * in-place filter. The matching `activeCategory` gets a highlighted border.
+   */
+  onSelectCategory?: (bizCategory: string, voucherCategory: string) => void;
+  activeCategory?: string;
 }
 
-export default function CategoryRow({ collapsed = false, loading = false }: CategoryRowProps) {
+function CategoryRow({
+  collapsed = false,
+  loading = false,
+  onSelectCategory,
+  activeCategory,
+}: CategoryRowProps) {
   const { language } = useLanguage();
   const { lang = 'he' } = useParams();
   const navigate = useNavigate();
   const isHe = language === 'he';
-  const categories = getUniqueCategories();
+  const categories = CATEGORIES;
+
+  const handleSelect = (bizCategory: string) => {
+    const voucherCategory = bizToCategory[bizCategory] || 'food';
+    if (onSelectCategory) onSelectCategory(bizCategory, voucherCategory);
+    else navigate(`/${lang}/category/${voucherCategory}`);
+  };
 
   if (loading) {
     return (
@@ -114,11 +139,13 @@ export default function CategoryRow({ collapsed = false, loading = false }: Cate
         {categories.map((biz) => (
           <button
             key={biz.category}
-            onClick={() => navigate(`/${lang}/category/${bizToCategory[biz.category] || 'food'}`)}
+            onClick={() => handleSelect(biz.category)}
             className="flex flex-col items-center gap-2 shrink-0 active:scale-95 transition-transform duration-100"
           >
             <div
-              className={`w-[72px] h-[72px] rounded-2xl flex items-center justify-center shadow-sm border-2 border-transparent hover:border-primary/40 transition-colors duration-100 backdrop-blur-sm ${categoryBg[biz.category] || 'bg-surface/70'}`}
+              className={`w-[72px] h-[72px] rounded-2xl flex items-center justify-center shadow-sm border-2 transition-colors duration-100 backdrop-blur-sm ${
+                activeCategory === biz.category ? 'border-primary' : 'border-transparent hover:border-primary/40'
+              } ${categoryBg[biz.category] || 'bg-surface/70'}`}
             >
               <span className="text-4xl drop-shadow-sm">{biz.logo}</span>
             </div>
@@ -141,8 +168,10 @@ export default function CategoryRow({ collapsed = false, loading = false }: Cate
         {categories.map((biz) => (
           <button
             key={biz.category}
-            onClick={() => navigate(`/${lang}/category/${bizToCategory[biz.category] || 'food'}`)}
-            className={`flex items-center gap-2 shrink-0 px-3 py-1.5 rounded-full border border-border/60 shadow-sm active:scale-95 transition-transform duration-100 backdrop-blur-sm ${categoryBg[biz.category] || 'bg-surface/70'}`}
+            onClick={() => handleSelect(biz.category)}
+            className={`flex items-center gap-2 shrink-0 px-3 py-1.5 rounded-full shadow-sm active:scale-95 transition-transform duration-100 backdrop-blur-sm ${
+              activeCategory === biz.category ? 'border-2 border-primary' : 'border border-border/60'
+            } ${categoryBg[biz.category] || 'bg-surface/70'}`}
           >
             <span className="text-base leading-none">{biz.logo}</span>
             <span className="text-[11px] font-semibold text-text-primary whitespace-nowrap">
@@ -154,3 +183,5 @@ export default function CategoryRow({ collapsed = false, loading = false }: Cate
     </div>
   );
 }
+
+export default memo(CategoryRow);

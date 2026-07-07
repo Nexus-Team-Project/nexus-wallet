@@ -6,6 +6,8 @@ import { useUser } from '../hooks/useUser';
 import { useTenantStore } from '../stores/tenantStore';
 import { GIFT_CARDS, type GiftCard } from '../data/giftCards';
 import PhoneInput, { formatPhoneNumber } from '../components/ui/PhoneInput';
+import AnimatedActionIcon from '../components/layout/AnimatedActionIcon';
+import profileUrl from '../assets/animations/profile.json?url';
 
 // Wide white "NEXUS™" wordmark — the same brand lockup used on the credit card.
 const NEXUS_WIDE_WHITE = '/nexus-white-wide-logo.png';
@@ -34,7 +36,7 @@ export interface GiftDetails {
 const MAX_MESSAGE = 200;
 
 export default function GiftDetailsPage() {
-  const { businessId, productId } = useParams<{ businessId: string; productId: string }>();
+  const { businessId, productId, voucherId } = useParams<{ businessId: string; productId?: string; voucherId?: string }>();
   const navigate = useNavigate();
   const location = useLocation();
   const { language } = useLanguage();
@@ -88,7 +90,10 @@ export default function GiftDetailsPage() {
   const [previewOpen, setPreviewOpen] = useState(false);
   const [revealed, setRevealed] = useState(false);
 
-  if (!business || !product) return <Navigate to=".." replace />;
+  // Voucher context — no product needed; navigate back to voucher page instead
+  const isVoucherContext = !!voucherId;
+
+  if (!business || (!product && !isVoucherContext)) return <Navigate to=".." replace />;
 
   // The recipient name + a valid-ish phone are the gates for saving.
   const phoneDigits = recipientPhone.replace(/\D/g, '');
@@ -96,7 +101,11 @@ export default function GiftDetailsPage() {
 
   // The card the recipient will see — drives the preview screen.
   const selectedCard = cards.find((c) => c.id === cardId) ?? cards[0];
-  const productName = isHe ? product.nameHe : product.name;
+  const productName = product ? (isHe ? product.nameHe : product.name) : '';
+
+  const returnPath = isVoucherContext
+    ? `/${language}/business/${business!.id}/voucher/${voucherId}`
+    : `/${language}/business/${business!.id}/product/${product!.id}/checkout`;
 
   const handleSave = () => {
     if (!canSave) return;
@@ -107,10 +116,7 @@ export default function GiftDetailsPage() {
       recipientName: recipientName.trim(),
       recipientPhone,
     };
-    navigate(
-      `/${language}/business/${business.id}/product/${product.id}/checkout`,
-      { state: { qty, color, gift } },
-    );
+    navigate(returnPath, { state: { qty, color, gift } });
   };
 
   // Pick a recipient from the device contacts where the Contact Picker API is
@@ -131,12 +137,9 @@ export default function GiftDetailsPage() {
     }
   };
 
-  // Discard the gift entirely and return to checkout without it.
+  // Discard the gift entirely and return to the originating page without it.
   const handleDelete = () => {
-    navigate(
-      `/${language}/business/${business.id}/product/${product.id}/checkout`,
-      { state: { qty, color } },
-    );
+    navigate(returnPath, { state: { qty, color } });
   };
 
   const sectionTitle = 'text-xl font-extrabold text-text-primary mb-5';
@@ -207,7 +210,11 @@ export default function GiftDetailsPage() {
               onClick={handlePickContact}
               className="w-full flex items-center justify-center gap-2 rounded-xl border border-border bg-white px-4 py-3.5 text-sm font-bold text-text-primary shadow-sm active:bg-surface transition-colors"
             >
-              <span className="material-symbols-rounded text-primary" style={{ fontSize: 20 }}>contacts</span>
+              {/* Wired profile Lottie (same as the TopBar profile icon) —
+                  plays on mount and replays on press. */}
+              <span className="shrink-0">
+                <AnimatedActionIcon src={profileUrl} size={22} />
+              </span>
               {isHe ? 'בחר מאנשי הקשר שלך' : 'Choose from your contacts'}
             </button>
 
@@ -525,7 +532,7 @@ export default function GiftDetailsPage() {
                   <h3 className="text-xl font-bold text-text-primary mb-4 text-start">{isHe ? 'המתנה שלך' : 'Your gift'}</h3>
                   <div className="rounded-2xl overflow-hidden shadow-lg border border-border flex flex-col">
                     <div className="h-48 w-full overflow-hidden bg-surface">
-                      {product.image && (
+                      {product?.image && (
                         <img src={product.image} alt={productName} className="w-full h-full object-cover" />
                       )}
                     </div>

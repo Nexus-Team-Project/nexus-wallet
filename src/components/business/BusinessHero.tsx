@@ -1,11 +1,20 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '../../i18n/LanguageContext';
 import type { Business } from '../../types/search.types';
 import BusinessMenuSheet from './BusinessMenuSheet';
 import BusinessContactSheet from './BusinessContactSheet';
+import AnimatedNavIcon from '../layout/AnimatedNavIcon';
+import navSearchUrl from '../../assets/animations/nav-search.json?url';
+import navSearchBoldUrl from '../../assets/animations/nav-search-bold.json?url';
 
 interface BusinessHeroProps {
   business: Business;
+  /**
+   * Club-page variant. Hides the follow + search actions and the rating line
+   * (the club's stats / links / about all live in the white section below).
+   */
+  club?: boolean;
 }
 
 const categoryGradients: Record<string, string> = {
@@ -20,8 +29,9 @@ const categoryGradients: Record<string, string> = {
   'Supermarket': 'from-green-600 via-emerald-500 to-teal-600',
 };
 
-export default function BusinessHero({ business }: BusinessHeroProps) {
+export default function BusinessHero({ business, club }: BusinessHeroProps) {
   const { language } = useLanguage();
+  const navigate = useNavigate();
   const isHe = language === 'he';
   const [following, setFollowing] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -32,6 +42,34 @@ export default function BusinessHero({ business }: BusinessHeroProps) {
   const images = business.heroImages?.length ? business.heroImages : (business.heroImageUrl ? [business.heroImageUrl] : []);
   const [currentSlide, setCurrentSlide] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval>>(undefined);
+
+  // Scroll-linked fade: as the hero scrolls up, a white veil over it grows so
+  // the ambiance image dissolves into the white content section below.
+  const heroRef = useRef<HTMLElement>(null);
+  const [scrollFade, setScrollFade] = useState(0);
+  useEffect(() => {
+    const el = heroRef.current;
+    if (!el) return;
+    let raf = 0;
+    const update = () => {
+      const rect = el.getBoundingClientRect();
+      // 0 while pinned at the top → 1 once scrolled ~80% of the hero height.
+      setScrollFade(Math.min(1, Math.max(0, -rect.top / (rect.height * 0.8))));
+    };
+    const onScroll = () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(update);
+    };
+    update();
+    // capture:true so it also fires when an inner element is the scroller.
+    window.addEventListener('scroll', onScroll, { passive: true, capture: true });
+    window.addEventListener('resize', onScroll, { passive: true });
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener('scroll', onScroll, true);
+      window.removeEventListener('resize', onScroll);
+    };
+  }, []);
 
   const goToSlide = useCallback((index: number) => {
     setCurrentSlide(index);
@@ -47,7 +85,7 @@ export default function BusinessHero({ business }: BusinessHeroProps) {
   }, [images.length]);
 
   return (
-    <section className="relative w-full h-[550px] overflow-hidden">
+    <section ref={heroRef} className="relative z-0 w-full h-[460px] overflow-hidden">
       {/* Background gradient fallback */}
       <div className={`absolute inset-0 bg-gradient-to-br ${gradient}`} />
 
@@ -59,8 +97,9 @@ export default function BusinessHero({ business }: BusinessHeroProps) {
               key={i}
               src={img}
               alt=""
+              loading={i === 0 ? 'eager' : 'lazy'}
               className="absolute inset-0 w-full h-full object-cover transition-opacity duration-700"
-              style={{ opacity: i === currentSlide ? 1 : 0 }}
+              style={{ opacity: i === currentSlide ? 1 : 0, willChange: 'opacity' }}
             />
           ))}
         </div>
@@ -80,20 +119,31 @@ export default function BusinessHero({ business }: BusinessHeroProps) {
       <header className="absolute bottom-10 inset-x-0 z-30 flex items-center justify-start px-4">
         {/* End-side actions */}
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => setFollowing((f) => !f)}
-            className={`h-10 px-5 inline-flex items-center rounded-lg text-sm font-semibold active:scale-95 transition-all ${
-              following ? 'bg-white text-black' : 'bg-white/20 backdrop-blur-md text-white'
-            }`}
-          >
-            {following ? (isHe ? 'עוקב' : 'Following') : (isHe ? 'עקוב' : 'Follow')}
-          </button>
-          <button
-            className="h-10 w-10 inline-flex items-center justify-center bg-white/20 backdrop-blur-md rounded-lg active:scale-95 transition-transform"
-            aria-label="Search"
-          >
-            <span className="material-symbols-outlined text-white leading-none" style={{ fontSize: 22 }}>search</span>
-          </button>
+          {/* Follow + search are hidden on the club variant. */}
+          {!club && (
+            <>
+              <button
+                onClick={() => setFollowing((f) => !f)}
+                className={`h-10 px-5 inline-flex items-center rounded-lg text-sm font-semibold active:scale-95 transition-all ${
+                  following ? 'bg-white text-black' : 'bg-white/20 backdrop-blur-md text-white'
+                }`}
+              >
+                {following ? (isHe ? 'עוקב' : 'Following') : (isHe ? 'עקוב' : 'Follow')}
+              </button>
+              <button
+                onClick={() => navigate(`/${language}/search?store=${business.id}`)}
+                className="h-10 w-10 inline-flex items-center justify-center bg-white/20 backdrop-blur-md rounded-lg active:scale-95 transition-transform"
+                aria-label="Search"
+              >
+                {/* Same wired nav-search Lottie as the bottom-bar pill, forced
+                    white (the icon's native ink is dark) so it reads on the dark
+                    hero overlay. */}
+                <span className="leading-none" style={{ filter: 'brightness(0) invert(1)' }}>
+                  <AnimatedNavIcon src={navSearchUrl} boldSrc={navSearchBoldUrl} active size={22} />
+                </span>
+              </button>
+            </>
+          )}
           <button
             onClick={() => setMenuOpen(true)}
             className="h-10 w-10 inline-flex items-center justify-center bg-white/20 backdrop-blur-md rounded-lg active:scale-95 transition-transform"
@@ -130,14 +180,17 @@ export default function BusinessHero({ business }: BusinessHeroProps) {
           </p>
         )}
 
-        {/* Rating — plain inline text, no badge plate */}
-        <div className="flex items-center justify-center gap-1.5 text-white">
-          <span className="text-white text-[15px]">★</span>
-          <span className="text-[15px] font-bold">{business.rating}</span>
-          <span className="text-[15px] font-medium opacity-90">
-            ({business.reviewCount.toLocaleString()})
-          </span>
-        </div>
+        {/* Rating — hidden on the club variant (stats live in the white
+            section below). */}
+        {!club && (
+          <div className="flex items-center justify-center gap-1.5 text-white">
+            <span className="text-white text-[15px]">★</span>
+            <span className="text-[15px] font-bold">{business.rating}</span>
+            <span className="text-[15px] font-medium opacity-90">
+              ({business.reviewCount.toLocaleString()})
+            </span>
+          </div>
+        )}
 
         {/* Carousel dots */}
         {images.length > 1 && (
@@ -156,6 +209,15 @@ export default function BusinessHero({ business }: BusinessHeroProps) {
           </div>
         )}
       </div>
+
+      {/* Scroll-linked white veil — fades the whole hero to white as the page
+          scrolls down, blending into the white content below. Above everything
+          in the hero; pointer-events-none so controls stay tappable at the top. */}
+      <div
+        aria-hidden
+        className="absolute inset-0 z-40 bg-white pointer-events-none"
+        style={{ opacity: scrollFade }}
+      />
 
       {/* Three-dots action menu — slides up from the bottom */}
       <BusinessMenuSheet

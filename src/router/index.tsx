@@ -34,18 +34,25 @@ const InsightsPage       = lazy(() => import('../pages/InsightsPage'));
 const StoriesPage        = lazy(() => import('../pages/StoriesPage'));
 const ReferralStoriesPage = lazy(() => import('../pages/ReferralStoriesPage'));
 const PremiumRevealPage  = lazy(() => import('../pages/PremiumRevealPage'));
+const PremiumPage        = lazy(() => import('../pages/PremiumPage'));
 const CategoryPage       = lazy(() => import('../pages/CategoryPage'));
 const BusinessPage       = lazy(() => import('../pages/BusinessPage'));
+const TenantPage         = lazy(() => import('../pages/TenantPage'));
 const BusinessStorePage  = lazy(() => import('../pages/BusinessStorePage'));
+const BusinessSitePage   = lazy(() => import('../pages/BusinessSitePage'));
 const BusinessProductPage  = lazy(() => import('../pages/BusinessProductPage'));
 const BusinessReviewsPage  = lazy(() => import('../pages/BusinessReviewsPage'));
 const BusinessCheckoutPage = lazy(() => import('../pages/BusinessCheckoutPage'));
 const GiftDetailsPage      = lazy(() => import('../pages/GiftDetailsPage'));
+const GiftSamplePage       = lazy(() => import('../pages/GiftSamplePage'));
 const SplitBillPage        = lazy(() => import('../pages/SplitBillPage'));
 const OrderConfirmationPage = lazy(() => import('../pages/OrderConfirmationPage'));
 const ReceiptPage = lazy(() => import('../pages/ReceiptPage'));
 const VoucherPurchasePage = lazy(() => import('../pages/VoucherPurchasePage'));
 const NotificationsPage  = lazy(() => import('../pages/NotificationsPage'));
+const OrdersPage         = lazy(() => import('../pages/OrdersPage'));
+const OrderTrackingPage  = lazy(() => import('../pages/OrderTrackingPage'));
+const OrderTrackingLivePage = lazy(() => import('../pages/OrderTrackingLivePage'));
 
 // Wallet add-money flow
 const AddMoneyPage       = lazy(() => import('../pages/AddMoneyPage'));
@@ -60,7 +67,12 @@ const WalletActionsPage = lazy(() => import('../pages/WalletActionsPage'));
 const CardDetailPage = lazy(() => import('../pages/CardDetailPage'));
 const BalanceDetailPage = lazy(() => import('../pages/BalanceDetailPage'));
 const VoucherDetailPage  = lazy(() => import('../pages/VoucherDetailPage'));
-const PaymentIntroPage   = lazy(() => import('../pages/PaymentIntroPage'));
+const PaymentIntroPage            = lazy(() => import('../pages/PaymentIntroPage'));
+const DealIntroPage               = lazy(() => import('../pages/DealIntroPage'));
+const PaymentSuccessPage          = lazy(() => import('../pages/PaymentSuccessPage'));
+const StorePaymentSuccessPage     = lazy(() => import('../pages/StorePaymentSuccessPage'));
+const VoucherSuccessPage          = lazy(() => import('../pages/VoucherSuccessPage'));
+const BusinessPaymentSuccessPage  = lazy(() => import('../pages/BusinessPaymentSuccessPage'));
 
 // Registration flow — single chunk (user goes through all slides sequentially)
 const RegisterMembershipPage   = lazy(() => import('../pages/RegisterMembershipPage'));
@@ -77,7 +89,6 @@ const PurposeSlide           = lazy(() => import('../pages/register/onboarding/P
 const LifeStageSlide         = lazy(() => import('../pages/register/onboarding/LifeStageSlide'));
 const BirthdaySlide          = lazy(() => import('../pages/register/onboarding/BirthdaySlide'));
 const GenderSlide            = lazy(() => import('../pages/register/onboarding/GenderSlide'));
-const InviteFriendsSlide     = lazy(() => import('../pages/register/onboarding/InviteFriendsSlide'));
 const BenefitCategoriesSlide = lazy(() => import('../pages/register/onboarding/BenefitCategoriesSlide'));
 
 // Card issuance onboarding flow
@@ -192,10 +203,13 @@ export const router = createBrowserRouter([
           { path: 'stories',          element: <S><StoriesPage /></S> },
           { path: 'referral-stories', element: <S><ReferralStoriesPage /></S> },
           { path: 'premium-reveal',   element: <S><PremiumRevealPage /></S> },
+          { path: 'premium',          element: <S><PremiumPage /></S> },
           { path: 'card-issuance',    element: <S><CardIssuanceStoriesPage /></S> },
+          { path: 'club',             element: <S><TenantPage /></S> },
           { path: 'category/:categoryId', element: <S><CategoryPage /></S> },
           { path: 'business/:businessId', element: <S><BusinessPage /></S> },
           { path: 'business/:businessId/store', element: <S><BusinessStorePage /></S> },
+          { path: 'business/:businessId/site', element: <S><BusinessSitePage /></S> },
           { path: 'business/:businessId/product/:productId', element: <S><BusinessProductPage /></S> },
           { path: 'business/:businessId/product/:productId/reviews', element: <S><BusinessReviewsPage /></S> },
           { path: 'business/:businessId/product/:productId/checkout', element: <S><BusinessCheckoutPage /></S> },
@@ -204,6 +218,12 @@ export const router = createBrowserRouter([
           { path: 'business/:businessId/product/:productId/order-confirmed', element: <S><OrderConfirmationPage /></S> },
           { path: 'business/:businessId/product/:productId/receipt', element: <S><ReceiptPage /></S> },
           { path: 'business/:businessId/voucher/:voucherId', element: <S><VoucherPurchasePage /></S> },
+          // Shareable gift surfaces stay public: a gift link is opened by the
+          // recipient, who may be anonymous. Redeeming still funnels through
+          // the protected wallet (LoginSheet gate).
+          { path: 'business/:businessId/voucher/:voucherId/gift', element: <S><GiftDetailsPage /></S> },
+          // Standalone ready-made gift page (Bnei Akiva — Passover)
+          { path: 'gift-sample',               element: <S><GiftSamplePage /></S> },
 
           // === PROTECTED routes ===
           // All wallet / payment / personalization / notifications surfaces
@@ -227,6 +247,11 @@ export const router = createBrowserRouter([
               { path: 'wallet/add-payment-method', element: <S><AddPaymentMethodPage /></S> },
               { path: 'wallet/payment-methods',    element: <S><PaymentMethodsPage /></S> },
               { path: 'wallet/pay-intro',          element: <S><PaymentIntroPage /></S> },
+              { path: 'wallet/deal-intro',         element: <S><DealIntroPage /></S> },
+              { path: 'pay/success',               element: <S><PaymentSuccessPage /></S> },
+              { path: 'pay/store-success',         element: <S><StorePaymentSuccessPage /></S> },
+              { path: 'pay/voucher-success',       element: <S><VoucherSuccessPage /></S> },
+              { path: 'pay/business-success',      element: <S><BusinessPaymentSuccessPage /></S> },
               { path: 'wallet/customize',          element: <S><WalletCustomizePage /></S> },
               { path: 'wallet/actions',            element: <S><WalletActionsPage /></S> },
               { path: 'wallet/card',               element: <S><CardDetailPage /></S> },
@@ -242,6 +267,9 @@ export const router = createBrowserRouter([
               { path: 'wallet/voucher/:voucherId', element: <S><VoucherDetailPage /></S> },
               { path: 'wallpaper',                 element: <S><WallpaperPage /></S> },
               { path: 'notifications',             element: <S><NotificationsPage /></S> },
+              { path: 'orders',                    element: <S><OrdersPage /></S> },
+              { path: 'orders/track',              element: <S><OrderTrackingPage /></S> },
+              { path: 'orders/track/live',         element: <S><OrderTrackingLivePage /></S> },
               { path: 'activity',                  element: <S><ActivityPage /></S> },
               { path: 'profile',                   element: <S><ProfilePage /></S> },
               { path: 'profile/edit',              element: <S><EditProfilePage /></S> },
@@ -266,7 +294,6 @@ export const router = createBrowserRouter([
           { path: 'onboarding/life-stage',         element: <S><LifeStageSlide /></S> },
           { path: 'onboarding/birthday',           element: <S><BirthdaySlide /></S> },
           { path: 'onboarding/gender',             element: <S><GenderSlide /></S> },
-          { path: 'onboarding/invite-friends',     element: <S><InviteFriendsSlide /></S> },
           { path: 'onboarding/benefit-categories', element: <S><BenefitCategoriesSlide /></S> },
           { path: 'complete',    element: <S><RegistrationCompletePage /></S> },
         ],
