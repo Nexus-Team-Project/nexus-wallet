@@ -537,6 +537,89 @@ function HowItWorksSheet({ isHe, businessName, onClose }: { isHe: boolean; busin
   );
 }
 
+/* ─── Loading skeleton ────────────────────────────────────────────────── */
+
+// Brief artificial hold so the create-voucher page shows a loading skeleton
+// on entry (mock data resolves instantly otherwise). Set to 0 to disable.
+const ARTIFICIAL_LOADING_MS = 850;
+
+// Colourful gradient palettes for the loading skeleton — same set as the
+// search / stores results-card skeleton, so the whole app shares one look.
+const SKELETON_COLORS: ReadonlyArray<readonly [string, string, string]> = [
+  ['#fdba74', '#f87171', '#fcd34d'], // warm — orange / red / amber
+  ['#93c5fd', '#67e8f9', '#5eead4'], // ocean — blue / cyan / teal
+  ['#f9a8d4', '#fbbf24', '#fb7185'], // sunset — pink / amber / rose
+];
+const skeletonBlobBg = ([c1, c2, c3]: readonly [string, string, string]) => `
+  radial-gradient(circle at 25% 30%, ${c1} 0%, transparent 55%),
+  radial-gradient(circle at 75% 70%, ${c2} 0%, transparent 55%),
+  radial-gradient(circle at 50% 55%, ${c3} 0%, transparent 60%),
+  linear-gradient(135deg, ${c1}, ${c2})
+`;
+
+function VoucherPurchaseSkeleton() {
+  return (
+    <div className="min-h-dvh bg-white max-w-md mx-auto flex flex-col relative overflow-hidden" aria-hidden>
+      {/* Hero backdrop */}
+      <div className="absolute top-0 inset-x-0 h-64 bg-gradient-to-br from-gray-200 to-gray-100 animate-pulse" />
+
+      <div className="h-28 relative z-10" />
+
+      {/* Brand info row */}
+      <div className="relative z-10 px-6 mt-4 mb-2 flex items-center gap-3">
+        <div className="w-14 h-14 rounded-2xl bg-white/70 animate-pulse" />
+        <div className="flex-1 space-y-2">
+          <div className="h-5 w-1/2 bg-white/60 rounded animate-pulse" />
+          <div className="h-3 w-1/3 bg-white/50 rounded animate-pulse" />
+        </div>
+      </div>
+
+      {/* Voucher card deck placeholder — WalletPage skeleton layout (centred
+          card + side-peek cards) coloured with the results-card skeleton blobs. */}
+      <div className="relative z-10 mt-4 px-5">
+        <div className="relative flex items-center justify-center" style={{ minHeight: 200 }}>
+          <div
+            className="absolute start-0 h-[78%] w-[12%] rounded-2xl animate-pulse opacity-40"
+            style={{ background: skeletonBlobBg(SKELETON_COLORS[0]), filter: 'saturate(0.85)' }}
+          />
+          <div
+            className="absolute end-0 h-[78%] w-[12%] rounded-2xl animate-pulse opacity-40"
+            style={{ background: skeletonBlobBg(SKELETON_COLORS[2]), filter: 'saturate(0.85)' }}
+          />
+          <div
+            className="relative w-[80%] aspect-[1.586/1] rounded-2xl shadow-xl animate-pulse"
+            style={{ background: skeletonBlobBg(SKELETON_COLORS[1]), filter: 'saturate(0.85)' }}
+          />
+        </div>
+      </div>
+
+      {/* Dot indicators */}
+      <div className="flex justify-center gap-1.5 mt-4 pb-2">
+        {[0, 1, 2, 3].map((i) => (
+          <div key={i} className="w-1.5 h-1.5 rounded-full bg-gray-300 animate-pulse" />
+        ))}
+      </div>
+
+      {/* Custom amount input + qty/gift row */}
+      <div className="relative z-10 px-5 mt-3 space-y-3">
+        <div className="h-12 w-full rounded-2xl bg-surface animate-pulse" />
+        <div className="flex gap-3">
+          <div className="h-12 w-28 rounded-xl bg-surface animate-pulse" />
+          <div className="h-12 flex-1 rounded-2xl bg-surface animate-pulse" />
+        </div>
+      </div>
+
+      {/* Deal-terms heading + rows */}
+      <div className="relative z-10 px-5 mt-6 space-y-3">
+        <div className="h-6 w-1/3 bg-border rounded animate-pulse" />
+        {[0, 1, 2, 3].map((i) => (
+          <div key={i} className="h-14 w-full rounded-2xl bg-surface animate-pulse" />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /* ─── Main Page ───────────────────────────────────────────────────────── */
 
 export default function VoucherPurchasePage() {
@@ -585,6 +668,36 @@ export default function VoucherPurchasePage() {
   const [howItWorksOpen, setHowItWorksOpen] = useState(false);
   const [giftDetails] = useState<GiftDetails | null>(navState?.gift ?? null);
 
+  // Loading skeleton on entry (artificial — mock data is instant).
+  const [loading, setLoading] = useState(ARTIFICIAL_LOADING_MS > 0);
+  useEffect(() => {
+    if (ARTIFICIAL_LOADING_MS <= 0) return;
+    const id = window.setTimeout(() => setLoading(false), ARTIFICIAL_LOADING_MS);
+    return () => window.clearTimeout(id);
+  }, []);
+
+  // Scroll-linked hero whiten: a white veil over the hero image whose opacity
+  // grows as the page scrolls, dissolving the ambiance into the white page
+  // (mirrors BusinessHero). Driven via ref so the heavy page doesn't re-render
+  // on every scroll frame. capture:true so it fires whichever element scrolls.
+  const heroVeilRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const HERO_FADE_DIST = 300;
+    let raf = 0;
+    const update = () => {
+      const top = document.scrollingElement?.scrollTop ?? window.scrollY;
+      const f = Math.min(1, Math.max(0, top / HERO_FADE_DIST));
+      if (heroVeilRef.current) heroVeilRef.current.style.opacity = String(f);
+    };
+    const onScroll = () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(update); };
+    update();
+    window.addEventListener('scroll', onScroll, { passive: true, capture: true });
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener('scroll', onScroll, true);
+    };
+  }, []);
+
   // Deck refs + height measurement (mirrors WalletPage deck)
   const centerCardRef = useRef<HTMLDivElement>(null);
   const [deckHeight, setDeckHeight] = useState(0);
@@ -620,6 +733,10 @@ export default function VoucherPurchasePage() {
     [isRTL, selectedTierIdx, isCustomForEffect],
   );
 
+  if (loading) {
+    return <VoucherPurchaseSkeleton />;
+  }
+
   if (!voucher || !business) {
     return (
       <div className="min-h-dvh bg-white flex items-center justify-center">
@@ -651,7 +768,7 @@ export default function VoucherPurchasePage() {
   const heroGradient = categoryGradients[business.category] || 'from-gray-700 via-gray-600 to-gray-800';
 
   return (
-    <div className="min-h-dvh bg-white max-w-md mx-auto flex flex-col relative">
+    <div className="min-h-dvh bg-white max-w-md mx-auto flex flex-col relative reveal-stagger">
       {/* ── Background image - bottom edge passes through the vertical center of the voucher card carousel ── */}
       <div
         className="absolute top-0 left-0 right-0 z-0 overflow-hidden"
@@ -675,6 +792,15 @@ export default function VoucherPurchasePage() {
           style={{
             background: 'linear-gradient(180deg, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.3) 55%, rgba(0,0,0,0.1) 70%, rgba(255,255,255,0.5) 80%, white 92%)',
           }}
+        />
+
+        {/* Scroll-linked white veil — grows as the content scrolls so the hero
+            image dissolves into the white page (mirrors BusinessHero). */}
+        <div
+          ref={heroVeilRef}
+          aria-hidden
+          className="absolute inset-0 bg-white pointer-events-none"
+          style={{ opacity: 0 }}
         />
       </div>
 
@@ -1090,13 +1216,13 @@ export default function VoucherPurchasePage() {
             aria-expanded={summaryOpen}
             className="w-full flex items-center justify-between gap-3 mb-4"
           >
+            <h2 className="text-xl font-bold text-text-primary">{isHe ? 'סיכום הזמנה' : 'Order summary'}</h2>
             <span
               className="material-symbols-rounded text-text-muted transition-transform duration-200"
               style={{ fontSize: 22, transform: summaryOpen ? 'none' : 'rotate(180deg)' }}
             >
               expand_less
             </span>
-            <h2 className="text-xl font-bold text-text-primary">{isHe ? 'סיכום הזמנה' : 'Order summary'}</h2>
           </button>
 
           {summaryOpen && (
@@ -1474,17 +1600,22 @@ export default function VoucherPurchasePage() {
           }}
         >
           <div className="relative">
-            {/* Cashback badge — behind button, text peeking above */}
+            {/* Cashback badge — behind button, text peeking above. Bobs up and
+                down periodically, like the collapsed search-results card. */}
             {cashbackAmount > 0 && (
               <div className="absolute -top-9 left-1/2 -translate-x-1/2 z-0 w-[82%]">
-                <div
-                  key={`${cashbackRate}-${qty}`}
-                  className="flex items-center justify-center gap-1.5 bg-green-50 border border-green-200 px-4 py-2 pb-9 rounded-t-2xl origin-bottom"
-                  style={{ animation: 'cashback-pop 420ms cubic-bezier(0.34, 1.56, 0.64, 1)' }}
-                >
-                  <span className="text-base text-green-700 font-medium leading-none">{isHe ? 'תקבל' : 'Get'}</span>
-                  <span className="text-lg font-black text-green-600 leading-none">₪{cashbackAmount}</span>
-                  <span className="text-base text-green-700 font-medium leading-none">{isHe ? 'כקאשבק' : 'cashback'}</span>
+                {/* Bob wrapper — periodic translateY nudge (peek-bob). Kept
+                    separate so it doesn't clash with the pill's pop scale. */}
+                <div style={{ animation: 'peek-bob 3s ease-in-out infinite' }}>
+                  <div
+                    key={`${cashbackRate}-${qty}`}
+                    className="flex items-center justify-center gap-1.5 bg-green-50 border border-green-200 px-4 py-2 pb-9 rounded-t-2xl origin-bottom"
+                    style={{ animation: 'cashback-pop 420ms cubic-bezier(0.34, 1.56, 0.64, 1)' }}
+                  >
+                    <span className="text-base text-green-700 font-medium leading-none">{isHe ? 'תקבל' : 'Get'}</span>
+                    <span className="text-lg font-black text-green-600 leading-none">₪{cashbackAmount}</span>
+                    <span className="text-base text-green-700 font-medium leading-none">{isHe ? 'כקאשבק' : 'cashback'}</span>
+                  </div>
                 </div>
               </div>
             )}

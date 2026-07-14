@@ -32,6 +32,12 @@ export interface Voucher {
   cardImage?: string;
   /** object-position for `cardImage` (e.g. 'left center' to keep a corner logo). */
   cardImagePosition?: string;
+  /**
+   * Payment-network mark shown on the card face. When set, the card renders
+   * the network logo where the Nexus mark normally sits and moves the Nexus
+   * mark to the top corner (e.g. the Menora claim card on Mastercard).
+   */
+  paymentNetwork?: 'mastercard' | 'visa';
   inStock: boolean;
   popular: boolean;
   isOnline?: boolean;

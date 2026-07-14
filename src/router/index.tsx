@@ -18,7 +18,7 @@ import WalletHistorySkeleton from '../components/wallet/WalletHistorySkeleton';
 // ── Lazy chunks ──────────────────────────────────────────────────────────────
 // Main app tabs — loaded right after initial render
 const HomePage           = lazy(() => import('../pages/HomePage'));
-const StorePage          = lazy(() => import('../pages/StorePage'));
+const VoucherSearch      = lazy(() => import('../pages/VoucherSearch'));
 const WalletPage         = lazy(() => import('../pages/WalletPage'));
 const ActivityPage       = lazy(() => import('../pages/ActivityPage'));
 const ProfilePage        = lazy(() => import('../pages/ProfilePage'));
@@ -135,7 +135,7 @@ export const router = createBrowserRouter([
               </Suspense>
             ),
           },
-          { path: 'store',    element: <S><StorePage /></S> },
+          { path: 'store',    element: <S><VoucherSearch /></S> },
           { path: 'chat',             element: <S><AiChatPage /></S> },
           { path: 'search',           element: <S><AiChatPage /></S> },
           { path: 'near-you-map',     element: <S><NearYouMapPage /></S> },

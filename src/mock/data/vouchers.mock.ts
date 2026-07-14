@@ -233,6 +233,19 @@ export const mockVouchers: Voucher[] = [
     cardImage: '/gift-cards/spar.png', cardImagePosition: 'left center',
     inStock: true, popular: false,
   },
+  {
+    id: 'v_menora_claim', title: 'Menora Claim Card', titleHe: 'כרטיס תביעה מנורה',
+    description: '₪2,500 insurance claim payout, ready for immediate use', descriptionHe: 'כספי תביעה בסך ₪2,500, מוכנים לשימוש מיידי',
+    merchantName: 'מנורה מבטחים', merchantLogo: '🛡️', category: 'shopping',
+    originalPrice: 2500, discountedPrice: 0, discountPercent: 0, currency: 'ILS',
+    image: '🛡️', imageUrl: '/gift-cards/menora-card.svg', validUntil: '2026-12-31',
+    termsAndConditions: 'Usable at approved providers under your policy terms.', termsAndConditionsHe: 'לשימוש אצל ספקים מאושרים בהתאם לתנאי הפוליסה.',
+    // Full-bleed Menora artwork — the card *is* the navy branded design.
+    brandColor: '#0e2152', brandLogo: '/tenants/menora-logo.svg',
+    cardImage: '/gift-cards/menora-card.svg', cardImagePosition: 'center',
+    paymentNetwork: 'mastercard',
+    inStock: true, popular: false,
+  },
 ];
 
 export const mockUserVouchers: UserVoucher[] = [
@@ -303,6 +316,15 @@ export const mockUserVouchers: UserVoucher[] = [
     purchasedAt: '2026-06-12T08:00:00Z', expiresAt: '2026-12-31T23:59:59Z',
     status: 'active', redemptionCode: 'NXS-SPR-7140',
     qrCode: 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=NXS-SPR-7140',
+  },
+  {
+    // Menora claim payout — the card the gift-sample page redeems into for
+    // ?tenant=menora.
+    id: 'uv_menora_claim', voucherId: 'v_menora_claim',
+    voucher: mockVouchers.find((v) => v.id === 'v_menora_claim')!,
+    purchasedAt: '2026-06-30T08:00:00Z', expiresAt: '2026-12-31T23:59:59Z',
+    status: 'active', redemptionCode: 'NXS-MNR-4821',
+    qrCode: 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=NXS-MNR-4821',
   },
 ];
 

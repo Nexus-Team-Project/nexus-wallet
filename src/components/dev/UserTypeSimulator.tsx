@@ -94,7 +94,7 @@ function applyMode(mode: UserType): void {
   }
 }
 
-export function UserTypeSimulator() {
+export function UserTypeSimulator({ embedded = false }: { embedded?: boolean }) {
   const [mode, setMode] = useState<UserType>(
     () => (localStorage.getItem(KEY) as UserType | null) ?? 'new-user'
   );
@@ -143,7 +143,9 @@ export function UserTypeSimulator() {
 
   return (
     <div
-      style={{
+      style={embedded ? {
+        touchAction: 'manipulation',
+      } : {
         position:      'fixed',
         top:           44,     // one row below TenantSimulator (top: 12, height ~26px + 6px gap)
         left:          12,

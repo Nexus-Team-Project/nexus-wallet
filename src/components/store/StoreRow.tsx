@@ -23,8 +23,7 @@ function cashbackPct(key: string): number {
 }
 
 export default function StoreRow({ voucher: v, onSelect }: StoreRowProps) {
-  const { t, language } = useLanguage();
-  const isHe = language === 'he';
+  const { t } = useLanguage();
   const unavailable = !!v.comingSoon || !v.inStock;
   const pct = cashbackPct(v.merchantName || v.id);
 
@@ -59,13 +58,14 @@ export default function StoreRow({ voucher: v, onSelect }: StoreRowProps) {
       <div className="min-w-0">
         <h4 className="font-bold text-text-primary truncate">{v.merchantName}</h4>
         <div className="flex flex-wrap items-center gap-2 mt-1">
-          {/* Cashback at both tiers (גישה ג׳) — regular chip + bold Premium 2× chip */}
-          <span className="inline-flex items-center rounded-md bg-emerald-50 text-emerald-700 px-2 py-0.5 text-xs font-bold whitespace-nowrap">
-            {isHe ? 'רגיל' : 'Regular'} {pct}%
+          {/* Cashback at both tiers (גישה ג׳) — regular chip + Premium 2× chip.
+              Labels dropped: green = regular tier, crowned purple = Premium. */}
+          <span dir="ltr" className="inline-flex items-center rounded-md bg-emerald-50 text-emerald-700 px-2 py-0.5 text-xs font-bold whitespace-nowrap">
+            {pct}%-{pct + 5}%
           </span>
-          <span className="inline-flex items-center gap-0.5 rounded-md bg-primary text-white px-2 py-0.5 text-xs font-bold whitespace-nowrap">
-            <Crown size={11} strokeWidth={2.5} className="shrink-0" />
-            Premium {pct * 2}%
+          <span className="inline-flex items-center gap-0.5 rounded-md bg-primary text-white px-2 py-0.5 text-xs font-medium whitespace-nowrap">
+            <Crown size={11} strokeWidth={2} className="shrink-0" />
+            {pct * 2}%
           </span>
           {v.isOnline && (
             <span className="text-text-secondary text-sm">{t.store.online}</span>

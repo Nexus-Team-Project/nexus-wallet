@@ -15,7 +15,9 @@ const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 
-// Connect to Firebase Auth Emulator in development (optional)
+// Connect to Firebase Auth Emulator in development (optional).
+// `disableWarnings: true` suppresses the fixed "Running in emulator mode"
+// banner the Firebase SDK otherwise injects into the page.
 if (import.meta.env.VITE_USE_FIREBASE_EMULATOR === 'true') {
-  connectAuthEmulator(auth, 'http://localhost:9099');
+  connectAuthEmulator(auth, 'http://localhost:9099', { disableWarnings: true });
 }

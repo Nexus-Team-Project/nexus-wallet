@@ -42,6 +42,10 @@ const BNEI_VOUCHER_ID = 'uv_bnei_pesach';
 // The SPAR gift voucher — its redeemed wallet view also shows the Isracard
 // digital card beside the gift card in the deck.
 const SPAR_VOUCHER_ID = 'uv_spar_gift';
+// The Menora claim voucher — an insurance payout on a virtual card. Its
+// redeemed wallet view flips to a "simulate payment" button (immediate use at
+// an approved provider); after paying, the card shows the remaining balance.
+const MENORA_VOUCHER_ID = 'uv_menora_claim';
 
 export default function WalletPage({ embedded = false }: WalletPageProps) {
   const { t, language, isRTL } = useLanguage();
@@ -83,6 +87,41 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
   const location = useLocation();
   const focusVoucherId = searchParams.get('focus');
   const cameFromGift = !!focusVoucherId;
+  // Menora claim flow — drives the rebranded "balance intro" (Menora balance,
+  // not Nexus balance) opened from the card's "?" → "Learn more".
+  const isMenoraFlow = cameFromGift && focusVoucherId === MENORA_VOUCHER_ID;
+  // Content for the balance-intro overlay. Same layout + images everywhere;
+  // only the copy differs — Menora-branded in the Menora flow, the standard
+  // Nexus-balance strings otherwise.
+  const balanceIntro = isMenoraFlow
+    ? language === 'he'
+      ? {
+          titleA: 'יתרת מנורה', titleB: 'כל הפיצוי במקום אחד',
+          features: [
+            { icon: 'account_balance_wallet', title: 'בית לכסף שלך', body: 'כספי התביעה ממתינים בכרטיס וירטואלי, מוכנים לשימוש מיידי.' },
+            { icon: 'savings', title: 'שליטה מלאה בזמן אמת', body: 'היתרה מתעדכנת עם כל תשלום — בלי טפסים ובלי המתנה.' },
+            { icon: 'near_me', title: 'תשלום מיידי בכל מקום', body: 'שלמו אצל ספקים מאושרים בהקשה אחת, בדיוק כשצריך.' },
+          ],
+          getStarted: 'קבלת הכספים', explore: 'איך זה עובד?',
+        }
+      : {
+          titleA: 'Menora balance', titleB: 'all your payout in one place',
+          features: [
+            { icon: 'account_balance_wallet', title: 'A place for your money', body: 'Claim funds wait on a virtual card, ready to use right away.' },
+            { icon: 'savings', title: 'Full control, in real time', body: 'Your balance updates with every payment — no forms, no waiting.' },
+            { icon: 'near_me', title: 'Pay instantly, anywhere', body: 'Pay approved providers in one tap, exactly when you need to.' },
+          ],
+          getStarted: 'Get started', explore: 'How it works?',
+        }
+    : {
+        titleA: t.wallet.payIntroTitle, titleB: t.wallet.payIntroTitleHighlight,
+        features: [
+          { icon: 'account_balance_wallet', title: t.wallet.payIntroFeature1Title, body: t.wallet.payIntroFeature1Body },
+          { icon: 'savings', title: t.wallet.payIntroFeature2Title, body: t.wallet.payIntroFeature2Body },
+          { icon: 'near_me', title: t.wallet.payIntroFeature3Title, body: t.wallet.payIntroFeature3Body },
+        ],
+        getStarted: t.wallet.payIntroGetStarted, explore: t.wallet.payIntroExplore,
+      };
   const centerVoucherId = (location.state as { centerVoucherId?: string } | null)?.centerVoucherId;
   // Pay-at-store flow: arriving with state.payMode shows only the card carousel
   // (the rest of the wallet is hidden) with the Nexus balance card already
@@ -129,6 +168,19 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
   // SPAR demo: tapping the Nexus balance card opens the "Meet Nexus balance"
   // intro (read-only — only "back" is interactive).
   const [showNexusIntro, setShowNexusIntro] = useState(false);
+
+  // ── Menora claim payment demo ──
+  // Flipping the Menora claim card shows a "המחשת תשלום" button; tapping it
+  // plays a payment confirmation at an approved provider. Closing it marks the
+  // claim partially spent, so the card then shows the remaining balance. No
+  // cashback / archive chain (those are gift-card semantics) — just the payout
+  // being used immediately.
+  const MENORA_CLAIM_AMOUNT = 2500;
+  const MENORA_PAY_AMOUNT = 780;
+  const MENORA_REMAINING = MENORA_CLAIM_AMOUNT - MENORA_PAY_AMOUNT;
+  const [showMenoraSuccess, setShowMenoraSuccess] = useState(false);
+  const [showMenoraDeclined, setShowMenoraDeclined] = useState(false);
+  const [menoraPaid, setMenoraPaid] = useState(false);
 
   // Collapsible section states.
   const [noCardBannerOpen, setNoCardBannerOpen] = useState(false);
@@ -651,13 +703,16 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
       // SPAR demo: once paid, the gift card reads as "used" — greyed-out and
       // locked (same treatment as a frozen digital card).
       const isUsedSpar = cardId === `voucher:${SPAR_VOUCHER_ID}` && sparUsed;
+      // Menora demo: after a payment the claim card shows its remaining balance.
+      const isPaidMenora = cardId === `voucher:${MENORA_VOUCHER_ID}` && menoraPaid;
       return (
         <div className="relative w-full">
           <VoucherCard
             userVoucher={uv}
             flipped={flippedVoucherId === cardId && !isUsedSpar}
             onExpire={() => setFlippedVoucherId(null)}
-            balanceOverride={isUsedSpar ? 0 : undefined}
+            balanceOverride={isUsedSpar ? 0 : isPaidMenora ? MENORA_REMAINING : undefined}
+            onInfo={cardId === `voucher:${MENORA_VOUCHER_ID}` ? () => setShowNexusIntro(true) : undefined}
           />
           {isUsedSpar && (
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
@@ -1306,6 +1361,21 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
               >
                 {language === 'he' ? 'המחשת תשלום' : 'Simulate payment'}
               </button>
+            ) : flippedVoucherId === `voucher:${MENORA_VOUCHER_ID}` ? (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setShowMenoraSuccess(true)}
+                  className="px-5 py-3 rounded-full bg-bg-dark text-white font-bold text-sm active:scale-95 transition-transform shadow-md"
+                >
+                  {language === 'he' ? 'המחשת תשלום' : 'Simulate payment'}
+                </button>
+                <button
+                  onClick={() => setShowMenoraDeclined(true)}
+                  className="px-5 py-3 rounded-full bg-white border border-red-300 text-red-600 font-bold text-sm active:scale-95 transition-transform shadow-md"
+                >
+                  {language === 'he' ? 'סירוב תשלום' : 'Declined'}
+                </button>
+              </div>
             ) : (
               <button
                 onClick={() =>
@@ -1907,6 +1977,83 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
         </div>
       )}
 
+      {/* Menora demo: payment at an approved provider. Closing marks the claim
+          partially spent — the card then shows its remaining balance. */}
+      {showMenoraSuccess && (
+        <div className="fixed inset-0 z-[140] mx-auto max-w-md bg-white overflow-y-auto">
+          <TransactionSuccessShell
+            cashback={0}
+            isHe={language === 'he'}
+            autoMs={0}
+            onClose={() => {
+              setShowMenoraSuccess(false);
+              setMenoraPaid(true);
+              setFlippedVoucherId(null);
+            }}
+          >
+            <div className="px-5 pt-4 divide-y divide-border text-[15px]" dir={language === 'he' ? 'rtl' : 'ltr'}>
+              <div className="flex justify-between items-center py-3">
+                <span className="text-text-secondary">{language === 'he' ? 'בית עסק' : 'Merchant'}</span>
+                <span className="font-semibold">{language === 'he' ? 'ספק מאושר' : 'Approved provider'}</span>
+              </div>
+              <div className="flex justify-between items-center py-3">
+                <span className="text-text-secondary">{language === 'he' ? 'סכום ששולם' : 'Amount paid'}</span>
+                <span className="font-semibold" dir="ltr">₪{MENORA_PAY_AMOUNT}.00</span>
+              </div>
+              <div className="flex justify-between items-center py-3">
+                <span className="text-text-secondary">{language === 'he' ? 'יתרה בכרטיס' : 'Card balance'}</span>
+                <span className="font-semibold" dir="ltr">₪{MENORA_REMAINING}.00</span>
+              </div>
+            </div>
+          </TransactionSuccessShell>
+        </div>
+      )}
+
+      {/* Menora demo: declined payment — the merchant isn't approved for this
+          card. Same spinner/reveal as the approval, in red, ending on an ✕.
+          No logos. */}
+      {showMenoraDeclined && (
+        <div className="fixed inset-0 z-[140] mx-auto max-w-md bg-white overflow-y-auto">
+          <TransactionSuccessShell
+            tone="declined"
+            cashback={0}
+            isHe={language === 'he'}
+            autoMs={0}
+            onClose={() => {
+              setShowMenoraDeclined(false);
+              setFlippedVoucherId(null);
+            }}
+            previewSlot={
+              <div className="text-center px-2">
+                <h2 className="text-2xl font-black text-text-primary">
+                  {language === 'he' ? 'התשלום לא אושר' : 'Payment declined'}
+                </h2>
+                <p className="mt-2 text-[15px] text-text-secondary leading-relaxed">
+                  {language === 'he'
+                    ? 'בית העסק "גלידה בכיף" אינו מאושר לשימוש בכרטיס זה.'
+                    : 'The merchant "Glida Bekef" is not approved for this card.'}
+                </p>
+              </div>
+            }
+          >
+            <div className="px-5 pt-4 divide-y divide-border text-[15px]" dir={language === 'he' ? 'rtl' : 'ltr'}>
+              <div className="flex justify-between items-center py-3">
+                <span className="text-text-secondary">{language === 'he' ? 'בית עסק' : 'Merchant'}</span>
+                <span className="font-semibold">{language === 'he' ? 'גלידה בכיף' : 'Glida Bekef'}</span>
+              </div>
+              <div className="flex justify-between items-center py-3">
+                <span className="text-text-secondary">{language === 'he' ? 'סכום עסקה' : 'Amount'}</span>
+                <span className="font-semibold" dir="ltr">₪{MENORA_PAY_AMOUNT}.00</span>
+              </div>
+              <div className="flex justify-between items-center py-3">
+                <span className="text-text-secondary">{language === 'he' ? 'סטטוס' : 'Status'}</span>
+                <span className="font-semibold text-red-600">{language === 'he' ? 'לא מאושר' : 'Declined'}</span>
+              </div>
+            </div>
+          </TransactionSuccessShell>
+        </div>
+      )}
+
       {/* SPAR demo: read-only "Meet Nexus balance" intro. Only the back button
           is interactive — the footer CTAs are shown but inert. */}
       {showNexusIntro && (
@@ -1915,20 +2062,21 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
           dir={isRTL ? 'rtl' : 'ltr'}
         >
           {/* Back-only header */}
-          <div className="relative z-20 px-4 pt-5">
-            <button
-              onClick={() => setShowNexusIntro(false)}
-              aria-label={isRTL ? 'חזרה' : 'Back'}
-              className="w-10 h-10 rounded-full bg-surface border border-border flex items-center justify-center active:scale-95 transition-transform"
-            >
-              <span className="material-symbols-outlined text-text-primary" style={{ fontSize: '22px' }}>
-                {isRTL ? 'arrow_forward' : 'arrow_back'}
-              </span>
-            </button>
-          </div>
+          {/* Back button — floats over the hero so the artwork can bleed all
+              the way to the top edge of the screen. */}
+          <button
+            onClick={() => setShowNexusIntro(false)}
+            aria-label={isRTL ? 'חזרה' : 'Back'}
+            className="absolute top-5 start-4 z-30 w-10 h-10 rounded-full bg-surface border border-border flex items-center justify-center active:scale-95 transition-transform"
+          >
+            <span className="material-symbols-outlined text-text-primary" style={{ fontSize: '22px' }}>
+              {isRTL ? 'arrow_forward' : 'arrow_back'}
+            </span>
+          </button>
 
-          <main className="flex-grow overflow-y-auto px-6">
-            <section className="relative -mx-6 overflow-hidden">
+          <main className="flex-grow overflow-y-auto">
+            {/* Hero — flush to the very top edge, full bleed. */}
+            <section className="relative overflow-hidden">
               <div
                 className="absolute inset-0 z-0"
                 style={{
@@ -1944,45 +2092,43 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
               />
             </section>
 
-            <section className="text-center mt-4 mb-9">
-              <h1 className="text-[32px] leading-tight font-extrabold tracking-tight" style={{ color: '#0a153f' }}>
-                {t.wallet.payIntroTitle}
-                <br />
-                {t.wallet.payIntroTitleHighlight}
-              </h1>
-            </section>
+            <div className="px-6">
+              <section className="text-center mt-4 mb-9">
+                <h1 className="text-[32px] leading-tight font-extrabold tracking-tight" style={{ color: '#0a153f' }}>
+                  {balanceIntro.titleA}
+                  <br />
+                  {balanceIntro.titleB}
+                </h1>
+              </section>
 
-            <section className="space-y-4 mb-10">
-              {[
-                { icon: 'account_balance_wallet', title: t.wallet.payIntroFeature1Title, body: t.wallet.payIntroFeature1Body },
-                { icon: 'savings', title: t.wallet.payIntroFeature2Title, body: t.wallet.payIntroFeature2Body },
-                { icon: 'near_me', title: t.wallet.payIntroFeature3Title, body: t.wallet.payIntroFeature3Body },
-              ].map((f, i, arr) => (
-                <div key={f.icon}>
-                  <div className="flex items-start gap-4">
-                    <span className="material-symbols-outlined flex-shrink-0 mt-0.5" style={{ fontSize: '26px', color: '#0a153f' }}>
-                      {f.icon}
-                    </span>
-                    <div>
-                      <h3 className="font-bold text-[17px]" style={{ color: '#0a153f' }}>{f.title}</h3>
-                      <p className="text-text-secondary text-[15px] leading-relaxed">{f.body}</p>
+              <section className="space-y-4 mb-10">
+                {balanceIntro.features.map((f, i, arr) => (
+                  <div key={f.icon}>
+                    <div className="flex items-start gap-4">
+                      <span className="material-symbols-outlined flex-shrink-0 mt-0.5" style={{ fontSize: '26px', color: '#0a153f' }}>
+                        {f.icon}
+                      </span>
+                      <div>
+                        <h3 className="font-bold text-[17px]" style={{ color: '#0a153f' }}>{f.title}</h3>
+                        <p className="text-text-secondary text-[15px] leading-relaxed">{f.body}</p>
+                      </div>
                     </div>
+                    {i < arr.length - 1 && <hr className="border-gray-100 mt-4" />}
                   </div>
-                  {i < arr.length - 1 && <hr className="border-gray-100 mt-4" />}
-                </div>
-              ))}
-            </section>
+                ))}
+              </section>
+            </div>
           </main>
 
           {/* Footer CTAs — shown for realism but inert in the demo. */}
           <footer className="p-6 pb-10 space-y-3 bg-white pointer-events-none select-none">
             <div className="p-1 rounded-[28px]" style={{ border: '2px solid #3B82F6', boxShadow: '0 0 10px rgba(59,130,246,0.2)' }}>
               <div className="w-full text-white font-bold py-4 rounded-[24px] text-[17px] text-center" style={{ backgroundColor: '#0a153f' }}>
-                {t.wallet.payIntroGetStarted}
+                {balanceIntro.getStarted}
               </div>
             </div>
             <div className="w-full bg-white border border-gray-300 font-bold py-4 rounded-[28px] text-[17px] text-center" style={{ color: '#0a153f' }}>
-              {t.wallet.payIntroExplore}
+              {balanceIntro.explore}
             </div>
           </footer>
         </div>

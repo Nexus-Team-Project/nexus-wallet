@@ -38,7 +38,7 @@ function isDevEnv(): boolean {
   return false;
 }
 
-export function TenantSimulator() {
+export function TenantSimulator({ embedded = false }: { embedded?: boolean }) {
   const [searchParams] = useSearchParams();
   const navigate       = useNavigate();
   const tenantId       = useTenantStore(s => s.tenantId);
@@ -76,7 +76,12 @@ export function TenantSimulator() {
   const handleAction = isTenantOn ? deactivate : toggleOn;
 
   return (
-    <div style={{
+    <div style={embedded ? {
+      display: 'flex',
+      alignItems: 'center',
+      gap: 7,
+      touchAction: 'manipulation',
+    } : {
       position: 'fixed',
       top: 12,
       left: 12,

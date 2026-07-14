@@ -7,6 +7,8 @@ const CY = 66;
 const CIRC = 2 * Math.PI * R;
 const GREEN_BG = '#DCFCE7';
 const GREEN_STROKE = '#16A34A';
+const RED_BG = '#FEE2E2';
+const RED_STROKE = '#DC2626';
 
 type Phase = 'spinning' | 'completing' | 'check' | 'reveal';
 
@@ -17,6 +19,11 @@ export interface TransactionSuccessShellProps {
   onShare?: () => Promise<void> | void;
   /** ms after reveal before auto-navigating. 0 = disabled. Default 5500. */
   autoMs?: number;
+  /**
+   * Outcome tone. 'success' (default) draws a green check; 'declined' reuses
+   * the exact same spinner/reveal animation but in red, ending on an ✕.
+   */
+  tone?: 'success' | 'declined';
   /** Optional logo shown inside the circle once the checkmark draws. */
   iconUrl?: string;
   /** Rendered between the cashback counter and the receipt card (e.g. a purchased voucher preview). */
@@ -30,10 +37,16 @@ export default function TransactionSuccessShell({
   onClose,
   onShare,
   autoMs = 5500,
+  tone = 'success',
   iconUrl,
   previewSlot,
   children,
 }: TransactionSuccessShellProps) {
+  const declined = tone === 'declined';
+  const circleBg = declined ? RED_BG : GREEN_BG;
+  const accent = declined ? RED_STROKE : GREEN_STROKE;
+  // The reveal glyph: a check for success, an ✕ for a declined outcome.
+  const glyphPath = declined ? 'M 42 42 L 78 78 M 78 42 L 42 78' : 'M 28 62 L 50 82 L 92 36';
   const [phase, setPhase] = useState<Phase>('spinning');
   const [cashbackCount, setCashbackCount] = useState(0);
   const spinCtrl = useAnimation();
@@ -86,13 +99,23 @@ export default function TransactionSuccessShell({
       dir={isHe ? 'rtl' : 'ltr'}
     >
       {/* ── Animated circle ───────────────────────────── */}
+      {/* marginTop is phase-driven (CSS transition): the spinner sits centred
+          while spinning, then the whole column lifts up once it resolves so the
+          revealed receipt has room and reads higher on screen. */}
       <motion.div
         className="relative flex items-center justify-center"
-        style={{ marginTop: 220 }}
+        style={{
+          marginTop: phase === 'reveal' ? 12 : 220,
+          // The 120px circle shrinks (scale .5) + lifts (y -44) but still
+          // reserves its full box height in layout — pull the content below up
+          // so the cashback counter hugs the small check circle.
+          marginBottom: phase === 'reveal' ? -74 : 0,
+          transition: 'margin-top 0.55s cubic-bezier(0.4, 0, 0.2, 1), margin-bottom 0.55s cubic-bezier(0.4, 0, 0.2, 1)',
+        }}
         animate={phase === 'reveal' ? { y: -44, scale: 0.5 } : { y: 0, scale: 1 }}
         transition={{ duration: 0.55, ease: [0.4, 0, 0.2, 1] }}
       >
-        <div className="w-[120px] h-[120px] rounded-full" style={{ background: GREEN_BG }} />
+        <div className="w-[120px] h-[120px] rounded-full" style={{ background: circleBg }} />
 
         <motion.svg
           className="absolute"
@@ -103,7 +126,7 @@ export default function TransactionSuccessShell({
           <motion.circle
             cx={CX} cy={CY} r={R}
             fill="none"
-            stroke={GREEN_STROKE}
+            stroke={accent}
             strokeWidth={5}
             strokeLinecap="round"
             strokeDasharray={CIRC}
@@ -125,9 +148,9 @@ export default function TransactionSuccessShell({
           style={{ overflow: 'visible' }}
         >
           <motion.path
-            d="M 28 62 L 50 82 L 92 36"
+            d={glyphPath}
             fill="none"
-            stroke={GREEN_STROKE}
+            stroke={accent}
             strokeWidth={5}
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -171,7 +194,7 @@ export default function TransactionSuccessShell({
           >
             <span
               className="text-[34px] font-bold leading-none tabular-nums"
-              style={{ color: GREEN_STROKE }}
+              style={{ color: accent }}
               dir="ltr"
             >
               +₪{Number.isInteger(cashbackCount) ? cashbackCount : cashbackCount.toFixed(2)}

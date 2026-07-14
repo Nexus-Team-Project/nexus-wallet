@@ -83,4 +83,16 @@ export const mockTenants: Record<string, TenantConfig> = {
       customWelcomeMessageHe: 'ברוכים הבאים ל-SPAR!',
     },
   },
+  'menora': {
+    id: 'menora',
+    name: 'Menora Mivtachim',
+    nameHe: 'מנורה מבטחים',
+    logo: '/tenants/menora-logo.svg',
+    primaryColor: '#16306e',
+    requiresMembershipFee: false,
+    flowOverrides: {
+      customWelcomeMessage: 'Welcome to Menora Mivtachim!',
+      customWelcomeMessageHe: 'ברוכים הבאים למנורה מבטחים!',
+    },
+  },
 };

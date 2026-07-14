@@ -55,6 +55,10 @@ interface RecommendationsContentProps {
    *  above the list (list mode only). The store page uses it for the
    *  "My Brands" slider. */
   afterCategories?: ReactNode;
+  /** Hides the in-sheet category slider (list mode) and category chips (map
+   *  mode). The voucher-search page sets this because category filtering there
+   *  lives in the SearchFiltersView panel, making the in-sheet row redundant. */
+  hideCategorySlider?: boolean;
 }
 
 // Category style matches the collapsed pill row on the home page (CategoryRow):
@@ -76,6 +80,25 @@ const CATEGORY_META: Record<
 const CATEGORY_ORDER = Object.keys(CATEGORY_META) as VoucherCategory[];
 
 // Skeleton card style is shared with the home page — see GradientSkeletonCard.
+
+// Colorful gradient palettes for the stores loading skeleton (brand tiles +
+// store-row circles), borrowed from GradientSkeletonCard so the stores loading
+// state matches search.
+const SKELETON_COLORS: ReadonlyArray<readonly [string, string, string]> = [
+  ['#fdba74', '#f87171', '#fcd34d'], // warm — orange / red / amber
+  ['#93c5fd', '#67e8f9', '#5eead4'], // ocean — blue / cyan / teal
+  ['#f9a8d4', '#fbbf24', '#fb7185'], // sunset — pink / amber / rose
+  ['#86efac', '#fde047', '#a3e635'], // fresh — green / yellow / lime
+  ['#c084fc', '#f0abfc', '#fda4af'], // berry — purple / fuchsia / pink
+];
+
+// Blurred multi-colour blob background from a palette triple.
+const skeletonBlobBg = ([c1, c2, c3]: readonly [string, string, string]) => `
+  radial-gradient(circle at 25% 30%, ${c1} 0%, transparent 55%),
+  radial-gradient(circle at 75% 70%, ${c2} 0%, transparent 55%),
+  radial-gradient(circle at 50% 55%, ${c3} 0%, transparent 60%),
+  linear-gradient(135deg, ${c1}, ${c2})
+`;
 
 // ── Result card — one per row, matches home-page SliderCard style ───────────
 function ResultCard({
@@ -194,6 +217,7 @@ export default function RecommendationsContent({
   hideMap = false,
   variant = 'picks',
   afterCategories,
+  hideCategorySlider = false,
 }: RecommendationsContentProps) {
   const { language, t } = useLanguage();
   const isHe = language === 'he';
@@ -502,7 +526,7 @@ export default function RecommendationsContent({
 
         {/* Category chips — horizontal scrollable row sitting below the
             header. Filters the visible pins by category. */}
-        {availableCategories.length > 1 && (
+        {!hideCategorySlider && availableCategories.length > 1 && (
           <div className="absolute top-[80px] inset-x-0 z-10 px-3 pointer-events-none">
             <div className="flex items-center overflow-x-auto hide-scrollbar gap-2 pointer-events-auto">
               <button
@@ -651,39 +675,68 @@ export default function RecommendationsContent({
     );
   }
 
+  // Header row (title + subtitle + map/list toggle). Pinned above the list for
+  // the picks (chat) variant; for the stores variant it's rendered INSIDE the
+  // scroll area so it scrolls up with the content.
+  const listHeaderRow = (
+    <div className="flex items-start justify-between gap-3">
+      <div className="min-w-0 flex-1">
+        <h3 className="text-lg font-bold text-text-primary">
+          {variant === 'stores'
+            ? (isHe ? 'Nexus עובד בחנויות הבאות' : 'Nexus works at these stores')
+            : (isHe ? 'ההמלצות של Nexus' : 'Nexus picks')}
+        </h3>
+        {intro ? (
+          <p className="text-xs text-text-muted mt-1 leading-relaxed line-clamp-2">{intro}</p>
+        ) : loading ? (
+          <p className="text-xs text-text-muted mt-1 leading-relaxed">
+            {isHe ? 'מחפש המלצות בשבילך…' : 'Finding picks for you…'}
+          </p>
+        ) : variant === 'stores' ? (
+          <p className="text-xs text-text-muted mt-1 leading-relaxed">
+            {isHe
+              ? 'שלמו עם Nexus וצברו קאשבק — כפול עם Premium'
+              : 'Pay with Nexus and earn cashback — double with Premium'}
+          </p>
+        ) : null}
+      </div>
+      {/* Stores variant pins the toggle at the card corner instead. */}
+      {variant !== 'stores' && renderToggle()}
+    </div>
+  );
+
+  // Soft fade at the top of the scroll area (stores variant) so content
+  // dissolves as it scrolls up under the drag handle instead of hard-cutting.
+  const scrollFadeMask =
+    variant === 'stores'
+      ? {
+          WebkitMaskImage:
+            'linear-gradient(to bottom, transparent 0, #000 36px, #000 100%)',
+          maskImage:
+            'linear-gradient(to bottom, transparent 0, #000 36px, #000 100%)',
+        }
+      : undefined;
+
   // ── List mode: standard column flow ──
   return (
-    <div className="flex flex-col h-full min-h-0">
-      {/* pt-9 (36px) clears the parent sheet's floating drag handle. */}
-      <div dir={isHe ? 'rtl' : 'ltr'} className="px-5 pt-9 pb-2 flex-shrink-0">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0 flex-1">
-            <h3 className="text-lg font-bold text-text-primary">
-              {variant === 'stores'
-                ? (isHe ? 'Nexus עובד בחנויות הבאות' : 'Nexus works at these stores')
-                : (isHe ? 'ההמלצות של Nexus' : 'Nexus picks')}
-            </h3>
-            {intro ? (
-              <p className="text-xs text-text-muted mt-1 leading-relaxed line-clamp-2">{intro}</p>
-            ) : loading ? (
-              <p className="text-xs text-text-muted mt-1 leading-relaxed">
-                {isHe ? 'מחפש המלצות בשבילך…' : 'Finding picks for you…'}
-              </p>
-            ) : variant === 'stores' ? (
-              <p className="text-xs text-text-muted mt-1 leading-relaxed">
-                {isHe
-                  ? 'שלמו עם Nexus וצברו קאשבק — כפול עם Premium'
-                  : 'Pay with Nexus and earn cashback — double with Premium'}
-              </p>
-            ) : null}
-          </div>
-          {renderToggle()}
+    <div className="relative flex flex-col h-full min-h-0">
+      {/* Map/list switcher — pinned at the top corner for the stores variant so
+          it stays put while the header, brands slider and list scroll beneath
+          it. (The picks variant keeps the toggle inline in its pinned header.) */}
+      {variant === 'stores' && (
+        <div className="absolute top-14 end-5 z-20">{renderToggle()}</div>
+      )}
+      {/* pt-9 (36px) clears the parent sheet's floating drag handle. Pinned for
+          the picks variant only — the stores variant scrolls its header. */}
+      {variant !== 'stores' && (
+        <div dir={isHe ? 'rtl' : 'ltr'} className="px-5 pt-9 pb-2 flex-shrink-0">
+          {listHeaderRow}
         </div>
-      </div>
+      )}
 
       {/* Horizontal category slider — square style matches the home page's
           expanded CategoryRow. Skeleton placeholders while loading. */}
-      {(showRealCategorySlider || showSkeletonCategorySlider) && (
+      {!hideCategorySlider && (showRealCategorySlider || showSkeletonCategorySlider) && (
         <div
           dir={isHe ? 'rtl' : 'ltr'}
           className="flex-shrink-0 overflow-x-auto hide-scrollbar mt-2"
@@ -719,33 +772,54 @@ export default function RecommendationsContent({
         </div>
       )}
 
-      {/* Slot directly below the category squares (e.g. the store page's
-          "My Brands" slider). Full-width so a horizontal slider can bleed to
-          the card edges. */}
-      {afterCategories && <div className="flex-shrink-0">{afterCategories}</div>}
-
       {/* Scrollable list — one card per row. overscrollContain prevents the
           scroll from bleeding into the page when reaching the edges. The
           'stores' variant swaps the rich cards for the compact cashback-style
           business rows. */}
       <div
         dir={isHe ? 'rtl' : 'ltr'}
-        className={`flex-1 overflow-y-auto subtle-scrollbar px-5 pt-2 pb-8 ${
-          variant === 'stores' ? 'space-y-6' : 'space-y-3'
+        className={`flex-1 overflow-y-auto subtle-scrollbar px-5 pb-8 ${
+          variant === 'stores' ? 'pt-14 space-y-6' : 'pt-2 space-y-3'
         }`}
-        style={{ overscrollBehavior: 'contain' }}
+        style={{ overscrollBehavior: 'contain', ...scrollFadeMask }}
       >
+        {/* Stores variant: the header scrolls with the content (not pinned). */}
+        {variant === 'stores' && listHeaderRow}
+        {/* "My Brands" slider — now scrolls WITH the list (was pinned above it)
+            so dragging up inside the card reveals more rows. Full-bleed via
+            -mx-5 to cancel the list's horizontal padding. */}
+        {!loading && afterCategories && <div className="-mx-5">{afterCategories}</div>}
         {loading ? (
           variant === 'stores' ? (
-            [0, 1, 2, 3, 4].map((i) => (
-              <div key={i} className="flex items-center gap-4">
-                <div className="w-14 h-14 rounded-full bg-border animate-pulse flex-shrink-0" />
-                <div className="flex-1 space-y-2">
-                  <div className="h-4 w-1/3 bg-border rounded animate-pulse" />
-                  <div className="h-3 w-1/2 bg-border rounded animate-pulse" />
-                </div>
+            <>
+              {/* Brand tiles skeleton — mirrors the featured brand cards, using
+                  the same colorful gradient-blob look as the search skeleton. */}
+              <div className="-mx-5 flex gap-4 px-5 overflow-hidden" aria-hidden>
+                {SKELETON_COLORS.slice(0, 2).map((palette, i) => (
+                  <div
+                    key={i}
+                    className="flex-none w-[46%] h-[180px] rounded-2xl animate-pulse"
+                    style={{ background: skeletonBlobBg(palette), filter: 'saturate(0.85)' }}
+                  />
+                ))}
               </div>
-            ))
+              {/* Store rows skeleton — colorful logo blob + name + cashback line. */}
+              {[0, 1, 2, 3, 4].map((i) => (
+                <div key={i} className="flex items-center gap-4" aria-hidden>
+                  <div
+                    className="w-14 h-14 rounded-full animate-pulse flex-shrink-0"
+                    style={{
+                      background: skeletonBlobBg(SKELETON_COLORS[i % SKELETON_COLORS.length]),
+                      filter: 'saturate(0.85)',
+                    }}
+                  />
+                  <div className="flex-1 space-y-2">
+                    <div className="h-4 w-1/3 bg-border rounded animate-pulse" />
+                    <div className="h-3 w-1/2 bg-border rounded animate-pulse" />
+                  </div>
+                </div>
+              ))}
+            </>
           ) : (
             [0, 1, 2, 3].map((i) => (
               <GradientSkeletonCard key={i} index={i} className="w-full" imageHeight="20vh" />

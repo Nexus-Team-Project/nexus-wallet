@@ -4,6 +4,8 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useLanguage } from '../../i18n/LanguageContext';
 import NotificationTestPanel from './NotificationTestPanel';
 import ChatTestPanel from './ChatTestPanel';
+import { TenantSimulator } from './TenantSimulator';
+import { UserTypeSimulator } from './UserTypeSimulator';
 
 interface DevPlaygroundSheetProps {
   onClose: () => void;
@@ -98,6 +100,26 @@ export default function DevPlaygroundSheet({ onClose }: DevPlaygroundSheetProps)
         <div className="px-5 pb-10 overflow-y-auto">
           {view === 'menu' ? (
             <div className="space-y-3">
+              {/* Demo context — tenant + user-type switchers (moved here from
+                  the floating on-screen pills). */}
+              <div className="p-4 rounded-2xl bg-surface border border-border space-y-3">
+                <p className="text-sm font-bold text-text-primary">
+                  {language === 'he' ? 'הקשר הדגמה' : 'Demo context'}
+                </p>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-xs text-text-muted">
+                    {language === 'he' ? 'טננט' : 'Tenant'}
+                  </span>
+                  <TenantSimulator embedded />
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-xs text-text-muted">
+                    {language === 'he' ? 'סוג משתמש / ארגון' : 'User type / org'}
+                  </span>
+                  <UserTypeSimulator embedded />
+                </div>
+              </div>
+
               <button
                 type="button"
                 onClick={() => {

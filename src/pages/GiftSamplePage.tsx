@@ -59,6 +59,26 @@ interface GiftVariant {
   senderBig: string;
   /** Line printed beneath the card during the redeem celebration. */
   redeemLine: string;
+  /** Cover button label (defaults to "גלה את המתנה"). */
+  coverCta?: string;
+  /** Footer CTA once revealed (defaults to "למימוש המתנה"). */
+  revealCta?: string;
+  /** Section header above the card once revealed (defaults to "המתנה שלך"). */
+  cardSectionTitle?: string;
+  /**
+   * Insurance "claim" mode — when present, the flip reveals a claim-details
+   * panel (amount + rows + document buttons) instead of a greeting letter, and
+   * the cover shows an approval badge instead of a hero illustration.
+   */
+  claim?: {
+    heading: string;
+    intro: string;
+    amountLabel: string;
+    amount: string;
+    rows: { label: string; value: string }[];
+    docsLabel: string;
+    documents: { label: string; icon: string }[];
+  };
 }
 
 const RECIPIENT = 'רז';
@@ -119,6 +139,51 @@ const VARIANTS: Record<string, GiftVariant> = {
     signature: 'עמית זאב',
     senderBig: 'SPAR ישראל',
     redeemLine: 'ממשו בעשרות רשתות',
+  },
+  menora: {
+    redeemVoucherId: 'uv_menora_claim',
+    // Menora's deep-navy brand wash on the cover + glow.
+    gradient: 'linear-gradient(150deg, #16306e 0%, #0e2152 55%, #081634 100%)',
+    logo: '/tenants/menora-logo.svg',
+    // The logo SVG is already white, so it sits on the navy wash as-is.
+    logoWhite: false,
+    logoClass: 'w-[62%] h-auto',
+    // Claim mode renders an approval badge instead of a hero illustration.
+    heroImage: '',
+    heroMaxW: 'max-w-[80%]',
+    sender: 'מנורה מבטחים',
+    coverTitle: `${RECIPIENT}, התביעה שלך אושרה`,
+    coverSubtitle: 'כספי הביטוח מחכים לך בכרטיס וירטואלי',
+    coverCta: 'גלה את הפיצוי שלך',
+    // Letter fields are unused in claim mode (kept to satisfy the interface).
+    letterBg: '#0e2152',
+    letterAccent: '#7dd3fc',
+    letterHeading: '',
+    letterBody: [],
+    letterClosingBig: '',
+    letterClosingSmall: '',
+    signature: '',
+    senderBig: '',
+    redeemLine: 'מוכן לתשלום מיידי אצל ספקים מאושרים',
+    revealCta: 'קבלת הכספים לארנק',
+    cardSectionTitle: 'הכרטיס שלך',
+    claim: {
+      heading: 'התביעה שלך אושרה',
+      intro: 'שמחים שאנחנו כאן בשבילך ברגע האמת. כספי התביעה נטענו לכרטיס וירטואלי ומוכנים לשימוש מיידי.',
+      amountLabel: 'סכום שאושר',
+      amount: '₪2,500',
+      rows: [
+        { label: 'מספר תביעה', value: '2026-48217' },
+        { label: 'תאריך אישור', value: '30.06.2026' },
+        { label: 'אמצעי תשלום', value: 'כרטיס וירטואלי' },
+      ],
+      docsLabel: 'מסמכים',
+      documents: [
+        { label: 'אישור התביעה', icon: 'task_alt' },
+        { label: 'פירוט התשלום', icon: 'receipt_long' },
+        { label: 'הפוליסה שלי', icon: 'shield' },
+      ],
+    },
   },
 };
 
@@ -206,14 +271,34 @@ export default function GiftSamplePage() {
                     style={variant.logoWhite ? { filter: 'brightness(0) invert(1)' } : undefined}
                   />
 
-                  {/* The gift illustration (transparent). */}
+                  {/* Hero — a claim variant shows an approval badge; a gift
+                      variant shows its transparent illustration. */}
                   <div className="relative z-10 flex-1 min-h-0 w-full flex items-center justify-center animate-gift-float my-2">
-                    <img
-                      src={variant.heroImage}
-                      alt=""
-                      aria-hidden
-                      className={`${variant.heroMaxW} max-h-full object-contain drop-shadow-xl rounded-xl`}
-                    />
+                    {variant.claim ? (
+                      <div
+                        className="flex items-center justify-center rounded-full"
+                        style={{
+                          width: 132,
+                          height: 132,
+                          background: 'rgba(255,255,255,0.14)',
+                          boxShadow: '0 0 0 14px rgba(255,255,255,0.06)',
+                        }}
+                      >
+                        <span
+                          className="material-symbols-rounded text-white"
+                          style={{ fontSize: 76, fontVariationSettings: "'FILL' 1" }}
+                        >
+                          verified
+                        </span>
+                      </div>
+                    ) : (
+                      <img
+                        src={variant.heroImage}
+                        alt=""
+                        aria-hidden
+                        className={`${variant.heroMaxW} max-h-full object-contain drop-shadow-xl rounded-xl`}
+                      />
+                    )}
                   </div>
 
                   <div className="relative z-10 w-full space-y-4">
@@ -237,7 +322,7 @@ export default function GiftSamplePage() {
                         onClick={() => setRevealed(true)}
                         className="w-full bg-bg-dark text-white py-4 px-6 rounded-full font-bold text-base shadow-lg shadow-bg-dark/30 transition-all active:scale-[0.98]"
                       >
-                        גלה את המתנה
+                        {variant.coverCta ?? 'גלה את המתנה'}
                       </button>
                       {/* Nexus wordmark — the platform mark, below the button. */}
                       <img src={NEXUS_WIDE_WHITE} alt="Nexus" className="h-9 w-auto" />
@@ -257,32 +342,92 @@ export default function GiftSamplePage() {
                     backfaceVisibility: 'hidden',
                   }}
                 >
-                  <h2 className="text-3xl font-black text-white leading-tight whitespace-pre-line">
-                    {variant.letterHeading}
-                  </h2>
-                  {/* Full letter — flows naturally (the card is as tall as it). */}
-                  <div className="mt-4">
-                    {variant.letterBody.map((para, i) => (
-                      <p
-                        key={i}
-                        className={`text-[15px] font-medium text-white/80 leading-relaxed ${i > 0 ? 'mt-3' : ''}`}
-                      >
-                        {para}
+                  {variant.claim ? (
+                    /* ── Claim-details panel (insurance) ── */
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span
+                          className="material-symbols-rounded"
+                          style={{ fontSize: 30, color: variant.letterAccent, fontVariationSettings: "'FILL' 1" }}
+                        >
+                          verified
+                        </span>
+                        <h2 className="text-2xl font-black text-white leading-tight">
+                          {variant.claim.heading}
+                        </h2>
+                      </div>
+                      <p className="mt-3 text-[15px] font-medium text-white/80 leading-relaxed">
+                        {variant.claim.intro}
                       </p>
-                    ))}
-                    {variant.letterClosingBig && (
-                      <p className="mt-5 text-xl font-extrabold" style={{ color: variant.letterAccent }}>
-                        {variant.letterClosingBig}
-                      </p>
-                    )}
-                    <p className="mt-1.5 text-[15px] font-semibold text-white/80">
-                      {variant.letterClosingSmall}
-                    </p>
-                    <p className="mt-3 text-base font-bold text-white">{variant.signature}</p>
-                    <p className="mt-5 text-2xl font-bold" style={{ color: variant.letterAccent }}>
-                      {variant.senderBig}
-                    </p>
-                  </div>
+
+                      {/* Approved amount — the headline figure. */}
+                      <div className="mt-5 rounded-2xl bg-white/10 border border-white/15 px-5 py-4">
+                        <p className="text-xs font-semibold text-white/70">{variant.claim.amountLabel}</p>
+                        <p className="mt-1 text-4xl font-black text-white tracking-tight" dir="ltr">
+                          {variant.claim.amount}
+                        </p>
+                      </div>
+
+                      {/* Claim metadata rows. */}
+                      <div className="mt-4 rounded-2xl bg-white/5 divide-y divide-white/10 overflow-hidden">
+                        {variant.claim.rows.map((r) => (
+                          <div key={r.label} className="flex items-center justify-between px-4 py-3">
+                            <span className="text-[13px] text-white/60">{r.label}</span>
+                            <span className="text-[14px] font-semibold text-white">{r.value}</span>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Document buttons — visual only (demo). */}
+                      <p className="mt-6 mb-2 text-sm font-bold text-white/70">{variant.claim.docsLabel}</p>
+                      <div className="flex flex-col gap-2">
+                        {variant.claim.documents.map((d) => (
+                          <button
+                            key={d.label}
+                            type="button"
+                            className="w-full flex items-center gap-3 rounded-xl bg-white/10 border border-white/10 px-4 py-3 text-start active:bg-white/15 transition-colors"
+                          >
+                            <span className="material-symbols-rounded text-white/90" style={{ fontSize: 22 }}>
+                              {d.icon}
+                            </span>
+                            <span className="flex-1 text-[15px] font-semibold text-white">{d.label}</span>
+                            <span className="material-symbols-rounded text-white/50" style={{ fontSize: 20 }}>
+                              chevron_left
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <h2 className="text-3xl font-black text-white leading-tight whitespace-pre-line">
+                        {variant.letterHeading}
+                      </h2>
+                      {/* Full letter — flows naturally (the card is as tall as it). */}
+                      <div className="mt-4">
+                        {variant.letterBody.map((para, i) => (
+                          <p
+                            key={i}
+                            className={`text-[15px] font-medium text-white/80 leading-relaxed ${i > 0 ? 'mt-3' : ''}`}
+                          >
+                            {para}
+                          </p>
+                        ))}
+                        {variant.letterClosingBig && (
+                          <p className="mt-5 text-xl font-extrabold" style={{ color: variant.letterAccent }}>
+                            {variant.letterClosingBig}
+                          </p>
+                        )}
+                        <p className="mt-1.5 text-[15px] font-semibold text-white/80">
+                          {variant.letterClosingSmall}
+                        </p>
+                        <p className="mt-3 text-base font-bold text-white">{variant.signature}</p>
+                        <p className="mt-5 text-2xl font-bold" style={{ color: variant.letterAccent }}>
+                          {variant.senderBig}
+                        </p>
+                      </div>
+                    </>
+                  )}
                 </motion.div>
               )}
             </AnimatePresence>
@@ -291,7 +436,7 @@ export default function GiftSamplePage() {
           {/* ── Gift (below): the gift card, in the wallet's voucher style. ── */}
           {revealed && (
             <section className="mt-8 animate-fade-in">
-              <h3 className="text-xl font-bold text-text-primary mb-4 text-start">המתנה שלך</h3>
+              <h3 className="text-xl font-bold text-text-primary mb-4 text-start">{variant.cardSectionTitle ?? 'המתנה שלך'}</h3>
               {/* The exact wallet voucher card — same component + data, so the
                   balance position and everything match the card in the wallet. */}
               <button
@@ -313,7 +458,7 @@ export default function GiftSamplePage() {
             onClick={startRedeem}
             className="w-full bg-bg-dark text-white py-4 rounded-full font-bold text-base shadow-lg shadow-bg-dark/30 transition-all active:scale-[0.98]"
           >
-            למימוש המתנה
+            {variant.revealCta ?? 'למימוש המתנה'}
           </button>
         ) : null}
       </footer>

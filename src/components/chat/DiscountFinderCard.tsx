@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useLanguage } from '../../i18n/LanguageContext';
 import type { VoucherCategory } from '../../types/voucher.types';
@@ -43,6 +43,13 @@ interface DiscountFinderCardProps {
    *  store page uses it to switch between the Nexus-picks view (when 'all')
    *  and a category-filtered list. */
   onCategoryChange?: (category: VoucherCategory | 'all') => void;
+  /** Hide the item-type chip (deals / products / businesses / places) from the
+   *  "מצא לי …" sentence. The voucher-search page sets this since the item
+   *  type is fixed there and the extra dropdown isn't needed. */
+  hideItemType?: boolean;
+  /** When set, the sky-tinted "+ סינון" button opens the host's filter view
+   *  (voucher-search) instead of its own add-filter dropdown. */
+  onOpenFilters?: () => void;
 }
 
 // Palette borrowed from the iOS picker mockup
@@ -151,6 +158,8 @@ export default function DiscountFinderCard({
   initialCategory,
   initialItemType = 'deals',
   onCategoryChange,
+  hideItemType = false,
+  onOpenFilters,
 }: DiscountFinderCardProps) {
   const { language } = useLanguage();
   const isHe = language === 'he';
@@ -336,16 +345,18 @@ export default function DiscountFinderCard({
             />
           )}
 
-          <CategoryButton
-            label={isHe ? ITEM_TYPE_META[itemType].he : ITEM_TYPE_META[itemType].en}
-            active={typePickerOpen}
-            onClick={() => {
-              onInteract?.();
-              setTypePickerOpen((open) => !open);
-              setCategoryPickerOpen(false);
-              setSearchActive(false);
-            }}
-          />
+          {!hideItemType && (
+            <CategoryButton
+              label={isHe ? ITEM_TYPE_META[itemType].he : ITEM_TYPE_META[itemType].en}
+              active={typePickerOpen}
+              onClick={() => {
+                onInteract?.();
+                setTypePickerOpen((open) => !open);
+                setCategoryPickerOpen(false);
+                setSearchActive(false);
+              }}
+            />
+          )}
 
           <span>{isHe ? 'בקטגוריות' : 'in categories'}</span>
 
@@ -375,12 +386,18 @@ export default function DiscountFinderCard({
             />
           ))}
 
-          {/* + סינון button — sky-tinted "add another filter" affordance */}
-          {availableExtras.length > 0 && (
+          {/* + סינון button — sky-tinted. On the voucher-search page (onOpenFilters
+              set) it opens the full filter view; elsewhere it toggles the
+              add-filter dropdown. */}
+          {(onOpenFilters || availableExtras.length > 0) && (
             <AddFilterButton
               label={isHe ? 'סינון' : 'Filter'}
-              active={addFilterPickerOpen}
+              active={!onOpenFilters && addFilterPickerOpen}
               onClick={() => {
+                if (onOpenFilters) {
+                  onOpenFilters();
+                  return;
+                }
                 onInteract?.();
                 setAddFilterPickerOpen((open) => !open);
                 setSearchActive(false);
@@ -392,7 +409,7 @@ export default function DiscountFinderCard({
         </h4>
 
         {/* Type-picker dropdown — appears when the "הטבות" button is tapped */}
-        {typePickerOpen && (
+        {!hideItemType && typePickerOpen && (
           <ListPanel>
             {ITEM_TYPE_ORDER.map((t) => {
               const meta = ITEM_TYPE_META[t];
@@ -775,42 +792,84 @@ function ListPanel({
 
   useEffect(() => {
     if (!loading) return;
-    const id = window.setTimeout(() => setLoading(false), 320);
+    const id = window.setTimeout(() => setLoading(false), 1100);
     return () => window.clearTimeout(id);
   }, [loading]);
 
+  // The finder is nested in an offset column (avatar gutter + the page's own
+  // padding), so an in-flow panel drifts off the screen's centre. Detach the
+  // panel to `fixed` and centre it on the viewport instead, anchored just
+  // below wherever it sits in the flow (measured once on open).
+  const anchorRef = useRef<HTMLDivElement>(null);
+  const [top, setTop] = useState<number | null>(null);
+  useLayoutEffect(() => {
+    const measure = () => {
+      if (anchorRef.current) setTop(anchorRef.current.getBoundingClientRect().top);
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, []);
+
   return (
-    // The finder card is indented by an avatar gutter (a w-8 spacer + gap-3 =
-    // 44px on the inline-end side). Centering inside that indented column
-    // leaves the panel hugging one edge. Reclaim the gutter with a negative
-    // inline-end margin so this wrapper spans the full card width, then
-    // justify-center to center the panel on the page rather than the column.
-    <div className="flex justify-center -me-11">
+    // Zero-height flow anchor — marks where the panel would start.
+    <div ref={anchorRef} className="h-0">
+      {/* Outer: viewport centring (translateX -50%). Kept separate from the
+          inner pop-in so the animation's scale() doesn't clobber the centring. */}
       <div
-        className="w-[min(92vw,380px)]"
-        style={{
-          animation: 'panel-pop-in 0.28s cubic-bezier(0.34, 1.56, 0.64, 1) forwards',
-          transformOrigin: 'top center',
-        }}
+        className="fixed left-1/2 z-[70] w-[min(94vw,440px)] -translate-x-1/2"
+        style={{ top: top ?? undefined, visibility: top === null ? 'hidden' : undefined }}
       >
-        <div className="bg-white rounded-2xl shadow-md border border-gray-100 overflow-hidden divide-y divide-gray-100 max-h-[40dvh] overflow-y-auto subtle-scrollbar">
-          {loading
-            ? Array.from({ length: skeletonCount }).map((_, i) => (
-                <SkeletonRow key={i} />
-              ))
-            : children}
+        <div
+          style={{
+            animation: 'panel-pop-in 0.28s cubic-bezier(0.34, 1.56, 0.64, 1) forwards',
+            transformOrigin: 'top center',
+          }}
+        >
+          <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden divide-y divide-gray-100 max-h-[56dvh] overflow-y-auto subtle-scrollbar">
+            {loading
+              ? Array.from({ length: skeletonCount }).map((_, i) => (
+                  <SkeletonRow key={i} index={i} />
+                ))
+              : children}
+          </div>
         </div>
       </div>
     </div>
   );
 }
 
-// Single skeleton row — matches the height of a real ListItem (px-4 py-3.5
-// + ~h-3 bar) so the panel doesn't jump in size when real options arrive.
-function SkeletonRow() {
+// Colorful gradient palettes for the search-suggestion skeleton, matching the
+// stores loading skeleton so the whole page shares one loading look.
+const SKELETON_BLOBS: ReadonlyArray<readonly [string, string, string]> = [
+  ['#fdba74', '#f87171', '#fcd34d'], // warm — orange / red / amber
+  ['#93c5fd', '#67e8f9', '#5eead4'], // ocean — blue / cyan / teal
+  ['#f9a8d4', '#fbbf24', '#fb7185'], // sunset — pink / amber / rose
+  ['#86efac', '#fde047', '#a3e635'], // fresh — green / yellow / lime
+  ['#c084fc', '#f0abfc', '#fda4af'], // berry — purple / fuchsia / pink
+];
+const skeletonBlobBg = ([c1, c2, c3]: readonly [string, string, string]) => `
+  radial-gradient(circle at 25% 30%, ${c1} 0%, transparent 55%),
+  radial-gradient(circle at 75% 70%, ${c2} 0%, transparent 55%),
+  radial-gradient(circle at 50% 55%, ${c3} 0%, transparent 60%),
+  linear-gradient(135deg, ${c1}, ${c2})
+`;
+// Varying label widths so the skeleton reads as a list, not a grid.
+const SKELETON_BAR_WIDTHS = ['55%', '40%', '62%', '46%', '52%'];
+
+// Single skeleton row — mirrors a real store suggestion (small colorful logo
+// blob + name bar) so the panel doesn't jump when the real options arrive.
+function SkeletonRow({ index = 0 }: { index?: number }) {
   return (
-    <div className="px-4 py-3.5 animate-pulse">
-      <div className="h-3 w-1/2 bg-gray-200 rounded" />
+    <div className="px-4 py-2.5 animate-pulse flex items-center gap-3">
+      <span
+        className="w-7 h-7 rounded-lg flex-shrink-0"
+        style={{ background: skeletonBlobBg(SKELETON_BLOBS[index % SKELETON_BLOBS.length]), filter: 'saturate(0.85)' }}
+      />
+      <div
+        className="h-3 bg-gray-200 rounded"
+        style={{ width: SKELETON_BAR_WIDTHS[index % SKELETON_BAR_WIDTHS.length] }}
+      />
     </div>
   );
 }

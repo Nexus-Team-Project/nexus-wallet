@@ -8,7 +8,6 @@
  * use.
  */
 import { Crown } from 'lucide-react';
-import { useLanguage } from '../../i18n/LanguageContext';
 import StoreTile from '../home/StoreTile';
 import type { Voucher } from '../../types/voucher.types';
 
@@ -18,9 +17,6 @@ interface StoreFeaturedRowProps {
 }
 
 export default function StoreFeaturedRow({ vouchers, onSelect }: StoreFeaturedRowProps) {
-  const { language } = useLanguage();
-  const isHe = language === 'he';
-
   if (!vouchers.length) return null;
 
   return (
@@ -37,15 +33,15 @@ export default function StoreFeaturedRow({ vouchers, onSelect }: StoreFeaturedRo
             <p className="text-[14px] font-bold text-text-primary leading-tight truncate">
               {v.merchantName}
             </p>
-            {/* Cashback shown at both tiers (גישה ג׳): a subtle "regular" chip
-                + a bold indigo "Premium" chip at 2× to entice the upgrade. */}
+            {/* Cashback shown at both tiers (גישה ג׳): green = regular tier,
+                crowned purple = Premium at 2×. Labels dropped. */}
             <div className="mt-1 flex flex-wrap items-center gap-1">
-              <span className="rounded-md bg-emerald-50 text-emerald-700 text-[10px] font-bold px-2 py-0.5">
-                {isHe ? 'רגיל' : 'Regular'} {v.discountPercent}%
+              <span dir="ltr" className="rounded-md bg-emerald-50 text-emerald-700 text-[10px] font-bold px-2 py-0.5">
+                {v.discountPercent}%-{v.discountPercent + 5}%
               </span>
-              <span className="inline-flex items-center gap-0.5 rounded-md bg-primary text-white text-[10px] font-bold px-2 py-0.5">
-                <Crown size={10} strokeWidth={2.5} className="shrink-0" />
-                Premium {v.discountPercent * 2}%
+              <span className="inline-flex items-center gap-0.5 rounded-md bg-primary text-white text-[10px] font-medium px-2 py-0.5">
+                <Crown size={10} strokeWidth={2} className="shrink-0" />
+                {v.discountPercent * 2}%
               </span>
             </div>
           </StoreTile>

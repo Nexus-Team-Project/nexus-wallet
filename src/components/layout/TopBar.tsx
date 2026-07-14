@@ -11,6 +11,7 @@ import { useUnreadNotificationCount } from '../../hooks/useNotifications';
 import { useNotificationToastStore } from '../../stores/notificationToastStore';
 import TenantSheet from './TenantSheet';
 import { useTopBarBadgeStore } from '../../stores/topBarBadgeStore';
+import { useTopBarBackStore } from '../../stores/topBarBackStore';
 import AnimatedActionIcon from './AnimatedActionIcon';
 import bellUrl from '../../assets/animations/notif-bell.json?url';
 import profileUrl from '../../assets/animations/profile.json?url';
@@ -28,9 +29,15 @@ interface TopBarProps {
   showBack?: boolean;
   /** Hide the "good morning / name" greeting (e.g. full-screen flows). */
   hideGreeting?: boolean;
+  /** Hide the wallet-balance pill (e.g. the voucher-search page). */
+  hideBalance?: boolean;
+  /** Hide the avatar cluster (logo + profile) and the tenant name. */
+  hideAvatars?: boolean;
+  /** Hide the notifications bell. */
+  hideNotifications?: boolean;
 }
 
-function TopBar({ collapsed = false, showBack = false, hideGreeting = false }: TopBarProps) {
+function TopBar({ collapsed = false, showBack = false, hideGreeting = false, hideBalance = false, hideAvatars = false, hideNotifications = false }: TopBarProps) {
   const internalRef = useRef<HTMLElement>(null);
 
   const { lang = 'he' } = useParams();
@@ -108,8 +115,14 @@ function TopBar({ collapsed = false, showBack = false, hideGreeting = false }: T
           {/* Back button — non-home pages only */}
           {showBack && (
             <button
-              onClick={() => navigate(-1)}
-              className="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-[0_6px_16px_rgba(0,0,0,0.14)] active:scale-95 transition-transform"
+              onClick={() => {
+                // Let a page intercept back first (e.g. close an in-page
+                // overlay) before leaving the route.
+                const intercept = useTopBarBackStore.getState().handler;
+                if (intercept && intercept()) return;
+                navigate(-1);
+              }}
+              className="pointer-events-auto w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-[0_6px_16px_rgba(0,0,0,0.14)] active:scale-95 transition-transform"
               aria-label={t.common?.back ?? 'Back'}
             >
               <span className="material-symbols-rounded text-text-primary" style={{ fontSize: 24 }}>
@@ -133,6 +146,7 @@ function TopBar({ collapsed = false, showBack = false, hideGreeting = false }: T
             </div>
           )}
           {/* Avatar cluster */}
+          {!hideAvatars && (
           <button
             onClick={handleProfile}
             className={`relative flex items-center transition-transform duration-300 ease-in-out origin-left ${collapsed ? 'scale-[0.65]' : 'scale-100'}`}
@@ -173,9 +187,10 @@ function TopBar({ collapsed = false, showBack = false, hideGreeting = false }: T
               </div>
             )}
           </button>
+          )}
 
           {/* Total wallet balance — sits between the avatar and the name */}
-          {isAuthenticated && (
+          {isAuthenticated && !hideBalance && (
             <button
               onClick={() => navigate(`/${lang}/wallet`)}
               aria-label={language === 'he' ? 'יתרה' : 'Balance'}
@@ -202,7 +217,7 @@ function TopBar({ collapsed = false, showBack = false, hideGreeting = false }: T
         </div>
 
         {/* Center: tenant name — fades in on collapse */}
-        {isAuthenticated && tenantDisplayName && (
+        {isAuthenticated && !hideAvatars && tenantDisplayName && (
           <div className={`absolute left-1/2 -translate-x-1/2 transition-all duration-300 ease-in-out ${collapsed ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
             <button onClick={() => setTenantSheetOpen(true)} className="flex items-center gap-1 active:scale-95">
               <span className="text-[11px] font-semibold text-text-secondary truncate max-w-[160px]">
@@ -216,6 +231,7 @@ function TopBar({ collapsed = false, showBack = false, hideGreeting = false }: T
         )}
 
         {/* Right: action buttons */}
+        {!hideNotifications && (
         <div className="flex items-center gap-1.5">
           <button
             onClick={handleNotifications}
@@ -234,10 +250,11 @@ function TopBar({ collapsed = false, showBack = false, hideGreeting = false }: T
             )}
           </button>
         </div>
+        )}
       </div>
 
       {/* Tenant row below — slides out on collapse */}
-      {isAuthenticated && tenantDisplayName && (
+      {isAuthenticated && !hideAvatars && tenantDisplayName && (
         <div className={`overflow-hidden transition-all duration-300 ease-in-out ${collapsed ? 'max-h-0 opacity-0' : 'max-h-10 opacity-100 mt-2'}`}>
           <button onClick={() => setTenantSheetOpen(true)} className="flex items-center gap-1 active:scale-95">
             <span className="text-[11px] font-semibold text-text-secondary truncate max-w-[200px]">

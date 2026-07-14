@@ -155,24 +155,6 @@ export default function VoucherSuccessPage() {
       previewSlot={voucherCard}
       onClose={handleClose}
     >
-      {/* Header */}
-      <div className="px-5 pt-5 pb-4 text-center">
-        {displayMerchant && (
-          <p className="text-sm text-text-secondary font-medium mb-1">{displayMerchant}</p>
-        )}
-        <p className="text-[44px] font-bold text-text-primary leading-tight" dir="ltr">
-          ₪{voucherValue}
-        </p>
-        <p className="text-sm text-text-muted mt-0.5">
-          {isHe ? `שולם ₪${amountPaid}` : `Paid ₪${amountPaid}`}
-        </p>
-        <span className="inline-block mt-2 text-[12px] font-semibold text-green-700 bg-green-50 px-3 py-1 rounded-full">
-          {isHe ? 'וואוצר פעיל' : 'Voucher active'}
-        </span>
-      </div>
-
-      <div className="mx-5 border-t border-border/60" />
-
       {/* Detail rows */}
       <div className="px-5 py-4 space-y-3" dir={isHe ? 'rtl' : 'ltr'}>
         {[

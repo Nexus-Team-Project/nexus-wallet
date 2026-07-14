@@ -8,6 +8,15 @@ interface PayCodeInfoSheetProps {
   /** When false, the backdrop is a transparent click-catcher instead of a dark
    *  scrim — so the page (e.g. a highlighted card) shows through undimmed. */
   dim?: boolean;
+  /** Override the intro paragraph (defaults to the pay-code help text). The
+   *  voucher-search page passes a stores/cashback explainer instead. */
+  intro?: string;
+  /** Override the explainer sections (defaults to the single "כפל מבצעים"
+   *  stacking section). The voucher-search page passes its own sections. */
+  sections?: { title: string; text: string }[];
+  /** Path (after the language segment) the "עוד / More" link navigates to.
+   *  Defaults to the pay-intro page. */
+  morePath?: string;
 }
 
 /**
@@ -15,7 +24,7 @@ interface PayCodeInfoSheetProps {
  * sheet matching the checkout's fees explainer. Holds the help text plus a
  * teal "more" link that opens the full pay-intro page.
  */
-export default function PayCodeInfoSheet({ isOpen, onClose, dim = true }: PayCodeInfoSheetProps) {
+export default function PayCodeInfoSheet({ isOpen, onClose, dim = true, intro, sections, morePath = 'wallet/pay-intro' }: PayCodeInfoSheetProps) {
   const { t, language } = useLanguage();
   const { lang = 'he' } = useParams();
   const navigate = useNavigate();
@@ -61,24 +70,22 @@ export default function PayCodeInfoSheet({ isOpen, onClose, dim = true }: PayCod
 
           {/* Content */}
           <div className="px-6 pb-8 space-y-4">
-            <p className="text-sm text-text-secondary leading-relaxed">{t.wallet.codeHelpTooltip}</p>
+            <p className="text-sm text-text-secondary leading-relaxed">{intro ?? t.wallet.codeHelpTooltip}</p>
 
-            {/* Stacking explainer — what "כולל / לא כולל כפל מבצעים" means */}
-            <div>
-              <h3 className="text-base font-bold text-text-primary mb-1.5">
-                {isHe ? 'כפל מבצעים' : 'Stacking deals'}
-              </h3>
-              <p className="text-sm text-text-secondary leading-relaxed">
-                {t.wallet.stackingExplanation}
-              </p>
-            </div>
+            {/* Explainer sections — the passed list, or the default stacking one. */}
+            {(sections ?? [{ title: isHe ? 'כפל מבצעים' : 'Stacking deals', text: t.wallet.stackingExplanation }]).map((sec) => (
+              <div key={sec.title}>
+                <h3 className="text-base font-bold text-text-primary mb-1.5">{sec.title}</h3>
+                <p className="text-sm text-text-secondary leading-relaxed">{sec.text}</p>
+              </div>
+            ))}
 
             {!giftLocked && (
               <button
                 type="button"
                 onClick={() => {
                   onClose();
-                  navigate(`/${lang}/wallet/pay-intro`);
+                  navigate(`/${lang}/${morePath}`);
                 }}
                 className="text-sky-500 font-semibold underline"
               >

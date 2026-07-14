@@ -24,6 +24,12 @@ interface PayCodesPanelProps {
   hideTitle?: boolean;
   /** Use the grey section surface as the panel background (full layout). */
   surface?: boolean;
+  /**
+   * Overrides the help ("?") button: when provided, tapping it calls this
+   * instead of opening the built-in code-help sheet/tooltip. Used by the
+   * Menora demo to send the "?" to the balance intro instead.
+   */
+  onInfo?: () => void;
 }
 
 /**
@@ -44,6 +50,7 @@ export default function PayCodesPanel({
   stacking,
   hideTitle = false,
   surface = false,
+  onInfo,
 }: PayCodesPanelProps) {
   const { t } = useLanguage();
   const { lang = 'he' } = useParams();
@@ -186,8 +193,8 @@ export default function PayCodesPanel({
         {/* Help — bottom-left corner; opens the "how it works" sheet */}
         <button
           type="button"
-          onClick={() => setShowHelp(true)}
-          aria-label={t.wallet.moreInfo}
+          onClick={() => (onInfo ? onInfo() : setShowHelp(true))}
+          aria-label={onInfo ? t.wallet.learnMore : t.wallet.moreInfo}
           className="absolute bottom-2 left-2 z-20 w-9 h-9 rounded-full bg-white shadow-md flex items-center justify-center transition-colors active:scale-95"
         >
           <span className="material-symbols-rounded text-text-muted" style={{ fontSize: '22px' }}>
@@ -263,9 +270,9 @@ export default function PayCodesPanel({
         <div className="absolute bottom-2 end-2 z-20">
           <button
             type="button"
-            onClick={() => setShowHelp((v) => !v)}
+            onClick={() => (onInfo ? onInfo() : setShowHelp((v) => !v))}
             aria-expanded={showHelp}
-            aria-label={t.wallet.moreInfo}
+            aria-label={onInfo ? t.wallet.learnMore : t.wallet.moreInfo}
             className="w-8 h-8 rounded-full bg-white shadow-md flex items-center justify-center transition-colors active:scale-95"
           >
             <span

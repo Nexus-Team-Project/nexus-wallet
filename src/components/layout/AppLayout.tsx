@@ -8,6 +8,7 @@ import NotificationToastHost from '../notifications/NotificationToastHost';
 import SupportChatButton from '../SupportChatButton';
 import CartFab from '../cart/CartFab';
 import CartOverlay from '../cart/CartOverlay';
+import TransitionCurtain from './TransitionCurtain';
 import { useChatStore } from '../../stores/chatStore';
 import { useVouchers } from '../../hooks/useVouchers';
 import { useWallpaperStore } from '../../stores/wallpaperStore';
@@ -49,7 +50,10 @@ export default function AppLayout() {
       /^\/[a-z]{2}\/wallet\/(add-payment-method|pay-intro|deal-intro|card|balance|voucher\/[^/]+)\/?$/.test(pathname) ||
       /^\/[a-z]{2}\/gift-sample\/?$/.test(pathname) ||
       /^\/[a-z]{2}\/premium\/?$/.test(pathname) ||
-      /^\/[a-z]{2}\/business\/[^/]+\/site\/?$/.test(pathname);
+      /^\/[a-z]{2}\/business\/[^/]+\/site\/?$/.test(pathname) ||
+      // Transaction-success screens (pay/success, store-/voucher-/business-
+      // success) are self-contained full-screen shells with their own close.
+      /^\/[a-z]{2}\/pay\/[a-z-]*success\/?$/.test(pathname);
     // Business store page owns its own collapsing header (big hero → compact
     // sticky bar) with its own back button, so the global overlay TopBar is
     // suppressed here. The bottom nav + chat FABs stay so it still reads as a
@@ -73,16 +77,20 @@ export default function AppLayout() {
     // strip) is kept — it lives in the non-scrolling layout shell above the
     // fixed page, so it stays pinned at the top as the page scrolls.
     const isReferral = /^\/[a-z]{2}\/referral-stories\/?$/.test(pathname);
+    // Voucher-search page (/xx/store) owns its own draggable results sheet at
+    // the bottom, so the floating home/search/wallet pill is suppressed there.
+    const isVoucherSearch = /^\/[a-z]{2}\/store\/?$/.test(pathname);
     return {
       isHome, isNotifications, isProfile, isWalletGradient, isWallpaper, isOrders,
       showHomeGradient, isWallet, giftLocked, isFullScreenForm, isBusinessStore,
       isBusinessProduct, isBusinessReviews, isCategory, isBusinessCheckout, isReferral,
+      isVoucherSearch,
     };
   }, [pathname, search]);
   const {
     isHome, isWallpaper, showHomeGradient, isWallet, giftLocked, isFullScreenForm,
     isBusinessStore, isBusinessProduct, isBusinessReviews, isCategory,
-    isBusinessCheckout, isReferral,
+    isBusinessCheckout, isReferral, isVoucherSearch,
   } = routeFlags;
   const [collapsed, setCollapsed] = useState(false);
   // Category page: once the user starts scrolling, a white backing fades in
@@ -312,9 +320,17 @@ export default function AppLayout() {
             </div>
           </div>
         ) : (
-          /* Other pages: transparent overlay, does not scroll */
-          <div className="relative z-50 h-0 overflow-visible">
-            <TopBar collapsed={false} showBack />
+          /* Other pages: transparent overlay, does not scroll. The
+             voucher-search page hides the balance pill + greeting. */
+          <div className={`relative z-50 h-0 overflow-visible ${isVoucherSearch ? 'pointer-events-none' : ''}`}>
+            <TopBar
+              collapsed={false}
+              showBack
+              hideBalance={isVoucherSearch}
+              hideGreeting={isVoucherSearch}
+              hideAvatars={isVoucherSearch}
+              hideNotifications={isVoucherSearch}
+            />
           </div>
         )}
 
@@ -323,7 +339,7 @@ export default function AppLayout() {
         </main>
         {/* Bottom search/home/wallet strip — hidden on the wallpaper
             picker so the picker grid + CTA own the screen. */}
-        {!cartOpen && !isFullScreenForm && !isWallpaper && !isReferral && !isBusinessProduct && !isBusinessReviews && !isBusinessCheckout && (
+        {!cartOpen && !isFullScreenForm && !isWallpaper && !isReferral && !isBusinessProduct && !isBusinessReviews && !isBusinessCheckout && !isVoucherSearch && (
           giftLocked ? (
             <div className="pointer-events-none"><FloatingActions /></div>
           ) : (
@@ -357,6 +373,9 @@ export default function AppLayout() {
       ) : (
         <CartFab />
       )}
+
+      {/* Cross-route reveal curtain (used by the voucher-search brand pick). */}
+      <TransitionCurtain />
     </div>
   );
 }

@@ -13,6 +13,8 @@ interface VoucherCardProps {
   onExpire: () => void;
   /** Overrides the displayed balance (e.g. ₪0 once the gift has been spent). */
   balanceOverride?: number;
+  /** Overrides the back-side "?" help button (e.g. open a balance intro). */
+  onInfo?: () => void;
 }
 
 /** Perceived-luminance check so we pick readable ink on the brand colour. */
@@ -42,7 +44,7 @@ export function voucherStacks(id: string): boolean {
  * the SAME structure as the balance pay side (shared PayCodesPanel + 30s
  * session ring) wired to this voucher's code + QR.
  */
-export default function VoucherCard({ userVoucher, flipped, onExpire, balanceOverride }: VoucherCardProps) {
+export default function VoucherCard({ userVoucher, flipped, onExpire, balanceOverride, onInfo }: VoucherCardProps) {
   const { t, language } = useLanguage();
   const locale = language === 'he' ? 'he-IL' : 'en-IL';
   const { voucher, redemptionCode, qrCode } = userVoucher;
@@ -53,6 +55,8 @@ export default function VoucherCard({ userVoucher, flipped, onExpire, balanceOve
   // bottom scrim.
   const imageCard = !!voucher.cardImage;
   const ink = imageCard ? '#ffffff' : dark ? '#ffffff' : '#0a2540';
+  // Optional payment-network mark (e.g. Mastercard on the Menora claim card).
+  const networkLogo = voucher.paymentNetwork === 'mastercard' ? '/networks/mastercard.svg' : undefined;
   // Promotion-stacking is a fixed fact of the voucher, shown as a
   // translucent label on the card front (same style as the discount pill).
   const stacks = voucherStacks(userVoucher.id);
@@ -105,15 +109,28 @@ export default function VoucherCard({ userVoucher, flipped, onExpire, balanceOve
               </>
             )}
 
-            {/* Nexus mark — top-left on brand cards, bottom-left on artwork cards
-                (keeping the top clear for the artwork's own logo). */}
+            {/* Nexus mark — top-left on brand cards, bottom-left on artwork
+                cards. When the card carries a payment-network mark (e.g.
+                Mastercard) the network takes the bottom-left and Nexus moves to
+                the top-left corner. */}
             <img
               src="/nexus-white-wide-logo.png"
               alt="Nexus"
               draggable={false}
-              className={`absolute left-4 h-9 w-auto opacity-95 pointer-events-none ${imageCard ? 'bottom-4' : 'top-4'}`}
+              className={`absolute left-4 h-9 w-auto opacity-95 pointer-events-none ${imageCard ? (networkLogo ? 'top-4' : 'bottom-4') : 'top-4'}`}
               style={{ filter: imageCard || dark ? undefined : 'brightness(0)' }}
             />
+
+            {/* Payment-network mark — bottom-left on artwork cards (where the
+                Nexus mark would otherwise sit). */}
+            {networkLogo && (
+              <img
+                src={networkLogo}
+                alt={voucher.paymentNetwork ?? 'card network'}
+                draggable={false}
+                className="absolute left-4 bottom-4 h-8 w-auto pointer-events-none drop-shadow-[0_1px_3px_rgba(0,0,0,0.4)]"
+              />
+            )}
 
             {/* Brand logo / name — centred (brand cards only; artwork cards
                 carry their own logo). Falls back to the name text. */}
@@ -190,6 +207,7 @@ export default function VoucherCard({ userVoucher, flipped, onExpire, balanceOve
             qrSrc={qrCode}
             roundedClass="rounded-xl"
             stacking={voucherStacks(userVoucher.id)}
+            onInfo={onInfo}
           />
 
           {/* Session clock — top-left corner, fills over the 30s */}
