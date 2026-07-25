@@ -1,18 +1,24 @@
 /**
  * ReferralStoriesPage — the Wise referral flow, reproduced from the provided
- * design. Three screens combined into one horizontally-swipeable page:
- *   1. Promo card  (SHARE WISE AND EARN SGD 100)
- *   2. Invite 3 friends illustration
+ * design. Three screens combined into one vertically-scrolling page:
+ *   1. Promo card  (SHARE NEXUS AND EARN …)
+ *   2. Invite illustration
  *   3. Important information + action links
  *
- * Markup/colours/copy are transcribed verbatim from the supplied HTML. The
- * only structural change: the original `position: fixed` footers are pinned
- * via flex layout instead, so the three slides don't overlap in the pager.
+ * Two referral tracks share the layout, picked by the segmented switch above
+ * the CTA (same pattern as the billing switch on PremiumPage):
+ *   • friends — ₪100 for 3 friends; each friend gets +5% cashback on their
+ *     first ₪500. Self-funding: the 3 friends push ₪1,500 of qualifying spend
+ *     through the platform before the ₪100 is released.
+ *   • orgs    — ₪1,000 for referring an organisation, released when that org
+ *     buys an annual wallet plan or sends >₪100,000 of budget through Nexus.
  *
  * Reached from the home ReferralBanner (route: /:lang/referral-stories).
  */
 
+import { useRef, useState } from 'react';
 import TopBar from '../components/layout/TopBar';
+import { cn } from '../utils/cn';
 
 // Stylish, well-lit portrait photos with a deliberate mix of women and men —
 // younger / editorial look. Sourced from Unsplash's CDN (stable, hot-linkable),
@@ -35,8 +41,97 @@ const AVATARS_2 = [
 const PARTNERSHIP_IMG =
   'https://lh3.googleusercontent.com/aida-public/AB6AXuCtLVoYU4uIPyfE0cvRMndHu6J32CJ2e6VIGjEHZ6fn2b03_IhSLgS6ZRFabahbBC_hyiLl-mj_bEDoqEzW87EP5ffSbIoqrCbH6qQzePJJ59WzeVOfvqMeEYn4Fi7RB-FrfH5FRMIJLrKK0NPLDKZlT1VQrTE801x4M18ojL10F8wB34gVuAvoWavMCwvIfasZ8YX8ux1BV_HsY6UihT3gTnfAXjEJPiI0gJh5YKU20Fnxnu_4W2sWy_pipmzRH7K_5dysOZnsZBI';
 
+// ═══════════════════════ Track definitions ═══════════════════════
+
+type Track = 'friends' | 'orgs';
+
+/** One bullet in the "מידע חשוב" list. `ok` picks the navy check vs red X. */
+type InfoItem = { ok: boolean; text: React.ReactNode };
+
+type TrackContent = {
+  switchLabel: string;
+  /** Headline reward, rendered after "שתפו את [Nexus] והרוויחו". */
+  rewardLine: string;
+  subtitle: string;
+  inviteUrl: string;
+  /** Masked link shown inside the promo card's copy field. */
+  inviteDisplay: string;
+  screen2Title: string;
+  screen2Body: string;
+  /** Hidden for orgs — the paid-partnership pitch IS the org track. */
+  showPartnershipBanner: boolean;
+  info: InfoItem[];
+  shareText: string;
+};
+
+const CONTENT: Record<Track, TrackContent> = {
+  friends: {
+    switchLabel: 'הפניית חברים',
+    rewardLine: '100 ₪',
+    subtitle:
+      'שתפו את Nexus עם 3 חברים והרוויחו 100 ₪ לעצמכם. החברים שלכם מקבלים אקסטרה 5% קאשבק על 500 השקלים הראשונים שלהם.',
+    inviteUrl: 'https://nexus.app/invite/ihpc',
+    inviteDisplay: 'nexus.app/invite/ihpc/********',
+    screen2Title: 'הזמינו 3 חברים',
+    screen2Body:
+      'תקבלו תגמול על כל 3 חברים שנרשמים דרך הקישור הייחודי שלכם. תוכלו לעקוב אחר ההתקדמות בכל רגע.',
+    showPartnershipBanner: true,
+    info: [
+      {
+        ok: true,
+        text: 'כל אחד מהחברים שלכם יצטרך להעביר ו/או להוציא בכרטיס Nexus לפחות 500 ₪ . אפשר להגיע לסכום הזה במספר עסקאות.',
+      },
+      { ok: false, text: 'רכישת כרטיסים רב-מותגיים וקרובי-מזומן אינה נספרת.' },
+      {
+        ok: false,
+        text: (
+          <>
+            משיכות כספומט, הימורים, קריפטו ו
+            <a className="underline font-semibold underline-offset-2" href="#">
+              תשלומים מסוימים נוספים
+            </a>{' '}
+            אינם נספרים.
+          </>
+        ),
+      },
+    ],
+    shareText: 'הצטרפו אליי ל-Nexus וקבלו 5% קאשבק על 500 ₪ הראשונים שלכם:',
+  },
+  orgs: {
+    switchLabel: 'הפניית ארגונים',
+    rewardLine: '1,000 ₪',
+    subtitle:
+      'מכירים מנהל.ת רווחה, HR או כספים? הפנו את הארגון שלהם ל-Nexus והרוויחו 1,000 ₪ לעצמכם. הארגון מקבל ליווי מלא בהטמעה.',
+    inviteUrl: 'https://nexus.app/invite/org/ihpc',
+    inviteDisplay: 'nexus.app/invite/org/ihpc/********',
+    screen2Title: 'מספיק ארגון אחד',
+    screen2Body:
+      'אין צורך במספר הפניות — תגמול מלא על הארגון הראשון שמצטרף דרך הקישור שלכם. תוכלו לעקוב אחר סטטוס ההפניה בכל רגע.',
+    showPartnershipBanner: false,
+    info: [
+      {
+        ok: true,
+        text: 'התגמול משתלם כשהארגון רוכש תוכנית שנתית של הארנק.',
+      },
+      {
+        ok: true,
+        text: 'לחלופין — כשהארגון מעביר תקציב של מעל 100,000 ₪ דרך המערכת. אפשר להגיע לסכום הזה במספר טעינות במהלך השנה.',
+      },
+      {
+        ok: false,
+        text: 'ארגון שכבר נמצא בתהליך מול Nexus או שהיה לקוח בעבר אינו נספר.',
+      },
+      {
+        ok: false,
+        text: 'הארגון שאתם מועסקים בו אינו נספר.',
+      },
+    ],
+    shareText: 'הכירו את Nexus — ארנק ההטבות לארגונים. אשמח לחבר ביניכם:',
+  },
+};
+
 // ═══════════ Screen 1 — Promo card ═══════════
-function Screen1() {
+function Screen1({ c }: { c: TrackContent }) {
   return (
     <section className="w-full flex flex-col bg-white">
       {/* Main Promotion Card */}
@@ -49,10 +144,10 @@ function Screen1() {
                 <img src="/nexus-logo-black.png" alt="Nexus" className="h-8 w-auto object-contain" style={{ transform: 'scale(1.5)' }} />
               </span>
             </span>
-            <br />והרוויחו<br />100 ₪
+            <br />והרוויחו<br />{c.rewardLine}
           </h1>
           <p className="text-white text-base font-medium leading-relaxed mb-12">
-            שתפו את Nexus עם 3 חברים והרוויחו 100 ₪ לעצמכם. החברים שלכם מקבלים אקסטרה 5% קאשבק על 500 השקלים הראשונים שלהם.
+            {c.subtitle}
           </p>
 
           <div className="relative bg-white rounded-[40px] px-8 py-6 mb-12 flex justify-center items-center">
@@ -69,7 +164,7 @@ function Screen1() {
           <div className="w-full mt-auto text-right">
             <label className="text-white text-sm block mb-2 font-medium">שתפו את הקישור שלכם</label>
             <div className="border border-white/50 rounded-2xl p-1 pr-4 flex items-center justify-between bg-transparent">
-              <span className="text-[#7dd3fc] text-sm truncate pl-2" dir="ltr">nexus.app/invite/ihpc/********</span>
+              <span className="text-[#7dd3fc] text-sm truncate pl-2" dir="ltr">{c.inviteDisplay}</span>
               <button className="bg-[#7dd3fc] text-[#0a2540] px-6 py-2 rounded-xl font-bold text-sm">העתקה</button>
             </div>
           </div>
@@ -79,8 +174,8 @@ function Screen1() {
   );
 }
 
-// ═══════════ Screen 2 — Invite 3 friends ═══════════
-function Screen2() {
+// ═══════════ Screen 2 — Invite illustration ═══════════
+function Screen2({ c }: { c: TrackContent }) {
   return (
     <section className="w-full bg-white">
       <main className="px-4 pb-8">
@@ -98,10 +193,10 @@ function Screen2() {
             </div>
           </div>
           <h2 className="text-[32px] text-[#0a2540]" style={{ fontWeight: 900, letterSpacing: '-0.02em', lineHeight: 1.1 }}>
-            הזמינו 3 חברים
+            {c.screen2Title}
           </h2>
           <p className="mt-4 text-gray-600 text-base leading-relaxed px-4">
-            תקבלו תגמול על כל 3 חברים שנרשמים דרך הקישור הייחודי שלכם. תוכלו לעקוב אחר ההתקדמות בכל רגע.
+            {c.screen2Body}
           </p>
         </section>
       </main>
@@ -110,57 +205,45 @@ function Screen2() {
 }
 
 // ═══════════ Screen 3 — Important information ═══════════
-function Screen3() {
+function Screen3({ c }: { c: TrackContent }) {
   return (
     <section className="w-full bg-white text-[#0a2540]">
       <main className="px-5 pt-4 pb-8">
         {/* Partnership Banner */}
-        <div className="relative bg-[#f2f5f7] rounded-2xl p-4 flex items-start space-x-4 mb-10 overflow-hidden">
-          <div className="flex-shrink-0 w-24 h-24 bg-gradient-to-br from-blue-400 to-green-300 rounded-lg relative overflow-hidden flex items-center justify-center">
-            <img alt="Partnership Illustration" className="object-cover w-full h-full opacity-90" src={PARTNERSHIP_IMG} />
+        {c.showPartnershipBanner && (
+          <div className="relative bg-[#f2f5f7] rounded-2xl p-4 flex items-start space-x-4 mb-10 overflow-hidden">
+            <div className="flex-shrink-0 w-24 h-24 bg-gradient-to-br from-blue-400 to-green-300 rounded-lg relative overflow-hidden flex items-center justify-center">
+              <img alt="Partnership Illustration" className="object-cover w-full h-full opacity-90" src={PARTNERSHIP_IMG} />
+            </div>
+            <div className="flex-1 pl-6 pt-1">
+              <p className="text-sm font-semibold text-[#0a2540] leading-tight mb-2">רוצים לקבל תשלום על קידום Nexus?</p>
+              <a className="text-sm font-bold text-[#0a2540] underline decoration-1 underline-offset-4" href="#">גלו שותפויות</a>
+            </div>
+            <button aria-label="Dismiss banner" className="absolute top-3 left-3 text-gray-500">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12" strokeLinecap="round" strokeLinejoin="round" /></svg>
+            </button>
           </div>
-          <div className="flex-1 pl-6 pt-1">
-            <p className="text-sm font-semibold text-[#0a2540] leading-tight mb-2">רוצים לקבל תשלום על קידום Nexus?</p>
-            <a className="text-sm font-bold text-[#0a2540] underline decoration-1 underline-offset-4" href="#">גלו שותפויות</a>
-          </div>
-          <button aria-label="Dismiss banner" className="absolute top-3 left-3 text-gray-500">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12" strokeLinecap="round" strokeLinejoin="round" /></svg>
-          </button>
-        </div>
+        )}
 
         {/* Important Information */}
         <section>
           <h2 className="text-[#5d7079] text-base font-normal mb-1">מידע חשוב</h2>
           <hr className="border-[#e2e8f0] mb-6" />
           <ul className="space-y-6 mb-10">
-            <li className="flex items-start space-x-4">
-              <div className="flex-shrink-0 mt-1">
-                <div className="bg-[#0a2540] rounded-full p-0.5">
-                  <svg className="w-4 h-4" fill="white" viewBox="0 0 20 20"><path clipRule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" fillRule="evenodd" /></svg>
+            {c.info.map((item, i) => (
+              <li key={i} className="flex items-start space-x-4">
+                <div className="flex-shrink-0 mt-1">
+                  <div className={cn('rounded-full p-0.5', item.ok ? 'bg-[#0a2540]' : 'bg-[#c33737]')}>
+                    {item.ok ? (
+                      <svg className="w-4 h-4" fill="white" viewBox="0 0 20 20"><path clipRule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" fillRule="evenodd" /></svg>
+                    ) : (
+                      <svg className="w-4 h-4" fill="white" viewBox="0 0 20 20"><path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" /></svg>
+                    )}
+                  </div>
                 </div>
-              </div>
-              <p className="text-[15px] leading-snug text-[#0a2540]">
-                כל אחד מהחברים שלכם יצטרך להעביר ו/או להוציא בכרטיס Nexus לפחות 500 ₪ . אפשר להגיע לסכום הזה במספר עסקאות.
-              </p>
-            </li>
-            <li className="flex items-start space-x-4">
-              <div className="flex-shrink-0 mt-1">
-                <div className="bg-[#c33737] rounded-full p-0.5">
-                  <svg className="w-4 h-4" fill="white" viewBox="0 0 20 20"><path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" /></svg>
-                </div>
-              </div>
-              <p className="text-[15px] leading-snug text-[#0a2540]">העברות באותו מטבע אינן נספרות.</p>
-            </li>
-            <li className="flex items-start space-x-4">
-              <div className="flex-shrink-0 mt-1">
-                <div className="bg-[#c33737] rounded-full p-0.5">
-                  <svg className="w-4 h-4" fill="white" viewBox="0 0 20 20"><path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" /></svg>
-                </div>
-              </div>
-              <p className="text-[15px] leading-snug text-[#0a2540]">
-                משיכות כספומט, הימורים, קריפטו ו<a className="underline font-semibold underline-offset-2" href="#">תשלומים מסוימים נוספים</a> אינם נספרים.
-              </p>
-            </li>
+                <p className="text-[15px] leading-snug text-[#0a2540]">{item.text}</p>
+              </li>
+            ))}
           </ul>
         </section>
 
@@ -175,10 +258,7 @@ function Screen3() {
   );
 }
 
-const INVITE_URL = 'https://nexus.app/invite/ihpc';
-const INVITE_TEXT = 'הצטרפו אליי ל-Nexus וקבלו 5% קאשבק על 500 ₪ הראשונים שלכם:';
-
-async function handleShare() {
+async function handleShare(c: TrackContent) {
   const nav = navigator as Navigator & {
     contacts?: { select: (props: string[], opts?: { multiple?: boolean }) => Promise<unknown[]> };
   };
@@ -197,7 +277,7 @@ async function handleShare() {
   // 2) Native share sheet (includes Google, WhatsApp, etc.).
   if (nav.share) {
     try {
-      await nav.share({ title: 'Nexus', text: INVITE_TEXT, url: INVITE_URL });
+      await nav.share({ title: 'Nexus', text: c.shareText, url: c.inviteUrl });
       return;
     } catch {
       // user cancelled — fall through to clipboard
@@ -206,34 +286,77 @@ async function handleShare() {
 
   // 3) Last resort: copy the invite link.
   try {
-    await navigator.clipboard.writeText(INVITE_URL);
+    await navigator.clipboard.writeText(c.inviteUrl);
   } catch {
     /* nothing more we can do */
   }
 }
 
+const TRACKS: Track[] = ['friends', 'orgs'];
+
 export default function ReferralStoriesPage() {
+  const [track, setTrack] = useState<Track>('friends');
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const c = CONTENT[track];
+
+  // Switching track swaps the whole page copy, so send the reader back to the
+  // promo card instead of leaving them mid-way through the other track.
+  const pickTrack = (next: Track) => {
+    setTrack(next);
+    scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   return (
     <div className="fixed inset-0 max-w-md mx-auto bg-white z-[100] flex flex-col" dir="rtl">
       {/* Scroll area — the user-icon strip is the FIRST item INSIDE here, in
           normal flow (not pinned). So as the user scrolls down it simply
           scrolls up and off the screen and disappears, like any other page
           content. `flex-1 min-h-0` makes this the single scrolling region.
-          Only the bottom action button below stays fixed. */}
-      <div className="flex-1 min-h-0 overflow-y-auto hide-scrollbar pb-28" style={{ overscrollBehavior: 'contain' }}>
+          Only the bottom action stack below stays fixed. */}
+      <div
+        ref={scrollRef}
+        className="flex-1 min-h-0 overflow-y-auto hide-scrollbar pb-40"
+        style={{ overscrollBehavior: 'contain' }}
+      >
         <TopBar showBack />
-        <Screen1 />
-        <Screen2 />
-        <Screen3 />
+        <Screen1 c={c} />
+        <Screen2 c={c} />
+        <Screen3 c={c} />
       </div>
 
-      {/* Floating action button — overlays the scrolling content with a fully
-          transparent background (no white panel behind it). Matches the dark
-          pill CTA on the business page: navy fill, white text, Nexus logo
-          chip on sky-blue. The wrapper passes touches through; only the
-          button itself is interactive. */}
-      <div className="absolute bottom-0 inset-x-0" style={{ padding: '16px 24px 24px', pointerEvents: 'none' }}>
-        <button onClick={handleShare} className="pointer-events-auto relative w-full overflow-hidden bg-bg-dark text-white py-3.5 rounded-full font-bold text-base shadow-lg shadow-bg-dark/30 flex items-center justify-center gap-1.5">
+      {/* Floating action area — overlays the scrolling content with a fully
+          transparent background (no white panel behind it). The wrapper passes
+          touches through; only the controls themselves are interactive. */}
+      <div className="absolute bottom-0 inset-x-0" style={{ padding: '12px 24px 24px', pointerEvents: 'none' }}>
+        {/* Track switch — friends vs organisations. Same compact glass pill as
+            the billing switch on PremiumPage, recoloured to this page's navy. */}
+        <div className="flex justify-center mb-3">
+          <div className="pointer-events-auto inline-flex items-center gap-1 rounded-full bg-white/80 backdrop-blur-md border border-[#e2e8f0] shadow-sm p-0.5">
+            {TRACKS.map((id) => {
+              const selected = track === id;
+              return (
+                <button
+                  key={id}
+                  onClick={() => pickTrack(id)}
+                  aria-pressed={selected}
+                  className={cn(
+                    'rounded-full px-4 py-1.5 text-[13px] font-semibold transition-all',
+                    selected ? 'bg-[#0a2540] text-white shadow-sm' : 'text-[#5d7079]',
+                  )}
+                >
+                  {CONTENT[id].switchLabel}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Share CTA — navy fill, white text, Nexus logo chip on sky-blue,
+            matching the dark pill CTA on the business page. */}
+        <button
+          onClick={() => handleShare(c)}
+          className="pointer-events-auto relative w-full overflow-hidden bg-bg-dark text-white py-3.5 rounded-full font-bold text-base shadow-lg shadow-bg-dark/30 flex items-center justify-center gap-1.5"
+        >
           <span>שתפו את</span>
           <span className="inline-flex items-center bg-sky-300 rounded-xl px-3 py-1 overflow-hidden" style={{ transform: 'scale(0.873)' }}>
             <img

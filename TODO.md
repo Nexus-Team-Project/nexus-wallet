@@ -9,8 +9,7 @@
 
 ## Referral Program Implementation
 - [ ] **Phase 1 — MVP:** Backend referral code generation + tracking + deep link handling (`?ref=CODE`)
-- [ ] **Phase 2 — Rewards:** Dual-sided ₪25+₪25 signup reward, wallet integration, push notifications
+- [ ] **Phase 2 — Rewards:** Referrer earns ₪100 per 3 friends; friends get extra 5% cashback on first ₪500 spent (per ReferralStoriesPage UI), wallet integration, push notifications
 - [ ] **Phase 3 — Value Actions:** Rewards for insurance, credit card, premium, financial products
 - [ ] **Phase 4 — Chain & Tiers:** Exponential referral (3 generations), Ambassador tiers, custom codes, QR
 - [ ] **Phase 5 — Optimization:** A/B testing, fraud detection, analytics dashboard
-- See full plan: `REFERRAL_PROGRAM.md`
