@@ -8,6 +8,10 @@ export default defineConfig({
   server: {
     port: parseInt(process.env.PORT || '8080'),
     host: true,
+    // Dev-server host check: allow the cloudflared quick-tunnel hostname used
+    // by scripts/dev-with-tunnel.mjs (random per run, so wildcard the domain).
+    // Without this, Vite 403s any request whose Host is not localhost.
+    allowedHosts: ['.trycloudflare.com'],
     watch: {
       // Prevent watching node_modules — huge perf win on Windows
       ignored: ['**/node_modules/**', '**/.git/**'],
