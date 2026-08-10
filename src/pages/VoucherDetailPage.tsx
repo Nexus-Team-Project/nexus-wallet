@@ -8,6 +8,7 @@ import PayCodesPanel from '../components/wallet/PayCodesPanel';
 import { voucherStacks } from '../components/wallet/VoucherCard';
 import WalletCardActions from '../components/wallet/WalletCardActions';
 import ArchiveCardButton from '../components/wallet/ArchiveCardButton';
+import VoucherRefundSheet from '../components/wallet/VoucherRefundSheet';
 
 /** Perceived-luminance check so we pick readable ink on the brand colour. */
 function isDarkColor(hex: string): boolean {
@@ -31,6 +32,7 @@ export default function VoucherDetailPage() {
   const locale = language === 'he' ? 'he-IL' : 'en-IL';
   const { data: vouchers } = useMyVouchers();
   const [logoError, setLogoError] = useState(false);
+  const [showRefundSheet, setShowRefundSheet] = useState(false);
 
   const uv = vouchers?.find((v) => v.id === voucherId);
 
@@ -63,11 +65,21 @@ export default function VoucherDetailPage() {
     { icon: 'verified', label: isRTL ? 'סטטוס' : 'Status', value: statusLabel },
   ];
 
-  const actions: { icon: string; label: string }[] = [
+  const actions: { icon: string; label: string; onClick?: () => void }[] = [
     { icon: 'receipt_long', label: t.wallet.receipt },
     { icon: 'description', label: t.wallet.termsLabel },
     { icon: 'ios_share', label: isRTL ? 'שיתוף' : 'Share' },
   ];
+  // Crediting a voucher back to the balance only makes sense while it's
+  // still active — a used/expired/already-requested voucher has nothing
+  // left to offer this action.
+  if (status === 'active') {
+    actions.push({
+      icon: 'currency_exchange',
+      label: isRTL ? 'זיכוי' : 'Credit',
+      onClick: () => setShowRefundSheet(true),
+    });
+  }
 
   return (
     <div className="relative min-h-dvh bg-white px-5" dir={isRTL ? 'rtl' : 'ltr'}>
@@ -192,10 +204,11 @@ export default function VoucherDetailPage() {
         </div>
 
         {/* Actions */}
-        <div className="grid grid-cols-3 gap-3 mt-5">
+        <div className={`grid gap-3 mt-5 ${actions.length > 3 ? 'grid-cols-4' : 'grid-cols-3'}`}>
           {actions.map((action) => (
             <button
               key={action.label}
+              onClick={action.onClick}
               className="flex flex-col items-center gap-2 rounded-2xl bg-surface border border-border py-4 active:scale-95 transition-transform"
             >
               <span className="material-symbols-outlined text-text-primary" style={{ fontSize: '24px' }}>
@@ -219,6 +232,10 @@ export default function VoucherDetailPage() {
         {/* Move this voucher to the archive (hides it from the wallet deck) */}
         <ArchiveCardButton cardId={`voucher:${uv.id}`} className="mt-3" />
       </motion.div>
+
+      {showRefundSheet && (
+        <VoucherRefundSheet userVoucher={uv} onClose={() => setShowRefundSheet(false)} />
+      )}
     </div>
   );
 }

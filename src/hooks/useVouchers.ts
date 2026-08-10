@@ -28,3 +28,24 @@ export function usePurchaseVoucher() {
     },
   });
 }
+
+export function useMarkVoucherUsed() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (userVoucherId: string) => vouchersApi.markUsed(userVoucherId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['userVouchers'] });
+    },
+  });
+}
+
+export function useRequestVoucherRefund() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (userVoucherId: string) => vouchersApi.requestRefund(userVoucherId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['userVouchers'] });
+      queryClient.invalidateQueries({ queryKey: ['transactions'] });
+    },
+  });
+}

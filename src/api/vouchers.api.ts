@@ -1,4 +1,11 @@
-import { mockGetVouchers, mockGetVoucherById, mockGetUserVouchers, mockPurchaseVoucher } from '../mock/handlers/vouchers.handler';
+import {
+  mockGetVouchers,
+  mockGetVoucherById,
+  mockGetUserVouchers,
+  mockPurchaseVoucher,
+  mockMarkVoucherUsed,
+  mockRequestVoucherRefund,
+} from '../mock/handlers/vouchers.handler';
 import type { VoucherCategory, UserVoucher } from '../types/voucher.types';
 
 /** DEV ONLY — set to true to make getAll() throw, simulating a network error */
@@ -17,4 +24,6 @@ export const vouchersApi = {
   getById: (id: string) => mockGetVoucherById(id),
   getUserVouchers: (status?: UserVoucher['status']) => mockGetUserVouchers(status),
   purchase: (voucherId: string) => mockPurchaseVoucher(voucherId),
+  markUsed: (userVoucherId: string) => mockMarkVoucherUsed(userVoucherId),
+  requestRefund: (userVoucherId: string) => mockRequestVoucherRefund(userVoucherId),
 };

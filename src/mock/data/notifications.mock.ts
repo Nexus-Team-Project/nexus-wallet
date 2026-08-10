@@ -279,4 +279,21 @@ export const mockNotifications: Notification[] = [
     isRead: true,
     deepLink: '/near-you-map',
   },
+  {
+    // Pairs with n_010 (the approved outcome) — this is what a *rejected*
+    // voucher-refund review looks like once decided. Both are seeded
+    // examples, not live-triggered by the refund-request flow itself.
+    id: 'n_015',
+    category: 'refund',
+    priority: 'transactional',
+    sender: NEXUS,
+    subject: CASTRO,
+    title: 'Refund request declined',
+    titleHe: 'בקשת הזיכוי שלך נדחתה',
+    body: 'Your Castro voucher refund request was reviewed and not approved — we found the voucher had already been used.',
+    bodyHe: 'בדקנו את בקשתך לזיכוי שובר קסטרו ולא אישרנו אותה — זיהינו שבוצע שימוש בחלק או בכל השובר.',
+    createdAt: '2026-05-08T10:00:00Z',
+    isRead: true,
+    deepLink: '/activity',
+  },
 ];

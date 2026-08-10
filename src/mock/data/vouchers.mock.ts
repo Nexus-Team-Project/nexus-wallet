@@ -251,7 +251,11 @@ export const mockVouchers: Voucher[] = [
 export const mockUserVouchers: UserVoucher[] = [
   {
     id: 'uv_001', voucherId: 'v_001', voucher: mockVouchers[0],
-    purchasedAt: '2026-02-01T10:30:00Z', expiresAt: '2026-06-30T23:59:59Z',
+    // Kept inside the 14-day voucher-refund window on purpose — this is the
+    // one seeded voucher that demonstrates the "eligible" branch of the
+    // credit flow (see VoucherRefundSheet); every other seed voucher here
+    // is purchased too long ago to ever show it.
+    purchasedAt: '2026-08-03T10:30:00Z', expiresAt: '2026-06-30T23:59:59Z',
     status: 'active', redemptionCode: 'NXS-MCD-8742',
     qrCode: 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=NXS-MCD-8742',
   },

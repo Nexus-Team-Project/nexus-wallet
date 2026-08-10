@@ -71,8 +71,16 @@ export interface UserVoucher {
   voucher: Voucher;
   purchasedAt: string;
   expiresAt: string;
-  status: 'active' | 'used' | 'expired';
+  /**
+   * 'refund_requested' — the holder asked to credit the voucher's value back
+   * to their Nexus balance (only possible within 14 days of `purchasedAt`).
+   * The voucher leaves the active wallet deck immediately; it does not
+   * return to 'active' even if the request is later rejected — only a
+   * manual admin override would restore it.
+   */
+  status: 'active' | 'used' | 'expired' | 'refund_requested';
   redemptionCode: string;
   qrCode: string;
   usedAt?: string;
+  refundRequestedAt?: string;
 }
