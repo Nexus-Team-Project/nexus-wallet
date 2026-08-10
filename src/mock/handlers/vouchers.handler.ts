@@ -85,7 +85,6 @@ export async function mockRequestVoucherRefund(userVoucherId: string): Promise<U
     amount: voucher.discountedPrice,
     currency: voucher.currency,
     status: 'pending',
-    funding: 'earned',
     merchantName: voucher.merchantName,
     merchantLogo: voucher.merchantLogo,
     voucherId: current.voucherId,
