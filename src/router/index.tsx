@@ -19,7 +19,7 @@ import WalletHistorySkeleton from '../components/wallet/WalletHistorySkeleton';
 // Main app tabs — loaded right after initial render
 const HomePage           = lazy(() => import('../pages/HomePage'));
 const VoucherSearch      = lazy(() => import('../pages/VoucherSearch'));
-const WalletPage         = lazy(() => import('../pages/WalletPage'));
+const WalletRoute        = lazy(() => import('../pages/WalletRoute'));
 const ActivityPage       = lazy(() => import('../pages/ActivityPage'));
 const ProfilePage        = lazy(() => import('../pages/ProfilePage'));
 
@@ -192,18 +192,22 @@ export const router = createBrowserRouter([
           // Standalone ready-made gift page (Bnei Akiva — Passover)
           { path: 'gift-sample',               element: <S><GiftSamplePage /></S> },
 
+          // The wallet is PUBLIC: it is where the launch SMS lands, so an
+          // anonymous visitor has to be able to see the offer. WalletRoute
+          // branches to an offer-framed view when nobody is signed in.
+          {
+            path: 'wallet',
+            element: (
+              <Suspense fallback={<WalletPageSkeleton />}>
+                <WalletRoute />
+              </Suspense>
+            ),
+          },
+
           // === PROTECTED routes ===
           {
             element: <ProtectedRoute />,
             children: [
-              {
-                path: 'wallet',
-                element: (
-                  <Suspense fallback={<WalletPageSkeleton />}>
-                    <WalletPage />
-                  </Suspense>
-                ),
-              },
               { path: 'activity',      element: <S><ActivityPage /></S> },
               { path: 'profile',       element: <S><ProfilePage /></S> },
             ],

@@ -1,16 +1,9 @@
 import { collection, query, where, getDocs, limit } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import type { OrgMember } from '../types/auth.types';
+import { toE164 } from '../utils/phone';
 
 const ORG_MEMBERS = 'orgMembers';
-
-/** Normalize Israeli phone to E.164: 050-1234567 → +972501234567 */
-function toE164(phone: string): string {
-  const digits = phone.replace(/\D/g, '');
-  if (digits.startsWith('972')) return `+${digits}`;
-  if (digits.startsWith('0')) return `+972${digits.slice(1)}`;
-  return `+${digits}`;
-}
 
 /** Look up an org member by phone (E.164 format) */
 async function lookupByPhone(phone: string): Promise<OrgMember | null> {

@@ -1,3 +1,5 @@
+import type { GiftResolution } from './gift.types';
+
 export type AuthMethod = 'phone' | 'google' | 'apple';
 
 export interface AuthSession {
@@ -40,4 +42,13 @@ export interface OtpVerifyResult {
     profileComplete: boolean;
     missingFields: string[];
   };
+  /**
+   * Launch-gift eligibility, resolved at the same moment identity is.
+   *
+   * A sibling of registrationContext rather than a member of it: that shape is
+   * duplicated as RegistrationContext in registration.types.ts, and the
+   * returning-user branches in LoginSheet return before registration ever
+   * starts — the gift still has to reach them.
+   */
+  gift?: GiftResolution;
 }

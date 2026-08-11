@@ -15,6 +15,7 @@ import WidgetsGallery from '../components/wallet/WidgetsGallery';
 import BalanceCard from '../components/wallet/BalanceCard';
 import DigitalCard from '../components/wallet/DigitalCard';
 import VoucherCard from '../components/wallet/VoucherCard';
+import GiftClaimTeaser from '../components/wallet/GiftClaimTeaser';
 import TransactionSuccessShell from '../components/ui/TransactionSuccessShell';
 import TopBar from '../components/layout/TopBar';
 import { useTenantStore } from '../stores/tenantStore';
@@ -2133,6 +2134,10 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
           </footer>
         </div>
       )}
+
+      {/* "Landed already signed-in, haven't claimed the gift yet" entry point
+          into the SPAR gift-sample flow — suppressed once inside that flow. */}
+      {!cameFromGift && <GiftClaimTeaser />}
     </div>
   );
 }

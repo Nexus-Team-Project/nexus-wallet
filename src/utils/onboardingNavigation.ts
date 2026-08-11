@@ -6,16 +6,36 @@ export const ONBOARDING_SLIDE_ORDER = [
   'verify-phone',        // conditional — only when phone is in missingFields
   'first-name',          // conditional — shown when firstName OR lastName is missing (collects both)
   'verify-email',        // conditional — only when email is missing AND not already known
-  'consents',            // mandatory — always shown (skipped for preferences-completion path)
-  'motivation',          // mandatory — transitional "VIP" slide before preference questions
-  'purpose',             // optional — user can skip
-  'life-stage',          // optional — user can skip
-  'birthday',            // optional — user can skip
-  'gender',              // optional — user can skip
-  'benefit-categories',  // optional — user can skip (last onboarding slide)
+  'consents',            // retired from the flow — see buildActiveSlides
+  'motivation',          // personalization — transitional slide before the preference questions
+  'purpose',             // personalization — user can skip
+  'life-stage',          // personalization — user can skip
+  'birthday',            // personalization — user can skip
+  'gender',              // personalization — user can skip
+  'benefit-categories',  // personalization — user can skip (last onboarding slide)
 ] as const;
 
 export type OnboardingSlideId = typeof ONBOARDING_SLIDE_ORDER[number];
+
+/**
+ * Slides that exist only to collect personalization data.
+ *
+ * These are shown exclusively on the 'preferences-completion' path — the one a
+ * member opts into from the home-screen teaser (ActiveOffers) — and never
+ * during registration. Personalization is something you choose, not a toll you
+ * pay on the way in.
+ *
+ * `motivation` belongs here because its only job is to sell the five questions
+ * below it; without them it is an empty slide.
+ */
+const PREFERENCE_SLIDES: readonly OnboardingSlideId[] = [
+  'motivation',
+  'purpose',
+  'life-stage',
+  'birthday',
+  'gender',
+  'benefit-categories',
+];
 
 /** Determines which slides should be included in the flow for this user */
 function buildActiveSlides(state: RegistrationState): OnboardingSlideId[] {
@@ -33,9 +53,16 @@ function buildActiveSlides(state: RegistrationState): OnboardingSlideId[] {
       return state.missingFields.includes('email') && !state.profileData.email;
     }
     if (slide === 'consents') {
-      // Skip consents for preferences-completion path:
-      // returning users already gave consent at initial signup.
-      return state.registrationPath !== 'preferences-completion';
+      // Never shown. Consent is already collected — and actually persisted — by
+      // the marketing opt-in checkbox in LoginSheet, which calls
+      // firebaseSaveConsent() + setMarketingConsent() the moment OTP succeeds.
+      // This slide wrote to registrationStore.consents, which nothing ever read
+      // and which completeRegistration() then nulled. Removing it loses no
+      // consent. The route and ConsentsSlide stay for FlowTestPage.
+      return false;
+    }
+    if (PREFERENCE_SLIDES.includes(slide)) {
+      return state.registrationPath === 'preferences-completion';
     }
     return true;
   });
@@ -47,7 +74,10 @@ function buildActiveSlides(state: RegistrationState): OnboardingSlideId[] {
  */
 export function getFirstOnboardingSlide(state: RegistrationState): OnboardingSlideId {
   const slides = buildActiveSlides(state);
-  return slides[0] ?? 'consents';
+  // Fallback covers the degenerate case where nothing is missing. 'first-name'
+  // is the only safe landing: it renders, and its Continue resolves next → null
+  // → /register/complete. (It used to be 'consents', which is now never active.)
+  return slides[0] ?? 'first-name';
 }
 
 /**
@@ -105,12 +135,16 @@ export function getOnboardingProgress(
   };
 }
 
-/** Returns true if the given slide is mandatory (cannot be skipped) */
+/**
+ * Returns true if the given slide is mandatory (cannot be skipped).
+ *
+ * `motivation` stays mandatory: it is only ever active on the
+ * 'preferences-completion' path, where it is the entry slide.
+ */
 export function isMandatorySlide(slide: OnboardingSlideId): boolean {
   return (
     slide === 'verify-phone' ||
     slide === 'first-name' ||
-    slide === 'consents' ||
     slide === 'motivation'
   );
 }

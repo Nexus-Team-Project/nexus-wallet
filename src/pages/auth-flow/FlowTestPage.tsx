@@ -5,7 +5,8 @@
  * מסמלץ את 3 מצבי הזיהוי בלי להצטרך לעבור דרך Google/Phone Auth.
  */
 
-import { useNavigate, useParams } from 'react-router-dom';
+import { useEffect } from 'react';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
 import { useRegistrationStore } from '../../stores/registrationStore';
 import { getFirstOnboardingSlide } from '../../utils/onboardingNavigation';
@@ -13,10 +14,13 @@ import { useTenantStore } from '../../stores/tenantStore';
 import { mockTenants } from '../../mock/data/tenants.mock';
 import { queryClient } from '../../App';
 import { __devSetVouchersError } from '../../api/vouchers.api';
+import { giftApi } from '../../api/gift.api';
+import { SPAR_GIFT_CLAIMED_KEY } from '../GiftSamplePage';
 
 export default function FlowTestPage() {
   const { lang = 'he' } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
 
   const login = useAuthStore((s) => s.login);
@@ -270,6 +274,27 @@ export default function FlowTestPage() {
     setTimeout(() => navigate(`/${lang}/auth-flow/org-user`), 50);
   };
 
+  // ─── One-link deep test: ?goto=spar-wallet-teaser ─────────────────────
+  // Lands an authenticated, no-org, un-claimed-gift user straight on the
+  // wallet with SPAR active — exactly the state GiftClaimTeaser needs to
+  // render. Skips the manual "click a button, then navigate" dance.
+  useEffect(() => {
+    if (searchParams.get('goto') !== 'spar-wallet-teaser') return;
+    reset();
+    const sparTenant = mockTenants['spar'];
+    if (sparTenant) setTenant(sparTenant.id, sparTenant);
+    login({
+      token: 'mock-token-spar-teaser',
+      userId: 'user-spar-teaser',
+      method: 'phone',
+      isOrgMember: false,
+    });
+    useAuthStore.getState().setProfileCompleted(true);
+    try { localStorage.removeItem(SPAR_GIFT_CLAIMED_KEY); } catch { /* private mode */ }
+    setTimeout(() => navigate(`/${lang}/wallet?tenant=spar`), 50);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
   return (
     <div
       className="min-h-dvh w-full max-w-md mx-auto bg-surface flex flex-col px-5 py-8"
@@ -460,6 +485,49 @@ export default function FlowTestPage() {
           >
             🏢 Org member → consents (ישיר)
           </button>
+          {/* Launch-gift ledger controls. The ledger lives in localStorage
+              (nexus_gift_ledger_v1) and is deliberately NOT cleared by logout,
+              so walking the flow twice needs an explicit reset. */}
+          <div className="border-t border-dashed border-purple-200 pt-2">
+            <p className="text-[10px] text-purple-400 font-bold mb-2">מתנת השקה (₪25):</p>
+            <div className="grid grid-cols-3 gap-1.5">
+              <button
+                onClick={async () => {
+                  await giftApi.reset();
+                  queryClient.invalidateQueries();
+                  alert('Gift ledger wiped — the next OTP grants a fresh ₪25.');
+                }}
+                className="py-2 rounded-lg bg-purple-100 text-purple-700 text-[11px] font-semibold active:scale-95 transition-all"
+              >
+                אפס פנקס
+              </button>
+              <button
+                onClick={async () => {
+                  const g = await giftApi.expire();
+                  queryClient.invalidateQueries();
+                  alert(g ? 'Gift forced to expired.' : 'No gift on this device.');
+                }}
+                className="py-2 rounded-lg bg-purple-100 text-purple-700 text-[11px] font-semibold active:scale-95 transition-all"
+              >
+                פג תוקף
+              </button>
+              <button
+                onClick={async () => {
+                  const g = await giftApi.get();
+                  const a = await giftApi.getAvailability();
+                  alert(
+                    g
+                      ? `status: ${g.status}\namount: ₪${g.amount}\nmin: ₪${g.conditions.minPurchase}\nbrands: ${g.conditions.eligibleBrandIds.join(', ')}\nexpires: ${g.expiresAt}`
+                      : `No gift.\nCampaign open: ${a.open}\nSlots left: ${a.remainingSlots}`,
+                  );
+                }}
+                className="py-2 rounded-lg bg-purple-100 text-purple-700 text-[11px] font-semibold active:scale-95 transition-all"
+              >
+                מצב נוכחי
+              </button>
+            </div>
+          </div>
+
           {/* Direct links to each slide */}
           <div className="border-t border-dashed border-purple-200 pt-2">
             <p className="text-[10px] text-purple-400 font-bold mb-2">קפיצה ישירה לשקף:</p>

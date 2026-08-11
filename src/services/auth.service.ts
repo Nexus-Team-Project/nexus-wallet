@@ -12,6 +12,8 @@ import {
 import { auth } from '../lib/firebase';
 import type { AuthSession, OrgMember, OtpVerifyResult } from '../types/auth.types';
 import { lookupOrgMember } from './orgMember.service';
+import { resolveOpeningGift } from './gift.service';
+import { toE164 } from '../utils/phone';
 
 // ── Internal state ──
 
@@ -23,14 +25,9 @@ let recaptchaVerifier: RecaptchaVerifier | null = null;
 let lastPhone = '';
 
 // ── Helpers ──
-
-/** Convert Israeli phone (050-1234567) to E.164 (+972501234567) */
-function toE164(phone: string): string {
-  const digits = phone.replace(/\D/g, '');
-  if (digits.startsWith('972')) return `+${digits}`;
-  if (digits.startsWith('0')) return `+972${digits.slice(1)}`;
-  return `+972${digits}`;
-}
+// toE164 now lives in utils/phone.ts — it is shared with orgMember.service and
+// with the gift ledger, which is keyed on the normalized number. Two spellings
+// of one phone would mean two grants.
 
 function getOrCreateRecaptcha(): RecaptchaVerifier {
   if (recaptchaVerifier) return recaptchaVerifier;
@@ -235,7 +232,8 @@ export async function firebaseSendOtp(
 
 export async function firebaseVerifyOtp(
   _phone: string,
-  code: string
+  code: string,
+  tenantId?: string | null
 ): Promise<OtpVerifyResult> {
   // ── Dev bypass: code 1111 skips Firebase Auth + Firestore entirely ──
   if (code === '1111') {
@@ -254,6 +252,7 @@ export async function firebaseVerifyOtp(
         profileComplete: true,
         missingFields: [],
       },
+      gift: await resolveOpeningGift(e164, tenantId),
     };
   }
 
@@ -283,6 +282,7 @@ export async function firebaseVerifyOtp(
         profileComplete: false,
         missingFields,
       },
+      gift: await resolveOpeningGift(e164, tenantId),
     };
   }
 
@@ -295,8 +295,12 @@ export async function firebaseVerifyOtp(
     const user = result.user;
     const idToken = await user.getIdToken();
 
-    // Look up org member by phone in Firestore
+    // Look up org member by phone in Firestore.
+    // The gift key MUST match the one the dev branches above produce, or the
+    // same human is granted twice. user.phoneNumber can come back empty, so
+    // fall back through the same inputs those branches use.
     const phone = user.phoneNumber || '';
+    const e164 = toE164(phone || _phone || lastPhone);
     const orgMember = await lookupOrgMember({ phone });
 
     const session: AuthSession = {
@@ -321,6 +325,12 @@ export async function firebaseVerifyOtp(
         profileComplete: false,
         missingFields,
       },
+      // '+972' alone means we never had a usable number — resolve nothing
+      // rather than granting against a junk key.
+      gift:
+        e164.length > 4
+          ? await resolveOpeningGift(e164, tenantId)
+          : { outcome: 'not-resolved' as const },
     };
   } catch (error) {
     console.error('OTP verification failed:', error);

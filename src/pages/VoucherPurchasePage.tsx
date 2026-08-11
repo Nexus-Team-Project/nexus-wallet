@@ -6,12 +6,20 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useLanguage } from '../i18n/LanguageContext';
 import { mockVouchers, mockUserVouchers } from '../mock/data/vouchers.mock';
 import { mockBusinesses } from '../mock/data/businesses.mock';
+import { mockTransactions } from '../mock/data/transactions.mock';
+import { mockSubBalances } from '../mock/data/subBalances.mock';
 import type { VoucherVariant } from '../types/voucher.types';
 import AnimatedActionIcon from '../components/layout/AnimatedActionIcon';
 import StoreTile from '../components/home/StoreTile';
 import giftActionUrl from '../assets/animations/action-gift.json?url';
 import type { GiftDetails } from './GiftDetailsPage';
-import { usePaymentMethods } from '../hooks/usePaymentMethods';
+import { usePaymentMethods, type PaymentMethod } from '../hooks/usePaymentMethods';
+import { useWallet } from '../hooks/useWallet';
+import PaymentOptionsSheet from '../components/wallet/PaymentOptionsSheet';
+import SplitPaymentSheet, { type SplitAmounts } from '../components/wallet/SplitPaymentSheet';
+import { useOpeningGift, useRedeemOpeningGift, useGiftAvailability } from '../hooks/useOpeningGift';
+import { evaluateLaunchGift, computeOrderTotals } from '../utils/launchGift';
+import { useAuthGate } from '../hooks/useAuthGate';
 import PaymentBrandMark from '../components/wallet/PaymentBrandMark';
 import AutoCarousel from '../components/ui/AutoCarousel';
 import PaymentsPlanSheet from '../components/business/PaymentsPlanSheet';
@@ -537,6 +545,198 @@ function HowItWorksSheet({ isHe, businessName, onClose }: { isHe: boolean; busin
   );
 }
 
+/* ─── Launch-gift row ─────────────────────────────────────────────────── */
+
+type LaunchGiftRowState =
+  | 'applied'
+  | 'opted-out'
+  | 'below-minimum'
+  | 'not-launch-brand'
+  /** Not signed in: an OFFER, never a balance. No "your", no padlock. */
+  | 'anonymous'
+  /** Signed in and ineligible, or already spent. Silence is the right answer. */
+  | 'hidden';
+
+function LaunchGiftRow({
+  state,
+  amount,
+  shortfall,
+  minPurchase,
+  campaignOpen,
+  isHe,
+  isRTL,
+  onApply,
+  onRemove,
+  onShowBrands,
+  onJoin,
+}: {
+  state: LaunchGiftRowState;
+  amount: number;
+  shortfall?: number;
+  minPurchase?: number;
+  campaignOpen: boolean;
+  isHe: boolean;
+  isRTL: boolean;
+  onApply: () => void;
+  onRemove: () => void;
+  onShowBrands: () => void;
+  onJoin: () => void;
+}) {
+  // Never advertise a gift a signed-in member cannot have, and never mention it
+  // once the campaign cap is exhausted.
+  if (state === 'hidden') return null;
+  if (state === 'anonymous' && !campaignOpen) return null;
+
+  const dir = isRTL ? 'rtl' : 'ltr';
+
+  if (state === 'applied') {
+    return (
+      <div
+        className="flex items-center gap-2 px-4 py-3 bg-primary/5 border-y border-primary/20"
+        dir={dir}
+      >
+        <span className="material-symbols-rounded text-primary shrink-0" style={{ fontSize: 20 }}>
+          card_giftcard
+        </span>
+        <span className="flex-1 text-sm font-bold text-text-primary truncate">
+          {isHe ? `מתנת פתיחה ₪${amount} הופעלה` : `₪${amount} opening gift applied`}
+        </span>
+        <button
+          type="button"
+          onClick={onRemove}
+          className="shrink-0 text-sm font-semibold text-text-muted active:opacity-60 transition-opacity"
+        >
+          {isHe ? 'הסרה' : 'Remove'}
+        </button>
+      </div>
+    );
+  }
+
+  if (state === 'opted-out') {
+    return (
+      <div className="flex items-center gap-2 px-4 py-3" dir={dir}>
+        <span className="material-symbols-rounded text-primary shrink-0" style={{ fontSize: 20 }}>
+          card_giftcard
+        </span>
+        <span className="flex-1 text-sm font-semibold text-text-primary truncate">
+          {isHe ? `השתמשו במתנת הפתיחה ₪${amount}` : `Use your ₪${amount} opening gift`}
+        </span>
+        <button
+          type="button"
+          onClick={onApply}
+          className="shrink-0 text-sm font-bold text-primary active:opacity-60 transition-opacity"
+        >
+          {isHe ? 'הפעלה' : 'Apply'}
+        </button>
+      </div>
+    );
+  }
+
+  if (state === 'anonymous') {
+    return (
+      <div className="flex items-center gap-2 px-4 py-3" dir={dir}>
+        <span className="material-symbols-rounded text-primary shrink-0" style={{ fontSize: 20 }}>
+          card_giftcard
+        </span>
+        {/* Conditional and impersonal throughout — this money belongs to nobody
+            yet, so the copy must not imply otherwise. */}
+        <span className="flex-1 text-[13px] text-text-secondary leading-snug">
+          {isHe
+            ? `חדשים בנקסוס? מתנת פתיחה ₪${amount} בקנייה מעל ₪${minPurchase ?? 100} במותגי ההשקה`
+            : `New to Nexus? A ₪${amount} opening gift on orders over ₪${minPurchase ?? 100} at launch brands`}
+        </span>
+        <button
+          type="button"
+          onClick={onJoin}
+          className="shrink-0 text-sm font-bold text-primary active:opacity-60 transition-opacity"
+        >
+          {isHe ? 'הצטרפות' : 'Join'}
+        </button>
+      </div>
+    );
+  }
+
+  // Blocked states. The lock glyph is honest here: the money IS theirs, it just
+  // isn't unlocked for this particular transaction yet.
+  const isBelowMin = state === 'below-minimum';
+  return (
+    <div className="flex items-center gap-2 px-4 py-3" dir={dir}>
+      <span className="material-symbols-rounded text-text-muted shrink-0" style={{ fontSize: 20 }}>
+        lock
+      </span>
+      <span className="flex-1 text-[13px] text-text-muted leading-snug">
+        {isBelowMin
+          ? isHe
+            ? `הוסיפו ₪${shortfall ?? 0} כדי להשתמש במתנה ₪${amount} (מינימום ₪${minPurchase ?? 100})`
+            : `Add ₪${shortfall ?? 0} more to use your ₪${amount} gift (min ₪${minPurchase ?? 100})`
+          : isHe
+            ? `מתנת הפתיחה ₪${amount} תקפה במותגי ההשקה`
+            : `Your ₪${amount} opening gift is valid at launch brands`}
+      </span>
+      {!isBelowMin && (
+        <button
+          type="button"
+          onClick={onShowBrands}
+          className="shrink-0 text-sm font-bold text-primary active:opacity-60 transition-opacity"
+        >
+          {isHe ? 'לרשימה' : 'See list'}
+        </button>
+      )}
+    </div>
+  );
+}
+
+/* ─── Launch brands sheet ─────────────────────────────────────────────── */
+
+function LaunchBrandsSheet({
+  isHe,
+  brandIds,
+  onClose,
+}: {
+  isHe: boolean;
+  brandIds: string[];
+  onClose: () => void;
+}) {
+  const brands = brandIds
+    .map((id) => mockBusinesses.find((b) => b.id === id))
+    .filter((b): b is (typeof mockBusinesses)[number] => !!b);
+
+  return (
+    <VoucherSheet
+      isHe={isHe}
+      title={isHe ? 'מותגי ההשקה' : 'Launch brands'}
+      onClose={onClose}
+    >
+      <p className="text-sm text-text-secondary leading-relaxed mb-5">
+        {isHe
+          ? 'מתנת הפתיחה ניתנת למימוש במותגים הבאים.'
+          : 'The opening gift can be redeemed at these brands.'}
+      </p>
+      <div className="space-y-2">
+        {brands.map((b) => (
+          <div key={b.id} className="flex items-center gap-3 py-2">
+            <div className="w-10 h-10 rounded-xl bg-white border border-border/60 overflow-hidden flex items-center justify-center shrink-0">
+              {b.logoUrl ? (
+                <img src={b.logoUrl} alt="" className="w-7 h-7 object-contain" />
+              ) : (
+                <span className="text-lg">{b.logo}</span>
+              )}
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-bold text-text-primary truncate">
+                {isHe ? b.nameHe : b.name}
+              </p>
+              <p className="text-xs text-text-muted truncate">
+                {isHe ? b.categoryHe : b.category}
+              </p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </VoucherSheet>
+  );
+}
+
 /* ─── Loading skeleton ────────────────────────────────────────────────── */
 
 // Brief artificial hold so the create-voucher page shows a loading skeleton
@@ -652,9 +852,42 @@ export default function VoucherPurchasePage() {
   const [roundUp, setRoundUp] = useState(false);
   const [summaryOpen, setSummaryOpen] = useState(true);
   const [couponCode, setCouponCode] = useState('');
+  const { isAuthenticated, requireAuth } = useAuthGate();
+  const { data: launchGift } = useOpeningGift();
+  /** Read-only probe. Never grants, never reserves a cap slot. */
+  const { data: giftAvailability } = useGiftAvailability();
+  const redeemGift = useRedeemOpeningGift();
+  /**
+   * Explicit opt-out only. `giftOn` is DERIVED from this plus eligibility
+   * rather than being a `useState(true)` that effects reset — that shape is how
+   * "I removed it and it silently came back" bugs happen. This way eligibility
+   * can flap (tier 300 → custom 90 → tier 300) and restore itself, while a
+   * deliberate Remove sticks for the session.
+   */
+  const [giftOptedOut, setGiftOptedOut] = useState(false);
+  const [launchBrandsOpen, setLaunchBrandsOpen] = useState(false);
   const { data: paymentMethods } = usePaymentMethods();
+  const { data: wallet } = useWallet();
   const [payMethodId, setPayMethodId] = useState(paymentMethods[0]?.id ?? '');
   const [paymentOpen, setPaymentOpen] = useState(true);
+  const [paymentOptionsOpen, setPaymentOptionsOpen] = useState(false);
+  const [splitSheetOpen, setSplitSheetOpen] = useState(false);
+  const [splitAmounts, setSplitAmounts] = useState<SplitAmounts | null>(null);
+  // Only the Nexus wallet has a real ceiling in this mock — regular cards
+  // and wallets are treated as uncapped for the waterfall fill.
+  const availableForSplit = useCallback(
+    (m: PaymentMethod) => (m.brand === 'nexus' ? wallet?.availableBalance ?? wallet?.balance ?? 0 : Infinity),
+    [wallet],
+  );
+  // Same composition as the balance-detail page's "sub-balances" tab —
+  // shown nested under the Nexus row in the split sheet.
+  const nexusBreakdown = {
+    cashback: wallet?.totalEarned ?? 0,
+    credits: mockTransactions
+      .filter((t) => t.type === 'refund' && t.status === 'completed')
+      .reduce((sum, t) => sum + t.amount, 0),
+    gifts: mockSubBalances.reduce((sum, sb) => sum + sb.amount, 0),
+  };
   const [connectedWallets, setConnectedWallets] = useState<Record<string, boolean>>({ bit: false, paybox: false });
   const walletOptions: { id: string; label: string; labelHe: string; color: string; logo?: string }[] = [
     { id: 'bit', label: 'bit', labelHe: 'ביט', color: '#E5007D', logo: '/logos/bit.png' },
@@ -748,10 +981,46 @@ export default function VoucherPurchasePage() {
   const currentTier = AMOUNT_TIERS[selectedTierIdx];
   const customAmountNum = parseInt(customAmount, 10);
   const isCustom = Number.isFinite(customAmountNum) && customAmountNum > 0;
+  /** Per-card face value. */
   const displayAmount = isCustom ? customAmountNum : (currentTier?.amount ?? 0);
   const cashbackRate = stackable ? 20 : 60;
-  const total = displayAmount * qty;
-  const cashbackAmount = Math.round(total * cashbackRate / 100);
+
+  // ── Launch gift: applicability (question B) ──────────────────────────────
+  // Eligibility (question A) was already decided at OTP. `launchGift` is null
+  // for anonymous visitors and for anyone who signed in without a phone, so
+  // this collapses to 'no-gift' and the page behaves exactly as before.
+  //
+  // Owner decision: the minimum is measured on the TRANSACTION (cart) total.
+  // Switch this to `displayAmount` to make it per-card instead.
+  const giftQualifyingAmount = displayAmount * qty;
+
+  const giftApplicability = evaluateLaunchGift({
+    gift: launchGift ?? null,
+    businessId,
+    qualifyingAmount: giftQualifyingAmount,
+  });
+  const giftAvailable = giftApplicability.applicable;
+  const giftOn = giftAvailable && !giftOptedOut;
+
+  const { subtotal, giftApplied, cashDue, cashbackAmount } = computeOrderTotals({
+    unitAmount: displayAmount,
+    qty,
+    cashbackRate,
+    giftAmount: giftOn ? giftApplicability.amount : 0,
+  });
+
+  // `total` keeps its name and its meaning: cash due. Every downstream reader
+  // (installments, split bill, payment method, success page) already treats it
+  // that way and stays correct. `subtotal` is the new pre-gift figure.
+  const total = cashDue;
+
+  // Match PaymentsSchedule's round2 rather than Math.round, so the card and the
+  // schedule below it never disagree. Invisible while totals were 100/200/300/
+  // 500; with a gift applied they become 75/175/275/475 and "₪38" would sit
+  // next to a schedule reading "₪37.50".
+  const installmentLabel = (
+    Math.round((total / paymentsCount) * 100) / 100
+  ).toLocaleString(undefined, { maximumFractionDigits: 2 });
 
 
   const categoryGradients: Record<string, string> = {
@@ -1251,6 +1520,48 @@ export default function VoucherPurchasePage() {
 
               <div className="border-t border-border/60" />
 
+              {/* Launch-gift affordance. Sits in the coupon row's slot but is
+                  NOT the coupon input: the gift is already the member's money,
+                  so making them type a code to unlock it would reframe it as
+                  something to discover. The DOM slot is kept mounted across
+                  every state — when a custom amount drops below the minimum the
+                  total jumps, and the only acceptable explanation is this row
+                  changing in place from "applied" to "add ₪X more". */}
+              <LaunchGiftRow
+                state={
+                  !isAuthenticated && giftApplicability.reason === 'no-gift'
+                    ? 'anonymous'
+                    : giftOn
+                      ? 'applied'
+                      : giftAvailable
+                        ? 'opted-out'
+                        : giftApplicability.reason === 'below-minimum'
+                          ? 'below-minimum'
+                          : giftApplicability.reason === 'not-launch-brand'
+                            ? 'not-launch-brand'
+                            : 'hidden'
+                }
+                amount={giftApplicability.applicable ? giftApplicability.amount : giftAvailability?.amount ?? 25}
+                shortfall={'shortfall' in giftApplicability ? giftApplicability.shortfall : undefined}
+                minPurchase={
+                  ('minPurchase' in giftApplicability ? giftApplicability.minPurchase : undefined) ??
+                  giftAvailability?.minPurchase
+                }
+                campaignOpen={!!giftAvailability?.open}
+                isHe={isHe}
+                isRTL={isRTL}
+                onApply={() => setGiftOptedOut(false)}
+                onRemove={() => setGiftOptedOut(true)}
+                onShowBrands={() => setLaunchBrandsOpen(true)}
+                onJoin={() =>
+                  requireAuth({
+                    promptMessage: isHe
+                      ? `הרשמה כדי לקבל מתנת פתיחה של ₪${giftAvailability?.amount ?? 25}`
+                      : `Sign up to receive a ₪${giftAvailability?.amount ?? 25} opening gift`,
+                  })
+                }
+              />
+
               {/* Coupon code input */}
               <div className="flex items-center px-4 py-3" dir={isRTL ? 'rtl' : 'ltr'}>
                 <input
@@ -1273,14 +1584,36 @@ export default function VoucherPurchasePage() {
 
               {/* Line items */}
               <div className="px-4 py-3 space-y-2.5" dir={isRTL ? 'rtl' : 'ltr'}>
+                {qty > 1 && (
+                  <>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="font-medium text-text-primary">₪{displayAmount}</span>
+                      <span className="text-text-secondary">{isHe ? 'מחיר ליחידה' : 'Unit price'}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="font-medium text-text-primary">×{qty}</span>
+                      <span className="text-text-secondary">{isHe ? 'כמות' : 'Quantity'}</span>
+                    </div>
+                  </>
+                )}
+                {/* Subtotal is the PRE-GIFT gross. It used to render
+                    `displayAmount`, ignoring qty — already inconsistent with the
+                    product row above, and outright wrong once a discount row
+                    sits between it and the total. */}
                 <div className="flex items-center justify-between text-sm">
-                  <span className="font-medium text-text-primary">₪{displayAmount}</span>
+                  <span className="font-medium text-text-primary">₪{subtotal}</span>
                   <span className="text-text-secondary">{isHe ? 'סכום ביניים' : 'Subtotal'}</span>
                 </div>
-                {qty > 1 && (
+                {/* Gift sits BETWEEN subtotal and cashback so that
+                    Subtotal − Gift = Total reads as one unbroken subtraction,
+                    leaving the cashback "+₪" as the single acknowledged break in
+                    the chain. text-primary, not green: green on this page means
+                    cashback, and the two are not the same kind of number — one
+                    reduces what you pay now, the other is credit you get later. */}
+                {giftApplied > 0 && (
                   <div className="flex items-center justify-between text-sm">
-                    <span className="font-medium text-text-primary">×{qty}</span>
-                    <span className="text-text-secondary">{isHe ? 'כמות' : 'Quantity'}</span>
+                    <span className="font-medium text-primary">−₪{giftApplied}</span>
+                    <span className="text-text-secondary">{isHe ? 'מתנת פתיחה' : 'Opening gift'}</span>
                   </div>
                 )}
                 <div className="flex items-center justify-between text-sm">
@@ -1292,6 +1625,17 @@ export default function VoucherPurchasePage() {
                     <span className="text-text-secondary">{isHe ? `קאשבק (${cashbackRate}%)` : `Cashback (${cashbackRate}%)`}</span>
                   </div>
                 </div>
+                {/* Says out loud the one number a member would otherwise
+                    dispute — "why ₪20 cashback when I paid ₪75?" — and keeps the
+                    pre-gift rule visible in the product, not just in a comment.
+                    Cheapest regression detector we have for it. */}
+                {giftApplied > 0 && (
+                  <p className="text-[11px] text-text-muted -mt-1">
+                    {isHe
+                      ? `הקאשבק מחושב על ₪${subtotal} המלאים`
+                      : `Cashback is calculated on the full ₪${subtotal}`}
+                  </p>
+                )}
                 <div className="flex items-center justify-between pt-2 border-t border-border/60">
                   <span className="text-base font-bold text-text-primary">₪{total}</span>
                   <span className="text-base font-bold text-text-primary">{isHe ? 'לתשלום' : 'Total'}</span>
@@ -1304,19 +1648,28 @@ export default function VoucherPurchasePage() {
 
         {/* ── Payment method ── */}
         <section className="px-5 mt-8">
-          <button
-            onClick={() => setPaymentOpen((v) => !v)}
-            aria-expanded={paymentOpen}
-            className="w-full flex items-center justify-between gap-3 mb-3"
-          >
-            <h2 className="text-xl font-bold text-text-primary">{isHe ? 'אמצעי תשלום' : 'Payment method'}</h2>
-            <span
-              className="material-symbols-rounded text-text-muted transition-transform"
-              style={{ fontSize: 22, transform: paymentOpen ? 'rotate(180deg)' : 'none' }}
+          <div className="w-full flex items-center gap-1 mb-3">
+            <button
+              onClick={() => setPaymentOpen((v) => !v)}
+              aria-expanded={paymentOpen}
+              className="flex-1 flex items-center justify-between gap-3"
             >
-              expand_more
-            </span>
-          </button>
+              <h2 className="text-xl font-bold text-text-primary">{isHe ? 'אמצעי תשלום' : 'Payment method'}</h2>
+              <span
+                className="material-symbols-rounded text-text-muted transition-transform"
+                style={{ fontSize: 22, transform: paymentOpen ? 'rotate(180deg)' : 'none' }}
+              >
+                expand_more
+              </span>
+            </button>
+            <button
+              onClick={() => setPaymentOptionsOpen(true)}
+              aria-label={isHe ? 'אפשרויות תשלום' : 'Payment options'}
+              className="w-8 h-8 inline-flex items-center justify-center rounded-full text-text-muted active:bg-surface transition-colors flex-shrink-0"
+            >
+              <span className="material-symbols-rounded" style={{ fontSize: 22 }}>more_vert</span>
+            </button>
+          </div>
           {paymentOpen && (
             <div className="border border-border rounded-2xl bg-white shadow-sm p-4">
               {(walletMethod || selectedPayMethod) && (
@@ -1350,15 +1703,34 @@ export default function VoucherPurchasePage() {
                 </div>
               )}
               <div className="-mx-4 px-4 mt-4">
-                <div className="flex overflow-x-auto overscroll-x-contain scrollbar-hide gap-3 snap-x snap-proximity scroll-px-4 pb-1 touch-pan-x">
+                <div className="flex overflow-x-auto overscroll-x-contain scrollbar-hide gap-3 snap-x snap-proximity scroll-px-4 pt-2 pb-1 touch-pan-x">
                   {paymentMethods.map((m) => {
-                    const active = m.id === payMethodId;
+                    // A method also counts as selected when the split covers
+                    // it (any of its buckets, for Nexus) with a positive amount.
+                    const splitBucketsUsed = splitAmounts
+                      ? Object.entries(splitAmounts).filter(
+                          ([key, value]) => value > 0 && (key === m.id || key.startsWith(`${m.id}:`)),
+                        ).length
+                      : 0;
+                    const active = m.id === payMethodId || splitBucketsUsed > 0;
+                    // More than one Nexus sub-balance funding this purchase —
+                    // show how many instead of a plain checkmark.
+                    const badgeCount = m.brand === 'nexus' && splitBucketsUsed > 1 ? splitBucketsUsed : null;
                     return (
                       <button
                         key={m.id}
                         onClick={() => setPayMethodId(m.id)}
-                        className={`flex-none w-36 snap-start rounded-xl border p-3 flex flex-col items-center gap-2 bg-white transition-colors ${active ? 'border-primary shadow-sm' : 'border-border'}`}
+                        className={`relative flex-none w-36 snap-start rounded-xl border p-3 flex flex-col items-center gap-2 bg-white transition-colors ${active ? 'border-primary shadow-sm' : 'border-border'}`}
                       >
+                        {active && (
+                          <span className="absolute -top-1.5 -end-1.5 min-w-[20px] h-5 px-1 rounded-full bg-primary text-white flex items-center justify-center shadow">
+                            {badgeCount ? (
+                              <span className="text-[11px] font-bold leading-none">{badgeCount}</span>
+                            ) : (
+                              <span className="material-symbols-rounded" style={{ fontSize: 14, fontVariationSettings: "'FILL' 1" }}>check</span>
+                            )}
+                          </span>
+                        )}
                         <PaymentBrandMark brand={m.brand} />
                         <span className="text-xs font-medium text-text-secondary text-center leading-tight truncate w-full" dir="ltr">
                           {m.last4 ? `···· ${m.last4}` : (isHe ? m.labelHe : m.label)}
@@ -1407,6 +1779,21 @@ export default function VoucherPurchasePage() {
                   </button>
                 </div>
               </div>
+            </div>
+          )}
+          {splitAmounts && (
+            <div className="flex items-center justify-between gap-3 mt-3 px-4 py-3 rounded-2xl bg-surface border border-border">
+              <span className="text-sm font-semibold text-text-primary">
+                {isHe
+                  ? `מפוצל בין ${Object.values(splitAmounts).filter((v) => v > 0).length} אמצעי תשלום`
+                  : `Split across ${Object.values(splitAmounts).filter((v) => v > 0).length} payment methods`}
+              </span>
+              <button
+                onClick={() => setSplitSheetOpen(true)}
+                className="text-sm font-semibold text-primary flex-shrink-0"
+              >
+                {isHe ? 'עריכה' : 'Edit'}
+              </button>
             </div>
           )}
         </section>
@@ -1459,8 +1846,8 @@ export default function VoucherPurchasePage() {
                   {paymentsCount === 1
                     ? (isHe ? 'תשלום אחד' : 'One payment')
                     : (isHe
-                        ? `${paymentsCount} תשלומים של ₪${Math.round(total / paymentsCount)}`
-                        : `${paymentsCount} payments of ₪${Math.round(total / paymentsCount)}`)}
+                        ? `${paymentsCount} תשלומים של ₪${installmentLabel}`
+                        : `${paymentsCount} payments of ₪${installmentLabel}`)}
                 </span>
                 <button
                   onClick={() => setPaymentsSheetOpen(true)}
@@ -1518,6 +1905,28 @@ export default function VoucherPurchasePage() {
             onSave={(n: number) => { setPaymentsCount(n); setPaymentsSheetOpen(false); }}
           />
         )}
+
+        <PaymentOptionsSheet
+          isOpen={paymentOptionsOpen}
+          onClose={() => setPaymentOptionsOpen(false)}
+          onSelectSplit={() => {
+            setPaymentOptionsOpen(false);
+            setSplitSheetOpen(true);
+          }}
+        />
+
+        <SplitPaymentSheet
+          isOpen={splitSheetOpen}
+          onClose={() => setSplitSheetOpen(false)}
+          methods={paymentMethods}
+          total={total}
+          availableFor={availableForSplit}
+          nexusBreakdown={nexusBreakdown}
+          onConfirm={(amounts) => {
+            setSplitAmounts(amounts);
+            setSplitSheetOpen(false);
+          }}
+        />
 
         {/* ── About the business ── */}
         <section className="px-5 pt-6">
@@ -1638,10 +2047,27 @@ export default function VoucherPurchasePage() {
                 };
                 mockUserVouchers.push(newUserVoucher);
                 queryClient.invalidateQueries({ queryKey: ['userVouchers'] });
+
+                // The campaign's single conversion event: value created from
+                // nothing becomes value backed by cash the member just paid.
+                // The mutation re-reads the gift and no-ops unless it is still
+                // active, so a double-tapped CTA redeems exactly once.
+                if (giftApplied > 0) {
+                  redeemGift.mutate({
+                    businessId,
+                    voucherId: voucher.id,
+                    subtotal,
+                  });
+                }
+
                 navigate(`/${lang}/pay/voucher-success`, {
                   state: {
-                    voucherValue: displayAmount,
-                    amountPaid: displayAmount,
+                    // These two were both `displayAmount`, so a 2×₪300 order
+                    // already reported ₪300 paid. With a gift they must differ:
+                    // face value received vs. cash actually charged.
+                    voucherValue: subtotal,
+                    amountPaid: total,
+                    giftApplied,
                     cashback: cashbackAmount,
                     merchantName: business.name,
                     merchantNameHe: business.nameHe,
@@ -1680,6 +2106,15 @@ export default function VoucherPurchasePage() {
       {/* ── Online Info Sheet ── */}
       {onlineInfoOpen && (
         <OnlineInfoSheet isHe={isHe} onClose={() => setOnlineInfoOpen(false)} />
+      )}
+
+      {/* ── Launch brands sheet ── */}
+      {launchBrandsOpen && (
+        <LaunchBrandsSheet
+          isHe={isHe}
+          brandIds={launchGift?.conditions.eligibleBrandIds ?? []}
+          onClose={() => setLaunchBrandsOpen(false)}
+        />
       )}
 
       {/* ── How it Works Sheet ── */}

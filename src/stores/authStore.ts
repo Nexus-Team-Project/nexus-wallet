@@ -118,6 +118,10 @@ export const useAuthStore = create<AuthState>((set) => ({
         organizationName: organizationName ?? null,
         marketingConsent: false,
         profileCompleted: state.profileCompleted,
+        // Must be carried explicitly: persistAuth() writes whatever object it
+        // is handed, so omitting this dropped the key from storage on every
+        // login and the preferences nudge silently reset to false on reload.
+        preferencesIncomplete: state.preferencesIncomplete,
         avatarUrl: avatarUrl ?? state.avatarUrl ?? null,
         firstName: firstName ?? state.firstName ?? null,
       };

@@ -24,11 +24,18 @@ export default function RegistrationCompletePage() {
   const returnTo             = useRegistrationStore((s) => s.returnTo);
   const completeRegistration = useRegistrationStore((s) => s.completeRegistration);
   const setProfileCompleted  = useAuthStore((s) => s.setProfileCompleted);
+  const setPreferencesIncomplete = useAuthStore((s) => s.setPreferencesIncomplete);
 
   // Snapshot the path at mount — completeRegistration() clears it, so we
   // need the value before it's wiped.
   const [pathOnMount] = useState(
     () => useRegistrationStore.getState().registrationPath,
+  );
+
+  // Same reason: the gift is cleared by completeRegistration(). Non-null only
+  // when it was granted in THIS session, so the reveal fires exactly once.
+  const [giftOnMount] = useState(
+    () => useRegistrationStore.getState().openingGift,
   );
 
   // Snapshot total ONCE at mount — avoids the bar shrinking when
@@ -76,7 +83,16 @@ export default function RegistrationCompletePage() {
   }, []);
 
   const finish = () => {
+    // Snapshot before completeRegistration() nulls it. Registration no longer
+    // asks the preference questions, so this is null for every new member —
+    // which is exactly who the nudge is for.
+    const answeredPreferences = !!useRegistrationStore.getState().onboardingData;
+
     setProfileCompleted(true);
+    // Order matters: setProfileCompleted(true) clears preferencesIncomplete
+    // (authStore.ts:167), so the nudge has to be raised *after* it.
+    if (!answeredPreferences) setPreferencesIncomplete(true);
+
     completeRegistration();
     navigate(`/${returnTo ?? lang}`, { replace: true });
   };
@@ -120,9 +136,16 @@ export default function RegistrationCompletePage() {
         </span>
       </button>
 
-      {/* ── PremiumReveal content ── */}
+      {/* ── PremiumReveal content ──
+          This screen already sat at the end of registration with the right
+          gesture, so the launch gift reuses it rather than adding a screen.
+          Without a gift it reads exactly as it did before. */}
       <div className="flex-1 relative overflow-hidden rounded-t-2xl">
-        <PremiumRevealContent onReveal={finish} />
+        <PremiumRevealContent
+          onReveal={finish}
+          title={giftOnMount ? `₪${giftOnMount.amount} מחכים לך.` : undefined}
+          subtitle={giftOnMount ? 'מתנת הפתיחה שלך נכנסה לארנק' : undefined}
+        />
       </div>
     </motion.div>
   );

@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { useAuthStore } from '../../stores/authStore';
 import { useLoginSheetStore } from '../../stores/loginSheetStore';
@@ -13,12 +14,14 @@ import {
   firebaseSaveConsent,
 } from '../../services/auth.service';
 import { lookupTenantByOrg } from '../../mock/handlers/tenant.handler';
+import { getFirstOnboardingSlide } from '../../utils/onboardingNavigation';
 import AnimatedActionIcon from '../layout/AnimatedActionIcon';
 import chatUrl from '../../assets/animations/chat.json?url';
 
 export default function LoginSheet() {
   const { lang = 'he' } = useParams();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { t, language } = useLanguage();
   const isHe = language === 'he';
   const { isOpen, step, close, setStep, completeLogin } =
@@ -226,7 +229,7 @@ export default function LoginSheet() {
     setIsLoading(true);
     setError('');
     try {
-      const result = await firebaseVerifyOtp(phone, code);
+      const result = await firebaseVerifyOtp(phone, code, tenantConfig?.id);
       if (!result.success || !result.session) {
         setError(t.auth.wrongCode);
         setOtp(['', '', '', '']);
@@ -234,7 +237,7 @@ export default function LoginSheet() {
         return;
       }
 
-      const { session, registrationContext } = result;
+      const { session, registrationContext, gift } = result;
       const orgMember = registrationContext?.orgMember;
       const profileComplete = registrationContext?.profileComplete ?? false;
       const missingFields = registrationContext?.missingFields ?? [];
@@ -262,19 +265,36 @@ export default function LoginSheet() {
         }
       }
 
+      // The gift was resolved inside firebaseVerifyOtp, so the wallet is
+      // already richer before any screen renders. Refresh the reads that show
+      // it now, ahead of the routing decision below.
+      queryClient.invalidateQueries({ queryKey: ['wallet'] });
+      queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['openingGift'] });
+      queryClient.invalidateQueries({ queryKey: ['giftAvailability'] });
+
+      // Only a gift granted in THIS session is worth revealing. A returning
+      // member on a fresh browser gets 'already-granted', and re-celebrating an
+      // old gift is worse than under-celebrating.
+      const freshGift =
+        gift?.outcome === 'granted'
+          ? {
+              amount: gift.gift.amount,
+              currency: gift.gift.currency,
+              expiresAt: gift.gift.expiresAt,
+            }
+          : null;
+
       // Show routing overlay — auth is done, deciding which flow to open
       setIsRouting(true);
 
-      // Helper: preference-type fields that drive the profile nudge banner
-      const PREF_FIELDS = ['purpose', 'lifeStage', 'birthday', 'gender', 'benefitCategories'];
-      const hasMissingPreferences = missingFields.some((f) => PREF_FIELDS.includes(f));
-
-      // Phone auth — need full profile (name, email, birthday)
-      const phoneMissing = ['firstName', 'lastName', 'email', 'birthday'];
+      // Phone auth — the phone itself is verified, so only the name and email
+      // are outstanding. ('birthday' used to be listed here but no rule in
+      // buildActiveSlides ever read it — it gated nothing.)
+      const phoneMissing = ['firstName', 'lastName', 'email'];
 
       // ── Priority 1: Org member with COMPLETE profile → success animation ──
       if (orgMember && profileComplete) {
-        if (hasMissingPreferences) useAuthStore.getState().setPreferencesIncomplete(true);
         setSuccessOrgName(orgMember.organizationName);
         setStep('success');
         setTimeout(() => completeLogin(), 1500);
@@ -283,7 +303,6 @@ export default function LoginSheet() {
 
       // ── Priority 2: Returning user (already completed profile) ──
       if (useAuthStore.getState().profileCompleted) {
-        if (hasMissingPreferences) useAuthStore.getState().setPreferencesIncomplete(true);
         completeLogin();
         return;
       }
@@ -295,6 +314,7 @@ export default function LoginSheet() {
           path: tenantConfig.requiresMembershipFee ? 'tenant-with-fee' : 'tenant-no-fee',
           phone,
           missingFields: phoneMissing,
+          openingGift: freshGift,
           // orgMember is NOT passed — tenant branding/flow takes full precedence
         });
         close();
@@ -315,20 +335,31 @@ export default function LoginSheet() {
             lastName: orgMember.lastName,
           },
           missingFields,
+          openingGift: freshGift,
         });
         close();
         navigate(`/${lang}/auth-flow/new-user`); // nexus-hero first, match-screen follows
         return;
       }
 
-      // ── Priority 5: New user (no tenant, no org) → Nexus stories → onboarding ──
+      // ── Priority 5: New user (no tenant, no org) → straight to onboarding ──
+      // The Nexus stories are deliberately NOT in this path. They never exit on
+      // their own (useStoryFlow loops back at the interactive slide), so they
+      // cost a mandatory tap and sit between the member and the thing they came
+      // for. They remain in the app at /stories, and the org/tenant paths above
+      // still open them.
       startRegistration({
         path: 'new-user',
         phone,
         missingFields: phoneMissing,
+        openingGift: freshGift,
       });
       close();
-      navigate(`/${lang}/auth-flow/new-user`);
+      navigate(
+        `/${lang}/register/onboarding/${getFirstOnboardingSlide(
+          useRegistrationStore.getState()
+        )}`
+      );
     } finally {
       setIsLoading(false);
     }
@@ -429,7 +460,13 @@ export default function LoginSheet() {
           });
         }
         close();
-        navigate(`/${lang}/auth-flow/new-user`);
+        // Same destination as SMS priority 5 — a plain new user goes straight
+        // to onboarding regardless of which button they signed in with.
+        navigate(
+          `/${lang}/register/onboarding/${getFirstOnboardingSlide(
+            useRegistrationStore.getState()
+          )}`
+        );
       }
     } finally {
       setIsLoading(false);
@@ -487,8 +524,17 @@ export default function LoginSheet() {
           });
         }
         close();
-        // Tenant context → org stories; plain new user → nexus hero
-        navigate(`/${lang}/auth-flow/${regPath !== 'new-user' ? 'org-user' : 'new-user'}`);
+        // Tenant context → org stories + match screen; plain new user → straight
+        // to onboarding, matching SMS priority 5.
+        if (regPath !== 'new-user') {
+          navigate(`/${lang}/auth-flow/org-user`);
+        } else {
+          navigate(
+            `/${lang}/register/onboarding/${getFirstOnboardingSlide(
+              useRegistrationStore.getState()
+            )}`
+          );
+        }
       }
     } finally {
       setIsLoading(false);

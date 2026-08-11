@@ -10,6 +10,8 @@ export interface VoucherSuccessState {
   voucherValue: number;
   /** What was actually charged */
   amountPaid?: number;
+  /** Launch-gift value taken off this order. 0 / absent when none applied. */
+  giftApplied?: number;
   cashback?: number;
   merchantName?: string;
   merchantNameHe?: string;
@@ -35,6 +37,7 @@ export default function VoucherSuccessPage() {
   const {
     voucherValue = 150,
     amountPaid = voucherValue,
+    giftApplied = 0,
     cashback = Math.round(amountPaid * 0.05 * 100) / 100,
     merchantName,
     merchantNameHe,
@@ -159,6 +162,11 @@ export default function VoucherSuccessPage() {
       <div className="px-5 py-4 space-y-3" dir={isHe ? 'rtl' : 'ltr'}>
         {[
           tier    ? { label: isHe ? 'רמה'         : 'Tier',   value: tier,          green: false } : null,
+          // Gift and Paid sit next to Cashback on purpose: ₪20 cashback beside
+          // ₪75 paid on a ₪100 card shows the member the economics instead of
+          // hiding them.
+          giftApplied > 0 ? { label: isHe ? 'מתנת פתיחה' : 'Opening gift', value: `−₪${giftApplied}`, green: true } : null,
+          giftApplied > 0 ? { label: isHe ? 'שולם' : 'Paid', value: `₪${amountPaid}`, green: false } : null,
           cashback > 0 ? { label: isHe ? 'קאשבק' : 'Cashback', value: `₪${cashback}`, green: true } : null,
           { label: isHe ? 'תאריך'      : 'Date',  value: dateStr,                   green: false },
           { label: isHe ? 'שעה'        : 'Time',  value: timeStr,                   green: false },

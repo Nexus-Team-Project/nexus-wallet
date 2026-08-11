@@ -3,9 +3,15 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { PremiumRevealContent } from './PremiumRevealPage';
 import VoucherCard from '../components/wallet/VoucherCard';
+import BalanceCard from '../components/wallet/BalanceCard';
+import GiftCoverCard from '../components/wallet/GiftCoverCard';
+import { useWallet } from '../hooks/useWallet';
 import { mockUserVouchers } from '../mock/data/vouchers.mock';
 import { useAuthStore } from '../stores/authStore';
 import { useTenantStore } from '../stores/tenantStore';
+import { useNotificationToastStore } from '../stores/notificationToastStore';
+import { formatCurrency } from '../utils/formatCurrency';
+import type { Notification } from '../types/notification.types';
 
 /**
  * GiftSamplePage — a standalone, ready-made gift page (no form / no checkout).
@@ -30,9 +36,7 @@ import { useTenantStore } from '../stores/tenantStore';
 const HOME_GRADIENT =
   'linear-gradient(135deg, #ffb74d 0%, #ff91b8 35%, #9c88ff 65%, #80deea 100%)';
 
-const NEXUS_WIDE_WHITE = '/nexus-white-wide-logo.png';
-
-interface GiftVariant {
+export interface GiftVariant {
   /** The user-voucher this gift redeems into (wallet centres its deck on it). */
   redeemVoucherId: string;
   gradient: string;
@@ -83,7 +87,11 @@ interface GiftVariant {
 
 const RECIPIENT = 'רז';
 
-const VARIANTS: Record<string, GiftVariant> = {
+/** Set once the SPAR recipient completes the redeem step — the wallet-home
+ * teaser (GiftClaimTeaser) checks this so a claimed gift never resurfaces. */
+export const SPAR_GIFT_CLAIMED_KEY = 'nexus_gift_claimed_spar';
+
+export const GIFT_VARIANTS: Record<string, GiftVariant> = {
   default: {
     redeemVoucherId: 'uv_bnei_pesach',
     gradient: HOME_GRADIENT,
@@ -138,7 +146,7 @@ const VARIANTS: Record<string, GiftVariant> = {
     letterClosingSmall: 'בברכה,',
     signature: 'עמית זאב',
     senderBig: 'SPAR ישראל',
-    redeemLine: 'ממשו בעשרות רשתות',
+    redeemLine: 'לשימוש במאות מקומות',
   },
   menora: {
     redeemVoucherId: 'uv_menora_claim',
@@ -190,10 +198,14 @@ const VARIANTS: Record<string, GiftVariant> = {
 export default function GiftSamplePage() {
   const navigate = useNavigate();
   const tenantId = useTenantStore((s) => s.tenantId);
+  const { data: wallet } = useWallet();
   const [revealed, setRevealed] = useState(false);
   const [redeeming, setRedeeming] = useState(false);
+  // SPAR only — swaps the redeem-line caption to "loading to your balance"
+  // for a beat before handing off, instead of navigating away immediately.
+  const [loadingToBalance, setLoadingToBalance] = useState(false);
 
-  const variant = (tenantId && VARIANTS[tenantId]) || VARIANTS.default;
+  const variant = (tenantId && GIFT_VARIANTS[tenantId]) || GIFT_VARIANTS.default;
   const userVoucher = mockUserVouchers.find((v) => v.id === variant.redeemVoucherId)!;
 
   // "למימוש המתנה" — play the same reveal celebration as the "הכל מוכן"
@@ -208,6 +220,29 @@ export default function GiftSamplePage() {
     const auth = useAuthStore.getState();
     if (!auth.isAuthenticated) {
       auth.login({ token: 'gift-demo', userId: 'gift-demo', method: 'phone', isOrgMember: false });
+    }
+    // Marks the gift as claimed so the wallet-home teaser (entered from the
+    // "landed already signed-in" path) never resurfaces for this recipient.
+    if (tenantId === 'spar') {
+      try { localStorage.setItem(SPAR_GIFT_CLAIMED_KEY, '1'); } catch { /* private mode */ }
+
+      // Standard-design toast, fired as the recipient lands in the wallet —
+      // taps through to the sub-balances tab where the loaded card now lives.
+      const amount = formatCurrency(userVoucher.voucher.originalPrice, userVoucher.voucher.currency);
+      const notification: Notification = {
+        id: `n_spar_load_${Date.now()}`,
+        category: 'gift-card',
+        priority: 'transactional',
+        sender: { id: 'nexus', name: 'Nexus', nameHe: 'נקסוס', initial: 'N', logo: '/nexus-icon.png', brandColor: 'bg-white' },
+        title: `Gift card loaded: ${amount}`,
+        titleHe: `כרטיס המתנה נטען: ${amount}`,
+        body: `We loaded the gift card worth ${amount} to your Nexus balance. Tap to track.`,
+        bodyHe: `טענו את כרטיס המתנה בסך ${amount} ליתרת נקסוס שלך. למעקב לחצו.`,
+        createdAt: new Date().toISOString(),
+        isRead: false,
+        deepLink: '/wallet/balance?tab=subBalances',
+      };
+      useNotificationToastStore.getState().showToast(notification);
     }
     navigate(`/he/wallet?focus=${variant.redeemVoucherId}`);
   };
@@ -253,81 +288,7 @@ export default function GiftSamplePage() {
                     backfaceVisibility: 'hidden',
                   }}
                 >
-                  {/* Soft scrim — keeps the white logo/title legible over the
-                      lighter end of the gradient. */}
-                  <div
-                    className="absolute inset-0 z-0 pointer-events-none"
-                    style={{
-                      background:
-                        'linear-gradient(to bottom, rgba(10,37,64,0.28) 0%, rgba(10,37,64,0.05) 35%, rgba(10,37,64,0.18) 75%, rgba(10,37,64,0.4) 100%)',
-                    }}
-                  />
-
-                  {/* Sender logo — rendered white over the wash. */}
-                  <img
-                    src={variant.logo}
-                    alt={variant.sender}
-                    className={`relative z-10 ${variant.logoClass} object-contain drop-shadow-lg`}
-                    style={variant.logoWhite ? { filter: 'brightness(0) invert(1)' } : undefined}
-                  />
-
-                  {/* Hero — a claim variant shows an approval badge; a gift
-                      variant shows its transparent illustration. */}
-                  <div className="relative z-10 flex-1 min-h-0 w-full flex items-center justify-center animate-gift-float my-2">
-                    {variant.claim ? (
-                      <div
-                        className="flex items-center justify-center rounded-full"
-                        style={{
-                          width: 132,
-                          height: 132,
-                          background: 'rgba(255,255,255,0.14)',
-                          boxShadow: '0 0 0 14px rgba(255,255,255,0.06)',
-                        }}
-                      >
-                        <span
-                          className="material-symbols-rounded text-white"
-                          style={{ fontSize: 76, fontVariationSettings: "'FILL' 1" }}
-                        >
-                          verified
-                        </span>
-                      </div>
-                    ) : (
-                      <img
-                        src={variant.heroImage}
-                        alt=""
-                        aria-hidden
-                        className={`${variant.heroMaxW} max-h-full object-contain drop-shadow-xl rounded-xl`}
-                      />
-                    )}
-                  </div>
-
-                  <div className="relative z-10 w-full space-y-4">
-                    <h2
-                      className="text-2xl font-extrabold text-center leading-tight"
-                      style={{ textShadow: '0 1px 14px rgba(10,37,64,0.5)' }}
-                    >
-                      {variant.coverTitle}
-                    </h2>
-                    {variant.coverSubtitle && (
-                      <p
-                        className="text-center text-sm font-semibold leading-relaxed text-white/90"
-                        style={{ textShadow: '0 1px 10px rgba(10,37,64,0.45)' }}
-                      >
-                        {variant.coverSubtitle}
-                      </p>
-                    )}
-                    <div className="flex flex-col items-center gap-3 pt-1">
-                      <button
-                        type="button"
-                        onClick={() => setRevealed(true)}
-                        className="w-full bg-bg-dark text-white py-4 px-6 rounded-full font-bold text-base shadow-lg shadow-bg-dark/30 transition-all active:scale-[0.98]"
-                      >
-                        {variant.coverCta ?? 'גלה את המתנה'}
-                      </button>
-                      {/* Nexus wordmark — the platform mark, below the button. */}
-                      <img src={NEXUS_WIDE_WHITE} alt="Nexus" className="h-9 w-auto" />
-                    </div>
-                  </div>
+                  <GiftCoverCard variant={variant} onOpen={() => setRevealed(true)} />
                 </motion.div>
               ) : (
                 <motion.div
@@ -476,19 +437,47 @@ export default function GiftSamplePage() {
           <PremiumRevealContent
             autoReveal
             revealHoldMs={4200}
-            onReveal={finishRedeem}
+            onReveal={() => {
+              // SPAR — swap the caption to "loading to your balance" for a
+              // beat, then hand off; other tenants hand off immediately.
+              if (tenantId === 'spar') {
+                setLoadingToBalance(true);
+                setTimeout(finishRedeem, 1600);
+              } else {
+                finishRedeem();
+              }
+            }}
           />
           {/* The gift card rises into the centre of the screen, with the line
               printed beneath it, over the celebration. */}
           <div className="absolute inset-0 z-[60] flex flex-col items-center justify-center px-8 pointer-events-none">
             <div className="w-[300px] animate-gift-rise-center">
-              <VoucherCard userVoucher={userVoucher} flipped={false} onExpire={() => {}} />
+              {loadingToBalance ? (
+                // The gift card's job is done — show the Nexus balance
+                // instead, counting up by exactly the card's value, so the
+                // "loading to your balance" line has something to point at.
+                <BalanceCard
+                  logoCorner
+                  className="w-full"
+                  style={{ aspectRatio: '1510 / 952' }}
+                  balance={(wallet?.balance ?? 0) + userVoucher.voucher.originalPrice}
+                  countFrom={wallet?.balance ?? 0}
+                />
+              ) : (
+                <VoucherCard userVoucher={userVoucher} flipped={false} onExpire={() => {}} />
+              )}
             </div>
             <p
-              className="mt-8 text-2xl font-extrabold text-white text-center animate-fade-in"
-              style={{ animationDelay: '0.7s', animationFillMode: 'both', textShadow: '0 2px 16px rgba(0,0,0,0.45)' }}
+              key={loadingToBalance ? 'loading' : 'redeem'}
+              className="mt-8 flex items-center justify-center gap-2 text-2xl font-extrabold text-white text-center animate-fade-in"
+              style={{ animationDelay: loadingToBalance ? '0s' : '0.7s', animationFillMode: 'both', textShadow: '0 2px 16px rgba(0,0,0,0.45)' }}
             >
-              {variant.redeemLine}
+              {loadingToBalance && (
+                <span className="material-symbols-outlined animate-spin" style={{ fontSize: '22px', fontVariationSettings: "'wght' 300" }}>
+                  progress_activity
+                </span>
+              )}
+              {loadingToBalance ? 'אנחנו טוענים את כרטיס המתנה ליתרה שלך' : variant.redeemLine}
             </p>
           </div>
         </div>

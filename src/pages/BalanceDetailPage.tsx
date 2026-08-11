@@ -1,19 +1,181 @@
 import { useRef, useState, type ChangeEvent } from 'react';
 import { createPortal } from 'react-dom';
-import { motion } from 'framer-motion';
-import { useNavigate, useParams } from 'react-router-dom';
+import { motion, Reorder, useDragControls } from 'framer-motion';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useCardImageStore } from '../stores/cardImageStore';
-import { ShoppingBag, Banknote, Gift, Undo2, CheckCircle2, type LucideIcon } from 'lucide-react';
+import { ShoppingBag, Banknote, Gift, Undo2, CheckCircle2, CreditCard, GripVertical, type LucideIcon } from 'lucide-react';
 import { useLanguage } from '../i18n/LanguageContext';
 import { useWallet } from '../hooks/useWallet';
+import { usePaymentMethods } from '../hooks/usePaymentMethods';
 import { formatCurrency } from '../utils/formatCurrency';
+import { formatDate } from '../utils/formatDate';
+import { cn } from '../utils/cn';
 import BalanceCard from '../components/wallet/BalanceCard';
 import PayCodesPanel from '../components/wallet/PayCodesPanel';
-import MoreActionsSheet from '../components/wallet/MoreActionsSheet';
 import ArchiveCardButton from '../components/wallet/ArchiveCardButton';
+import VoucherTermsSheet from '../components/wallet/VoucherTermsSheet';
+import InfoSheet from '../components/wallet/InfoSheet';
 import { mockTransactions } from '../mock/data/transactions.mock';
 import { mockBusinesses } from '../mock/data/businesses.mock';
+import { mockSubBalances } from '../mock/data/subBalances.mock';
+import { mockVouchers } from '../mock/data/vouchers.mock';
 import type { Transaction } from '../types/transaction.types';
+import type { Voucher } from '../types/voucher.types';
+import type { SubBalance } from '../types/wallet.types';
+
+type BalanceTab = 'overview' | 'subBalances' | 'transactions' | 'more';
+
+// One reorderable row in the "sub-balances" tab — cashback and credits are
+// fixed rows, the rest come from mockSubBalances. Kept as a single list so
+// the user can drag any of them into any order, same as the payment-methods
+// reorder on PaymentMethodsPage.
+type BalanceRow =
+  | { kind: 'cashback'; id: 'cashback' }
+  | { kind: 'credits'; id: 'credits' }
+  | { kind: 'subBalance'; id: string; data: SubBalance };
+
+const BALANCE_TABS: { key: BalanceTab; labelHe: string; labelEn: string }[] = [
+  { key: 'overview', labelHe: 'סקירה', labelEn: 'Overview' },
+  { key: 'subBalances', labelHe: 'יתרות משנה', labelEn: 'Sub-balances' },
+  { key: 'transactions', labelHe: 'עסקאות אחרונות', labelEn: 'Recent transactions' },
+  { key: 'more', labelHe: 'עוד', labelEn: 'More' },
+];
+
+/**
+ * Underline tab strip — same visual language as `ProfileTabs`
+ * (active tab: 2px primary underline + primary label; inactive: muted).
+ */
+function BalanceTabs({ selected, onChange, isRTL }: { selected: BalanceTab; onChange: (t: BalanceTab) => void; isRTL: boolean }) {
+  return (
+    <nav className="border-b border-border -mx-5 px-5">
+      <div className="flex items-center gap-6 overflow-x-auto hide-scrollbar">
+        {BALANCE_TABS.map(({ key, labelHe, labelEn }) => {
+          const isActive = key === selected;
+          return (
+            <button
+              key={key}
+              type="button"
+              onClick={() => onChange(key)}
+              className={cn(
+                'py-3 -mb-px border-b-2 whitespace-nowrap text-sm transition-colors',
+                isActive
+                  ? 'border-primary text-primary font-bold'
+                  : 'border-transparent text-text-muted font-medium hover:text-text-primary',
+              )}
+            >
+              {isRTL ? labelHe : labelEn}
+            </button>
+          );
+        })}
+      </div>
+    </nav>
+  );
+}
+
+/**
+ * One draggable row in the "sub-balances" tab. Same reorder mechanics as
+ * `VoucherMiniRow` on PaymentMethodsPage: a grip handle starts the drag via
+ * `dragControls`, the rest of the row stays a normal tap target.
+ */
+function BalanceRowItem({
+  row,
+  isRTL,
+  money,
+  locale,
+  wallet,
+  creditsTotal,
+  onShowTerms,
+}: {
+  row: BalanceRow;
+  isRTL: boolean;
+  money: (n: number) => string;
+  locale: string;
+  wallet: { totalEarned?: number } | null | undefined;
+  creditsTotal: number;
+  onShowTerms: (v: Voucher) => void;
+}) {
+  const dragControls = useDragControls();
+
+  let amountNode: React.ReactNode;
+  let labelNode: React.ReactNode;
+  let iconNode: React.ReactNode;
+
+  if (row.kind === 'cashback') {
+    amountNode = (
+      <span className="text-base font-bold text-green-600 mt-1" dir="ltr">{money(wallet?.totalEarned ?? 0)}</span>
+    );
+    labelNode = <span className="text-[17px] font-bold text-text-primary">{isRTL ? 'קאשבק' : 'Cashback'}</span>;
+    iconNode = <Banknote size={26} strokeWidth={1.5} className="text-green-600 mt-1 flex-shrink-0" />;
+  } else if (row.kind === 'credits') {
+    amountNode = (
+      <span className="text-base font-bold text-text-primary mt-1" dir="ltr">{money(creditsTotal)}</span>
+    );
+    labelNode = <span className="text-[17px] font-bold text-text-primary">{isRTL ? 'זיכויים' : 'Credits'}</span>;
+    iconNode = <Undo2 size={26} strokeWidth={1.5} className="text-sky-500 mt-1 flex-shrink-0" />;
+  } else {
+    const sb = row.data;
+    const sbVoucher = mockVouchers.find((v) => v.id === sb.voucherId);
+    amountNode = (
+      <div className="flex flex-col">
+        <span className="text-base font-bold text-text-primary mt-1" dir="ltr">{money(sb.amount)}</span>
+        {sbVoucher && (
+          <button
+            onClick={() => onShowTerms(sbVoucher)}
+            className="flex items-center gap-0.5 text-[13px] font-semibold text-sky-500 mt-1.5"
+          >
+            <span className="underline">{isRTL ? 'לכל התנאים' : 'All terms'}</span>
+            <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>
+              {isRTL ? 'chevron_left' : 'chevron_right'}
+            </span>
+          </button>
+        )}
+      </div>
+    );
+    labelNode = (
+      <div className="flex flex-col text-end">
+        <span className="text-[17px] font-bold text-text-primary">
+          {sb.source === 'gift_card' ? (isRTL ? 'גיפט קארד/שוברים' : 'Gift card / voucher') : (isRTL ? 'שובר' : 'Voucher')}
+        </span>
+        <span className="text-[15px] text-text-muted mt-1">
+          {isRTL ? 'בתוקף עד ' : 'Valid until '}{formatDate(sb.validUntil, locale)}
+        </span>
+      </div>
+    );
+    iconNode = sb.source === 'gift_card' ? (
+      // Mini rendering of the actual SPAR gift-card art, rather than a
+      // generic card glyph — this row's credit came specifically from that card.
+      <img
+        src="/gift-cards/spar.png"
+        alt="SPAR"
+        className="w-10 h-6 object-cover rounded-md border border-border/60 flex-shrink-0 mt-1"
+        style={{ objectPosition: 'left center' }}
+      />
+    ) : (
+      <CreditCard size={26} strokeWidth={1.5} className="text-sky-500 mt-1 flex-shrink-0" />
+    );
+  }
+
+  return (
+    <Reorder.Item value={row} dragListener={false} dragControls={dragControls} className="relative bg-white">
+      <div className="flex items-start gap-3 py-4">
+        <div
+          onPointerDown={(e) => dragControls.start(e)}
+          className="touch-none cursor-grab active:cursor-grabbing text-text-muted flex-shrink-0 p-1 -m-1 mt-1.5"
+          aria-label={isRTL ? 'שינוי סדר' : 'Reorder'}
+        >
+          <GripVertical size={16} />
+        </div>
+        <div className="flex-1 min-w-0 flex items-start justify-between">
+          {amountNode}
+          <div className="flex items-start gap-4">
+            {labelNode}
+            {iconNode}
+          </div>
+        </div>
+      </div>
+    </Reorder.Item>
+  );
+}
 
 const MERCHANT_LOGO_MAP: Record<string, string> = (() => {
   const map: Record<string, string> = {};
@@ -78,9 +240,27 @@ export default function BalanceDetailPage() {
   const locale = language === 'he' ? 'he-IL' : 'en-IL';
   const money = (n: number) => formatCurrency(n || 0, 'ILS', locale);
 
+  // Deep-linked from a notification (e.g. "?tab=subBalances") — falls back
+  // to the overview tab for a plain /wallet/balance visit.
+  const [searchParams] = useSearchParams();
+  const requestedTab = searchParams.get('tab') as BalanceTab | null;
+  const initialTab: BalanceTab = BALANCE_TABS.some((t) => t.key === requestedTab) ? requestedTab! : 'overview';
+
   const codesRef = useRef<HTMLDivElement>(null);
-  const [showMoreSheet, setShowMoreSheet] = useState(false);
   const [cardFlipped, setCardFlipped] = useState(false);
+  const [tab, setTab] = useState<BalanceTab>(initialTab);
+  const [termsVoucher, setTermsVoucher] = useState<Voucher | null>(null);
+  const [showSubBalanceHelp, setShowSubBalanceHelp] = useState(false);
+  const { hasAny: hasPaymentMethod } = usePaymentMethods();
+  const [balanceRows, setBalanceRows] = useState<BalanceRow[]>(() => [
+    { kind: 'cashback', id: 'cashback' },
+    { kind: 'credits', id: 'credits' },
+    ...mockSubBalances.map((sb): BalanceRow => ({ kind: 'subBalance', id: sb.id, data: sb })),
+  ]);
+  const subBalanceTotal = mockSubBalances.reduce((sum, sb) => sum + sb.amount, 0);
+  const creditsTotal = mockTransactions
+    .filter((t) => t.type === 'refund' && t.status === 'completed')
+    .reduce((sum, t) => sum + t.amount, 0);
 
   // ── Settings: set/reset the balance card's image ──
   const [showSettings, setShowSettings] = useState(false);
@@ -112,11 +292,6 @@ export default function BalanceDetailPage() {
       icon: 'qr_code_2',
       label: isRTL ? 'תשלום' : 'Pay',
       onClick: () => setCardFlipped((f) => !f),
-    },
-    {
-      icon: 'more_horiz',
-      label: isRTL ? 'עוד' : 'More',
-      onClick: () => setShowMoreSheet(true),
     },
   ];
 
@@ -178,7 +353,7 @@ export default function BalanceDetailPage() {
       >
         {/* Action tiles */}
         <p className="text-[13px] font-bold text-text-primary mb-3">{isRTL ? 'פעולות' : 'Actions'}</p>
-        <div className="grid grid-cols-3 gap-3 mb-6">
+        <div className="grid grid-cols-2 gap-3 mb-6">
           {actions.map((action) => (
             <button
               key={action.label}
@@ -195,22 +370,36 @@ export default function BalanceDetailPage() {
           ))}
         </div>
 
+        {/* Tab strip — same visual language as the profile page's tabs */}
+        <BalanceTabs selected={tab} onChange={setTab} isRTL={isRTL} />
+
         {/* Stats collage */}
-        <p className="text-[13px] font-bold text-text-primary mb-3">{isRTL ? 'סקירה' : 'Overview'}</p>
-        <div className="grid grid-cols-2 gap-3 mb-6" style={{ gridTemplateRows: 'auto auto' }}>
+        {tab === 'overview' && (
+        <div className="grid grid-cols-2 gap-3 mt-5 mb-6" style={{ gridTemplateRows: 'auto auto' }}>
           {/* Available balance */}
           <div className="bg-surface border border-border rounded-2xl p-4 flex flex-col justify-between h-32">
             <div>
               <p className="text-[11px] font-semibold text-text-secondary uppercase tracking-wide">
                 {isRTL ? 'יתרה זמינה' : 'Available'}
               </p>
+              {/* This tile has always been labelled "Available" while rendering
+                  the full balance. With locked value in play that label has to
+                  become true; ?? keeps older wallet shapes working. */}
               <p className="text-xl font-bold text-text-primary mt-1 tabular-nums" dir="ltr">
-                {money(wallet?.balance ?? 0)}
+                {money(wallet?.availableBalance ?? wallet?.balance ?? 0)}
               </p>
             </div>
-            <p className="text-[10px] text-text-muted">
-              {isRTL ? 'בארנק נקסוס' : 'Nexus wallet'}
-            </p>
+            {(wallet?.lockedBalance ?? 0) > 0 ? (
+              <p className="text-[10px] text-text-muted">
+                {isRTL
+                  ? `+ ${money(wallet!.lockedBalance!)} מתנת פתיחה נעולה`
+                  : `+ ${money(wallet!.lockedBalance!)} opening gift, locked`}
+              </p>
+            ) : (
+              <p className="text-[10px] text-text-muted">
+                {isRTL ? 'בארנק נקסוס' : 'Nexus wallet'}
+              </p>
+            )}
           </div>
 
           {/* Cashback earned — tall, spans 2 rows */}
@@ -260,14 +449,73 @@ export default function BalanceDetailPage() {
             </div>
           </div>
         </div>
+        )}
+
+        {/* Sub-balances — gift-card / voucher-sourced credit, each with its own expiry */}
+        {tab === 'subBalances' && (
+          <div className="mt-5 mb-6 animate-fade-in">
+            <div className="flex items-center justify-between mb-2 pb-4 border-b border-border">
+              <div className="flex items-center gap-2">
+                <span className="text-xl font-bold text-text-primary tabular-nums" dir="ltr">
+                  {money(subBalanceTotal)}
+                </span>
+                <button
+                  onClick={() => setShowSubBalanceHelp(true)}
+                  aria-label={isRTL ? 'מידע' : 'Info'}
+                  className="w-7 h-7 rounded-full bg-white shadow-md flex items-center justify-center active:scale-95 transition-transform flex-shrink-0"
+                >
+                  <span className="material-symbols-rounded text-text-muted" style={{ fontSize: '18px' }}>
+                    help
+                  </span>
+                </button>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-semibold text-text-secondary">{isRTL ? 'ישראל' : 'Israel'}</span>
+                <span className="text-base">🇮🇱</span>
+              </div>
+            </div>
+
+            {balanceRows.length === 0 ? (
+              <p className="text-sm text-text-muted text-center py-10">
+                {isRTL ? 'אין לך יתרות משנה כרגע' : 'No sub-balances right now'}
+              </p>
+            ) : (
+              <Reorder.Group axis="y" values={balanceRows} onReorder={setBalanceRows} className="divide-y divide-border">
+                {balanceRows.map((row) => (
+                  <BalanceRowItem
+                    key={row.id}
+                    row={row}
+                    isRTL={isRTL}
+                    money={money}
+                    locale={locale}
+                    wallet={wallet}
+                    creditsTotal={creditsTotal}
+                    onShowTerms={setTermsVoucher}
+                  />
+                ))}
+              </Reorder.Group>
+            )}
+
+            {/* Legal disclaimer — kept in Hebrew regardless of app language,
+                since it quotes Israeli payment-services regulation verbatim. */}
+            <p className="text-[11px] leading-[1.6] text-text-muted text-center mt-6 pt-4 border-t border-border" dir="rtl">
+              השימוש בקרדיטים מסוג גיפט קארד ושוברים כפופה{' '}
+              <a className="underline" href="#" onClick={(e) => e.preventDefault()}>לתנאי השימוש</a>{' '}
+              <a className="underline" href="#" onClick={(e) => e.preventDefault()}>בגיפט קארדס ובתווי קנייה</a>.
+              וולט אנטרפרייזס ישראל בע&quot;מ פטורה מרישיון לפי חוק הסדרת העיסוק בשירותי תשלום וייזום תשלום, התשפ&quot;ג–2023,
+              ולכן היא אינה מפוקחת על ידי רשות ניירות ערך לעניין שירותי התשלום הניתנים על ידיה שלגביהם חל הפטור.
+              קרדיטים מסוג גיפט קארד ושוברים ניתנים לשימוש רק במדינה שבה נרכשו.
+            </p>
+          </div>
+        )}
 
         {/* Recent transactions */}
-        {(() => {
+        {tab === 'transactions' && (() => {
           const recent = [...mockTransactions]
             .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
             .slice(0, 5);
           return (
-            <div className="mb-6">
+            <div className="mt-5 mb-6 animate-fade-in">
               <div className="flex items-center justify-between mb-3">
                 <p className="text-[13px] font-bold text-text-primary">
                   {isRTL ? 'עסקאות אחרונות' : 'Recent transactions'}
@@ -290,12 +538,77 @@ export default function BalanceDetailPage() {
           );
         })()}
 
-        {/* Move the balance card to the archive (hides it from the wallet deck) */}
-        <ArchiveCardButton cardId="balance" />
+        {/* More — secondary actions that don't need their own tile */}
+        {tab === 'more' && (
+          <div className="mt-5 mb-6 space-y-1 animate-fade-in">
+            <button
+              onClick={() => navigate(`/${lang}/${hasPaymentMethod ? 'wallet/payment-methods' : 'wallet/add-payment-method'}`)}
+              className="w-full flex items-center gap-4 p-3 rounded-2xl hover:bg-surface active:scale-[0.98] transition-all text-start"
+            >
+              <div className="w-11 h-11 rounded-xl bg-surface flex items-center justify-center flex-shrink-0">
+                <span className="material-symbols-outlined text-text-primary" style={{ fontSize: '22px' }}>add_card</span>
+              </div>
+              <span className="text-sm font-semibold text-text-primary">
+                {hasPaymentMethod
+                  ? (isRTL ? 'אמצעי תשלום' : 'Payment method')
+                  : (isRTL ? 'הוספת אמצעי תשלום' : 'Add payment method')}
+              </span>
+            </button>
+
+            <button
+              onClick={() => navigate(`/${lang}/wallet/history`)}
+              className="w-full flex items-center gap-4 p-3 rounded-2xl hover:bg-surface active:scale-[0.98] transition-all text-start"
+            >
+              <div className="w-11 h-11 rounded-xl bg-surface flex items-center justify-center flex-shrink-0">
+                <span className="material-symbols-outlined text-text-primary" style={{ fontSize: '22px' }}>history</span>
+              </div>
+              <span className="text-sm font-semibold text-text-primary">
+                {isRTL ? 'היסטוריית ארנק' : 'Wallet history'}
+              </span>
+            </button>
+
+            <button
+              onClick={() => setShowSettings(true)}
+              className="w-full flex items-center gap-4 p-3 rounded-2xl hover:bg-surface active:scale-[0.98] transition-all text-start"
+            >
+              <div className="w-11 h-11 rounded-xl bg-surface flex items-center justify-center flex-shrink-0">
+                <span className="material-symbols-outlined text-text-primary" style={{ fontSize: '22px' }}>settings</span>
+              </div>
+              <span className="text-sm font-semibold text-text-primary">
+                {isRTL ? 'הגדרות כרטיס' : 'Card settings'}
+              </span>
+            </button>
+
+            {/* Move the balance card to the archive (hides it from the wallet deck) */}
+            <ArchiveCardButton cardId="balance" className="mt-3" />
+          </div>
+        )}
       </motion.div>
 
-      {/* More-actions bottom sheet — opened by the ⋯ action tile. */}
-      {showMoreSheet && <MoreActionsSheet onClose={() => setShowMoreSheet(false)} />}
+      {/* "All terms" sheet — opened from a sub-balance row's terms link */}
+      {termsVoucher && (
+        <VoucherTermsSheet voucher={termsVoucher} onClose={() => setTermsVoucher(null)} />
+      )}
+
+      {/* "?" info sheet — explains the Nexus balance and what the drag order on sub-balances controls */}
+      <InfoSheet
+        isOpen={showSubBalanceHelp}
+        onClose={() => setShowSubBalanceHelp(false)}
+        sections={[
+          {
+            title: isRTL ? 'יתרת נקסוס' : 'Nexus balance',
+            body: isRTL
+              ? 'יתרת נקסוס מאגדת בתוכה את כלל ההפקדות, הקאשבק, הזיכויים, וכרטיסי המתנה שקיבלת.'
+              : 'Your Nexus balance brings together all your deposits, cashback, credits, and gift cards you’ve received.',
+          },
+          {
+            title: isRTL ? 'סדר יתרות משנה' : 'Sub-balance order',
+            body: isRTL
+              ? 'התשלום מיתרת נקסוס יתבצע לפי סדר יתרות המשנה שתגדיר ובכפוף לתנאים של כל יתרה.'
+              : 'Payment from your Nexus balance will draw on your sub-balances in the order you set, subject to each sub-balance’s own terms.',
+          },
+        ]}
+      />
 
       {/* Hidden picker — opened by "Set card image" in the settings sheet. */}
       <input

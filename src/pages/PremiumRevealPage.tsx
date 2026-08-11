@@ -62,12 +62,18 @@ export function PremiumRevealContent({
   onReveal,
   autoReveal = false,
   revealHoldMs = 7000,
+  title,
+  subtitle,
 }: {
   onReveal?: () => void
   /** Skip the drag interaction and fire the reveal celebration on mount. */
   autoReveal?: boolean
   /** How long to hold the celebration before calling onReveal / navigating. */
   revealHoldMs?: number
+  /** Override the headline — used to reveal a launch gift instead of "all set". */
+  title?: string
+  /** Override the sub-headline. */
+  subtitle?: string
 }) {
   const { lang = "he" } = useParams()
   const navigate = useNavigate()
@@ -331,7 +337,7 @@ export function PremiumRevealContent({
           className="text-2xl font-semibold text-center mb-3"
           style={{ color: "var(--color-primary)" }}
         >
-          הכל מוכן.
+          {title ?? "הכל מוכן."}
         </motion.h1>
         <motion.p
           initial={{ opacity: 0, y: 15 }}
@@ -340,7 +346,7 @@ export function PremiumRevealContent({
           className="text-lg text-center"
           style={{ color: "var(--color-primary)", opacity: 0.7 }}
         >
-          הצעד הבא שלך מחכה
+          {subtitle ?? "הצעד הבא שלך מחכה"}
         </motion.p>
       </div>
 

@@ -98,6 +98,15 @@ interface RegistrationState {
   // Consent choices (collected in ConsentsSlide — mandatory step)
   consents: ConsentData | null;
 
+  /**
+   * A launch gift granted at OTP, carried through so the completion screen can
+   * reveal it. A plain value object on purpose — this store should not hold
+   * ledger internals it would then have to reset in two places.
+   * Non-null only when the gift was granted in THIS session (a returning member
+   * with an older gift gets null, so the reveal does not fire twice).
+   */
+  openingGift: { amount: number; currency: string; expiresAt: string } | null;
+
   // Actions
   startRegistration: (params: {
     path: RegistrationPath;
@@ -105,6 +114,7 @@ interface RegistrationState {
     orgMember?: OrgMemberInfo | null;
     missingFields?: string[];
     returnTo?: string;
+    openingGift?: { amount: number; currency: string; expiresAt: string } | null;
   }) => void;
   setProfileData: (data: Partial<RegistrationState['profileData']>) => void;
   setPreferences: (prefs: Record<string, string>) => void;
@@ -130,8 +140,9 @@ export const useRegistrationStore = create<RegistrationState>((set) => ({
   membershipFeePaid: false,
   onboardingData: null,
   consents: null,
+  openingGift: null,
 
-  startRegistration: ({ path, phone, orgMember, missingFields, returnTo }) => {
+  startRegistration: ({ path, phone, orgMember, missingFields, returnTo, openingGift }) => {
     // isOrgFlow is true when an orgMember is present (PATH B).
     // For tenant-only flows (PATH D) there is no orgMember, but tenantStore.config
     // persists to localStorage and handles the extraLeading independently.
@@ -155,6 +166,7 @@ export const useRegistrationStore = create<RegistrationState>((set) => ({
       },
       onboardingData: null,
       consents: null,
+      openingGift: openingGift ?? null,
     });
   },
 
@@ -198,6 +210,7 @@ export const useRegistrationStore = create<RegistrationState>((set) => ({
       membershipFeePaid: false,
       onboardingData: null,
       consents: null,
+      openingGift: null,
     });
   },
 
@@ -217,6 +230,7 @@ export const useRegistrationStore = create<RegistrationState>((set) => ({
       membershipFeePaid: false,
       onboardingData: null,
       consents: null,
+      openingGift: null,
     });
   },
 }));

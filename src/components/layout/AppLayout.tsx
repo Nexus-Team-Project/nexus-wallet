@@ -9,6 +9,7 @@ import SupportChatButton from '../SupportChatButton';
 import CartFab from '../cart/CartFab';
 import CartOverlay from '../cart/CartOverlay';
 import TransitionCurtain from './TransitionCurtain';
+import ProfileNudgeBanner from '../profile/ProfileNudgeBanner';
 import { useChatStore } from '../../stores/chatStore';
 import { useVouchers } from '../../hooks/useVouchers';
 import { useWallpaperStore } from '../../stores/wallpaperStore';
@@ -363,6 +364,11 @@ export default function AppLayout() {
             onClick={() => console.log('Open human chat')}
           />
         )}
+        {/* Personalization nudge. The preference questions were removed from
+            registration, so this banner is now the only thing that makes them
+            discoverable — optional, but never invisible. It self-guards on
+            isAuthenticated / preferencesIncomplete / isRegistering / dismissed. */}
+        {!cartOpen && !isFullScreenForm && <ProfileNudgeBanner />}
         <NotificationToastHost />
       </motion.div>
 
