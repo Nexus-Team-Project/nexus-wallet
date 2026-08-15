@@ -837,8 +837,19 @@ export default function VoucherPurchasePage() {
   // State
   const navState = location.state as { gift?: GiftDetails } | null;
 
+  // ── Story mode ────────────────────────────────────────────────────────────
+  // VoucherStoriesPage renders this page inside a story frame to walk the user
+  // through the real flow. `?story=1` skips the artificial entry skeleton, and
+  // `?sheet=split` opens the split-payment sheet on mount so the story can show
+  // it without simulating taps. Read once — story frames never change route.
+  const storyParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
+  const storyMode = storyParams.get('story') === '1';
+  const storySheet = storyParams.get('sheet');
+
   const [sheetVariant, setSheetVariant] = useState<VoucherVariant | null>(null);
-  const [selectedTierIdx, setSelectedTierIdx] = useState<number>(2); // default ₪300
+  // Story mode starts one tier lower so the walkthrough can scroll ₪200 → ₪300
+  // → ₪500 through the deck (see the cycling effect below).
+  const [selectedTierIdx, setSelectedTierIdx] = useState<number>(storyMode ? 1 : 2); // default ₪300
   const [customAmount, setCustomAmount] = useState<string>('');
   const [qty, setQty] = useState(1);
   const [stackable, setStackable] = useState(true);
@@ -870,8 +881,8 @@ export default function VoucherPurchasePage() {
   const { data: wallet } = useWallet();
   const [payMethodId, setPayMethodId] = useState(paymentMethods[0]?.id ?? '');
   const [paymentOpen, setPaymentOpen] = useState(true);
-  const [paymentOptionsOpen, setPaymentOptionsOpen] = useState(false);
-  const [splitSheetOpen, setSplitSheetOpen] = useState(false);
+  const [paymentOptionsOpen, setPaymentOptionsOpen] = useState(storySheet === 'payment-options');
+  const [splitSheetOpen, setSplitSheetOpen] = useState(storySheet === 'split');
   const [splitAmounts, setSplitAmounts] = useState<SplitAmounts | null>(null);
   // Only the Nexus wallet has a real ceiling in this mock — regular cards
   // and wallets are treated as uncapped for the waterfall fill.
@@ -902,12 +913,25 @@ export default function VoucherPurchasePage() {
   const [giftDetails] = useState<GiftDetails | null>(navState?.gift ?? null);
 
   // Loading skeleton on entry (artificial — mock data is instant).
-  const [loading, setLoading] = useState(ARTIFICIAL_LOADING_MS > 0);
+  const [loading, setLoading] = useState(ARTIFICIAL_LOADING_MS > 0 && !storyMode);
   useEffect(() => {
-    if (ARTIFICIAL_LOADING_MS <= 0) return;
+    if (ARTIFICIAL_LOADING_MS <= 0 || storyMode) return;
     const id = window.setTimeout(() => setLoading(false), ARTIFICIAL_LOADING_MS);
     return () => window.clearTimeout(id);
-  }, []);
+  }, [storyMode]);
+
+  // Story mode `&cycle=1`: scroll the amount deck ₪200 → ₪300 → ₪500 on its own
+  // so the "choose the voucher value" beat shows the choice being made rather
+  // than a static card.
+  useEffect(() => {
+    if (!storyMode || storyParams.get('cycle') !== '1') return;
+    const timers = [
+      window.setTimeout(() => setSelectedTierIdx(2), 1_600),
+      window.setTimeout(() => setSelectedTierIdx(3), 3_200),
+    ];
+    return () => timers.forEach(clearTimeout);
+  }, [storyMode, storyParams]);
+
 
   // Scroll-linked hero whiten: a white veil over the hero image whose opacity
   // grows as the page scrolls, dissolving the ambiance into the white page
@@ -1098,7 +1122,7 @@ export default function VoucherPurchasePage() {
       </div>
 
       {/* ── Framer-Motion Card Deck (mirrors WalletPage) ── */}
-      <div className="relative z-10 mt-4 px-5 overflow-hidden">
+      <div className="relative z-10 mt-4 px-5 overflow-hidden" data-story-tap="amount">
         {/* Outer container height = card natural height × 0.9 (centre-card scale) */}
         <div
           className="relative"
@@ -1348,7 +1372,9 @@ export default function VoucherPurchasePage() {
         )}
 
         {/* ── Deal terms heading ── */}
-        <section className="px-5 pt-6">
+        {/* data-story: scroll anchor for the how-to-create-a-voucher stories
+            (VoucherStoriesPage drives this page inside a story frame). */}
+        <section className="px-5 pt-6" data-story="terms">
           <h2 className="text-xl font-bold text-text-primary">
             {isHe ? 'תנאי עסקה' : 'Deal terms'}
           </h2>
@@ -1368,6 +1394,7 @@ export default function VoucherPurchasePage() {
             </button>
             <button
               onClick={() => setStackingInfoOpen(true)}
+              data-story-tap="terms-help"
               className="h-7 w-7 inline-flex items-center justify-center rounded-full bg-surface text-text-muted active:bg-border transition-colors shrink-0"
               aria-label={isHe ? 'מידע על כפל מבצעים' : 'About promo stacking'}
             >
@@ -1375,6 +1402,9 @@ export default function VoucherPurchasePage() {
             </button>
             <div
               onClick={() => setStackable((v) => !v)}
+              // data-story-tap: the how-to stories press this switch for real,
+              // so it visibly flips under the hand.
+              data-story-tap="terms-stack"
               className={`relative w-11 h-6 rounded-full transition-colors shrink-0 cursor-pointer ${stackable ? 'bg-primary' : 'bg-gray-200'}`}
             >
               <span
@@ -1647,7 +1677,8 @@ export default function VoucherPurchasePage() {
 
 
         {/* ── Payment method ── */}
-        <section className="px-5 mt-8">
+        {/* data-story: scroll anchor — see the note on the deal-terms section. */}
+        <section className="px-5 mt-8" data-story="payment">
           <div className="w-full flex items-center gap-1 mb-3">
             <button
               onClick={() => setPaymentOpen((v) => !v)}
@@ -1664,6 +1695,7 @@ export default function VoucherPurchasePage() {
             </button>
             <button
               onClick={() => setPaymentOptionsOpen(true)}
+              data-story-tap="payment-options"
               aria-label={isHe ? 'אפשרויות תשלום' : 'Payment options'}
               className="w-8 h-8 inline-flex items-center justify-center rounded-full text-text-muted active:bg-surface transition-colors flex-shrink-0"
             >
@@ -1720,6 +1752,9 @@ export default function VoucherPurchasePage() {
                       <button
                         key={m.id}
                         onClick={() => setPayMethodId(m.id)}
+                        // data-story-tap: the how-to stories press these chips
+                        // for real, so the selection switches under the hand.
+                        data-story-tap={`pay:${m.id}`}
                         className={`relative flex-none w-36 snap-start rounded-xl border p-3 flex flex-col items-center gap-2 bg-white transition-colors ${active ? 'border-primary shadow-sm' : 'border-border'}`}
                       >
                         {active && (

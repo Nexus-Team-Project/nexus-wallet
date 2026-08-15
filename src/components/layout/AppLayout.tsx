@@ -25,6 +25,18 @@ export default function AppLayout() {
   // render — including every scroll tick on the home page, which toggles
   // `collapsed`. Memoise them so they only recompute when the URL changes.
   const routeFlags = useMemo(() => {
+    // Story mode — all global chrome is stripped: the top user-icon strip, the
+    // bottom home/search/wallet pill, the chat FABs, the cart button and the
+    // personalization banner.
+    //
+    // Two cases, both needed. The stories page itself is a full-screen shell
+    // that must stand alone (its own fixed overlay is narrower than the
+    // viewport, so a full-width pill would still show around and under it), and
+    // every real screen it embeds carries `?story=1` so the chrome is gone
+    // inside the frames too.
+    const isStory =
+      /^\/[a-z]{2}\/wallet\/voucher-stories\/?$/.test(pathname) ||
+      new URLSearchParams(search).get('story') === '1';
     const isHome = /^\/[a-z]{2}\/?$/.test(pathname);
     // Pages that opt into the home-page decorative gradient backdrop.
     const isNotifications = /^\/[a-z]{2}\/notifications\/?$/.test(pathname);
@@ -51,6 +63,7 @@ export default function AppLayout() {
       /^\/[a-z]{2}\/wallet\/(add-payment-method|pay-intro|deal-intro|card|balance|voucher\/[^/]+)\/?$/.test(pathname) ||
       /^\/[a-z]{2}\/gift-sample\/?$/.test(pathname) ||
       /^\/[a-z]{2}\/premium\/?$/.test(pathname) ||
+      /^\/[a-z]{2}\/about\/?$/.test(pathname) ||
       /^\/[a-z]{2}\/business\/[^/]+\/site\/?$/.test(pathname) ||
       // Transaction-success screens (pay/success, store-/voucher-/business-
       // success) are self-contained full-screen shells with their own close.
@@ -82,6 +95,7 @@ export default function AppLayout() {
     // the bottom, so the floating home/search/wallet pill is suppressed there.
     const isVoucherSearch = /^\/[a-z]{2}\/store\/?$/.test(pathname);
     return {
+      isStory,
       isHome, isNotifications, isProfile, isWalletGradient, isWallpaper, isOrders,
       showHomeGradient, isWallet, giftLocked, isFullScreenForm, isBusinessStore,
       isBusinessProduct, isBusinessReviews, isCategory, isBusinessCheckout, isReferral,
@@ -89,6 +103,7 @@ export default function AppLayout() {
     };
   }, [pathname, search]);
   const {
+    isStory,
     isHome, isWallpaper, showHomeGradient, isWallet, giftLocked, isFullScreenForm,
     isBusinessStore, isBusinessProduct, isBusinessReviews, isCategory,
     isBusinessCheckout, isReferral, isVoucherSearch,
@@ -233,7 +248,7 @@ export default function AppLayout() {
       {/* Dark cart panel — sits behind the page; revealed as the page lifts. */}
       <CartOverlay />
       <motion.div
-        className={`max-w-md mx-auto bg-bg-light relative shadow-sm ${isFullScreenForm ? '' : 'pb-20'} ${cartOpen ? 'overflow-hidden' : giftLocked ? 'h-dvh overflow-hidden' : 'min-h-screen'}`}
+        className={`max-w-md mx-auto bg-bg-light relative shadow-sm ${isFullScreenForm || isStory ? '' : 'pb-20'} ${cartOpen ? 'overflow-hidden' : giftLocked ? 'h-dvh overflow-hidden' : 'min-h-screen'}`}
         style={
           cartOpen
             ? { position: 'fixed', top: 0, left: 0, right: 0, height: vh, zIndex: 10, y: cartLiftY, touchAction: 'none' }
@@ -279,7 +294,10 @@ export default function AppLayout() {
           </div>
         )}
 
-        {isHome ? (
+        {isStory ? (
+          /* Story frame: no global header at all — the page stands alone. */
+          null
+        ) : isHome ? (
           /* Home: sticky header, collapses on scroll */
           <div
             className={`sticky top-0 z-50 backdrop-blur-sm transition-colors duration-300 ${
@@ -340,7 +358,7 @@ export default function AppLayout() {
         </main>
         {/* Bottom search/home/wallet strip — hidden on the wallpaper
             picker so the picker grid + CTA own the screen. */}
-        {!cartOpen && !isFullScreenForm && !isWallpaper && !isReferral && !isBusinessProduct && !isBusinessReviews && !isBusinessCheckout && !isVoucherSearch && (
+        {!isStory && !cartOpen && !isFullScreenForm && !isWallpaper && !isReferral && !isBusinessProduct && !isBusinessReviews && !isBusinessCheckout && !isVoucherSearch && (
           giftLocked ? (
             <div className="pointer-events-none"><FloatingActions /></div>
           ) : (
@@ -349,7 +367,7 @@ export default function AppLayout() {
         )}
         {/* AI assistant FAB — always available (suppressed on wallet
             page, which renders its own chat affordance inline). */}
-        {!cartOpen && !isWallet && !isFullScreenForm && !isBusinessProduct && !isBusinessReviews && !isBusinessCheckout && (
+        {!isStory && !cartOpen && !isWallet && !isFullScreenForm && !isBusinessProduct && !isBusinessReviews && !isBusinessCheckout && (
           <SupportChatButton
             variant="ai"
             isTyping={aiTyping}
@@ -357,7 +375,7 @@ export default function AppLayout() {
           />
         )}
         {/* Human-agent FAB — mounted only while an agent is engaged. */}
-        {!isWallet && !isFullScreenForm && isHumanChatActive && (
+        {!isStory && !isWallet && !isFullScreenForm && isHumanChatActive && (
           <SupportChatButton
             variant="human"
             isTyping={agentTyping}
@@ -368,13 +386,13 @@ export default function AppLayout() {
             registration, so this banner is now the only thing that makes them
             discoverable — optional, but never invisible. It self-guards on
             isAuthenticated / preferencesIncomplete / isRegistering / dismissed. */}
-        {!cartOpen && !isFullScreenForm && <ProfileNudgeBanner />}
+        {!isStory && !cartOpen && !isFullScreenForm && <ProfileNudgeBanner />}
         <NotificationToastHost />
       </motion.div>
 
       {/* Global draggable cart button (persists across pages). Locked (dead)
           in the gift view. */}
-      {giftLocked ? (
+      {isStory ? null : giftLocked ? (
         <div className="pointer-events-none"><CartFab /></div>
       ) : (
         <CartFab />

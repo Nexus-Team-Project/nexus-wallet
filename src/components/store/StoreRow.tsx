@@ -35,6 +35,9 @@ export default function StoreRow({ voucher: v, onSelect }: StoreRowProps) {
     >
       {/* Brand logo circle */}
       <div
+        // data-story-tap: lets the how-to stories land their tap-hand right on
+        // a specific brand's logo (e.g. `store:FOX`), not the whole row.
+        data-story-tap={`store:${v.merchantName}`}
         className="relative w-14 h-14 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden border border-border"
         style={{ backgroundColor: v.brandColor || '#FFFFFF' }}
       >

@@ -13,6 +13,13 @@ export default function ProtectedRoute() {
   // and refreshes stay authenticated) instead of bouncing them to the home page.
   const isGiftDeepLink = searchParams.has('focus');
 
+  // Story frames (`?story=1`) embed real screens inside the how-to-create-a-
+  // voucher stories, which are reachable while signed out. Let them render
+  // read-only rather than bouncing mid-story. Deliberately NOT a login: no auth
+  // state is written, so nothing leaks into the surrounding app session. The
+  // pages behind this guard are mock-data surfaces with no per-user content.
+  const isStoryFrame = searchParams.get('story') === '1';
+
   useEffect(() => {
     if (!isAuthenticated && isGiftDeepLink) {
       useAuthStore.getState().login({
@@ -28,6 +35,7 @@ export default function ProtectedRoute() {
     // Logging in via the effect above — render nothing this frame (rather than
     // redirecting) so the gift deep-link isn't lost to a bounce.
     if (isGiftDeepLink) return null;
+    if (isStoryFrame) return <Outlet />;
     // Not authenticated — redirect back to home (LoginSheet opens from action buttons)
     return <Navigate to={`/${lang || 'he'}`} replace />;
   }

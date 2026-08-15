@@ -10,6 +10,7 @@ import { formatCurrency } from '../../utils/formatCurrency';
 import { useUnreadNotificationCount } from '../../hooks/useNotifications';
 import { useNotificationToastStore } from '../../stores/notificationToastStore';
 import TenantSheet from './TenantSheet';
+import ChatSheet from './ChatSheet';
 import { useTopBarBadgeStore } from '../../stores/topBarBadgeStore';
 import { useTopBarBackStore } from '../../stores/topBarBackStore';
 import AnimatedActionIcon from './AnimatedActionIcon';
@@ -79,6 +80,7 @@ function TopBar({ collapsed = false, showBack = false, hideGreeting = false, hid
   }, [bellPulseCount]);
 
   const [tenantSheetOpen, setTenantSheetOpen] = useState(false);
+  const [chatSheetOpen, setChatSheetOpen] = useState(false);
   const badge = useTopBarBadgeStore((s) => s.badge);
 
   const tenantDisplayName = hasTenant
@@ -234,6 +236,16 @@ function TopBar({ collapsed = false, showBack = false, hideGreeting = false, hid
         {!hideNotifications && (
         <div className="flex items-center gap-1.5">
           <button
+            onClick={() => setChatSheetOpen(true)}
+            className={`rounded-full bg-white flex items-center justify-center shadow-[0_6px_16px_rgba(0,0,0,0.14)] transition-all duration-300 ease-in-out ${btnSize}`}
+            style={{ transformOrigin: 'top center' }}
+            aria-label={language === 'he' ? 'צ׳אט' : 'Chat'}
+          >
+            <span className={`material-symbols-outlined text-text-primary transition-transform duration-300 ${iconScale}`} style={{ fontSize: 22 }}>
+              chat_bubble
+            </span>
+          </button>
+          <button
             onClick={handleNotifications}
             data-notif-bell
             className={`relative rounded-full bg-white flex items-center justify-center shadow-[0_6px_16px_rgba(0,0,0,0.14)] transition-all duration-300 ease-in-out ${btnSize} ${bellShaking ? 'animate-bell-shake' : ''}`}
@@ -268,6 +280,7 @@ function TopBar({ collapsed = false, showBack = false, hideGreeting = false, hid
       )}
 
       <TenantSheet isOpen={tenantSheetOpen} onClose={() => setTenantSheetOpen(false)} />
+      <ChatSheet isOpen={chatSheetOpen} onClose={() => setChatSheetOpen(false)} />
     </header>
   );
 }

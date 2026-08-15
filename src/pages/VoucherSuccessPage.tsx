@@ -33,7 +33,23 @@ export default function VoucherSuccessPage() {
   const { language } = useLanguage();
   const isHe = language === 'he';
 
-  const state = (location.state as VoucherSuccessState | null) ?? { voucherValue: 150 };
+  // Story mode — VoucherStoriesPage embeds this screen to show the cashback
+  // landing in the balance. Router state can't survive a URL-only entry, so the
+  // story passes the numbers as query params; `?story=1` also holds the screen
+  // open (the 5.5 s auto-dismiss would navigate the frame away mid-story).
+  const query = new URLSearchParams(location.search);
+  const storyMode = query.get('story') === '1';
+  const storyState: VoucherSuccessState | null = storyMode
+    ? {
+        voucherValue: Number(query.get('value')) || 150,
+        cashback: Number(query.get('cashback')) || undefined,
+        merchantNameHe: query.get('merchantHe') ?? undefined,
+        merchantName: query.get('merchant') ?? undefined,
+        brandColor: query.get('brandColor') ?? undefined,
+      }
+    : null;
+
+  const state = storyState ?? (location.state as VoucherSuccessState | null) ?? { voucherValue: 150 };
   const {
     voucherValue = 150,
     amountPaid = voucherValue,
@@ -157,6 +173,7 @@ export default function VoucherSuccessPage() {
       cashback={cashback}
       previewSlot={voucherCard}
       onClose={handleClose}
+      autoMs={storyMode ? 0 : undefined}
     >
       {/* Detail rows */}
       <div className="px-5 py-4 space-y-3" dir={isHe ? 'rtl' : 'ltr'}>

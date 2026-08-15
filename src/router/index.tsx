@@ -19,7 +19,7 @@ import WalletHistorySkeleton from '../components/wallet/WalletHistorySkeleton';
 // Main app tabs — loaded right after initial render
 const HomePage           = lazy(() => import('../pages/HomePage'));
 const VoucherSearch      = lazy(() => import('../pages/VoucherSearch'));
-const WalletRoute        = lazy(() => import('../pages/WalletRoute'));
+const WalletPage         = lazy(() => import('../pages/WalletPage'));
 const ActivityPage       = lazy(() => import('../pages/ActivityPage'));
 const ProfilePage        = lazy(() => import('../pages/ProfilePage'));
 
@@ -43,6 +43,7 @@ const BusinessReviewsPage  = lazy(() => import('../pages/BusinessReviewsPage'));
 const BusinessCheckoutPage = lazy(() => import('../pages/BusinessCheckoutPage'));
 const GiftDetailsPage      = lazy(() => import('../pages/GiftDetailsPage'));
 const GiftSamplePage       = lazy(() => import('../pages/GiftSamplePage'));
+const AboutWalletPage      = lazy(() => import('../pages/AboutWalletPage'));
 const SplitBillPage        = lazy(() => import('../pages/SplitBillPage'));
 const OrderConfirmationPage = lazy(() => import('../pages/OrderConfirmationPage'));
 const ReceiptPage = lazy(() => import('../pages/ReceiptPage'));
@@ -67,6 +68,7 @@ const BalanceDetailPage = lazy(() => import('../pages/BalanceDetailPage'));
 const VoucherDetailPage  = lazy(() => import('../pages/VoucherDetailPage'));
 const PaymentIntroPage            = lazy(() => import('../pages/PaymentIntroPage'));
 const DealIntroPage               = lazy(() => import('../pages/DealIntroPage'));
+const VoucherStoriesPage          = lazy(() => import('../pages/VoucherStoriesPage'));
 const PaymentSuccessPage          = lazy(() => import('../pages/PaymentSuccessPage'));
 const StorePaymentSuccessPage     = lazy(() => import('../pages/StorePaymentSuccessPage'));
 const VoucherSuccessPage          = lazy(() => import('../pages/VoucherSuccessPage'));
@@ -167,6 +169,7 @@ export const router = createBrowserRouter([
           { path: 'wallet/payment-methods',    element: <S><PaymentMethodsPage /></S> },
           { path: 'wallet/pay-intro',          element: <S><PaymentIntroPage /></S> },
           { path: 'wallet/deal-intro',         element: <S><DealIntroPage /></S> },
+          { path: 'wallet/voucher-stories',    element: <S><VoucherStoriesPage /></S> },
           { path: 'pay/success',               element: <S><PaymentSuccessPage /></S> },
           { path: 'pay/store-success',         element: <S><StorePaymentSuccessPage /></S> },
           { path: 'pay/voucher-success',       element: <S><VoucherSuccessPage /></S> },
@@ -191,23 +194,20 @@ export const router = createBrowserRouter([
           { path: 'orders/track/live',         element: <S><OrderTrackingLivePage /></S> },
           // Standalone ready-made gift page (Bnei Akiva — Passover)
           { path: 'gift-sample',               element: <S><GiftSamplePage /></S> },
-
-          // The wallet is PUBLIC: it is where the launch SMS lands, so an
-          // anonymous visitor has to be able to see the offer. WalletRoute
-          // branches to an offer-framed view when nobody is signed in.
-          {
-            path: 'wallet',
-            element: (
-              <Suspense fallback={<WalletPageSkeleton />}>
-                <WalletRoute />
-              </Suspense>
-            ),
-          },
+          { path: 'about',                     element: <S><AboutWalletPage /></S> },
 
           // === PROTECTED routes ===
           {
             element: <ProtectedRoute />,
             children: [
+              {
+                path: 'wallet',
+                element: (
+                  <Suspense fallback={<WalletPageSkeleton />}>
+                    <WalletPage />
+                  </Suspense>
+                ),
+              },
               { path: 'activity',      element: <S><ActivityPage /></S> },
               { path: 'profile',       element: <S><ProfilePage /></S> },
             ],

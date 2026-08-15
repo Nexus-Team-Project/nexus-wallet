@@ -365,6 +365,7 @@ export default function SplitPaymentSheet({
             </div>
             <button
               onClick={() => onConfirm(amounts)}
+              data-story-tap="split-confirm"
               disabled={!balanced}
               className={`w-full py-3.5 rounded-2xl font-bold text-base transition-colors active:scale-[0.98] ${
                 balanced

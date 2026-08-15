@@ -11,6 +11,8 @@ import { categoryTranslations } from './category';
 import { businessTranslations } from './business';
 import { notificationsTranslations } from './notifications';
 import { premiumTranslations } from './premium';
+import { footerTranslations } from './footer';
+import { navbarTranslations } from './navbar';
 
 const navTranslations = {
   en: {
@@ -45,6 +47,8 @@ export const translations = {
     business: businessTranslations.en,
     notifications: notificationsTranslations.en,
     premium: premiumTranslations.en,
+    footer: footerTranslations.en,
+    navbar: navbarTranslations.en,
   },
   he: {
     common: commonTranslations.he,
@@ -61,5 +65,7 @@ export const translations = {
     business: businessTranslations.he,
     notifications: notificationsTranslations.he,
     premium: premiumTranslations.he,
+    footer: footerTranslations.he,
+    navbar: navbarTranslations.he,
   },
 };

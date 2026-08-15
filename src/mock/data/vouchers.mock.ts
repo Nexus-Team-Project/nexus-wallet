@@ -246,6 +246,38 @@ export const mockVouchers: Voucher[] = [
     paymentNetwork: 'mastercard',
     inStock: true, popular: false,
   },
+  // ── FOX family ─────────────────────────────────────────────────────────────
+  // Three sibling brands so a "FOX" search returns a real result set.
+  {
+    id: 'v_023', title: 'FOX Gift Card', titleHe: 'גיפט קארד פוקס',
+    description: 'Gift card for FOX fashion stores', descriptionHe: 'גיפט קארד לרשת האופנה פוקס',
+    merchantName: 'FOX', merchantLogo: '👕', category: 'shopping',
+    originalPrice: 100, discountedPrice: 75, discountPercent: 25, currency: 'ILS',
+    image: '👕', imageUrl: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=400&q=80', validUntil: '2027-06-30',
+    termsAndConditions: 'Valid in all FOX branches.', termsAndConditionsHe: 'בתוקף בכל סניפי פוקס.',
+    brandColor: '#1A1A1A', brandLogo: '/brands/fox.png',
+    inStock: true, popular: true,
+  },
+  {
+    id: 'v_024', title: 'FOX KIDS Gift Card', titleHe: 'גיפט קארד פוקס קידס',
+    description: 'Gift card for FOX KIDS stores', descriptionHe: 'גיפט קארד לרשת פוקס קידס',
+    merchantName: 'FOX KIDS', merchantLogo: '🧸', category: 'shopping',
+    originalPrice: 100, discountedPrice: 80, discountPercent: 20, currency: 'ILS',
+    image: '🧸', imageUrl: 'https://images.unsplash.com/photo-1519238263530-99bdd11df2ea?w=400&q=80', validUntil: '2027-06-30',
+    termsAndConditions: 'Valid in all FOX KIDS branches.', termsAndConditionsHe: 'בתוקף בכל סניפי פוקס קידס.',
+    brandColor: '#2B2B2B', brandLogo: '/brands/fox.png',
+    inStock: true, popular: false,
+  },
+  {
+    id: 'v_025', title: 'FOX HOME Gift Card', titleHe: 'גיפט קארד פוקס הום',
+    description: 'Gift card for FOX HOME stores', descriptionHe: 'גיפט קארד לרשת פוקס הום',
+    merchantName: 'FOX HOME', merchantLogo: '🏠', category: 'shopping',
+    originalPrice: 100, discountedPrice: 78, discountPercent: 22, currency: 'ILS',
+    image: '🏠', imageUrl: 'https://images.unsplash.com/photo-1513694203232-719a280e022f?w=400&q=80', validUntil: '2027-06-30',
+    termsAndConditions: 'Valid in all FOX HOME branches.', termsAndConditionsHe: 'בתוקף בכל סניפי פוקס הום.',
+    brandColor: '#3A3A3A', brandLogo: '/brands/fox.png',
+    inStock: true, popular: false,
+  },
 ];
 
 export const mockUserVouchers: UserVoucher[] = [
@@ -258,6 +290,12 @@ export const mockUserVouchers: UserVoucher[] = [
     purchasedAt: '2026-08-03T10:30:00Z', expiresAt: '2026-06-30T23:59:59Z',
     status: 'active', redemptionCode: 'NXS-MCD-8742',
     qrCode: 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=NXS-MCD-8742',
+  },
+  {
+    id: 'uv_005', voucherId: 'v_023', voucher: mockVouchers.find((v) => v.id === 'v_023')!,
+    purchasedAt: '2026-08-12T11:00:00Z', expiresAt: '2027-06-30T23:59:59Z',
+    status: 'active', redemptionCode: 'NXS-FOX-7241',
+    qrCode: 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=NXS-FOX-7241',
   },
   {
     id: 'uv_002', voucherId: 'v_002', voucher: mockVouchers[1],

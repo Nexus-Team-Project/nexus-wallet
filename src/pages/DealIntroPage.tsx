@@ -20,25 +20,25 @@ export default function DealIntroPage() {
 
   const features = [
     {
+      icon: 'savings',
+      title: isRTL ? 'מקסמו כל תשלום עם עד 60% קאשבק' : 'Maximize every payment with up to 60% cashback',
+      body: isRTL
+        ? 'בחרו את תנאי השובר בהתאם למבצעים בחנות, שלמו וצברו כסף בחזרה ליתרת ה-Nexus שלכם.'
+        : 'Set the voucher terms to match the deals in store, pay, and earn money back into your Nexus balance.',
+    },
+    {
       icon: 'storefront',
-      title: isRTL ? 'מגוון רחב יותר' : 'A wider selection',
+      title: isRTL ? 'מאות מותגים שאתם אוהבים' : 'Hundreds of brands you love',
       body: isRTL
-        ? 'חלק מבתי העסק שעובדים איתנו מקבלים תשלום רק עם שוברים — כך שנפתח לכם מגוון רחב יותר.'
-        : 'Some partner businesses accept payment only with vouchers — opening up a wider selection of stores.',
+        ? 'שלמו במותגים מובילים, והמשיכו לצבור קאשבק שוב ושוב — גם כשאתם משתמשים בקאשבק שכבר צברתם.'
+        : 'Pay at leading brands, and keep earning cashback again and again — even when you spend the cashback you already earned.',
     },
     {
-      icon: 'payments',
-      title: isRTL ? 'תשלומים גמישים' : 'Flexible payments',
+      icon: 'credit_card',
+      title: isRTL ? 'נהנים מכל העולמות' : 'The best of both worlds',
       body: isRTL
-        ? 'פרסו את התשלום לאורך זמן, ומקסמו את הקאשבק בהתאם לתנאים בחנות.'
-        : 'Spread payments over time, and maximize cashback according to each store’s terms.',
-    },
-    {
-      icon: 'card_giftcard',
-      title: isRTL ? 'שלחו כמתנה' : 'Send as a gift',
-      body: isRTL
-        ? 'שלחו את השובר כמתנה למי שאתם אוהבים.'
-        : 'Send the voucher as a gift to someone you love.',
+        ? 'מצרפים את כרטיס האשראי האישי לתוך Nexus ונהנים גם מההטבות שלנו וגם מההטבות של כרטיס האשראי שלכם.'
+        : 'Link your personal credit card to Nexus and enjoy both our benefits and your card’s benefits.',
     },
   ];
 
@@ -55,7 +55,7 @@ export default function DealIntroPage() {
         {/* No overflow-hidden here: the front card pulses (scale 1.15) and its
             shadow must spill past the stage without a clipped edge. Extra bottom
             padding keeps that shadow clear of the headline below. */}
-        <section className="relative -mx-6 pt-12 pb-6">
+        <section className="relative -mx-6 pt-4 pb-0">
           <div
             className="absolute inset-0 z-0"
             style={{
@@ -64,13 +64,13 @@ export default function DealIntroPage() {
             }}
           />
           <div className="relative z-[1]">
-            <GiftCardsCarousel height={340} showNotifications={false} />
+            <GiftCardsCarousel height={250} showNotifications={false} />
           </div>
-          <div className="absolute top-0 inset-x-0 h-16 bg-gradient-to-b from-white to-transparent z-10 pointer-events-none" />
+          <div className="absolute top-0 inset-x-0 h-10 bg-gradient-to-b from-white to-transparent z-10 pointer-events-none" />
         </section>
 
         {/* Headline */}
-        <section className="text-center mt-6 mb-10">
+        <section className="text-center -mt-2 mb-7">
           <h1 className="text-[32px] leading-tight font-extrabold tracking-tight" style={{ color: NAVY }}>
             {isRTL ? 'צרו שובר' : 'Create a voucher'}
             <br />
@@ -116,12 +116,13 @@ export default function DealIntroPage() {
             {isRTL ? 'בואו נתחיל' : 'Get started'}
           </button>
         </div>
+        {/* "איך זה עובד?" → the how-to-create-a-voucher stories sequence */}
         <button
-          onClick={() => navigate(`/${lang}/store`)}
+          onClick={() => navigate(`/${lang}/wallet/voucher-stories`)}
           className="w-full bg-white border border-gray-300 font-bold py-4 rounded-[28px] text-[17px] active:bg-gray-50 transition-colors"
           style={{ color: NAVY }}
         >
-          {isRTL ? 'לכל החנויות' : 'All stores'}
+          {isRTL ? 'איך זה עובד?' : 'How it works'}
         </button>
       </footer>
     </div>

@@ -21,6 +21,11 @@
   --color-white: #FFFFFF;
   --color-accent-cyan: #00d4ff;
   --color-accent-green: #7dd3a8;
+  /* Marketing-site brand blue — same value as nexus-website's
+     `--color-nx-primary`. Needed by the Footer component ported from that
+     project (src/components/Footer.tsx), which styles its focus ring and
+     language-picker selection with `nx-primary`. */
+  --color-nx-primary: #0ea5e9;
 
   --font-display: 'Inter', system-ui, -apple-system, sans-serif;
   --font-hebrew: 'Rubik', 'Inter', system-ui, sans-serif;

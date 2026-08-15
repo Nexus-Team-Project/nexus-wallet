@@ -134,6 +134,17 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
   // it once on mount. The balance counts up by the cashback, then the deck
   // slides to reveal the purchased card.
   const [postTx] = useState<{ cashback: number; targetCardId: string | null } | null>(() => {
+    // Story frame (`?story=1&cashback=…&card=voucher:…`): the how-to-create-a-
+    // voucher stories embed this page to replay the post-purchase moment, but
+    // arrive by URL and so can't seed sessionStorage. Drive the same animation
+    // from the query instead — balance counts up, then the deck slides to the
+    // purchased card.
+    if (searchParams.get('story') === '1' && searchParams.get('cashback')) {
+      return {
+        cashback: Number(searchParams.get('cashback')) || 0,
+        targetCardId: searchParams.get('card'),
+      };
+    }
     try {
       const raw = sessionStorage.getItem('nexus_pending_wallet_anim');
       if (raw) {
@@ -365,6 +376,21 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
   // Which voucher card is flipped to its redemption side (null = none).
   const [flippedVoucherId, setFlippedVoucherId] = useState<string | null>(null);
 
+  const isStoryFrame = searchParams.get('story') === '1';
+
+  // Story frame (`&flip=1`): once the post-tx slide has settled on the purchased
+  // card, flip it to its redemption-code side — the "show the code at the
+  // register" beat. Must run AFTER the slide: moving the deck clears the flip.
+  const storyFlipCardId =
+    isStoryFrame && searchParams.get('flip') === '1' ? postTx?.targetCardId ?? null : null;
+  useEffect(() => {
+    if (!storyFlipCardId || !countUpDone) return;
+    // `&flipAt=` lets the story line the flip up with its tap-hand press.
+    const at = Number(searchParams.get('flipAt')) || 3200;
+    const t = setTimeout(() => setFlippedVoucherId(storyFlipCardId), at);
+    return () => clearTimeout(t);
+  }, [storyFlipCardId, countUpDone, searchParams]);
+
   // SPAR demo: archiving the spent gift card drops it out of the deck for good,
   // leaving the Nexus balance card (which has already counted up the cashback).
   const archiveSparGift = () => {
@@ -565,7 +591,9 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
   // while the edit-mode banner is showing.
   // Arriving from a redeemed gift (deep-link `?focus=`): suppress the
   // "add a payment method" prompt — the user just received a gift, not a nudge.
-  const showNoCardBanner = !hasCard && !embedded && !editEnabled && !cameFromGift;
+  // The story walkthrough shows the wallet as it looks once you are set up —
+  // the "add a payment method and start saving" banner is noise there.
+  const showNoCardBanner = !hasCard && !embedded && !editEnabled && !cameFromGift && !isStoryFrame;
   // Either banner occupies the dark top strip, so the white content frame
   // overlaps it the same way in both cases.
   const showTopStrip = showNoCardBanner || showEditBanner;
@@ -1066,7 +1094,9 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
             behind. */}
         <div className="relative">
       {/* ══════ INLINE TOPBAR ROW (logo, avatar, greeting, chat, bell) ══════ */}
-      {!embedded && (
+      {/* Hidden in a story frame too — AppLayout strips the global chrome there,
+          and this inline copy would be the only user-icon strip left on screen. */}
+      {!embedded && !isStoryFrame && (
         // Gift view: the top toolbar stays visible but non-interactive.
         <div className={cameFromGift ? 'pointer-events-none' : undefined}>
           <TopBar collapsed={false} />
@@ -1136,6 +1166,9 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
                   ref={(el) => {
                     cardWrapRefs.current[cardId] = el;
                   }}
+                  // data-story-tap: lets the how-to stories park their tap-hand
+                  // on the centred card just before it flips to its code side.
+                  data-story-tap={isCenter ? 'wallet-card' : undefined}
                   // deck-card-drag forces touch-action:none (with !important)
                   // so the sideways drag can't leak into vertical page scroll.
                   className={`w-full ${isCenter ? 'deck-card-drag' : ''}`}
@@ -1646,6 +1679,9 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
         if (sectionId === 'widgets') {
           // Gift view: drop the widgets section entirely.
           if (cameFromGift) return null;
+          // Story walkthrough: the widgets gallery is beside the point there —
+          // the beat is about the balance, the card and its code.
+          if (isStoryFrame) return null;
           return (
       <Reorder.Item
         key="widgets"

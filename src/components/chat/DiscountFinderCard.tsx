@@ -172,6 +172,40 @@ export default function DiscountFinderCard({
   const [committedQuery, setCommittedQuery] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // ── Story autoplay ────────────────────────────────────────────────────────
+  // The how-to-create-a-voucher stories embed the store page (`?story=1`) and
+  // want the search row to act itself: open, type the brand out letter by
+  // letter (`&type=FOX`), then submit so the matching stores fill the results
+  // sheet below. `onInteract` is skipped on purpose — it collapses the results
+  // sheet, which would move the row out from under the story's tap-hand.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('story') !== '1') return;
+    const text = params.get('type');
+    if (!text) return;
+
+    const OPEN_AT = 1_100;
+    const TYPE_AT = 1_800;
+    const PER_CHAR = 190;
+
+    const timers: number[] = [];
+    timers.push(window.setTimeout(() => setSearchActive(true), OPEN_AT));
+    for (let i = 0; i < text.length; i++) {
+      timers.push(window.setTimeout(() => setQuery(text.slice(0, i + 1)), TYPE_AT + i * PER_CHAR));
+    }
+    // Same effect as hitting enter — see onSubmit on the pill input below.
+    timers.push(
+      window.setTimeout(() => {
+        setCommittedQuery(text);
+        setQuery('');
+        setSearchActive(false);
+        onSearchQuery?.(text);
+      }, TYPE_AT + text.length * PER_CHAR + 700),
+    );
+    return () => timers.forEach(clearTimeout);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Category filter — defaults to "all" or the category passed in by the
   // parent (e.g. when the finder is launched from a category page).
   // The category dropdown is closed initially; opens when the user taps
@@ -290,6 +324,10 @@ export default function DiscountFinderCard({
         >
           <span>{isHe ? 'מצא לי' : 'Find me'}</span>
 
+          {/* data-story-tap: the how-to stories park their tap-hand here. On the
+              wrapper, not the input — the slot morphs bubble → input → chip, and
+              the hand must stay put across all three. */}
+          <span className="inline-flex items-center" data-story-tap="search">
           {searchActive ? (
             <SearchPillInput
               ref={inputRef}
@@ -344,6 +382,7 @@ export default function DiscountFinderCard({
               }}
             />
           )}
+          </span>
 
           {!hideItemType && (
             <CategoryButton
