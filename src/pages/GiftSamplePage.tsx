@@ -77,6 +77,12 @@ export interface GiftVariant {
   loadShowsBalance?: boolean;
   /** Caption printed during that beat. */
   loadCaption?: string;
+  /**
+   * Suppress the "gift card loaded" toast fired on landing in the wallet.
+   * On for SPAR — the recipient just watched the load animation, so the toast
+   * only repeats what the celebration already said.
+   */
+  skipLoadToast?: boolean;
   /** Cover button label (defaults to "גלה את המתנה"). */
   coverCta?: string;
   /** Footer CTA once revealed (defaults to "למימוש המתנה"). */
@@ -167,6 +173,7 @@ export const GIFT_VARIANTS: Record<string, GiftVariant> = {
     // balance card never replaces it.
     loadShowsBalance: false,
     loadCaption: 'אנחנו טוענים את כרטיס המתנה ליתרה שלך',
+    skipLoadToast: true,
   },
   isrotel: {
     redeemVoucherId: 'uv_isrotel_gift',
@@ -282,7 +289,8 @@ export default function GiftSamplePage() {
     // "landed already signed-in" path) never resurfaces for this recipient.
     if (tenantId && variant.loadsToBalance) {
       try { localStorage.setItem(giftClaimedKey(tenantId), '1'); } catch { /* private mode */ }
-
+    }
+    if (tenantId && variant.loadsToBalance && !variant.skipLoadToast) {
       // Standard-design toast, fired as the recipient lands in the wallet —
       // taps through to the sub-balances tab where the loaded card now lives.
       const amount = formatCurrency(userVoucher.voucher.originalPrice, userVoucher.voucher.currency);
