@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate, useParams } from 'react-router-dom';
 import { motion, animate, AnimatePresence, useMotionValue, type PanInfo } from 'framer-motion';
-import { GIFT_VARIANTS, SPAR_GIFT_CLAIMED_KEY } from '../../pages/GiftSamplePage';
+import { GIFT_VARIANTS, giftClaimedKey } from '../../pages/GiftSamplePage';
 import { useTransitionCurtainStore } from '../../stores/transitionCurtainStore';
 import { useTenantStore } from '../../stores/tenantStore';
 import { useLanguage } from '../../i18n/LanguageContext';
@@ -46,7 +46,7 @@ import { useLanguage } from '../../i18n/LanguageContext';
  *
  * Dismissing (drag down / the corner ✕) only hides it for this mount — it
  * comes back next visit. Only completing the claim (GiftSamplePage's
- * finishRedeem, via SPAR_GIFT_CLAIMED_KEY) makes it gone for good.
+ * finishRedeem, via giftClaimedKey(tenant)) makes it gone for good.
  */
 
 const CARD_HEIGHT = 480;
@@ -66,16 +66,19 @@ export default function GiftClaimTeaser() {
   const [dismissed, setDismissed] = useState(false);
   const y = useMotionValue(0);
 
-  const variant = tenantId === 'spar' ? GIFT_VARIANTS.spar : null;
+  // Any tenant whose gift is an employer-wallet load (SPAR / Isrotel) gets the
+  // teaser. Claim-mode variants (e.g. Menora) are excluded — they have no hero
+  // illustration and their entry point isn't the wallet.
+  const variant = (tenantId && GIFT_VARIANTS[tenantId]?.loadsToBalance) ? GIFT_VARIANTS[tenantId] : null;
   const claimed = (() => {
-    try { return localStorage.getItem(SPAR_GIFT_CLAIMED_KEY) === '1'; } catch { return false; }
+    try { return !!tenantId && localStorage.getItem(giftClaimedKey(tenantId)) === '1'; } catch { return false; }
   })();
 
   if (!variant || claimed) return null;
 
   const open = () => {
     useTransitionCurtainStore.getState().cover();
-    navigate(`/${lang}/gift-sample?tenant=spar`);
+    navigate(`/${lang}/gift-sample?tenant=${tenantId}`);
   };
   const dismiss = () => setDismissed(true);
   const springHome = () => animate(y, 0, SPRING);

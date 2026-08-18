@@ -44,10 +44,11 @@ export default function DealIntroPage() {
 
   return (
     <div className="relative flex min-h-dvh flex-col bg-white" dir={isRTL ? 'rtl' : 'ltr'}>
-      {/* Brand strip — own back button (AppLayout suppresses the global chrome).
-          Floated as a zero-height overlay so the hero reaches the top. */}
+      {/* Back button only — no balance, avatars, greeting or action icons; this
+          intro is a focused, full-screen page. Floated as a zero-height overlay
+          so the hero reaches the top. */}
       <div className="relative z-20 h-0 overflow-visible">
-        <TopBar collapsed={false} showBack hideGreeting />
+        <TopBar collapsed={false} showBack hideGreeting hideBalance hideAvatars hideNotifications />
       </div>
 
       <main className="flex-grow overflow-y-auto px-6">
@@ -102,10 +103,21 @@ export default function DealIntroPage() {
         </section>
       </main>
 
-      {/* Footer actions */}
-      <footer className="p-6 pb-10 space-y-3 bg-white">
+      {/* Footer actions — pinned to the bottom of the screen (the page itself
+          scrolls behind them). The bar itself is transparent; only a white
+          gradient rises from the bottom edge, so content fades out under the
+          buttons instead of hitting a hard white block. */}
+      <footer className="sticky bottom-0 z-20 mt-auto px-6 pt-16 pb-10 space-y-3">
         <div
-          className="p-1 rounded-[28px]"
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 bottom-0 top-0"
+          style={{
+            background:
+              'linear-gradient(to top, #ffffff 30%, rgba(255,255,255,0.92) 55%, rgba(255,255,255,0.6) 75%, rgba(255,255,255,0) 100%)',
+          }}
+        />
+        <div
+          className="relative z-10 p-1 rounded-[28px]"
           style={{ border: '2px solid #3B82F6', boxShadow: '0 0 10px rgba(59,130,246,0.2)' }}
         >
           <button
@@ -119,7 +131,7 @@ export default function DealIntroPage() {
         {/* "איך זה עובד?" → the how-to-create-a-voucher stories sequence */}
         <button
           onClick={() => navigate(`/${lang}/wallet/voucher-stories`)}
-          className="w-full bg-white border border-gray-300 font-bold py-4 rounded-[28px] text-[17px] active:bg-gray-50 transition-colors"
+          className="relative z-10 w-full bg-white border border-gray-300 font-bold py-4 rounded-[28px] text-[17px] active:bg-gray-50 transition-colors"
           style={{ color: NAVY }}
         >
           {isRTL ? 'איך זה עובד?' : 'How it works'}

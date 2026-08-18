@@ -22,6 +22,9 @@ function cashbackPct(id: string): number {
 const BNEI_AKIVA_LOGO = '/bnei-akiva-logo.png';
 // SPAR logo — badges the cashback brands under the SPAR gift card.
 const SPAR_LOGO = '/tenants/spar-logo-color.png';
+// Isrotel wordmark — badges the cashback brands under the Isrotel employee
+// wallet card.
+const ISROTEL_LOGO = '/tenants/isrotel-logo.png';
 
 // The specific brands offered as cashback on the Bnei Akiva gift card.
 // `logo` is optional — brands without an asset (e.g. Fox) render `text` in the
@@ -58,6 +61,20 @@ const SPAR_CASHBACK_BRANDS: CashbackBrand[] = [
   { id: 'billabong', name: 'Billabong', nameHe: 'בילבונג', logo: '/brands/billabong.png', bg: '#00A5A5', pct: 10 },
 ];
 
+// The everyday-life brands the Isrotel employee-wallet card is redeemable at —
+// leisure, food, fitness and fashion, the way a welfare budget actually gets
+// spent.
+const ISROTEL_CASHBACK_BRANDS: CashbackBrand[] = [
+  { id: 'aroma', name: 'Aroma', nameHe: 'ארומה', logo: '/brands/aroma.png', bg: '#000000', pct: 15 },
+  { id: 'cinema-city', name: 'Cinema City', nameHe: 'סינמה סיטי', logo: '/brands/cinema-city.png', bg: '#FFFFFF', pct: 20 },
+  { id: 'holmesplace', name: 'Holmes Place', nameHe: 'הולמס פלייס', logo: '/brands/holmesplace.png', bg: '#C44530', pct: 12 },
+  { id: 'castro', name: 'Castro', nameHe: 'קסטרו', logo: '/castro-logo.png', bg: '#0a0a0a', pct: 15 },
+  { id: 'golf', name: 'Golf & Co', nameHe: 'גולף אנד קו', logo: '/brands/golf.png', bg: '#FFFFFF', pct: 12 },
+  { id: 'shufersal', name: 'Shufersal', nameHe: 'שופרסל', logo: '/brands/shufersal.png', bg: '#FFFFFF', pct: 8 },
+  { id: 'superpharm', name: 'Super-Pharm', nameHe: 'סופר-פארם', logo: '/brands/superpharm.png', bg: '#FFFFFF', pct: 10 },
+  { id: 'mcdonalds', name: "McDonald's", nameHe: 'מקדונלדס', logo: '/brands/mcdonalds.png', bg: '#FFFFFF', pct: 10 },
+];
+
 interface WalletOffersSliderProps {
   /** When the wallet is in "Customize" mode, the section header shows an
    *  eye (hide/show) toggle and a grip handle for vertical reordering. */
@@ -72,6 +89,8 @@ interface WalletOffersSliderProps {
   /** SPAR variant — shown under the SPAR gift card. Same treatment as the
    *  Bnei Akiva variant, badged with the SPAR logo. */
   spar?: boolean;
+  /** Isrotel variant — shown under the Isrotel employee-wallet card. */
+  isrotel?: boolean;
   /** Locked (gift) view — the whole section is shown but non-interactive. */
   locked?: boolean;
   /** Pay-at-store view — retitle to "You can pay here" and show a single row. */
@@ -90,6 +109,7 @@ export default function WalletOffersSlider({
   onReorderPointerDown,
   bneiAkiva = false,
   spar = false,
+  isrotel = false,
   locked = false,
   payHere = false,
 }: WalletOffersSliderProps = {}) {
@@ -101,12 +121,18 @@ export default function WalletOffersSlider({
   // Active tenant — its logo is overlaid on a few of the cashback brands.
   const tenant = useTenantStore((s) => s.config);
 
-  // A branded gift variant (Bnei Akiva / SPAR) shows a fixed partner list,
-  // retitled and badged with that brand's logo.
-  const branded = bneiAkiva || spar;
+  // A branded gift variant (Bnei Akiva / SPAR / Isrotel) shows a fixed partner
+  // list, retitled and badged with that brand's logo.
+  const branded = bneiAkiva || spar || isrotel;
   // In a branded variant the badge is the gift's logo; otherwise the active
   // tenant's logo (if any).
-  const badgeLogo = bneiAkiva ? BNEI_AKIVA_LOGO : spar ? SPAR_LOGO : tenant?.logo;
+  const badgeLogo = bneiAkiva
+    ? BNEI_AKIVA_LOGO
+    : spar
+    ? SPAR_LOGO
+    : isrotel
+    ? ISROTEL_LOGO
+    : tenant?.logo;
 
   const title = payHere
     ? isHe
@@ -116,6 +142,10 @@ export default function WalletOffersSlider({
     ? isHe
       ? 'ממשו בעשרות רשתות'
       : 'Redeem at dozens of chains'
+    : isrotel
+    ? isHe
+      ? 'ממשו במאות בתי עסק'
+      : 'Redeem at hundreds of businesses'
     : bneiAkiva
     ? isHe
       ? 'ניתן לממש כאן'
@@ -192,7 +222,8 @@ export default function WalletOffersSlider({
   );
 
   // Branded cashback card — a fixed brand (logo + name + %) with the gift's
-  // badge (Bnei Akiva / SPAR), since these offers come with that gift card.
+  // badge (Bnei Akiva / SPAR / Isrotel), since these offers come with that
+  // gift card.
   const renderBrandedCard = (b: CashbackBrand) => (
     <button
       key={b.id}
@@ -213,7 +244,7 @@ export default function WalletOffersSlider({
             </span>
           )}
         </div>
-        {/* Gift badge — Bnei Akiva / SPAR logo */}
+        {/* Gift badge — Bnei Akiva / SPAR / Isrotel logo */}
         {badgeLogo && (
           <div className="absolute -top-0.5 -right-0.5 w-[18px] h-[18px] rounded-full overflow-hidden border-[1.5px] border-white bg-white shadow-sm flex items-center justify-center">
             <img src={badgeLogo} alt="" className="w-full h-full object-contain p-px" />
@@ -286,7 +317,12 @@ export default function WalletOffersSlider({
         <div className="flex flex-col gap-3 py-1">
           {branded ? (
             <div className="flex gap-3 overflow-x-auto hide-scrollbar px-5">
-              {(spar ? SPAR_CASHBACK_BRANDS : BNEI_CASHBACK_BRANDS).map(renderBrandedCard)}
+              {(spar
+                ? SPAR_CASHBACK_BRANDS
+                : isrotel
+                ? ISROTEL_CASHBACK_BRANDS
+                : BNEI_CASHBACK_BRANDS
+              ).map(renderBrandedCard)}
             </div>
           ) : (
             rows.map((row, i) => (

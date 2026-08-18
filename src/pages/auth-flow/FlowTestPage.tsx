@@ -15,7 +15,7 @@ import { mockTenants } from '../../mock/data/tenants.mock';
 import { queryClient } from '../../App';
 import { __devSetVouchersError } from '../../api/vouchers.api';
 import { giftApi } from '../../api/gift.api';
-import { SPAR_GIFT_CLAIMED_KEY } from '../GiftSamplePage';
+import { giftClaimedKey } from '../GiftSamplePage';
 
 export default function FlowTestPage() {
   const { lang = 'he' } = useParams();
@@ -274,24 +274,26 @@ export default function FlowTestPage() {
     setTimeout(() => navigate(`/${lang}/auth-flow/org-user`), 50);
   };
 
-  // ─── One-link deep test: ?goto=spar-wallet-teaser ─────────────────────
+  // ─── One-link deep test: ?goto=<tenant>-wallet-teaser ─────────────────
   // Lands an authenticated, no-org, un-claimed-gift user straight on the
-  // wallet with SPAR active — exactly the state GiftClaimTeaser needs to
-  // render. Skips the manual "click a button, then navigate" dance.
+  // wallet with that tenant active — exactly the state GiftClaimTeaser needs
+  // to render. Skips the manual "click a button, then navigate" dance.
   useEffect(() => {
-    if (searchParams.get('goto') !== 'spar-wallet-teaser') return;
+    const goto = searchParams.get('goto');
+    const tenantId = goto?.endsWith('-wallet-teaser') ? goto.slice(0, -'-wallet-teaser'.length) : null;
+    const tenant = tenantId ? mockTenants[tenantId] : undefined;
+    if (!tenantId || !tenant) return;
     reset();
-    const sparTenant = mockTenants['spar'];
-    if (sparTenant) setTenant(sparTenant.id, sparTenant);
+    setTenant(tenant.id, tenant);
     login({
-      token: 'mock-token-spar-teaser',
-      userId: 'user-spar-teaser',
+      token: `mock-token-${tenantId}-teaser`,
+      userId: `user-${tenantId}-teaser`,
       method: 'phone',
       isOrgMember: false,
     });
     useAuthStore.getState().setProfileCompleted(true);
-    try { localStorage.removeItem(SPAR_GIFT_CLAIMED_KEY); } catch { /* private mode */ }
-    setTimeout(() => navigate(`/${lang}/wallet?tenant=spar`), 50);
+    try { localStorage.removeItem(giftClaimedKey(tenantId)); } catch { /* private mode */ }
+    setTimeout(() => navigate(`/${lang}/wallet?tenant=${tenantId}`), 50);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 

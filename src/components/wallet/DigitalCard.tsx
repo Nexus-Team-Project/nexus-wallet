@@ -25,6 +25,12 @@ interface DigitalCardProps {
    * (bottom-left of the artwork). Used for tenant-branded gifts (e.g. SPAR).
    */
   brandLogo?: string;
+  /**
+   * Where that co-brand logo sits: 'corner' (default — flush left, above the
+   * NEXUS mark) or 'center', which floats it in the middle of the card, the
+   * way Isrotel's wordmark sits on their card.
+   */
+  brandLogoPlacement?: 'corner' | 'center';
   /** When set, renders a "?" help button (top-right) that opens a
    *  "how it works" explainer. */
   onHelp?: () => void;
@@ -42,7 +48,7 @@ interface DigitalCardProps {
  * the user taps matches the one that opens. The shadow uses drop-shadow
  * so it follows the card's rounded silhouette instead of a box.
  */
-export default function DigitalCard({ className = '', style, children, heightPx, brandLogo, onHelp, locked = false, lockActive = true }: DigitalCardProps) {
+export default function DigitalCard({ className = '', style, children, heightPx, brandLogo, brandLogoPlacement = 'corner', onHelp, locked = false, lockActive = true }: DigitalCardProps) {
   return (
     <div
       className={`relative ${className}`}
@@ -58,17 +64,24 @@ export default function DigitalCard({ className = '', style, children, heightPx,
         style={{ filter: 'drop-shadow(0 12px 24px rgba(0,0,0,0.18))' }}
         draggable={false}
       />
-      {/* Co-brand logo — flush to the card's LEFT edge, just above the NEXUS
-          mark. The slot always matches the card aspect (deck + detail), so
-          there's no object-contain letterbox and a %-based position tracks the
-          artwork. Pinned horizontally (left: 0) but free vertically. */}
+      {/* Co-brand logo — 'corner' sits flush to the card's LEFT edge, just above
+          the NEXUS mark; 'center' floats it in the middle of the artwork. The
+          slot always matches the card aspect (deck + detail), so there's no
+          object-contain letterbox and a %-based position tracks the artwork. */}
       {brandLogo && (
         <img
           src={brandLogo}
           alt=""
           aria-hidden
           className="absolute object-contain pointer-events-none"
-          style={{ left: '0%', bottom: '18%', width: '42%' }}
+          style={
+            brandLogoPlacement === 'center'
+              // A hair right of dead centre — the wordmark's Latin line is wider
+              // than the Hebrew one beneath it, so the geometric centre reads
+              // as slightly left. This is the optical centre.
+              ? { left: '53%', top: '50%', transform: 'translate(-50%, -50%)', width: '38%' }
+              : { left: '0%', bottom: '18%', width: '42%' }
+          }
           draggable={false}
         />
       )}

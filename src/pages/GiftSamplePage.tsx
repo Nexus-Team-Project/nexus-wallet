@@ -19,8 +19,9 @@ import type { Notification } from '../types/notification.types';
  * It reuses the recipient *preview* structure from GiftDetailsPage (the flip
  * card → reveal → gift), rebuilt as a self-contained, shareable page. The
  * concrete gift is chosen by the active tenant (`?tenant=`):
- *   • default        → a Passover ("פסח") gift from בני עקיבא
- *   • ?tenant=spar   → a SPAR supermarket gift card
+ *   • default          → a Passover ("פסח") gift from בני עקיבא
+ *   • ?tenant=spar     → a SPAR supermarket gift card
+ *   • ?tenant=isrotel  → the Isrotel employee-wallet launch gift
  *
  * Flow: open the greeting (flip card → the sender's full letter, dark preview
  * design) → below it a gift card (wallet voucher style) → "למימוש המתנה" plays
@@ -63,6 +64,19 @@ export interface GiftVariant {
   senderBig: string;
   /** Line printed beneath the card during the redeem celebration. */
   redeemLine: string;
+  /**
+   * Employer-wallet gifts (SPAR / Isrotel): the celebration holds a beat on a
+   * "we're loading your gift" caption before handing off to the wallet.
+   */
+  loadsToBalance?: boolean;
+  /**
+   * During that beat the gift card swaps for the Nexus balance card, counting
+   * up by the gift's value. Off for tenants whose wallet is presented as their
+   * own (Isrotel) — the Nexus balance is never shown or named there.
+   */
+  loadShowsBalance?: boolean;
+  /** Caption printed during that beat. */
+  loadCaption?: string;
   /** Cover button label (defaults to "גלה את המתנה"). */
   coverCta?: string;
   /** Footer CTA once revealed (defaults to "למימוש המתנה"). */
@@ -87,9 +101,10 @@ export interface GiftVariant {
 
 const RECIPIENT = 'רז';
 
-/** Set once the SPAR recipient completes the redeem step — the wallet-home
- * teaser (GiftClaimTeaser) checks this so a claimed gift never resurfaces. */
-export const SPAR_GIFT_CLAIMED_KEY = 'nexus_gift_claimed_spar';
+/** Set once a recipient completes the redeem step for a tenant's gift — the
+ * wallet-home teaser (GiftClaimTeaser) checks this so a claimed gift never
+ * resurfaces for that tenant. */
+export const giftClaimedKey = (tenantId: string) => `nexus_gift_claimed_${tenantId}`;
 
 export const GIFT_VARIANTS: Record<string, GiftVariant> = {
   default: {
@@ -147,6 +162,47 @@ export const GIFT_VARIANTS: Record<string, GiftVariant> = {
     signature: 'עמית זאב',
     senderBig: 'SPAR ישראל',
     redeemLine: 'לשימוש במאות מקומות',
+    loadsToBalance: true,
+    // Keep the SPAR gift card on screen through the celebration — the Nexus
+    // balance card never replaces it.
+    loadShowsBalance: false,
+    loadCaption: 'אנחנו טוענים את כרטיס המתנה ליתרה שלך',
+  },
+  isrotel: {
+    redeemVoucherId: 'uv_isrotel_gift',
+    // The app's signature home-page wash on the cover + glow (same as the
+    // default and SPAR gifts); the letter below stays Isrotel navy.
+    gradient: HOME_GRADIENT,
+    logo: '/tenants/isrotel-logo.png',
+    // The wordmark asset is navy on transparent — inverted to white so it
+    // sits on the blue wash the way it does on the card artwork.
+    logoWhite: true,
+    logoClass: 'w-[62%] h-auto',
+    heroImage: '/gift-cards/birthday-3d.png',
+    heroMaxW: 'max-w-[60%]',
+    sender: 'ישרוטל',
+    coverTitle: `${RECIPIENT}, יום הולדת שמח!`,
+    coverSubtitle: 'מתנה קטנה מישרוטל מחכה לך בפנים',
+    letterBg: '#0c2b49',
+    letterAccent: '#8ec5ea',
+    letterHeading: `${RECIPIENT},
+יום הולדת שמח!`,
+    letterBody: [
+      'יום ההולדת שלך הוא הזדמנות בשבילנו לעצור לרגע ולהגיד תודה. אתם אלה שמארחים את ישראל — דואגים שכל אורח יקבל את החופשה שהוא יזכור, גם בימים העמוסים ביותר. היום התור שלך לקבל.',
+      'המתנה מחכה לך בארנק העובדים של ישרוטל: ארנק דיגיטלי אישי, בשפה ובמיתוג שלנו, שנשאר איתך כל השנה. בכל חג, יום הולדת ורגע של הוקרה הוא יתמלא מחדש — בלי שוברים שהולכים לאיבוד ובלי קודים שפג תוקפם.',
+      'והכי חשוב: המתנה לא נגמרת בקופה. כל תשלום שתבצע דרך הארנק מחזיר לך קאשבק שנשאר שם לפעם הבאה — במאות בתי עסק, ברשתות האופנה, בסופרמרקטים, במסעדות ובפנאי.',
+      'שתהיה לך שנה טובה, בריאה ומלאה בחוויות. תיהנה — מגיע לך.',
+    ],
+    letterClosingBig: 'יום הולדת שמח!',
+    letterClosingSmall: 'בברכה,',
+    signature: 'ליאור רביב, מנכ"ל',
+    senderBig: 'ישרוטל',
+    redeemLine: 'מאות בתי עסק, קאשבק על כל תשלום',
+    loadsToBalance: true,
+    // The Isrotel wallet is presented as the employees' own — the Nexus
+    // balance card is neither shown nor named during the load.
+    loadShowsBalance: false,
+    loadCaption: 'טוענים את המתנה לארנק שלך',
   },
   menora: {
     redeemVoucherId: 'uv_menora_claim',
@@ -201,9 +257,10 @@ export default function GiftSamplePage() {
   const { data: wallet } = useWallet();
   const [revealed, setRevealed] = useState(false);
   const [redeeming, setRedeeming] = useState(false);
-  // SPAR only — swaps the redeem-line caption to "loading to your balance"
-  // for a beat before handing off, instead of navigating away immediately.
-  const [loadingToBalance, setLoadingToBalance] = useState(false);
+  // Employer-wallet gifts only — swaps the redeem-line caption to the gift's
+  // "loading" caption for a beat before handing off, instead of navigating
+  // away immediately.
+  const [loadingGift, setLoadingGift] = useState(false);
 
   const variant = (tenantId && GIFT_VARIANTS[tenantId]) || GIFT_VARIANTS.default;
   const userVoucher = mockUserVouchers.find((v) => v.id === variant.redeemVoucherId)!;
@@ -223,21 +280,25 @@ export default function GiftSamplePage() {
     }
     // Marks the gift as claimed so the wallet-home teaser (entered from the
     // "landed already signed-in" path) never resurfaces for this recipient.
-    if (tenantId === 'spar') {
-      try { localStorage.setItem(SPAR_GIFT_CLAIMED_KEY, '1'); } catch { /* private mode */ }
+    if (tenantId && variant.loadsToBalance) {
+      try { localStorage.setItem(giftClaimedKey(tenantId), '1'); } catch { /* private mode */ }
 
       // Standard-design toast, fired as the recipient lands in the wallet —
       // taps through to the sub-balances tab where the loaded card now lives.
       const amount = formatCurrency(userVoucher.voucher.originalPrice, userVoucher.voucher.currency);
       const notification: Notification = {
-        id: `n_spar_load_${Date.now()}`,
+        id: `n_${tenantId}_load_${Date.now()}`,
         category: 'gift-card',
         priority: 'transactional',
         sender: { id: 'nexus', name: 'Nexus', nameHe: 'נקסוס', initial: 'N', logo: '/nexus-icon.png', brandColor: 'bg-white' },
         title: `Gift card loaded: ${amount}`,
         titleHe: `כרטיס המתנה נטען: ${amount}`,
-        body: `We loaded the gift card worth ${amount} to your Nexus balance. Tap to track.`,
-        bodyHe: `טענו את כרטיס המתנה בסך ${amount} ליתרת נקסוס שלך. למעקב לחצו.`,
+        body: variant.loadShowsBalance
+          ? `We loaded the gift card worth ${amount} to your Nexus balance. Tap to track.`
+          : `We loaded your ${amount} gift to your wallet. Tap to track.`,
+        bodyHe: variant.loadShowsBalance
+          ? `טענו את כרטיס המתנה בסך ${amount} ליתרת נקסוס שלך. למעקב לחצו.`
+          : `טענו את המתנה בסך ${amount} לארנק שלך. למעקב לחצו.`,
         createdAt: new Date().toISOString(),
         isRead: false,
         deepLink: '/wallet/balance?tab=subBalances',
@@ -438,10 +499,10 @@ export default function GiftSamplePage() {
             autoReveal
             revealHoldMs={4200}
             onReveal={() => {
-              // SPAR — swap the caption to "loading to your balance" for a
-              // beat, then hand off; other tenants hand off immediately.
-              if (tenantId === 'spar') {
-                setLoadingToBalance(true);
+              // Employer wallets — hold a beat on the "loading your gift"
+              // caption, then hand off; other tenants hand off immediately.
+              if (variant.loadsToBalance) {
+                setLoadingGift(true);
                 setTimeout(finishRedeem, 1600);
               } else {
                 finishRedeem();
@@ -452,7 +513,7 @@ export default function GiftSamplePage() {
               printed beneath it, over the celebration. */}
           <div className="absolute inset-0 z-[60] flex flex-col items-center justify-center px-8 pointer-events-none">
             <div className="w-[300px] animate-gift-rise-center">
-              {loadingToBalance ? (
+              {loadingGift && variant.loadShowsBalance ? (
                 // The gift card's job is done — show the Nexus balance
                 // instead, counting up by exactly the card's value, so the
                 // "loading to your balance" line has something to point at.
@@ -468,16 +529,16 @@ export default function GiftSamplePage() {
               )}
             </div>
             <p
-              key={loadingToBalance ? 'loading' : 'redeem'}
+              key={loadingGift ? 'loading' : 'redeem'}
               className="mt-8 flex items-center justify-center gap-2 text-2xl font-extrabold text-white text-center animate-fade-in"
-              style={{ animationDelay: loadingToBalance ? '0s' : '0.7s', animationFillMode: 'both', textShadow: '0 2px 16px rgba(0,0,0,0.45)' }}
+              style={{ animationDelay: loadingGift ? '0s' : '0.7s', animationFillMode: 'both', textShadow: '0 2px 16px rgba(0,0,0,0.45)' }}
             >
-              {loadingToBalance && (
+              {loadingGift && (
                 <span className="material-symbols-outlined animate-spin" style={{ fontSize: '22px', fontVariationSettings: "'wght' 300" }}>
                   progress_activity
                 </span>
               )}
-              {loadingToBalance ? 'אנחנו טוענים את כרטיס המתנה ליתרה שלך' : variant.redeemLine}
+              {loadingGift ? (variant.loadCaption ?? 'טוענים את המתנה לארנק שלך') : variant.redeemLine}
             </p>
           </div>
         </div>

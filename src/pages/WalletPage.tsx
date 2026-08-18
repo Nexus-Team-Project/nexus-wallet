@@ -43,6 +43,46 @@ const BNEI_VOUCHER_ID = 'uv_bnei_pesach';
 // The SPAR gift voucher — its redeemed wallet view also shows the Isracard
 // digital card beside the gift card in the deck.
 const SPAR_VOUCHER_ID = 'uv_spar_gift';
+// The Isrotel employee-wallet gift voucher — same treatment as SPAR.
+const ISROTEL_VOUCHER_ID = 'uv_isrotel_gift';
+// Employer-wallet gift cards drive the full wallet demo: flipping the card
+// offers "המחשת תשלום" (simulate payment) → the card reads as spent → archiving
+// it slides the deck to the Nexus balance card, counting up the cashback that
+// payment earned. Keyed by the user-voucher the gift redeems into.
+const GIFT_DEMOS: Record<
+  string,
+  {
+    amount: number;
+    cashback: number;
+    /** Merchant printed on the payment confirmation. */
+    merchant: string;
+    merchantHe: string;
+    /** Merchant logo on the confirmation screen. */
+    icon: string;
+    /** Co-brand logo carried by the Isracard digital card in the deck. */
+    cardLogo: string;
+    /** Where that co-brand logo sits on the card artwork. */
+    cardLogoPlacement?: 'corner' | 'center';
+    /** Keep the "+" (create a deal) stop in the focused gift deck, so the
+     *  recipient can walk straight into the normal card-creation flow. */
+    showAddStop?: boolean;
+  }
+> = {
+  [SPAR_VOUCHER_ID]: {
+    amount: 150, cashback: 15,
+    merchant: 'SPAR', merchantHe: 'SPAR',
+    icon: '/tenants/spar-official.svg', cardLogo: '/tenants/spar-logo-black.png',
+  },
+  [ISROTEL_VOUCHER_ID]: {
+    amount: 250, cashback: 25,
+    merchant: 'Isrotel', merchantHe: 'ישרוטל',
+    icon: '/brands/isrotel.png',
+    // Isrotel's wordmark sits black, centred on the card — the way it does on
+    // their own card artwork.
+    cardLogo: '/tenants/isrotel-logo-black.png', cardLogoPlacement: 'center',
+    showAddStop: true,
+  },
+};
 // The Menora claim voucher — an insurance payout on a virtual card. Its
 // redeemed wallet view flips to a "simulate payment" button (immediate use at
 // an approved provider); after paying, the card shows the remaining balance.
@@ -88,6 +128,9 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
   const location = useLocation();
   const focusVoucherId = searchParams.get('focus');
   const cameFromGift = !!focusVoucherId;
+  // The employer-wallet gift demo (SPAR / Isrotel) this focused view plays, if
+  // the focused card is one of them.
+  const giftDemo = cameFromGift ? GIFT_DEMOS[focusVoucherId!] : undefined;
   // Menora claim flow — drives the rebranded "balance intro" (Menora balance,
   // not Nexus balance) opened from the card's "?" → "Learn more".
   const isMenoraFlow = cameFromGift && focusVoucherId === MENORA_VOUCHER_ID;
@@ -157,27 +200,25 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
   });
   const postTxCashback = postTx?.cashback ?? null;
 
-  // ── SPAR gift payment demo ──
-  // In the SPAR gift-redeemed wallet, flipping the gift card shows a
-  // "המחשת תשלום" (simulate payment) button. Tapping it plays a ₪150 purchase
-  // confirmation; closing it marks the card "used" — greyed-out + locked, with
-  // an archive action on the carousel. Archiving slides the deck to the Nexus
-  // balance card, which counts up the earned cashback.
-  const SPAR_DEMO_AMOUNT = 150;
-  const SPAR_DEMO_CASHBACK = 15;
-  const [showSparSuccess, setShowSparSuccess] = useState(false);
-  const [sparUsed, setSparUsed] = useState(false);
-  const [sparArchiveConfirming, setSparArchiveConfirming] = useState(false);
+  // ── Employer-wallet gift payment demo (SPAR / Isrotel) ──
+  // In the gift-redeemed wallet, flipping the gift card shows a "המחשת תשלום"
+  // (simulate payment) button. Tapping it plays the purchase confirmation for
+  // that gift (see GIFT_DEMOS); closing it marks the card "used" — greyed-out +
+  // locked, with an archive action on the carousel. Archiving slides the deck
+  // to the Nexus balance card, which counts up the earned cashback.
+  const [showGiftSuccess, setShowGiftSuccess] = useState(false);
+  const [giftUsed, setGiftUsed] = useState(false);
+  const [giftArchiveConfirming, setGiftArchiveConfirming] = useState(false);
   // Flips true after the payment lands — the deck slides to the Nexus card and
   // its balance counts the cashback up from ₪0. Kept independent of the post-tx
-  // machinery so the SPAR demo's slide + count-up are fully self-contained.
-  const [sparAccrue, setSparAccrue] = useState(false);
+  // machinery so the gift demo's slide + count-up are fully self-contained.
+  const [giftAccrue, setGiftAccrue] = useState(false);
   // Flips true once the used gift card is archived — it then drops out of the
   // deck entirely. The ref mirrors it so the pending auto-slide timers can bail
   // out if the user archives before they fire.
-  const [sparArchived, setSparArchived] = useState(false);
-  const sparArchivedRef = useRef(false);
-  // SPAR demo: tapping the Nexus balance card opens the "Meet Nexus balance"
+  const [giftArchived, setGiftArchived] = useState(false);
+  const giftArchivedRef = useRef(false);
+  // Gift demo: tapping the Nexus balance card opens the "Meet Nexus balance"
   // intro (read-only — only "back" is interactive).
   const [showNexusIntro, setShowNexusIntro] = useState(false);
 
@@ -238,18 +279,23 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
     if (i >= 0) activeVouchers.push(activeVouchers.splice(i, 1)[0]);
   }
   // In the gift view the deck holds the gift card — no other vouchers,
-  // balance, or "add" stops. The SPAR gift additionally keeps the Isracard
-  // digital card in the deck, so the redeemed wallet shows it in the slider.
+  // balance, or "add" stops. An employer-wallet gift (SPAR / Isrotel)
+  // additionally keeps the Isracard digital card in the deck, so the redeemed
+  // wallet shows it in the slider.
+  // The "+" (create a deal) stop leads the gift deck too when the gift asks for
+  // it — same position as in the normal wallet, so it peeks in beside the gift
+  // card instead of hiding two swipes away.
+  const giftAddStop = giftDemo?.showAddStop ? ['plus'] : [];
   const deckCards: string[] = cameFromGift
-    ? focusVoucherId === SPAR_VOUCHER_ID
+    ? giftDemo
       ? // Once the gift card is "used", the Nexus balance card joins the deck so
         // the deck can slide across to it (counting up the cashback). Archiving
         // then drops the spent gift card out of the deck entirely.
-        sparArchived
-        ? ['balance', 'card']
-        : sparUsed
-          ? [`voucher:${focusVoucherId}`, 'balance', 'card']
-          : [`voucher:${focusVoucherId}`, 'card']
+        giftArchived
+        ? [...giftAddStop, 'balance', 'card']
+        : giftUsed
+          ? [...giftAddStop, `voucher:${focusVoucherId}`, 'balance', 'card']
+          : [...giftAddStop, `voucher:${focusVoucherId}`, 'card']
       : [`voucher:${focusVoucherId}`]
     : [
         // Leading "add money" (+) stop — mirrors the trailing manage-methods
@@ -272,7 +318,9 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
     // Fallback (balance archived): vouchers sit after the leading 'plus' stop.
     return i >= 0 ? i : activeVouchers.length + (cameFromGift ? 0 : 1);
   })();
-  const [activeCard, setActiveCard] = useState(0);
+  // The deck opens on the gift card — index 0 normally, or 1 when the gift
+  // deck leads with the "+" stop.
+  const [activeCard, setActiveCard] = useState(giftAddStop.length);
   // True while the centre card is being dragged — used to hide the upsell peek
   // the instant the user grabs and moves the card (not only on swipe-commit).
   const [cardDragging, setCardDragging] = useState(false);
@@ -391,41 +439,42 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
     return () => clearTimeout(t);
   }, [storyFlipCardId, countUpDone, searchParams]);
 
-  // SPAR demo: archiving the spent gift card drops it out of the deck for good,
+  // Gift demo: archiving the spent gift card drops it out of the deck for good,
   // leaving the Nexus balance card (which has already counted up the cashback).
-  const archiveSparGift = () => {
-    setSparArchiveConfirming(false);
+  const archiveGiftCard = () => {
+    setGiftArchiveConfirming(false);
     setFlippedVoucherId(null);
-    sparArchivedRef.current = true;
-    setSparArchived(true);
-    setSparAccrue(true);
+    giftArchivedRef.current = true;
+    setGiftArchived(true);
+    setGiftAccrue(true);
     userMovedDeck.current = true;
     setDeckSnap(false);
-    // Once the gift card is gone the balance card sits at index 0.
-    setActiveCard(0);
+    // Once the gift card is gone the balance card sits first (after the "+"
+    // stop, when the gift deck carries one).
+    setActiveCard(giftAddStop.length);
   };
 
-  // SPAR demo: as soon as the payment confirmation closes (we "land" back on the
+  // Gift demo: as soon as the payment confirmation closes (we "land" back on the
   // wallet showing the spent ₪0 gift card), the deck slides over to the Nexus
   // balance card and counts the cashback up from ₪0 — no archive step required.
   useEffect(() => {
-    if (!(cameFromGift && focusVoucherId === SPAR_VOUCHER_ID)) return;
-    if (!sparUsed || sparArchived) return;
+    if (!giftDemo) return;
+    if (!giftUsed || giftArchived) return;
     const balIdx = deckCards.indexOf('balance');
     if (balIdx < 0) return;
     userMovedDeck.current = true;
     const t1 = window.setTimeout(() => {
-      if (sparArchivedRef.current) return;
+      if (giftArchivedRef.current) return;
       setDeckSnap(false);
       setActiveCard(balIdx);
     }, 650);
-    const t2 = window.setTimeout(() => setSparAccrue(true), 1150);
+    const t2 = window.setTimeout(() => setGiftAccrue(true), 1150);
     return () => {
       window.clearTimeout(t1);
       window.clearTimeout(t2);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sparUsed]);
+  }, [giftUsed]);
 
   // ── Balance card flip = pay session ──
   // Tapping the balance card flips it (gift-card style) to reveal the in-store
@@ -443,13 +492,13 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
   // so redeeming a gift lands on a wallet that immediately shows where to spend
   // it — branded for Bnei Akiva.
   const onBneiCard = deckCards[activeCard] === `voucher:${BNEI_VOUCHER_ID}`;
-  // The SPAR gift card carries the same "redeemable here" section, branded for
-  // SPAR — so the redeemed wallet shows where the card works.
-  const onSparCard = deckCards[activeCard] === `voucher:${SPAR_VOUCHER_ID}`;
+  // The SPAR / Isrotel gift cards carry the same "redeemable here" section,
+  // branded for that gift — so the redeemed wallet shows where the card works.
+  const onGiftDemoCard = !!giftDemo && deckCards[activeCard] === `voucher:${focusVoucherId}`;
   // Which cashback section the active card wants (null = none). Tracking the
   // *identity* (not just a boolean) lets the section animate closed→open even
   // when switching between two cards that BOTH have cashback (balance ↔ gift).
-  type CashbackKey = 'balance' | 'bnei' | 'spar' | null;
+  type CashbackKey = 'balance' | 'bnei' | 'spar' | 'isrotel' | null;
   // The cashback / "redeemable here" section only reveals once the active card
   // is flipped to its back — the pay-barcode side for the balance card, the
   // redemption side for the gift cards — not while a card's front is showing.
@@ -457,8 +506,8 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
     ? 'balance'
     : (onBneiCard && flippedVoucherId === deckCards[activeCard])
       ? 'bnei'
-      : (onSparCard && flippedVoucherId === deckCards[activeCard])
-        ? 'spar'
+      : (onGiftDemoCard && flippedVoucherId === deckCards[activeCard])
+        ? (focusVoucherId === ISROTEL_VOUCHER_ID ? 'isrotel' : 'spar')
         : null;
   const [cashback, setCashback] = useState<{
     phase: 'closed' | 'open' | 'closing';
@@ -729,21 +778,21 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
     if (cardId.startsWith('voucher:')) {
       const uv = activeVouchers.find((v) => `voucher:${v.id}` === cardId);
       if (!uv) return null;
-      // SPAR demo: once paid, the gift card reads as "used" — greyed-out and
+      // Gift demo: once paid, the gift card reads as "used" — greyed-out and
       // locked (same treatment as a frozen digital card).
-      const isUsedSpar = cardId === `voucher:${SPAR_VOUCHER_ID}` && sparUsed;
+      const isUsedGift = !!giftDemo && cardId === `voucher:${focusVoucherId}` && giftUsed;
       // Menora demo: after a payment the claim card shows its remaining balance.
       const isPaidMenora = cardId === `voucher:${MENORA_VOUCHER_ID}` && menoraPaid;
       return (
         <div className="relative w-full">
           <VoucherCard
             userVoucher={uv}
-            flipped={flippedVoucherId === cardId && !isUsedSpar}
+            flipped={flippedVoucherId === cardId && !isUsedGift}
             onExpire={() => setFlippedVoucherId(null)}
-            balanceOverride={isUsedSpar ? 0 : isPaidMenora ? MENORA_REMAINING : undefined}
+            balanceOverride={isUsedGift ? 0 : isPaidMenora ? MENORA_REMAINING : undefined}
             onInfo={cardId === `voucher:${MENORA_VOUCHER_ID}` ? () => setShowNexusIntro(true) : undefined}
           />
-          {isUsedSpar && (
+          {isUsedGift && (
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
               <div
                 className="w-full rounded-xl flex items-center justify-center"
@@ -770,15 +819,14 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
       // Filling progress ring — empties→fills as the 30s session elapses.
       const ringC = 2 * Math.PI * 16;
       const ringOffset = ringC * (paySecondsLeft / PAY_SESSION_SECONDS);
-      // SPAR gift demo: the recipient is a brand-new Nexus user, so the balance
+      // Gift demo: the recipient is a brand-new Nexus user, so the balance
       // starts at ₪0 and counts up ONLY the cashback just earned — not the mock
-      // user's ₪1,250. The count-up fires when the gift is archived (sparAccrue).
-      const isSparDemo = cameFromGift && focusVoucherId === SPAR_VOUCHER_ID;
-      const balanceValue = isSparDemo
-        ? (sparAccrue ? SPAR_DEMO_CASHBACK : 0)
+      // user's ₪1,250. The count-up fires when the gift is archived (giftAccrue).
+      const balanceValue = giftDemo
+        ? (giftAccrue ? giftDemo.cashback : 0)
         : (postTxCashback != null && !walletLoading ? (wallet?.balance ?? 0) + postTxCashback : (wallet?.balance ?? 0));
-      const balanceFrom = isSparDemo
-        ? (sparAccrue ? 0 : undefined)
+      const balanceFrom = giftDemo
+        ? (giftAccrue ? 0 : undefined)
         : (postTxCashback != null && !walletLoading ? (wallet?.balance ?? 0) : undefined);
       return (
         /* ── BALANCE CARD — flips to reveal the pay barcodes on the back ── */
@@ -889,16 +937,13 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
     }
     return (
       /* ── DIGITAL CARD — real card artwork, centred in the deck slot at
-          the same height as the (taller) balance/pay card. In the SPAR gift
-          view it carries the SPAR co-brand logo above the NEXUS mark. ── */
+          the same height as the (taller) balance/pay card. In an employer-gift
+          view it carries that brand's co-brand logo above the NEXUS mark. ── */
       <DigitalCard
         className="w-full"
         heightPx={deckHeight || undefined}
-        brandLogo={
-          cameFromGift && focusVoucherId === SPAR_VOUCHER_ID
-            ? '/tenants/spar-logo-black.png'
-            : undefined
-        }
+        brandLogo={giftDemo?.cardLogo}
+        brandLogoPlacement={giftDemo?.cardLogoPlacement}
         onHelp={() => setShowCardHelp(true)}
         locked
         lockActive={isCenter}
@@ -1229,7 +1274,7 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
                           // off a button, to flip back). A "used" SPAR gift card
                           // is locked — it no longer flips.
                           if (cardId.startsWith('voucher:')) {
-                            if (cardId === `voucher:${SPAR_VOUCHER_ID}` && sparUsed) return;
+                            if (giftUsed && cardId === `voucher:${focusVoucherId}`) return;
                             const onBtn = (e.target as HTMLElement | null)?.closest('button');
                             if (flippedVoucherId === cardId && onBtn) return;
                             setFlippedVoucherId((prev) => (prev === cardId ? null : cardId));
@@ -1246,10 +1291,10 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
                             handleCardTap(cardId, e, info);
                             return;
                           }
-                          // SPAR demo: tapping the Nexus balance card shows the
+                          // Gift demo: tapping the Nexus balance card shows the
                           // read-only "Meet Nexus balance" intro instead of the
                           // pay barcodes.
-                          if (cameFromGift && focusVoucherId === SPAR_VOUCHER_ID) {
+                          if (giftDemo) {
                             setShowNexusIntro(true);
                             return;
                           }
@@ -1386,11 +1431,11 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
         {/* More-actions for a flipped voucher. For the SPAR gift card this is the
             "simulate payment" button that drives the demo; every other voucher
             keeps the usual "more actions" link to its page. */}
-        {flippedVoucherId && deckCards[activeCard] === flippedVoucherId && !sparUsed && (
+        {flippedVoucherId && deckCards[activeCard] === flippedVoucherId && !giftUsed && (
           <div className="absolute inset-x-0 -bottom-8 flex justify-center z-40">
-            {flippedVoucherId === `voucher:${SPAR_VOUCHER_ID}` ? (
+            {giftDemo && flippedVoucherId === `voucher:${focusVoucherId}` ? (
               <button
-                onClick={() => setShowSparSuccess(true)}
+                onClick={() => setShowGiftSuccess(true)}
                 className="px-6 py-3 rounded-full bg-bg-dark text-white font-bold text-sm active:scale-95 transition-transform shadow-md"
               >
                 {language === 'he' ? 'המחשת תשלום' : 'Simulate payment'}
@@ -1426,11 +1471,11 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
         {/* Archive action — hangs below the "used" (greyed-out) SPAR gift card.
             Confirming archives the card and slides the deck across to the Nexus
             balance card, which counts up the earned cashback. */}
-        {deckCards[activeCard] === `voucher:${SPAR_VOUCHER_ID}` && sparUsed && !sparArchived && (
+        {!!giftDemo && deckCards[activeCard] === `voucher:${focusVoucherId}` && giftUsed && !giftArchived && (
           <div className="absolute inset-x-0 -bottom-8 flex justify-center z-40 px-6 w-full">
-            {!sparArchiveConfirming ? (
+            {!giftArchiveConfirming ? (
               <button
-                onClick={() => setSparArchiveConfirming(true)}
+                onClick={() => setGiftArchiveConfirming(true)}
                 className="flex items-center justify-center gap-2 px-6 py-3 rounded-full bg-surface border border-border text-text-secondary font-bold text-sm active:scale-95 transition-transform shadow-md"
               >
                 <span className="material-symbols-outlined" style={{ fontSize: 20 }}>inventory_2</span>
@@ -1439,14 +1484,14 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
             ) : (
               <div className="flex items-center gap-2">
                 <button
-                  onClick={archiveSparGift}
+                  onClick={archiveGiftCard}
                   className="flex items-center justify-center gap-2 px-5 py-3 rounded-full bg-bg-dark text-white font-bold text-sm active:scale-95 transition-transform shadow-md"
                 >
                   <span className="material-symbols-outlined" style={{ fontSize: 20 }}>inventory_2</span>
                   {language === 'he' ? 'אישור' : 'Confirm'}
                 </button>
                 <button
-                  onClick={() => setSparArchiveConfirming(false)}
+                  onClick={() => setGiftArchiveConfirming(false)}
                   className="px-5 py-3 rounded-full bg-surface border border-border text-text-secondary font-bold text-sm active:scale-95 transition-transform shadow-md"
                 >
                   {language === 'he' ? 'ביטול' : 'Cancel'}
@@ -1462,7 +1507,7 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
             while the post-purchase upsell peeks under the card. The balance
             card ALSO gets the on-card hand coach mark (see deck) on top of this
             hint. */}
-        {deckCards[activeCard] !== 'card' && deckCards[activeCard] !== 'add' && deckCards[activeCard] !== 'plus' && !(showUpsell && upsellReady) && !(deckCards[activeCard] === `voucher:${SPAR_VOUCHER_ID}` && sparUsed) && (
+        {deckCards[activeCard] !== 'card' && deckCards[activeCard] !== 'add' && deckCards[activeCard] !== 'plus' && !(showUpsell && upsellReady) && !(giftUsed && deckCards[activeCard] === `voucher:${focusVoucherId}`) && (
         <div
           className={`flex items-center justify-center gap-2 mt-4 transition-opacity duration-300 ${
             (deckCards[activeCard] === 'balance' && showPaySheet) ||
@@ -1792,6 +1837,7 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
           <WalletOffersSlider
             bneiAkiva={cashback.key === 'bnei'}
             spar={cashback.key === 'spar'}
+            isrotel={cashback.key === 'isrotel'}
             locked={cameFromGift}
             payHere={payMode}
           />
@@ -1981,33 +2027,33 @@ export default function WalletPage({ embedded = false }: WalletPageProps) {
         }}
       />
 
-      {/* SPAR demo: ₪150 purchase confirmation. Closing marks the gift card
-          "used" (greyed-out + locked) and surfaces the archive action. */}
-      {showSparSuccess && (
+      {/* Gift demo: the purchase confirmation for this gift card. Closing marks
+          it "used" (greyed-out + locked) and surfaces the archive action. */}
+      {showGiftSuccess && giftDemo && (
         <div className="fixed inset-0 z-[140] mx-auto max-w-md bg-white overflow-y-auto">
           <TransactionSuccessShell
-            cashback={SPAR_DEMO_CASHBACK}
+            cashback={giftDemo.cashback}
             isHe={language === 'he'}
             autoMs={0}
-            iconUrl="/tenants/spar-official.svg"
+            iconUrl={giftDemo.icon}
             onClose={() => {
-              setShowSparSuccess(false);
-              setSparUsed(true);
+              setShowGiftSuccess(false);
+              setGiftUsed(true);
               setFlippedVoucherId(null);
             }}
           >
             <div className="px-5 pt-4 divide-y divide-border text-[15px]" dir={language === 'he' ? 'rtl' : 'ltr'}>
               <div className="flex justify-between items-center py-3">
                 <span className="text-text-secondary">{language === 'he' ? 'בית עסק' : 'Merchant'}</span>
-                <span className="font-semibold">SPAR</span>
+                <span className="font-semibold">{language === 'he' ? giftDemo.merchantHe : giftDemo.merchant}</span>
               </div>
               <div className="flex justify-between items-center py-3">
                 <span className="text-text-secondary">{language === 'he' ? 'סכום עסקה' : 'Amount'}</span>
-                <span className="font-semibold" dir="ltr">₪{SPAR_DEMO_AMOUNT}.00</span>
+                <span className="font-semibold" dir="ltr">₪{giftDemo.amount}.00</span>
               </div>
               <div className="flex justify-between items-center py-3">
                 <span className="text-text-secondary">{language === 'he' ? 'קאשבק שנצבר' : 'Cashback earned'}</span>
-                <span className="font-semibold text-green-600" dir="ltr">+₪{SPAR_DEMO_CASHBACK}.00</span>
+                <span className="font-semibold text-green-600" dir="ltr">+₪{giftDemo.cashback}.00</span>
               </div>
             </div>
           </TransactionSuccessShell>

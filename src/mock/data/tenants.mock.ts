@@ -83,6 +83,18 @@ export const mockTenants: Record<string, TenantConfig> = {
       customWelcomeMessageHe: 'ברוכים הבאים ל-SPAR!',
     },
   },
+  'isrotel': {
+    id: 'isrotel',
+    name: 'Isrotel',
+    nameHe: 'ישרוטל',
+    logo: '/tenants/isrotel-logo.png',
+    primaryColor: '#193576',
+    requiresMembershipFee: false,
+    flowOverrides: {
+      customWelcomeMessage: 'Welcome to the Isrotel employee wallet!',
+      customWelcomeMessageHe: 'ברוכים הבאים לארנק העובדים של ישרוטל!',
+    },
+  },
   'menora': {
     id: 'menora',
     name: 'Menora Mivtachim',
