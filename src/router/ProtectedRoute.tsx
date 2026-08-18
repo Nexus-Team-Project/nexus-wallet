@@ -13,6 +13,12 @@ export default function ProtectedRoute() {
   // and refreshes stay authenticated) instead of bouncing them to the home page.
   const isGiftDeepLink = searchParams.has('focus');
 
+  // Gift-teaser demo link (`?gift-teaser=demo`): a shareable wallet URL that
+  // always shows the SPAR opening-gift teaser peeking from the bottom. Same
+  // treatment as a gift deep-link — auto-sign-in the demo user so the link
+  // works cold, without an existing session.
+  const isGiftTeaserDemo = searchParams.get('gift-teaser') === 'demo';
+
   // Story frames (`?story=1`) embed real screens inside the how-to-create-a-
   // voucher stories, which are reachable while signed out. Let them render
   // read-only rather than bouncing mid-story. Deliberately NOT a login: no auth
@@ -21,7 +27,7 @@ export default function ProtectedRoute() {
   const isStoryFrame = searchParams.get('story') === '1';
 
   useEffect(() => {
-    if (!isAuthenticated && isGiftDeepLink) {
+    if (!isAuthenticated && (isGiftDeepLink || isGiftTeaserDemo)) {
       useAuthStore.getState().login({
         token: 'gift-demo',
         userId: 'gift-demo',
@@ -29,12 +35,12 @@ export default function ProtectedRoute() {
         isOrgMember: false,
       });
     }
-  }, [isAuthenticated, isGiftDeepLink]);
+  }, [isAuthenticated, isGiftDeepLink, isGiftTeaserDemo]);
 
   if (!isAuthenticated) {
     // Logging in via the effect above — render nothing this frame (rather than
     // redirecting) so the gift deep-link isn't lost to a bounce.
-    if (isGiftDeepLink) return null;
+    if (isGiftDeepLink || isGiftTeaserDemo) return null;
     if (isStoryFrame) return <Outlet />;
     // Not authenticated — redirect back to home (LoginSheet opens from action buttons)
     return <Navigate to={`/${lang || 'he'}`} replace />;

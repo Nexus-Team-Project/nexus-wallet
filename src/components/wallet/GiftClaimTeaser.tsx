@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { motion, animate, AnimatePresence, useMotionValue, type PanInfo } from 'framer-motion';
 import { GIFT_VARIANTS, giftClaimedKey } from '../../pages/GiftSamplePage';
 import { useTransitionCurtainStore } from '../../stores/transitionCurtainStore';
@@ -61,16 +61,27 @@ const SPRING = { type: 'spring' as const, damping: 26, stiffness: 300 };
 export default function GiftClaimTeaser() {
   const { lang = 'he' } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { direction, isRTL } = useLanguage();
-  const tenantId = useTenantStore((s) => s.tenantId);
+  const storeTenantId = useTenantStore((s) => s.tenantId);
   const [dismissed, setDismissed] = useState(false);
   const y = useMotionValue(0);
+
+  // Demo link (`?gift-teaser=demo`): always show the SPAR teaser — ignore the
+  // claimed flag, and fall back to SPAR even if no loadsToBalance tenant is
+  // active. ProtectedRoute auto-signs-in on this param, so the full URL works
+  // cold in any browser.
+  const isDemo = searchParams.get('gift-teaser') === 'demo';
+  const tenantId = isDemo && !(storeTenantId && GIFT_VARIANTS[storeTenantId]?.loadsToBalance)
+    ? 'spar'
+    : storeTenantId;
 
   // Any tenant whose gift is an employer-wallet load (SPAR / Isrotel) gets the
   // teaser. Claim-mode variants (e.g. Menora) are excluded — they have no hero
   // illustration and their entry point isn't the wallet.
   const variant = (tenantId && GIFT_VARIANTS[tenantId]?.loadsToBalance) ? GIFT_VARIANTS[tenantId] : null;
   const claimed = (() => {
+    if (isDemo) return false;
     try { return !!tenantId && localStorage.getItem(giftClaimedKey(tenantId)) === '1'; } catch { return false; }
   })();
 
