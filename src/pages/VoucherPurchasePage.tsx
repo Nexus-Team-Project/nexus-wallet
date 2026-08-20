@@ -235,6 +235,42 @@ function VoucherCardPreview({ amount, tier, merchantName, merchantLogo, brandCol
   );
 }
 
+/* ─── Mini Voucher Preview ────────────────────────────────────────────── */
+/* The ORIGINAL voucher card structure, scaled down — used to show the
+   physical vouchers a composed custom amount is made of, each with its
+   ×count beside it. */
+
+const MINI_CARD_W = 148;
+const MINI_CARD_REF_W = 320; // unscaled design width the card renders at
+
+function MiniVoucherPreview({ denom, count, merchantName, merchantLogo, isHe }: {
+  denom: number;
+  count: number;
+  merchantName: string;
+  merchantLogo?: string;
+  isHe: boolean;
+}) {
+  const tier = AMOUNT_TIERS.find((t) => t.amount === denom) ?? null;
+  const scale = MINI_CARD_W / MINI_CARD_REF_W;
+  return (
+    <div className="flex items-center gap-1.5">
+      <div className="relative" style={{ width: MINI_CARD_W, height: MINI_CARD_W / 1.586 }}>
+        <div style={{ width: MINI_CARD_REF_W, transform: `scale(${scale})`, transformOrigin: 'top left' }}>
+          <VoucherCardPreview
+            amount={denom}
+            tier={tier}
+            merchantName={merchantName}
+            merchantLogo={merchantLogo}
+            isCustom={false}
+            isHe={isHe}
+          />
+        </div>
+      </div>
+      <span className="text-base font-extrabold text-text-primary tabular-nums">×{count}</span>
+    </div>
+  );
+}
+
 /* ─── Amount Selector Button ──────────────────────────────────────────── */
 
 interface AmountBtnProps {
@@ -1070,21 +1106,13 @@ export default function VoucherPurchasePage() {
     (_e: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
       if (Math.abs(info.offset.x) <= 80 && Math.abs(info.velocity.x) <= 450) return;
       const draggedLeft = info.offset.x < 0;
-      // On the composed custom card the deck shows that card ALONE; a sideways
-      // swipe (either direction) resets the typed amount and re-enters the
-      // preset gallery at its adjacent card.
-      if (isCustomForEffect && selectedTierIdx >= AMOUNT_TIERS.length) {
-        setCustomAmount('');
-        setSelectedTierIdx(AMOUNT_TIERS.length - 1);
-        return;
-      }
       const target = draggedLeft
         ? isRTL ? selectedTierIdx - 1 : selectedTierIdx + 1
         : isRTL ? selectedTierIdx + 1 : selectedTierIdx - 1;
       if (target < 0 || target >= AMOUNT_TIERS.length) return;
       setSelectedTierIdx(target);
     },
-    [isRTL, selectedTierIdx, isCustomForEffect],
+    [isRTL, selectedTierIdx],
   );
 
   if (loading) {
@@ -1225,15 +1253,18 @@ export default function VoucherPurchasePage() {
       </div>
 
       {/* ── Framer-Motion Card Deck (mirrors WalletPage) ── */}
+      {/* Hidden entirely while a custom amount is entered — the composition
+          is shown instead as mini voucher cards above the input. Story mode
+          never enters custom mode, so the data-story-tap hook always exists
+          for the walkthrough. */}
+      {!isCustom && (
       <div className="relative z-10 mt-4 px-5 overflow-hidden" data-story-tap="amount">
         {/* Outer container height = card natural height × 0.9 (centre-card scale) */}
         <div
           className="relative"
           style={{ height: deckHeight ? deckHeight * 0.9 : 'calc((min(100vw, 448px) - 40px) / 1.7 * 0.9)' }}
         >
-          {/* While a composed custom amount is active the deck shows that
-              stack alone — the preset cards leave the gallery entirely. */}
-          {(isCustom ? [AMOUNT_TIERS.length] : AMOUNT_TIERS.map((_, i) => i)).map((cardIdx) => {
+          {AMOUNT_TIERS.map((_, i) => i).map((cardIdx) => {
             const rel = cardIdx - selectedTierIdx;
             const isCenter = rel === 0;
             const isNeighbour = Math.abs(rel) === 1;
@@ -1244,10 +1275,8 @@ export default function VoucherPurchasePage() {
                 ? { x: `${side * 16}%`, scale: 0.74, opacity: 1 }
                 : { x: `${side * 40}%`, scale: 0.6, opacity: 0 };
 
-            const tier = cardIdx < AMOUNT_TIERS.length ? AMOUNT_TIERS[cardIdx] : null;
-            // Custom card face shows the real purchasable value (the composition
-            // total), never the raw typed number.
-            const amount = tier ? tier.amount : (composition?.total ?? 0);
+            const tier = AMOUNT_TIERS[cardIdx];
+            const amount = tier.amount;
 
             return (
               <motion.div
@@ -1282,18 +1311,14 @@ export default function VoucherPurchasePage() {
                     onCardDragEnd(e, info);
                   } : undefined}
                 >
-                  {/* The custom card face carries the ×N count badge; the
-                      composition itself is shown as mini voucher chips above
-                      the amount input. */}
                   <VoucherCardPreview
                     amount={amount}
                     tier={tier}
                     merchantName={isHe ? business.nameHe : business.name}
                     merchantLogo={business.logoUrl}
                     brandColor={voucher.brandColor}
-                    isCustom={tier === null}
+                    isCustom={false}
                     isHe={isHe}
-                    voucherCount={tier === null ? compositionCount : 1}
                   />
                   {isCenter && (
                     <button
@@ -1313,14 +1338,10 @@ export default function VoucherPurchasePage() {
 
         {/* Dot indicators */}
         <div className="flex justify-center gap-1.5 mt-4 pb-2">
-          {[...AMOUNT_TIERS, ...(isCustom ? [null] : [])].map((_, i) => (
+          {AMOUNT_TIERS.map((_, i) => (
             <button
               key={i}
-              onClick={() => {
-                // Leaving the composed card via a dot also resets the amount.
-                if (isCustom && i < AMOUNT_TIERS.length) setCustomAmount('');
-                setSelectedTierIdx(i);
-              }}
+              onClick={() => setSelectedTierIdx(i)}
               className={`rounded-full transition-all duration-200 ${
                 i === selectedTierIdx ? 'w-4 h-1.5 bg-gray-800' : 'w-1.5 h-1.5 bg-gray-300'
               }`}
@@ -1328,27 +1349,24 @@ export default function VoucherPurchasePage() {
           ))}
         </div>
       </div>
+      )}
 
       {/* ── Custom amount input ── */}
       <div className="relative z-10 px-5 mt-3">
-        {/* Mini voucher chips — the composition as small vouchers, each with
-            its ×count, colored by its denomination's tier. Sits above the
-            banner, which sits above the input. */}
+        {/* Mini voucher cards — the composition as the ORIGINAL voucher cards
+            scaled down, one per denomination with its ×count beside it. The
+            gallery is hidden while these are showing. */}
         {isCustom && composition && (
-          <div className="flex flex-wrap justify-center gap-2 mb-2">
+          <div className="flex flex-wrap justify-center items-center gap-x-4 gap-y-3 mb-3 pt-1">
             {composition.parts.map((p) => (
-              <div
+              <MiniVoucherPreview
                 key={p.denom}
-                className="h-11 min-w-[76px] px-3 rounded-lg flex items-center justify-center gap-1.5 shadow-sm"
-                style={{
-                  background:
-                    AMOUNT_TIERS.find((t) => t.amount === p.denom)?.gradient ??
-                    'linear-gradient(135deg, #635bff 0%, #3a0ca3 100%)',
-                }}
-              >
-                <span className="text-white font-bold text-sm">₪{p.denom}</span>
-                <span className="text-white/80 text-xs font-bold">×{p.count}</span>
-              </div>
+                denom={p.denom}
+                count={p.count}
+                merchantName={isHe ? business.nameHe : business.name}
+                merchantLogo={business.logoUrl}
+                isHe={isHe}
+              />
             ))}
           </div>
         )}

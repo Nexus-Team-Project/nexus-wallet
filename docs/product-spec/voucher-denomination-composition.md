@@ -113,13 +113,13 @@ The plural headline is deliberate — the copy never calls a multi-voucher compo
 4. **Uniform terms for the whole batch** — see "Uniform batch terms" below.
 5. *Live example pill (when a jump is active):* "ביקשת ₪633 ← נטען ₪700 (₪500 + ₪200)".
 
-**The composition is shown as mini voucher chips, not as one uniform card.** A composed amount is several physical vouchers, so beneath the deck the section reads, top to bottom:
+**While a custom amount is entered, the card gallery is hidden entirely** — a composed amount is several physical vouchers, so no single "uniform card" is shown at all. The section reads, top to bottom:
 
-1. **Mini voucher chips** — one small voucher-shaped chip per denomination, colored by that denomination's tier gradient, showing the value and a multiplication count beside it: `₪500 ×1` `₪200 ×1` (a ₪1,000 order composed as 2×₪500 shows one chip: `₪500 ×2`).
-2. **The composition banner** — "נטענים לך שוברים בסך ₪700" + the delta sub-line + the question-mark that opens the info sheet. The banner always sits **below the chips and above the amount input**.
+1. **Mini voucher cards** — the **original voucher card design, scaled down** (real tier gradient, pattern, Nexus mark, tier label, merchant logo, balance readout — the exact same card component, ~148px wide), one per denomination, with a **×count beside each card**: `[₪500 Exclusive card] ×1` `[₪200 Classic card] ×1`. A ₪1,000 order composed as 2×₪500 shows one mini card with `×2`.
+2. **The composition banner** — "נטענים לך שוברים בסך ₪700" + the delta sub-line + the question-mark that opens the info sheet. Always **below the mini cards and above the amount input**.
 3. **The amount input** itself.
 
-On the deck card face, a count badge — a circle on the **left edge** reading `×N` — carries the total voucher count. The card face shows the **composed total** (₪700), never the raw typed number — the face value on screen is always a purchasable truth. Single-voucher results (exact hit or below-min-denom) render one chip and the singular banner copy; presets render no chips and no banner.
+Clearing the input brings the preset gallery back at the tier the member was previously on. Single-voucher results (exact hit or below-min-denom) render one mini card and the singular banner copy; presets render the normal gallery, no mini cards and no banner. Story-mode walkthroughs never enter custom mode, so the gallery (and its story anchor) is always present for them.
 
 **Deck behavior while a composition is active:** the preset cards leave the gallery entirely — the composed stack is shown **alone**. Swiping the stack sideways (either direction) **resets the typed amount** and re-enters the preset gallery at the adjacent card; tapping a preset dot does the same. Clearing the input by hand returns to the tier the member was previously on.
 
