@@ -589,8 +589,8 @@ function DenominationsInfoSheet({ isHe, example, onClose }: {
       icon: 'account_balance_wallet',
       title: isHe ? 'היתרה לא הולכת לאיבוד' : 'The remainder is not lost',
       body: isHe
-        ? 'אם השילוב גבוה מהסכום שביקשת, ההפרש נשאר כיתרה בכרטיס וזמין לקנייה הבאה באותו בית עסק.'
-        : 'If the combination is above what you asked for, the difference stays as balance on the card for your next purchase at this merchant.',
+        ? 'אם השילוב גבוה מהסכום שביקשת, ההפרש נשאר כיתרה בשובר וזמין לקנייה הבאה באותו בית עסק.'
+        : 'If the combination is above what you asked for, the difference stays as balance on the voucher for your next purchase at this merchant.',
     },
     {
       icon: 'rule',
@@ -1425,8 +1425,8 @@ export default function VoucherPurchasePage() {
               {!composition.exact && (
                 <p className="text-xs text-text-secondary mt-0.5 leading-relaxed">
                   {isHe
-                    ? `₪${composition.delta} יותר מהסכום שהזנת — היתרה תישאר בכרטיס לקנייה הבאה`
-                    : `₪${composition.delta} more than you entered — the remainder stays on your card`}
+                    ? `₪${composition.delta} יותר מהסכום שהזנת — היתרה תישאר בשובר לקנייה הבאה`
+                    : `₪${composition.delta} more than you entered — the remainder stays on the voucher`}
                 </p>
               )}
               <p className="text-[11px] text-text-muted mt-1" dir="ltr" style={{ textAlign: isHe ? 'right' : 'left' }}>
@@ -1857,8 +1857,8 @@ export default function VoucherPurchasePage() {
                     {composition.delta > 0 && (
                       <p className="text-[11px] text-text-muted -mt-1">
                         {isHe
-                          ? `₪${composition.delta} מעל הסכום שביקשת — היתרה נשמרת בכרטיס`
-                          : `₪${composition.delta} above the amount you asked for — the remainder stays on the card`}
+                          ? `₪${composition.delta} מעל הסכום שביקשת — היתרה נשמרת בשובר`
+                          : `₪${composition.delta} above the amount you asked for — the remainder stays on the voucher`}
                       </p>
                     )}
                   </>

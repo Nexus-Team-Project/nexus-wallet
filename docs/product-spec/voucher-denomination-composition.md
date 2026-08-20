@@ -33,9 +33,11 @@ The member's real-world scenario is concrete: they are standing at the register 
 | :-- | :-- | :-- | :-- |
 | Round to nearest achievable | ₪600 | Card is short ₪33 — member must split payment at POS | ✗ Defeats the purpose |
 | Block non-achievable amounts | Error state | Member must do denomination math themselves | ✗ Hostile |
-| **Cover (smallest sum ≥ target)** | **₪700 (500 + 200)** | **Card always pays the bill; ₪67 remains as card balance** | ✓ Adopted |
+| **Cover (smallest sum ≥ target)** | **₪700 (500 + 200)** | **Always pays the bill; ₪67 remains as voucher balance** | ✓ Adopted |
 
-Worked example (live in the demo): typed **₪633** with denominations {100, 200, 300, 500} → composed **₪700** = ₪500 + ₪200, delta **₪67**, communicated as *"₪67 more than you entered — the remainder stays on your card for your next purchase."*
+Worked example (live in the demo): typed **₪633** with denominations {100, 200, 300, 500} → composed **₪700** = ₪500 + ₪200, delta **₪67**, communicated as *"₪67 more than you entered — the remainder stays on the voucher for your next purchase."*
+
+**Terminology rule:** the remainder lives **on the voucher** (בשובר), never "on the card" — vouchers are the value-bearing objects; "card" refers only to the wallet card face that presents the batch.
 
 The delta is bounded: it is always **less than the smallest denomination** the merchant offers (otherwise one smallest voucher could be dropped and still cover). The denomination mix therefore directly controls the worst-case jump — a business lever, not just a UX detail (see §7).
 
@@ -97,17 +99,17 @@ Implementation: unbounded coin-change DP with parent pointers, bounded at `targe
 | Element | Multi-voucher (633) | Single exact (300) | Single covered (40) |
 | :-- | :-- | :-- | :-- |
 | Headline (bold) | נטענים לך שוברים בסך ₪700 | הסכום זמין במלואו — ₪300 ✓ | נטען לך שובר של ₪100 |
-| Sub-line | ₪67 יותר מהסכום שהזנת — היתרה תישאר בכרטיס לקנייה הבאה | — | ₪60 יותר מהסכום שהזנת… |
+| Sub-line | ₪67 יותר מהסכום שהזנת — היתרה תישאר בשובר לקנייה הבאה | — | ₪60 יותר מהסכום שהזנת… |
 | Breakdown (muted, LTR island) | ₪500 + ₪200 | ₪300 | ₪100 |
 | Question-mark micro-button | opens the info sheet | opens the info sheet | opens the info sheet |
 
-The plural headline is deliberate — the copy never calls a multi-voucher composition "a card"; it says **vouchers totaling ₪X** (with a `✓` suffix when the multi-voucher sum is exact), and the breakdown line always sits directly beneath it. Amounts use thousands separators (₪1,200). English copy: "We'll load vouchers totaling ₪700" / "Available in full — ₪300 ✓" / "We'll load a ₪100 voucher" / "₪67 more than you entered — the remainder stays on your card".
+The plural headline is deliberate — the copy never calls a multi-voucher composition "a card"; it says **vouchers totaling ₪X** (with a `✓` suffix when the multi-voucher sum is exact), and the breakdown line always sits directly beneath it. Amounts use thousands separators (₪1,200). English copy: "We'll load vouchers totaling ₪700" / "Available in full — ₪300 ✓" / "We'll load a ₪100 voucher" / "₪67 more than you entered — the remainder stays on the voucher".
 
 **Info sheet** ("למה הסכום שונה ממה שהזנתי?" / "Why is the amount different?") — bottom sheet, four sections plus a live example of the member's own numbers:
 
 1. **Fixed voucher values** — merchants issue vouchers at fixed values; an arbitrary-amount voucher cannot be issued, so a combination is built.
 2. **Always covers your purchase** — the smallest combination equal to or just above the request, so the card always pays the bill at the register.
-3. **The remainder is not lost** — any difference stays as card balance for the next purchase at this merchant.
+3. **The remainder is not lost** — any difference stays as voucher balance for the next purchase at this merchant.
 4. **Uniform terms for the whole batch** — see "Uniform batch terms" below.
 5. *Live example pill (when a jump is active):* "ביקשת ₪633 ← נטען ₪700 (₪500 + ₪200)".
 
@@ -130,7 +132,7 @@ Each under-voucher is a full card-sized rect behind the top card, **fanned at it
 
 - **Product row** gains a "מותאם / Custom" badge for composed amounts (presets keep their tier badge); the row amount is `composed total × qty`.
 - **Breakdown line items** open the receipt, one row per denomination with **total counts** (`count × qty`) so the itemized rows sum exactly to the subtotal — e.g. for 633 × qty 2: `שובר ₪500 ×2 — ₪1000`, `שובר ₪200 ×2 — ₪400`.
-- **Delta footnote** under the breakdown (mirrors the existing cashback footnote): "₪67 מעל הסכום שביקשת — היתרה נשמרת בכרטיס".
+- **Delta footnote** under the breakdown (mirrors the existing cashback footnote): "₪67 מעל הסכום שביקשת — היתרה נשמרת בשובר".
 - **Success screen** gains an optional "הרכב הכרטיס / Card composition" detail row (`₪500 + ₪200`) carried via navigation state (`requestedAmount`, `composition`).
 
 **Interactions with existing mechanics** (both intentional, both follow from "the composed total *is* the order amount"):
@@ -147,7 +149,7 @@ Per-order analytics should capture `requested`, `composed`, `delta`, and `parts`
 
 ## Open Decisions
 
-1. **Remainder ownership and expiry** — the delta stays "on the card"; does it share the card's expiry, and what happens to it on refund?
+1. **Remainder ownership and expiry** — the delta stays on the voucher; does it share the voucher's expiry, and what happens to it on refund?
 2. **Cap value** — ₪10,000 is a placeholder; align with regulatory prepaid limits and per-merchant maximums (`maxPerTransaction` exists on `VoucherConditions`, currently unused).
 3. **Preset-vs-denominations validation** — should preset tiers be required to be members of the merchant's denomination set, or composed like any other amount when they are not?
 4. **POS redemption UX** — a composed card is N inventory vouchers; does the member present one barcode (operator-side aggregation) or several? Operator-side aggregation is strongly preferred; the member-facing model is *one card*.
