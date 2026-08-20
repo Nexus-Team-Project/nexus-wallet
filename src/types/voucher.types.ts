@@ -44,6 +44,13 @@ export interface Voucher {
    * When absent, the UI falls back to the preset tier amounts.
    */
   denominations?: number[];
+  /**
+   * Some chains cap how many vouchers can be redeemed in a single POS
+   * transaction. Purchases are NOT blocked past the cap — the member is
+   * reminded that redemption may be split, and the cap is stated in the
+   * deal terms.
+   */
+  maxVouchersPerRedemption?: number;
   inStock: boolean;
   popular: boolean;
   isOnline?: boolean;

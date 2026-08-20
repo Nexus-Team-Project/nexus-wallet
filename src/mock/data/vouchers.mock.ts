@@ -10,6 +10,7 @@ export const mockVouchers: Voucher[] = [
     termsAndConditions: 'Valid at all branches.', termsAndConditionsHe: 'בתוקף בכל הסניפים.',
     brandColor: '#DA291C', brandLogo: '/brands/mcdonalds.png',
     denominations: [100, 200, 300, 500],
+    maxVouchersPerRedemption: 5,
     inStock: true, popular: true,
   },
   {
@@ -42,6 +43,7 @@ export const mockVouchers: Voucher[] = [
     termsAndConditions: 'One drink per voucher.', termsAndConditionsHe: 'משקה אחד לשובר.',
     brandColor: '#000000', brandLogo: '/brands/aroma.png',
     denominations: [25, 50, 100],
+    maxVouchersPerRedemption: 3,
     inStock: true, popular: true,
   },
   {

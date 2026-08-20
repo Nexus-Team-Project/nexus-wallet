@@ -113,17 +113,25 @@ The plural headline is deliberate — the copy never calls a multi-voucher compo
 4. **Uniform terms for the whole batch** — see "Uniform batch terms" below.
 5. *Live example pill (when a jump is active):* "ביקשת ₪633 ← נטען ₪700 (₪500 + ₪200)".
 
-**While a custom amount is entered, the card gallery is hidden entirely** — a composed amount is several physical vouchers, so no single "uniform card" is shown at all. The section reads, top to bottom:
+**While a custom amount is entered, the SAME card gallery shows the composition's cards** — full size, the original card design (tier gradient, pattern, Nexus mark, tier label, merchant logo, balance readout), one card per denomination, swipeable with dot indicators exactly like the preset deck. No single "uniform card" for the composed total is ever shown.
 
-1. **Mini voucher cards** — the **original voucher card design, scaled down** (real tier gradient, pattern, Nexus mark, tier label, merchant logo, balance readout — the exact same card component, ~148px wide), one per denomination, with a **×count beside each card**: `[₪500 Exclusive card] ×1` `[₪200 Classic card] ×1`. A ₪1,000 order composed as 2×₪500 shows one mini card with `×2`.
-2. **The composition banner** — "נטענים לך שוברים בסך ₪700" + the delta sub-line + the question-mark that opens the info sheet. Always **below the mini cards and above the amount input**.
-3. **The amount input** itself.
-
-Clearing the input brings the preset gallery back at the tier the member was previously on. Single-voucher results (exact hit or below-min-denom) render one mini card and the singular banner copy; presets render the normal gallery, no mini cards and no banner. Story-mode walkthroughs never enter custom mode, so the gallery (and its story anchor) is always present for them.
+- **Prominent ×N mark**: every composition card carries a large count circle on its **left edge** (`×1`, `×2`, …) — shown even for a count of 1.
+- **The qty stepper multiplies the marks**: the ×N on each card is the TOTAL physical vouchers of that denomination in the order (`count × qty`). At qty 2, a 633 → 700 composition shows `×2` on the ₪500 card and `×2` on the ₪200 card. Preset cards also show `×qty` when qty > 1.
+- **The composition banner** — "נטענים לך שוברים בסך ₪700" + the delta sub-line + the question-mark that opens the info sheet (text-only sections, no icons). Always **below the gallery and above the amount input**.
+- Clearing the input returns the gallery to the preset deck at the tier the member was previously on. Single-voucher results render one card and the singular banner copy. Story-mode walkthroughs never enter custom mode, so the preset gallery and its story anchor are always present for them.
 
 **Deck behavior while a composition is active:** the preset cards leave the gallery entirely — the composed stack is shown **alone**. Swiping the stack sideways (either direction) **resets the typed amount** and re-enters the preset gallery at the adjacent card; tapping a preset dot does the same. Clearing the input by hand returns to the tier the member was previously on.
 
-**Uniform batch terms.** The deal terms the member chooses (promo stacking on/off, online use, outlets, etc.) apply **uniformly to every voucher in the composed batch** — no voucher in the batch can carry different terms from the rest. Stated in the UI in two places: a note directly under the "Deal terms" heading whenever a multi-voucher composition is active ("התנאים שתבחר כאן חלים באופן אחיד על כל N השוברים בצירוף"), and as section 4 of the info sheet. Engineering implication: terms are a property of the **order/batch**, not of the individual inventory voucher rows it consumes.
+**Uniform batch terms.** The deal terms the member chooses (promo stacking on/off, online use, outlets, etc.) apply **uniformly to every voucher in the composed batch** — no voucher in the batch can carry different terms from the rest. Stated in the UI in two places: a note directly under the "Deal terms" heading whenever a multi-voucher composition is active ("התנאים שתבחר כאן חלים באופן אחיד על כל N השוברים בצירוף", N = composition × qty), and as section 4 of the info sheet. Engineering implication: terms are a property of the **order/batch**, not of the individual inventory voucher rows it consumes.
+
+**Chain redemption cap (`maxVouchersPerRedemption`).** Some chains cannot redeem more than N vouchers in a single POS transaction. This is a per-merchant data field alongside `denominations` (demo: McDonald's 5, Aroma 3; absent = no cap). Rules:
+
+| Rule | Behavior |
+| :-- | :-- |
+| Purchases are **never blocked** by the cap | The composer already minimizes voucher count; exceeding the cap only happens when unavoidable or via qty |
+| Consumer reminder | When total order vouchers (composition × qty, or qty for presets) exceed the cap, an amber note appears in the composition banner (or under the qty stepper for presets): "שימו לב: ברשת זו ניתן לממש עד N שוברים בעסקה אחת — ההזמנה כוללת M שוברים, וייתכן שהמימוש יפוצל לכמה עסקאות" |
+| Deal terms | Whenever the field is defined, the terms section states it permanently: "ברשת זו ניתן לממש עד N שוברים בעסקה אחת" |
+| Engineering | The cap is a redemption-time constraint, not an issuance constraint; POS aggregation (Open Decision 4) must respect it when batching vouchers into one scan |
 
 ## 6. Order Summary and Receipt
 
