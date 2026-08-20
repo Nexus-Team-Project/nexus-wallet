@@ -111,7 +111,8 @@ The plural headline is deliberate — the copy never calls a multi-voucher compo
 2. **Always covers your purchase** — the smallest combination equal to or just above the request, so the card always pays the bill at the register.
 3. **The remainder is not lost** — any difference stays as voucher balance for the next purchase at this merchant.
 4. **Uniform terms for the whole batch** — see "Uniform batch terms" below.
-5. *Live example pill (when a jump is active):* "ביקשת ₪633 ← נטען ₪700 (₪500 + ₪200)".
+
+The sheet is text-only: no icons and no live-example line — the member's own numbers are already visible on the gallery cards and the banner behind the sheet.
 
 **While a custom amount is entered, the SAME card gallery shows the composition's cards** — full size, the original card design (tier gradient, pattern, Nexus mark, tier label, merchant logo, balance readout), one card per denomination, swipeable with dot indicators exactly like the preset deck. No single "uniform card" for the composed total is ever shown.
 

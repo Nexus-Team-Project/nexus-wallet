@@ -19,7 +19,7 @@ import PaymentOptionsSheet from '../components/wallet/PaymentOptionsSheet';
 import SplitPaymentSheet, { type SplitAmounts } from '../components/wallet/SplitPaymentSheet';
 import { useOpeningGift, useRedeemOpeningGift, useGiftAvailability } from '../hooks/useOpeningGift';
 import { evaluateLaunchGift, computeOrderTotals } from '../utils/launchGift';
-import { composeVoucherAmount, formatCompositionParts, MAX_COMPOSE_TARGET } from '../utils/voucherComposition';
+import { composeVoucherAmount, MAX_COMPOSE_TARGET } from '../utils/voucherComposition';
 import { useAuthGate } from '../hooks/useAuthGate';
 import PaymentBrandMark from '../components/wallet/PaymentBrandMark';
 import AutoCarousel from '../components/ui/AutoCarousel';
@@ -566,9 +566,8 @@ function HowItWorksSheet({ isHe, businessName, onClose }: { isHe: boolean; busin
 
 /* ─── Denominations Info Sheet ────────────────────────────────────────── */
 
-function DenominationsInfoSheet({ isHe, example, onClose }: {
+function DenominationsInfoSheet({ isHe, onClose }: {
   isHe: boolean;
-  example: { typed: number; total: number; partsLabel: string } | null;
   onClose: () => void;
 }) {
   const sections = [
@@ -606,17 +605,6 @@ function DenominationsInfoSheet({ isHe, example, onClose }: {
             <p className="text-sm text-text-secondary leading-relaxed">{s.body}</p>
           </div>
         ))}
-        {example && (
-          <div className="bg-surface rounded-2xl px-4 py-3 text-sm text-text-secondary leading-relaxed">
-            {isHe ? (
-              <>ביקשת <b className="text-text-primary">₪{example.typed}</b> ← נטען <b className="text-text-primary">₪{example.total}</b>{' '}
-                <span dir="ltr">({example.partsLabel})</span></>
-            ) : (
-              <>You asked for <b className="text-text-primary">₪{example.typed}</b> → we load <b className="text-text-primary">₪{example.total}</b>{' '}
-                <span dir="ltr">({example.partsLabel})</span></>
-            )}
-          </div>
-        )}
       </div>
     </VoucherSheet>
   );
@@ -2376,17 +2364,7 @@ export default function VoucherPurchasePage() {
 
       {/* ── Denominations Info Sheet ── */}
       {denomInfoOpen && (
-        <DenominationsInfoSheet
-          isHe={isHe}
-          example={isCustom && composition && !composition.exact
-            ? {
-                typed: Math.ceil(customAmountNum),
-                total: composition.total,
-                partsLabel: formatCompositionParts(composition.parts),
-              }
-            : null}
-          onClose={() => setDenomInfoOpen(false)}
-        />
+        <DenominationsInfoSheet isHe={isHe} onClose={() => setDenomInfoOpen(false)} />
       )}
 
       {/* ── Variant Bottom Sheet ── */}
