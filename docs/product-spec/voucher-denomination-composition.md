@@ -116,11 +116,11 @@ The plural headline is deliberate — the copy never calls a multi-voucher compo
 | Vouchers in composition | Visual |
 | :-- | :-- |
 | 1 (exact single denomination) | Plain card, no stack |
-| 2 | One under-voucher peeks out above the card |
+| 2 | One under-voucher peeks out from behind the card |
 | 3 or more | Two under-vouchers peek out (visual cap — never more than a 3-card stack) |
 | Always (when > 1) | A count badge — a circle on the **left edge** of the card face reading `×N` — carries the true voucher count, including past the 3-layer visual cap |
 
-Each peeking under-voucher is **fanned at its own slight angle** (≈±2–3°) and **colored by its own denomination's tier gradient** (e.g. under a ₪700 stack, the ₪200 voucher peeks in the Classic blue) — the stack reads as distinct physical vouchers, not decorative layers. The top card face shows the **composed total** (₪700), never the raw typed number — the face value on screen is always a purchasable truth.
+Each under-voucher is a full card-sized rect behind the top card, **fanned at its own slight angle** (≈±2–3°) so its corners peek out **both above and below** the card, and **colored by its own denomination's tier gradient** (e.g. under a ₪700 stack, the ₪200 voucher peeks in the Classic blue) — the stack reads as distinct physical vouchers, not decorative layers. The top card face shows the **composed total** (₪700), never the raw typed number — the face value on screen is always a purchasable truth.
 
 **Deck behavior while a composition is active:** the preset cards leave the gallery entirely — the composed stack is shown **alone**. Swiping the stack sideways (either direction) **resets the typed amount** and re-enters the preset gallery at the adjacent card; tapping a preset dot does the same. Clearing the input by hand returns to the tier the member was previously on.
 

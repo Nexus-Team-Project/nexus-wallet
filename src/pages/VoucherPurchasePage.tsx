@@ -1292,13 +1292,15 @@ export default function VoucherPurchasePage() {
                   {tier === null && compositionCount > 1 ? (() => {
                     // Individual vouchers beneath the top of the stack, biggest
                     // first: 700 = [500, 200] → the 200 peeks under the card.
+                    // Each under-voucher is a full card-sized rect behind the
+                    // top card, rotated at its own angle, so its corners peek
+                    // out both ABOVE and BELOW the card.
                     const unders = (composition?.parts ?? [])
                       .flatMap((p) => Array<number>(p.count).fill(p.denom))
                       .slice(1, 3);
-                    const PEEK = 10;
-                    const pad = unders.length * PEEK + 8;
+                    const pad = 14;
                     return (
-                      <div className="relative" style={{ paddingTop: pad }}>
+                      <div className="relative" style={{ paddingTop: pad, paddingBottom: pad }}>
                         {[...unders].reverse().map((denom, di) => {
                           const depth = unders.length - di; // 2 = deepest, drawn first
                           const gradient =
@@ -1308,14 +1310,14 @@ export default function VoucherPurchasePage() {
                             <div
                               key={di}
                               aria-hidden
-                              className="absolute left-1/2 rounded-t-2xl pointer-events-none"
+                              className="absolute left-1/2 rounded-2xl pointer-events-none"
                               style={{
-                                width: `${100 - depth * 4}%`,
-                                height: depth * PEEK + 26,
-                                top: (unders.length - depth) * PEEK + 8,
+                                width: `${100 - depth * 3}%`,
+                                top: pad,
+                                height: `calc(100% - ${pad * 2}px)`,
                                 background: gradient,
-                                transform: `translateX(-50%) rotate(${depth === 1 ? -2.2 : 2.6}deg)`,
-                                transformOrigin: 'center bottom',
+                                transform: `translateX(-50%) rotate(${depth === 1 ? -2.4 : 3}deg)`,
+                                transformOrigin: 'center center',
                                 filter: `brightness(${depth === 1 ? 0.95 : 0.85})`,
                               }}
                             />
