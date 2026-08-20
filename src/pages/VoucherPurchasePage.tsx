@@ -1108,6 +1108,8 @@ export default function VoucherPurchasePage() {
   const composition = isCustom ? composeVoucherAmount(customAmountNum, denominations) : null;
   /** Physical vouchers behind the composed card (per single unit, qty excluded). */
   const compositionCount = composition ? composition.parts.reduce((s, p) => s + p.count, 0) : 0;
+  /** The fanned under-voucher stack is showing behind the deck card. */
+  const stackActive = isCustom && compositionCount > 1;
   /** Per-card face value — for custom this is the composition total, not the typed number. */
   const displayAmount = isCustom ? (composition?.total ?? 0) : (currentTier?.amount ?? 0);
   const cashbackRate = stackable ? 20 : 60;
@@ -1225,7 +1227,15 @@ export default function VoucherPurchasePage() {
       </div>
 
       {/* ── Framer-Motion Card Deck (mirrors WalletPage) ── */}
-      <div className="relative z-10 mt-4 px-5 overflow-hidden" data-story-tap="amount">
+      {/* When the stack is showing, CSS padding (inside the overflow-hidden
+          clip box) gives the fan headroom above the card — the measured deck
+          height stays identical to the preset cards, so no JS re-measure race
+          can clip the fan. */}
+      <div
+        className="relative z-10 mt-4 px-5 overflow-hidden"
+        style={stackActive ? { paddingTop: 28 } : undefined}
+        data-story-tap="amount"
+      >
         {/* Outer container height = card natural height × 0.9 (centre-card scale) */}
         <div
           className="relative"
@@ -1298,13 +1308,14 @@ export default function VoucherPurchasePage() {
                     const unders = (composition?.parts ?? [])
                       .flatMap((p) => Array<number>(p.count).fill(p.denom))
                       .slice(1, 3);
-                    // Headroom above/below the card. Each under-voucher is
-                    // TALLER than the card (overhangs both ends) on top of its
-                    // rotation — a corner-only peek gets eaten by the 16px
-                    // corner rounding and reads as nothing.
-                    const PAD = 30;
+                    // Each under-voucher is TALLER than the card (overhangs
+                    // both ends, negative offsets) on top of its rotation — a
+                    // corner-only peek gets eaten by the 16px corner rounding.
+                    // The wrapper deliberately adds NO height: the deck
+                    // measures the custom card exactly like a preset card, and
+                    // the fan overflows into the deck container's CSS padding.
                     return (
-                      <div className="relative" style={{ paddingTop: PAD, paddingBottom: PAD }}>
+                      <div className="relative">
                         {[...unders].reverse().map((denom, di) => {
                           const depth = unders.length - di; // 2 = deepest, drawn first
                           const overhang = depth * 10; // px beyond the card, each end
@@ -1318,8 +1329,8 @@ export default function VoucherPurchasePage() {
                               className="absolute left-1/2 rounded-2xl pointer-events-none"
                               style={{
                                 width: `${100 - depth * 3}%`,
-                                top: PAD - overhang,
-                                height: `calc(100% - ${(PAD - overhang) * 2}px)`,
+                                top: -overhang,
+                                height: `calc(100% + ${overhang * 2}px)`,
                                 background: gradient,
                                 transform: `translateX(-50%) rotate(${depth === 1 ? -2.2 : 2.6}deg)`,
                                 transformOrigin: 'center center',
@@ -1367,8 +1378,8 @@ export default function VoucherPurchasePage() {
           })}
         </div>
 
-        {/* Dot indicators */}
-        <div className="flex justify-center gap-1.5 mt-4 pb-2">
+        {/* Dot indicators — extra top margin while the fan overhangs below the card */}
+        <div className={`flex justify-center gap-1.5 ${stackActive ? 'mt-9' : 'mt-4'} pb-2`}>
           {[...AMOUNT_TIERS, ...(isCustom ? [null] : [])].map((_, i) => (
             <button
               key={i}
