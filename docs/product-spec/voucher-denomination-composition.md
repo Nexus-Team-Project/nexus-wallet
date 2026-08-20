@@ -94,23 +94,37 @@ Implementation: unbounded coin-change DP with parent pointers, bounded at `targe
 
 **Suggestion panel** — appears directly under the input, **always** while a valid amount is entered (per product decision: the member always sees the composition next to what they typed, including on exact hits). Anatomy:
 
-| Element | Jump state (633) | Exact state (300) |
-| :-- | :-- | :-- |
-| Headline (bold) | נטען לך כרטיס של ₪700 | הסכום זמין במלואו — ₪300 ✓ |
-| Sub-line | ₪67 יותר מהסכום שהזנת — היתרה תישאר בכרטיס לקנייה הבאה | — |
-| Breakdown (muted, LTR island) | ₪500 + ₪200 | ₪300 |
-| Question-mark micro-button | opens the info sheet | opens the info sheet |
+| Element | Multi-voucher (633) | Single exact (300) | Single covered (40) |
+| :-- | :-- | :-- | :-- |
+| Headline (bold) | נטענים לך שוברים בסך ₪700 | הסכום זמין במלואו — ₪300 ✓ | נטען לך שובר של ₪100 |
+| Sub-line | ₪67 יותר מהסכום שהזנת — היתרה תישאר בכרטיס לקנייה הבאה | — | ₪60 יותר מהסכום שהזנת… |
+| Breakdown (muted, LTR island) | ₪500 + ₪200 | ₪300 | ₪100 |
+| Question-mark micro-button | opens the info sheet | opens the info sheet | opens the info sheet |
 
-English copy: "We'll load a ₪700 card" / "₪67 more than you entered — the remainder stays on your card" / "Available in full — ₪300 ✓".
+The plural headline is deliberate — the copy never calls a multi-voucher composition "a card"; it says **vouchers totaling ₪X** (with a `✓` suffix when the multi-voucher sum is exact), and the breakdown line always sits directly beneath it. Amounts use thousands separators (₪1,200). English copy: "We'll load vouchers totaling ₪700" / "Available in full — ₪300 ✓" / "We'll load a ₪100 voucher" / "₪67 more than you entered — the remainder stays on your card".
 
-**Info sheet** ("למה הסכום שונה ממה שהזנתי?" / "Why is the amount different?") — bottom sheet, three sections plus a live example of the member's own numbers:
+**Info sheet** ("למה הסכום שונה ממה שהזנתי?" / "Why is the amount different?") — bottom sheet, four sections plus a live example of the member's own numbers:
 
 1. **Fixed voucher values** — merchants issue vouchers at fixed values; an arbitrary-amount voucher cannot be issued, so a combination is built.
 2. **Always covers your purchase** — the smallest combination equal to or just above the request, so the card always pays the bill at the register.
 3. **The remainder is not lost** — any difference stays as card balance for the next purchase at this merchant.
-4. *Live example pill (when a jump is active):* "ביקשת ₪633 ← נטען ₪700 (₪500 + ₪200)".
+4. **Uniform terms for the whole batch** — see "Uniform batch terms" below.
+5. *Live example pill (when a jump is active):* "ביקשת ₪633 ← נטען ₪700 (₪500 + ₪200)".
 
-**Card deck.** The custom card face shows the **composed total** (₪700), never the raw typed number — the face value on screen is always a purchasable truth. Preset tier cards are untouched. Clearing the input returns to the tier the member was previously on.
+**Card deck — the composed card is visually honest about being a stack.** A composed amount is several physical vouchers, so it must not render as one uniform card:
+
+| Vouchers in composition | Visual |
+| :-- | :-- |
+| 1 (exact single denomination) | Plain card, no stack |
+| 2 | One under-voucher peeks out above the card |
+| 3 or more | Two under-vouchers peek out (visual cap — never more than a 3-card stack) |
+| Always (when > 1) | A count badge — a circle on the **left edge** of the card face reading `×N` — carries the true voucher count, including past the 3-layer visual cap |
+
+Each peeking under-voucher is **fanned at its own slight angle** (≈±2–3°) and **colored by its own denomination's tier gradient** (e.g. under a ₪700 stack, the ₪200 voucher peeks in the Classic blue) — the stack reads as distinct physical vouchers, not decorative layers. The top card face shows the **composed total** (₪700), never the raw typed number — the face value on screen is always a purchasable truth.
+
+**Deck behavior while a composition is active:** the preset cards leave the gallery entirely — the composed stack is shown **alone**. Swiping the stack sideways (either direction) **resets the typed amount** and re-enters the preset gallery at the adjacent card; tapping a preset dot does the same. Clearing the input by hand returns to the tier the member was previously on.
+
+**Uniform batch terms.** The deal terms the member chooses (promo stacking on/off, online use, outlets, etc.) apply **uniformly to every voucher in the composed batch** — no voucher in the batch can carry different terms from the rest. Stated in the UI in two places: a note directly under the "Deal terms" heading whenever a multi-voucher composition is active ("התנאים שתבחר כאן חלים באופן אחיד על כל N השוברים בצירוף"), and as section 4 of the info sheet. Engineering implication: terms are a property of the **order/batch**, not of the individual inventory voucher rows it consumes.
 
 ## 6. Order Summary and Receipt
 

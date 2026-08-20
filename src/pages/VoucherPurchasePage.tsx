@@ -143,9 +143,15 @@ interface CardPreviewProps {
   brandColor?: string;
   isCustom: boolean;
   isHe: boolean;
+  /**
+   * Number of physical vouchers this card is composed of (custom amounts are
+   * fulfilled as a fixed-denomination combination). > 1 renders the count
+   * badge on the left edge; the stacked under-card layers live in the deck.
+   */
+  voucherCount?: number;
 }
 
-function VoucherCardPreview({ amount, tier, merchantName, merchantLogo, brandColor: _brandColor, isCustom: _isCustom, isHe }: CardPreviewProps) {
+function VoucherCardPreview({ amount, tier, merchantName, merchantLogo, brandColor: _brandColor, isCustom: _isCustom, isHe, voucherCount = 1 }: CardPreviewProps) {
   const bg = tier
     ? tier.gradient
     : `linear-gradient(135deg, #635bff 0%, #3a0ca3 100%)`;
@@ -201,6 +207,17 @@ function VoucherCardPreview({ amount, tier, merchantName, merchantLogo, brandCol
           </span>
         )}
       </div>
+
+      {/* Voucher-count badge — left edge. A composed card IS several physical
+          vouchers; the circle says how many, even past the 3-layer visual cap. */}
+      {voucherCount > 1 && (
+        <div
+          className="absolute left-3 top-1/2 -translate-y-1/2 h-7 min-w-7 px-1.5 rounded-full bg-white/25 backdrop-blur-sm flex items-center justify-center pointer-events-none"
+          aria-label={isHe ? `${voucherCount} שוברים` : `${voucherCount} vouchers`}
+        >
+          <span className="text-[13px] font-bold text-white tabular-nums leading-none">×{voucherCount}</span>
+        </div>
+      )}
 
       {/* Balance — bottom-right (mirrors VoucherCard exactly) */}
       <div className="absolute bottom-4 right-4 text-right leading-none">
@@ -574,6 +591,13 @@ function DenominationsInfoSheet({ isHe, example, onClose }: {
       body: isHe
         ? 'אם השילוב גבוה מהסכום שביקשת, ההפרש נשאר כיתרה בכרטיס וזמין לקנייה הבאה באותו בית עסק.'
         : 'If the combination is above what you asked for, the difference stays as balance on the card for your next purchase at this merchant.',
+    },
+    {
+      icon: 'rule',
+      title: isHe ? 'תנאים אחידים לכל הצירוף' : 'Uniform terms for the whole batch',
+      body: isHe
+        ? 'תנאי העסקה שתבחר — כפל מבצעים, שימוש אונליין וכדומה — חלים באופן אחיד על כל השוברים בצירוף. אין שובר עם תנאים שונים משאר הצירוף.'
+        : 'The deal terms you choose — promo stacking, online use and so on — apply uniformly to every voucher in the batch. No voucher carries different terms from the rest.',
     },
   ];
   return (
@@ -1046,11 +1070,18 @@ export default function VoucherPurchasePage() {
     (_e: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
       if (Math.abs(info.offset.x) <= 80 && Math.abs(info.velocity.x) <= 450) return;
       const draggedLeft = info.offset.x < 0;
-      const deckLength = AMOUNT_TIERS.length + (isCustomForEffect ? 1 : 0);
+      // On the composed custom card the deck shows that card ALONE; a sideways
+      // swipe (either direction) resets the typed amount and re-enters the
+      // preset gallery at its adjacent card.
+      if (isCustomForEffect && selectedTierIdx >= AMOUNT_TIERS.length) {
+        setCustomAmount('');
+        setSelectedTierIdx(AMOUNT_TIERS.length - 1);
+        return;
+      }
       const target = draggedLeft
         ? isRTL ? selectedTierIdx - 1 : selectedTierIdx + 1
         : isRTL ? selectedTierIdx + 1 : selectedTierIdx - 1;
-      if (target < 0 || target >= deckLength) return;
+      if (target < 0 || target >= AMOUNT_TIERS.length) return;
       setSelectedTierIdx(target);
     },
     [isRTL, selectedTierIdx, isCustomForEffect],
@@ -1075,6 +1106,8 @@ export default function VoucherPurchasePage() {
   // smallest voucher combination whose sum COVERS the requested amount.
   const denominations = voucher.denominations ?? AMOUNT_TIERS.map((t) => t.amount);
   const composition = isCustom ? composeVoucherAmount(customAmountNum, denominations) : null;
+  /** Physical vouchers behind the composed card (per single unit, qty excluded). */
+  const compositionCount = composition ? composition.parts.reduce((s, p) => s + p.count, 0) : 0;
   /** Per-card face value — for custom this is the composition total, not the typed number. */
   const displayAmount = isCustom ? (composition?.total ?? 0) : (currentTier?.amount ?? 0);
   const cashbackRate = stackable ? 20 : 60;
@@ -1198,7 +1231,9 @@ export default function VoucherPurchasePage() {
           className="relative"
           style={{ height: deckHeight ? deckHeight * 0.9 : 'calc((min(100vw, 448px) - 40px) / 1.7 * 0.9)' }}
         >
-          {[...AMOUNT_TIERS.map((_, i) => i), ...(isCustom ? [AMOUNT_TIERS.length] : [])].map((cardIdx) => {
+          {/* While a composed custom amount is active the deck shows that
+              stack alone — the preset cards leave the gallery entirely. */}
+          {(isCustom ? [AMOUNT_TIERS.length] : AMOUNT_TIERS.map((_, i) => i)).map((cardIdx) => {
             const rel = cardIdx - selectedTierIdx;
             const isCenter = rel === 0;
             const isNeighbour = Math.abs(rel) === 1;
@@ -1247,15 +1282,68 @@ export default function VoucherPurchasePage() {
                     onCardDragEnd(e, info);
                   } : undefined}
                 >
-                  <VoucherCardPreview
-                    amount={amount}
-                    tier={tier}
-                    merchantName={isHe ? business.nameHe : business.name}
-                    merchantLogo={business.logoUrl}
-                    brandColor={voucher.brandColor}
-                    isCustom={tier === null}
-                    isHe={isHe}
-                  />
+                  {/* A composed custom card is honest about being several
+                      physical vouchers: the under-vouchers peek out above it as
+                      a fanned stack (2 vouchers → one layer, 3+ → two layers,
+                      capped), each at its own slight angle and colored by its
+                      denomination's tier, while the count badge on the card
+                      face carries the true number. The wrapper padding grows
+                      the measured deck height, so the fan is never clipped. */}
+                  {tier === null && compositionCount > 1 ? (() => {
+                    // Individual vouchers beneath the top of the stack, biggest
+                    // first: 700 = [500, 200] → the 200 peeks under the card.
+                    const unders = (composition?.parts ?? [])
+                      .flatMap((p) => Array<number>(p.count).fill(p.denom))
+                      .slice(1, 3);
+                    const PEEK = 10;
+                    const pad = unders.length * PEEK + 8;
+                    return (
+                      <div className="relative" style={{ paddingTop: pad }}>
+                        {[...unders].reverse().map((denom, di) => {
+                          const depth = unders.length - di; // 2 = deepest, drawn first
+                          const gradient =
+                            AMOUNT_TIERS.find((t) => t.amount === denom)?.gradient ??
+                            'linear-gradient(135deg, #635bff 0%, #3a0ca3 100%)';
+                          return (
+                            <div
+                              key={di}
+                              aria-hidden
+                              className="absolute left-1/2 rounded-t-2xl pointer-events-none"
+                              style={{
+                                width: `${100 - depth * 4}%`,
+                                height: depth * PEEK + 26,
+                                top: (unders.length - depth) * PEEK + 8,
+                                background: gradient,
+                                transform: `translateX(-50%) rotate(${depth === 1 ? -2.2 : 2.6}deg)`,
+                                transformOrigin: 'center bottom',
+                                filter: `brightness(${depth === 1 ? 0.95 : 0.85})`,
+                              }}
+                            />
+                          );
+                        })}
+                        <VoucherCardPreview
+                          amount={amount}
+                          tier={tier}
+                          merchantName={isHe ? business.nameHe : business.name}
+                          merchantLogo={business.logoUrl}
+                          brandColor={voucher.brandColor}
+                          isCustom={tier === null}
+                          isHe={isHe}
+                          voucherCount={compositionCount}
+                        />
+                      </div>
+                    );
+                  })() : (
+                    <VoucherCardPreview
+                      amount={amount}
+                      tier={tier}
+                      merchantName={isHe ? business.nameHe : business.name}
+                      merchantLogo={business.logoUrl}
+                      brandColor={voucher.brandColor}
+                      isCustom={tier === null}
+                      isHe={isHe}
+                    />
+                  )}
                   {isCenter && (
                     <button
                       onPointerDown={(e) => e.stopPropagation()}
@@ -1277,7 +1365,11 @@ export default function VoucherPurchasePage() {
           {[...AMOUNT_TIERS, ...(isCustom ? [null] : [])].map((_, i) => (
             <button
               key={i}
-              onClick={() => setSelectedTierIdx(i)}
+              onClick={() => {
+                // Leaving the composed card via a dot also resets the amount.
+                if (isCustom && i < AMOUNT_TIERS.length) setCustomAmount('');
+                setSelectedTierIdx(i);
+              }}
               className={`rounded-full transition-all duration-200 ${
                 i === selectedTierIdx ? 'w-4 h-1.5 bg-gray-800' : 'w-1.5 h-1.5 bg-gray-300'
               }`}
@@ -1320,9 +1412,13 @@ export default function VoucherPurchasePage() {
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-bold text-text-primary">
-                {composition.exact
-                  ? (isHe ? `הסכום זמין במלואו — ₪${composition.total} ✓` : `Available in full — ₪${composition.total} ✓`)
-                  : (isHe ? `נטען לך כרטיס של ₪${composition.total}` : `We'll load a ₪${composition.total} card`)}
+                {compositionCount > 1
+                  ? (isHe
+                      ? `נטענים לך שוברים בסך ₪${composition.total.toLocaleString()}${composition.exact ? ' ✓' : ''}`
+                      : `We'll load vouchers totaling ₪${composition.total.toLocaleString()}${composition.exact ? ' ✓' : ''}`)
+                  : composition.exact
+                    ? (isHe ? `הסכום זמין במלואו — ₪${composition.total.toLocaleString()} ✓` : `Available in full — ₪${composition.total.toLocaleString()} ✓`)
+                    : (isHe ? `נטען לך שובר של ₪${composition.total.toLocaleString()}` : `We'll load a ₪${composition.total.toLocaleString()} voucher`)}
               </p>
               {!composition.exact && (
                 <p className="text-xs text-text-secondary mt-0.5 leading-relaxed">
@@ -1491,6 +1587,16 @@ export default function VoucherPurchasePage() {
           <h2 className="text-xl font-bold text-text-primary">
             {isHe ? 'תנאי עסקה' : 'Deal terms'}
           </h2>
+          {/* A composed card is several physical vouchers — the terms chosen
+              below are batch-wide, never per-voucher. Said here, where the
+              terms are chosen, so it can't be discovered later as a surprise. */}
+          {isCustom && compositionCount > 1 && (
+            <p className="text-[12px] text-text-muted mt-1.5 leading-relaxed">
+              {isHe
+                ? `התנאים שתבחר כאן חלים באופן אחיד על כל ${compositionCount} השוברים בצירוף`
+                : `The terms you choose here apply uniformly to all ${compositionCount} vouchers in this batch`}
+            </p>
+          )}
         </section>
 
         {/* ── Stackable toggle ── */}
