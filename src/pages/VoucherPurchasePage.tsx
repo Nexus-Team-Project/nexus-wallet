@@ -255,7 +255,19 @@ function MiniVoucherPreview({ denom, count, merchantName, merchantLogo, isHe }: 
   return (
     <div className="flex items-center gap-1.5">
       <div className="relative" style={{ width: MINI_CARD_W, height: MINI_CARD_W / 1.586 }}>
-        <div style={{ width: MINI_CARD_REF_W, transform: `scale(${scale})`, transformOrigin: 'top left' }}>
+        {/* Anchored to the PHYSICAL top-left so the scale origin is inside the
+            wrapper — in RTL flow a plain block would align right and the
+            unscaled 320px width would hang out of the wrapper (and the screen). */}
+        <div
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: MINI_CARD_REF_W,
+            transform: `scale(${scale})`,
+            transformOrigin: 'top left',
+          }}
+        >
           <VoucherCardPreview
             amount={denom}
             tier={tier}
