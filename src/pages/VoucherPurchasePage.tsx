@@ -1298,11 +1298,16 @@ export default function VoucherPurchasePage() {
                     const unders = (composition?.parts ?? [])
                       .flatMap((p) => Array<number>(p.count).fill(p.denom))
                       .slice(1, 3);
-                    const pad = 14;
+                    // Headroom above/below the card. Each under-voucher is
+                    // TALLER than the card (overhangs both ends) on top of its
+                    // rotation — a corner-only peek gets eaten by the 16px
+                    // corner rounding and reads as nothing.
+                    const PAD = 30;
                     return (
-                      <div className="relative" style={{ paddingTop: pad, paddingBottom: pad }}>
+                      <div className="relative" style={{ paddingTop: PAD, paddingBottom: PAD }}>
                         {[...unders].reverse().map((denom, di) => {
                           const depth = unders.length - di; // 2 = deepest, drawn first
+                          const overhang = depth * 10; // px beyond the card, each end
                           const gradient =
                             AMOUNT_TIERS.find((t) => t.amount === denom)?.gradient ??
                             'linear-gradient(135deg, #635bff 0%, #3a0ca3 100%)';
@@ -1313,10 +1318,10 @@ export default function VoucherPurchasePage() {
                               className="absolute left-1/2 rounded-2xl pointer-events-none"
                               style={{
                                 width: `${100 - depth * 3}%`,
-                                top: pad,
-                                height: `calc(100% - ${pad * 2}px)`,
+                                top: PAD - overhang,
+                                height: `calc(100% - ${(PAD - overhang) * 2}px)`,
                                 background: gradient,
-                                transform: `translateX(-50%) rotate(${depth === 1 ? -2.4 : 3}deg)`,
+                                transform: `translateX(-50%) rotate(${depth === 1 ? -2.2 : 2.6}deg)`,
                                 transformOrigin: 'center center',
                                 filter: `brightness(${depth === 1 ? 0.95 : 0.85})`,
                               }}
