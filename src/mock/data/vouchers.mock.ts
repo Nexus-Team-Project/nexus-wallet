@@ -9,6 +9,7 @@ export const mockVouchers: Voucher[] = [
     image: '🍔', imageUrl: 'https://images.unsplash.com/photo-1550547660-d9450f859349?w=400&q=80', validUntil: '2026-03-22',
     termsAndConditions: 'Valid at all branches.', termsAndConditionsHe: 'בתוקף בכל הסניפים.',
     brandColor: '#DA291C', brandLogo: '/brands/mcdonalds.png',
+    denominations: [100, 200, 300, 500],
     inStock: true, popular: true,
   },
   {
@@ -19,6 +20,7 @@ export const mockVouchers: Voucher[] = [
     image: '👕', imageUrl: 'https://images.unsplash.com/photo-1523381210434-271e8be1f52b?w=400&q=80', validUntil: '2026-12-31',
     termsAndConditions: 'Valid in all Castro branches.', termsAndConditionsHe: 'בתוקף בכל סניפי קסטרו.',
     brandColor: '#000000', brandLogo: '/castro-logo.png',
+    denominations: [100, 200, 500],
     inStock: true, popular: true,
   },
   {
@@ -39,6 +41,7 @@ export const mockVouchers: Voucher[] = [
     image: '☕', imageUrl: 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=400&q=80', validUntil: '2026-03-28',
     termsAndConditions: 'One drink per voucher.', termsAndConditionsHe: 'משקה אחד לשובר.',
     brandColor: '#000000', brandLogo: '/brands/aroma.png',
+    denominations: [25, 50, 100],
     inStock: true, popular: true,
   },
   {

@@ -4,6 +4,7 @@ import { useLanguage } from '../i18n/LanguageContext';
 import { usePaymentMethods } from '../hooks/usePaymentMethods';
 import PaymentBrandMark from '../components/wallet/PaymentBrandMark';
 import TransactionSuccessShell from '../components/ui/TransactionSuccessShell';
+import { formatCompositionParts, type CompositionPart } from '../utils/voucherComposition';
 
 export interface VoucherSuccessState {
   /** Face value of the voucher */
@@ -21,6 +22,10 @@ export interface VoucherSuccessState {
   /** Discount percent shown on the card face */
   discountPercent?: number;
   tier?: string;
+  /** Custom-amount orders: what the member typed at the register. */
+  requestedAmount?: number;
+  /** Custom-amount orders: the fixed-denomination combination loaded. */
+  composition?: CompositionPart[];
   paymentMethodId?: string;
   userVoucherId?: string;
   returnTo?: string;
@@ -61,6 +66,7 @@ export default function VoucherSuccessPage() {
     brandColor = '#0a2540',
     discountPercent,
     tier,
+    composition,
     paymentMethodId,
     userVoucherId,
   } = state;
@@ -179,6 +185,9 @@ export default function VoucherSuccessPage() {
       <div className="px-5 py-4 space-y-3" dir={isHe ? 'rtl' : 'ltr'}>
         {[
           tier    ? { label: isHe ? 'רמה'         : 'Tier',   value: tier,          green: false } : null,
+          composition && composition.length > 0
+            ? { label: isHe ? 'הרכב הכרטיס' : 'Card composition', value: formatCompositionParts(composition), green: false }
+            : null,
           // Gift and Paid sit next to Cashback on purpose: ₪20 cashback beside
           // ₪75 paid on a ₪100 card shows the member the economics instead of
           // hiding them.

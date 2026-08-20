@@ -19,6 +19,7 @@ import PaymentOptionsSheet from '../components/wallet/PaymentOptionsSheet';
 import SplitPaymentSheet, { type SplitAmounts } from '../components/wallet/SplitPaymentSheet';
 import { useOpeningGift, useRedeemOpeningGift, useGiftAvailability } from '../hooks/useOpeningGift';
 import { evaluateLaunchGift, computeOrderTotals } from '../utils/launchGift';
+import { composeVoucherAmount, formatCompositionParts, MAX_COMPOSE_TARGET } from '../utils/voucherComposition';
 import { useAuthGate } from '../hooks/useAuthGate';
 import PaymentBrandMark from '../components/wallet/PaymentBrandMark';
 import AutoCarousel from '../components/ui/AutoCarousel';
@@ -545,6 +546,66 @@ function HowItWorksSheet({ isHe, businessName, onClose }: { isHe: boolean; busin
   );
 }
 
+/* ─── Denominations Info Sheet ────────────────────────────────────────── */
+
+function DenominationsInfoSheet({ isHe, example, onClose }: {
+  isHe: boolean;
+  example: { typed: number; total: number; partsLabel: string } | null;
+  onClose: () => void;
+}) {
+  const sections = [
+    {
+      icon: 'confirmation_number',
+      title: isHe ? 'שוברים בערכים קבועים' : 'Fixed voucher values',
+      body: isHe
+        ? 'בתי העסק מנפיקים שוברים בערכים קבועים מראש (למשל ₪100, ₪200, ₪500). לא ניתן להנפיק שובר בסכום חופשי, ולכן אנחנו מרכיבים עבורך שילוב של שוברים.'
+        : 'Merchants issue vouchers in fixed values (e.g. ₪100, ₪200, ₪500). A voucher cannot be issued for an arbitrary amount, so we build a combination of vouchers for you.',
+    },
+    {
+      icon: 'task_alt',
+      title: isHe ? 'תמיד מכסים את הקנייה' : 'Always covers your purchase',
+      body: isHe
+        ? 'אנחנו בוחרים את השילוב הקטן ביותר ששווה לסכום שביקשת או מעט יותר — כך הכרטיס תמיד מספיק לתשלום בקופה.'
+        : 'We pick the smallest combination equal to or just above the amount you asked for — so the card always covers the bill at the register.',
+    },
+    {
+      icon: 'account_balance_wallet',
+      title: isHe ? 'היתרה לא הולכת לאיבוד' : 'The remainder is not lost',
+      body: isHe
+        ? 'אם השילוב גבוה מהסכום שביקשת, ההפרש נשאר כיתרה בכרטיס וזמין לקנייה הבאה באותו בית עסק.'
+        : 'If the combination is above what you asked for, the difference stays as balance on the card for your next purchase at this merchant.',
+    },
+  ];
+  return (
+    <VoucherSheet isHe={isHe} title={isHe ? 'למה הסכום שונה ממה שהזנתי?' : 'Why is the amount different?'} onClose={onClose}>
+      <div className="space-y-5">
+        {sections.map((s) => (
+          <div key={s.icon} className="flex gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+              <span className="material-symbols-outlined text-primary" style={{ fontSize: 20 }}>{s.icon}</span>
+            </div>
+            <div>
+              <p className="text-sm font-bold text-text-primary mb-1">{s.title}</p>
+              <p className="text-sm text-text-secondary leading-relaxed">{s.body}</p>
+            </div>
+          </div>
+        ))}
+        {example && (
+          <div className="bg-surface rounded-2xl px-4 py-3 text-sm text-text-secondary leading-relaxed">
+            {isHe ? (
+              <>ביקשת <b className="text-text-primary">₪{example.typed}</b> ← נטען <b className="text-text-primary">₪{example.total}</b>{' '}
+                <span dir="ltr">({example.partsLabel})</span></>
+            ) : (
+              <>You asked for <b className="text-text-primary">₪{example.typed}</b> → we load <b className="text-text-primary">₪{example.total}</b>{' '}
+                <span dir="ltr">({example.partsLabel})</span></>
+            )}
+          </div>
+        )}
+      </div>
+    </VoucherSheet>
+  );
+}
+
 /* ─── Launch-gift row ─────────────────────────────────────────────────── */
 
 type LaunchGiftRowState =
@@ -910,6 +971,7 @@ export default function VoucherPurchasePage() {
   const [paymentsSheetOpen, setPaymentsSheetOpen] = useState(false);
   const [paymentsCount, setPaymentsCount] = useState(1);
   const [howItWorksOpen, setHowItWorksOpen] = useState(false);
+  const [denomInfoOpen, setDenomInfoOpen] = useState(false);
   const [giftDetails] = useState<GiftDetails | null>(navState?.gift ?? null);
 
   // Loading skeleton on entry (artificial — mock data is instant).
@@ -965,14 +1027,18 @@ export default function VoucherPurchasePage() {
   });
 
   // Auto-advance to custom card when a custom amount is entered;
-  // snap back to last tier when the user clears it.
-  const customAmountNumForEffect = parseInt(customAmount, 10);
+  // snap back to the tier the user was on when they clear it.
+  const customAmountNumForEffect = Number(customAmount);
   const isCustomForEffect = Number.isFinite(customAmountNumForEffect) && customAmountNumForEffect > 0;
+  const lastTierIdxRef = useRef(storyMode ? 1 : 2);
+  useEffect(() => {
+    if (selectedTierIdx < AMOUNT_TIERS.length) lastTierIdxRef.current = selectedTierIdx;
+  }, [selectedTierIdx]);
   useLayoutEffect(() => {
     if (isCustomForEffect) {
       setSelectedTierIdx(AMOUNT_TIERS.length);
     } else if (selectedTierIdx >= AMOUNT_TIERS.length) {
-      setSelectedTierIdx(AMOUNT_TIERS.length - 1);
+      setSelectedTierIdx(lastTierIdxRef.current);
     }
   }, [isCustomForEffect]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -1003,10 +1069,14 @@ export default function VoucherPurchasePage() {
   }
 
   const currentTier = AMOUNT_TIERS[selectedTierIdx];
-  const customAmountNum = parseInt(customAmount, 10);
+  const customAmountNum = Number(customAmount);
   const isCustom = Number.isFinite(customAmountNum) && customAmountNum > 0;
-  /** Per-card face value. */
-  const displayAmount = isCustom ? customAmountNum : (currentTier?.amount ?? 0);
+  // Custom amounts are fulfilled from fixed-denomination inventory: the
+  // smallest voucher combination whose sum COVERS the requested amount.
+  const denominations = voucher.denominations ?? AMOUNT_TIERS.map((t) => t.amount);
+  const composition = isCustom ? composeVoucherAmount(customAmountNum, denominations) : null;
+  /** Per-card face value — for custom this is the composition total, not the typed number. */
+  const displayAmount = isCustom ? (composition?.total ?? 0) : (currentTier?.amount ?? 0);
   const cashbackRate = stackable ? 20 : 60;
 
   // ── Launch gift: applicability (question B) ──────────────────────────────
@@ -1140,7 +1210,9 @@ export default function VoucherPurchasePage() {
                 : { x: `${side * 40}%`, scale: 0.6, opacity: 0 };
 
             const tier = cardIdx < AMOUNT_TIERS.length ? AMOUNT_TIERS[cardIdx] : null;
-            const amount = tier ? tier.amount : customAmountNum;
+            // Custom card face shows the real purchasable value (the composition
+            // total), never the raw typed number.
+            const amount = tier ? tier.amount : (composition?.total ?? 0);
 
             return (
               <motion.div
@@ -1217,7 +1289,7 @@ export default function VoucherPurchasePage() {
       {/* ── Custom amount input ── */}
       <div className="relative z-10 px-5 mt-3">
         <label className="block text-xs text-gray-500 mb-2 font-medium">
-          {isHe ? 'או הזן סכום משלך' : 'Or enter your own amount'}
+          {isHe ? 'או הזן את הסכום שאתה צריך' : 'Or enter the amount you need'}
         </label>
         <div className="relative">
           <span className="absolute end-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-lg pointer-events-none">₪</span>
@@ -1225,12 +1297,53 @@ export default function VoucherPurchasePage() {
             type="number"
             inputMode="numeric"
             min={1}
+            max={MAX_COMPOSE_TARGET}
             value={customAmount}
-            onChange={(e) => setCustomAmount(e.target.value)}
+            onChange={(e) => {
+              const v = e.target.value;
+              const n = Number(v);
+              setCustomAmount(Number.isFinite(n) && n > MAX_COMPOSE_TARGET ? String(MAX_COMPOSE_TARGET) : v);
+            }}
             placeholder={isHe ? 'הזן סכום' : 'Enter amount'}
             className="w-full bg-white border border-gray-200 rounded-2xl px-4 py-3 ps-12 pe-10 text-start font-bold text-lg focus:outline-none focus:border-gray-900 transition-colors"
           />
         </div>
+
+        {/* ── Composition suggestion — always visible while a custom amount is
+            entered, so the member sees the real loadable value next to what
+            they typed, and the jump (if any) is explained, never discovered
+            at the summary. */}
+        {isCustom && composition && (
+          <div className="mt-2 bg-surface rounded-2xl px-4 py-3 flex items-start gap-3">
+            <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+              <span className="material-symbols-outlined text-primary" style={{ fontSize: 18 }}>confirmation_number</span>
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-bold text-text-primary">
+                {composition.exact
+                  ? (isHe ? `הסכום זמין במלואו — ₪${composition.total} ✓` : `Available in full — ₪${composition.total} ✓`)
+                  : (isHe ? `נטען לך כרטיס של ₪${composition.total}` : `We'll load a ₪${composition.total} card`)}
+              </p>
+              {!composition.exact && (
+                <p className="text-xs text-text-secondary mt-0.5 leading-relaxed">
+                  {isHe
+                    ? `₪${composition.delta} יותר מהסכום שהזנת — היתרה תישאר בכרטיס לקנייה הבאה`
+                    : `₪${composition.delta} more than you entered — the remainder stays on your card`}
+                </p>
+              )}
+              <p className="text-[11px] text-text-muted mt-1" dir="ltr" style={{ textAlign: isHe ? 'right' : 'left' }}>
+                {formatCompositionParts(composition.parts)}
+              </p>
+            </div>
+            <button
+              onClick={() => setDenomInfoOpen(true)}
+              aria-label={isHe ? 'למה הסכום שונה?' : 'Why is the amount different?'}
+              className="w-5 h-5 rounded-full border border-border/70 inline-flex items-center justify-center shrink-0 mt-0.5"
+            >
+              <span className="material-symbols-rounded text-text-muted" style={{ fontSize: 12 }}>question_mark</span>
+            </button>
+          </div>
+        )}
 
         {/* ── Qty + gift row ── */}
         <div className="flex items-center gap-3 mt-3">
@@ -1543,6 +1656,11 @@ export default function VoucherPurchasePage() {
                         {isHe ? currentTier.tierLabelHe : currentTier.tierLabelEn}
                       </span>
                     )}
+                    {!currentTier && isCustom && (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-bold text-white bg-gray-700 shrink-0">
+                        {isHe ? 'מותאם' : 'Custom'}
+                      </span>
+                    )}
                   </div>
                 </div>
                 <span className="text-sm font-bold text-text-primary shrink-0">₪{displayAmount * qty}</span>
@@ -1614,6 +1732,29 @@ export default function VoucherPurchasePage() {
 
               {/* Line items */}
               <div className="px-4 py-3 space-y-2.5" dir={isRTL ? 'rtl' : 'ltr'}>
+                {/* Composition breakdown — a custom amount is fulfilled as a
+                    combination of fixed-denomination vouchers; itemized with
+                    TOTAL counts (count × qty) so the rows sum to the subtotal. */}
+                {isCustom && composition && (
+                  <>
+                    {composition.parts.map((p) => (
+                      <div key={p.denom} className="flex items-center justify-between text-sm">
+                        <span className="font-medium text-text-primary">₪{p.denom * p.count * qty}</span>
+                        <span className="text-text-secondary">
+                          {isHe ? `שובר ₪${p.denom}` : `₪${p.denom} voucher`}
+                          {p.count * qty > 1 ? ` ×${p.count * qty}` : ''}
+                        </span>
+                      </div>
+                    ))}
+                    {composition.delta > 0 && (
+                      <p className="text-[11px] text-text-muted -mt-1">
+                        {isHe
+                          ? `₪${composition.delta} מעל הסכום שביקשת — היתרה נשמרת בכרטיס`
+                          : `₪${composition.delta} above the amount you asked for — the remainder stays on the card`}
+                      </p>
+                    )}
+                  </>
+                )}
                 {qty > 1 && (
                   <>
                     <div className="flex items-center justify-between text-sm">
@@ -2110,6 +2251,10 @@ export default function VoucherPurchasePage() {
                     brandColor: voucher.brandColor ?? '#0a2540',
                     discountPercent: voucher?.discountPercent,
                     tier: currentTier ? (isHe ? currentTier.tierLabelHe : currentTier.tierLabelEn) : undefined,
+                    // Custom-amount orders: what the member asked for vs. the
+                    // fixed-denomination combination actually loaded.
+                    requestedAmount: isCustom ? Math.ceil(customAmountNum) : undefined,
+                    composition: isCustom && composition ? composition.parts : undefined,
                     paymentMethodId: selectedPayMethod?.id,
                     userVoucherId: newUserVoucher.id,
                     returnTo: `/${lang}/business/${businessId}`,
@@ -2155,6 +2300,21 @@ export default function VoucherPurchasePage() {
       {/* ── How it Works Sheet ── */}
       {howItWorksOpen && (
         <HowItWorksSheet isHe={isHe} businessName={isHe ? business.nameHe : business.name} onClose={() => setHowItWorksOpen(false)} />
+      )}
+
+      {/* ── Denominations Info Sheet ── */}
+      {denomInfoOpen && (
+        <DenominationsInfoSheet
+          isHe={isHe}
+          example={isCustom && composition && !composition.exact
+            ? {
+                typed: Math.ceil(customAmountNum),
+                total: composition.total,
+                partsLabel: formatCompositionParts(composition.parts),
+              }
+            : null}
+          onClose={() => setDenomInfoOpen(false)}
+        />
       )}
 
       {/* ── Variant Bottom Sheet ── */}

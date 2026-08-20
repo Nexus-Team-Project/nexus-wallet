@@ -38,6 +38,12 @@ export interface Voucher {
    * mark to the top corner (e.g. the Menora claim card on Mastercard).
    */
   paymentNetwork?: 'mastercard' | 'visa';
+  /**
+   * Fixed denominations held in inventory for this merchant. A custom amount
+   * is fulfilled as the smallest combination with sum >= the requested amount.
+   * When absent, the UI falls back to the preset tier amounts.
+   */
+  denominations?: number[];
   inStock: boolean;
   popular: boolean;
   isOnline?: boolean;
