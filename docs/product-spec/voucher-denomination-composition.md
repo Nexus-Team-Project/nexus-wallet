@@ -94,7 +94,7 @@ Implementation: unbounded coin-change DP with parent pointers, bounded at `targe
 
 **Input.** Label changes from "enter your own amount" to **"enter the amount you need"** (he: "או הזן את הסכום שאתה צריך") — the field now expresses a *request*, not a face value. Free typing preserved; values above ₪10,000 are clamped.
 
-**Suggestion panel** — appears directly under the input, **always** while a valid amount is entered (per product decision: the member always sees the composition next to what they typed, including on exact hits). Anatomy:
+**Composition banner** — appears **above the input** (below the mini voucher chips), **always** while a valid amount is entered (per product decision: the member always sees the composition next to what they typed, including on exact hits). Anatomy:
 
 | Element | Multi-voucher (633) | Single exact (300) | Single covered (40) |
 | :-- | :-- | :-- | :-- |
@@ -113,16 +113,13 @@ The plural headline is deliberate — the copy never calls a multi-voucher compo
 4. **Uniform terms for the whole batch** — see "Uniform batch terms" below.
 5. *Live example pill (when a jump is active):* "ביקשת ₪633 ← נטען ₪700 (₪500 + ₪200)".
 
-**Card deck — the composed card is visually honest about being a stack.** A composed amount is several physical vouchers, so it must not render as one uniform card:
+**The composition is shown as mini voucher chips, not as one uniform card.** A composed amount is several physical vouchers, so beneath the deck the section reads, top to bottom:
 
-| Vouchers in composition | Visual |
-| :-- | :-- |
-| 1 (exact single denomination) | Plain card, no stack |
-| 2 | One under-voucher peeks out from behind the card |
-| 3 or more | Two under-vouchers peek out (visual cap — never more than a 3-card stack) |
-| Always (when > 1) | A count badge — a circle on the **left edge** of the card face reading `×N` — carries the true voucher count, including past the 3-layer visual cap |
+1. **Mini voucher chips** — one small voucher-shaped chip per denomination, colored by that denomination's tier gradient, showing the value and a multiplication count beside it: `₪500 ×1` `₪200 ×1` (a ₪1,000 order composed as 2×₪500 shows one chip: `₪500 ×2`).
+2. **The composition banner** — "נטענים לך שוברים בסך ₪700" + the delta sub-line + the question-mark that opens the info sheet. The banner always sits **below the chips and above the amount input**.
+3. **The amount input** itself.
 
-Each under-voucher is a full card-sized rect behind the top card, **fanned at its own slight angle** (≈±2–3°) so its corners peek out **both above and below** the card, and **colored by its own denomination's tier gradient** (e.g. under a ₪700 stack, the ₪200 voucher peeks in the Classic blue) — the stack reads as distinct physical vouchers, not decorative layers. The top card face shows the **composed total** (₪700), never the raw typed number — the face value on screen is always a purchasable truth.
+On the deck card face, a count badge — a circle on the **left edge** reading `×N` — carries the total voucher count. The card face shows the **composed total** (₪700), never the raw typed number — the face value on screen is always a purchasable truth. Single-voucher results (exact hit or below-min-denom) render one chip and the singular banner copy; presets render no chips and no banner.
 
 **Deck behavior while a composition is active:** the preset cards leave the gallery entirely — the composed stack is shown **alone**. Swiping the stack sideways (either direction) **resets the typed amount** and re-enters the preset gallery at the adjacent card; tapping a preset dot does the same. Clearing the input by hand returns to the tier the member was previously on.
 

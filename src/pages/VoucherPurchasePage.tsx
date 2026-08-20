@@ -1108,8 +1108,6 @@ export default function VoucherPurchasePage() {
   const composition = isCustom ? composeVoucherAmount(customAmountNum, denominations) : null;
   /** Physical vouchers behind the composed card (per single unit, qty excluded). */
   const compositionCount = composition ? composition.parts.reduce((s, p) => s + p.count, 0) : 0;
-  /** The fanned under-voucher stack is showing behind the deck card. */
-  const stackActive = isCustom && compositionCount > 1;
   /** Per-card face value — for custom this is the composition total, not the typed number. */
   const displayAmount = isCustom ? (composition?.total ?? 0) : (currentTier?.amount ?? 0);
   const cashbackRate = stackable ? 20 : 60;
@@ -1227,15 +1225,7 @@ export default function VoucherPurchasePage() {
       </div>
 
       {/* ── Framer-Motion Card Deck (mirrors WalletPage) ── */}
-      {/* When the stack is showing, CSS padding (inside the overflow-hidden
-          clip box) gives the fan headroom above the card — the measured deck
-          height stays identical to the preset cards, so no JS re-measure race
-          can clip the fan. */}
-      <div
-        className="relative z-10 mt-4 px-5 overflow-hidden"
-        style={stackActive ? { paddingTop: 28 } : undefined}
-        data-story-tap="amount"
-      >
+      <div className="relative z-10 mt-4 px-5 overflow-hidden" data-story-tap="amount">
         {/* Outer container height = card natural height × 0.9 (centre-card scale) */}
         <div
           className="relative"
@@ -1292,76 +1282,19 @@ export default function VoucherPurchasePage() {
                     onCardDragEnd(e, info);
                   } : undefined}
                 >
-                  {/* A composed custom card is honest about being several
-                      physical vouchers: the under-vouchers peek out above it as
-                      a fanned stack (2 vouchers → one layer, 3+ → two layers,
-                      capped), each at its own slight angle and colored by its
-                      denomination's tier, while the count badge on the card
-                      face carries the true number. The wrapper padding grows
-                      the measured deck height, so the fan is never clipped. */}
-                  {tier === null && compositionCount > 1 ? (() => {
-                    // Individual vouchers beneath the top of the stack, biggest
-                    // first: 700 = [500, 200] → the 200 peeks under the card.
-                    // Each under-voucher is a full card-sized rect behind the
-                    // top card, rotated at its own angle, so its corners peek
-                    // out both ABOVE and BELOW the card.
-                    const unders = (composition?.parts ?? [])
-                      .flatMap((p) => Array<number>(p.count).fill(p.denom))
-                      .slice(1, 3);
-                    // Each under-voucher is TALLER than the card (overhangs
-                    // both ends, negative offsets) on top of its rotation — a
-                    // corner-only peek gets eaten by the 16px corner rounding.
-                    // The wrapper deliberately adds NO height: the deck
-                    // measures the custom card exactly like a preset card, and
-                    // the fan overflows into the deck container's CSS padding.
-                    return (
-                      <div className="relative">
-                        {[...unders].reverse().map((denom, di) => {
-                          const depth = unders.length - di; // 2 = deepest, drawn first
-                          const overhang = depth * 10; // px beyond the card, each end
-                          const gradient =
-                            AMOUNT_TIERS.find((t) => t.amount === denom)?.gradient ??
-                            'linear-gradient(135deg, #635bff 0%, #3a0ca3 100%)';
-                          return (
-                            <div
-                              key={di}
-                              aria-hidden
-                              className="absolute left-1/2 rounded-2xl pointer-events-none"
-                              style={{
-                                width: `${100 - depth * 3}%`,
-                                top: -overhang,
-                                height: `calc(100% + ${overhang * 2}px)`,
-                                background: gradient,
-                                transform: `translateX(-50%) rotate(${depth === 1 ? -2.2 : 2.6}deg)`,
-                                transformOrigin: 'center center',
-                                filter: `brightness(${depth === 1 ? 0.95 : 0.85})`,
-                              }}
-                            />
-                          );
-                        })}
-                        <VoucherCardPreview
-                          amount={amount}
-                          tier={tier}
-                          merchantName={isHe ? business.nameHe : business.name}
-                          merchantLogo={business.logoUrl}
-                          brandColor={voucher.brandColor}
-                          isCustom={tier === null}
-                          isHe={isHe}
-                          voucherCount={compositionCount}
-                        />
-                      </div>
-                    );
-                  })() : (
-                    <VoucherCardPreview
-                      amount={amount}
-                      tier={tier}
-                      merchantName={isHe ? business.nameHe : business.name}
-                      merchantLogo={business.logoUrl}
-                      brandColor={voucher.brandColor}
-                      isCustom={tier === null}
-                      isHe={isHe}
-                    />
-                  )}
+                  {/* The custom card face carries the ×N count badge; the
+                      composition itself is shown as mini voucher chips above
+                      the amount input. */}
+                  <VoucherCardPreview
+                    amount={amount}
+                    tier={tier}
+                    merchantName={isHe ? business.nameHe : business.name}
+                    merchantLogo={business.logoUrl}
+                    brandColor={voucher.brandColor}
+                    isCustom={tier === null}
+                    isHe={isHe}
+                    voucherCount={tier === null ? compositionCount : 1}
+                  />
                   {isCenter && (
                     <button
                       onPointerDown={(e) => e.stopPropagation()}
@@ -1378,8 +1311,8 @@ export default function VoucherPurchasePage() {
           })}
         </div>
 
-        {/* Dot indicators — extra top margin while the fan overhangs below the card */}
-        <div className={`flex justify-center gap-1.5 ${stackActive ? 'mt-9' : 'mt-4'} pb-2`}>
+        {/* Dot indicators */}
+        <div className="flex justify-center gap-1.5 mt-4 pb-2">
           {[...AMOUNT_TIERS, ...(isCustom ? [null] : [])].map((_, i) => (
             <button
               key={i}
@@ -1398,33 +1331,31 @@ export default function VoucherPurchasePage() {
 
       {/* ── Custom amount input ── */}
       <div className="relative z-10 px-5 mt-3">
-        <label className="block text-xs text-gray-500 mb-2 font-medium">
-          {isHe ? 'או הזן את הסכום שאתה צריך' : 'Or enter the amount you need'}
-        </label>
-        <div className="relative">
-          <span className="absolute end-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-lg pointer-events-none">₪</span>
-          <input
-            type="number"
-            inputMode="numeric"
-            min={1}
-            max={MAX_COMPOSE_TARGET}
-            value={customAmount}
-            onChange={(e) => {
-              const v = e.target.value;
-              const n = Number(v);
-              setCustomAmount(Number.isFinite(n) && n > MAX_COMPOSE_TARGET ? String(MAX_COMPOSE_TARGET) : v);
-            }}
-            placeholder={isHe ? 'הזן סכום' : 'Enter amount'}
-            className="w-full bg-white border border-gray-200 rounded-2xl px-4 py-3 ps-12 pe-10 text-start font-bold text-lg focus:outline-none focus:border-gray-900 transition-colors"
-          />
-        </div>
-
-        {/* ── Composition suggestion — always visible while a custom amount is
-            entered, so the member sees the real loadable value next to what
-            they typed, and the jump (if any) is explained, never discovered
-            at the summary. */}
+        {/* Mini voucher chips — the composition as small vouchers, each with
+            its ×count, colored by its denomination's tier. Sits above the
+            banner, which sits above the input. */}
         {isCustom && composition && (
-          <div className="mt-2 bg-surface rounded-2xl px-4 py-3 flex items-start gap-3">
+          <div className="flex flex-wrap justify-center gap-2 mb-2">
+            {composition.parts.map((p) => (
+              <div
+                key={p.denom}
+                className="h-11 min-w-[76px] px-3 rounded-lg flex items-center justify-center gap-1.5 shadow-sm"
+                style={{
+                  background:
+                    AMOUNT_TIERS.find((t) => t.amount === p.denom)?.gradient ??
+                    'linear-gradient(135deg, #635bff 0%, #3a0ca3 100%)',
+                }}
+              >
+                <span className="text-white font-bold text-sm">₪{p.denom}</span>
+                <span className="text-white/80 text-xs font-bold">×{p.count}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* ── Composition banner — between the chips and the input ── */}
+        {isCustom && composition && (
+          <div className="mb-3 bg-surface rounded-2xl px-4 py-3 flex items-start gap-3">
             <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
               <span className="material-symbols-outlined text-primary" style={{ fontSize: 18 }}>confirmation_number</span>
             </div>
@@ -1445,9 +1376,6 @@ export default function VoucherPurchasePage() {
                     : `₪${composition.delta} more than you entered — the remainder stays on the voucher`}
                 </p>
               )}
-              <p className="text-[11px] text-text-muted mt-1" dir="ltr" style={{ textAlign: isHe ? 'right' : 'left' }}>
-                {formatCompositionParts(composition.parts)}
-              </p>
             </div>
             <button
               onClick={() => setDenomInfoOpen(true)}
@@ -1458,6 +1386,27 @@ export default function VoucherPurchasePage() {
             </button>
           </div>
         )}
+
+        <label className="block text-xs text-gray-500 mb-2 font-medium">
+          {isHe ? 'או הזן את הסכום שאתה צריך' : 'Or enter the amount you need'}
+        </label>
+        <div className="relative">
+          <span className="absolute end-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-lg pointer-events-none">₪</span>
+          <input
+            type="number"
+            inputMode="numeric"
+            min={1}
+            max={MAX_COMPOSE_TARGET}
+            value={customAmount}
+            onChange={(e) => {
+              const v = e.target.value;
+              const n = Number(v);
+              setCustomAmount(Number.isFinite(n) && n > MAX_COMPOSE_TARGET ? String(MAX_COMPOSE_TARGET) : v);
+            }}
+            placeholder={isHe ? 'הזן סכום' : 'Enter amount'}
+            className="w-full bg-white border border-gray-200 rounded-2xl px-4 py-3 ps-12 pe-10 text-start font-bold text-lg focus:outline-none focus:border-gray-900 transition-colors"
+          />
+        </div>
 
         {/* ── Qty + gift row ── */}
         <div className="flex items-center gap-3 mt-3">
