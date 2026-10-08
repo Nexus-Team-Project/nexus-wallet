@@ -30,8 +30,20 @@ export interface SubBalance {
   id: string;
   amount: number;
   currency: string;
-  source: 'gift_card' | 'voucher';
+  /** 'nexus_gift' — the joining gift from Nexus itself (no merchant voucher). */
+  source: 'gift_card' | 'voucher' | 'nexus_gift';
   validUntil: string;
   /** The Voucher (see voucher.types.ts) this chunk's art + terms come from. */
   voucherId?: string;
+  /** The occasion the gift was given for ("אירוע" on the benefit screen). */
+  event?: string;
+  eventHe?: string;
+  /** Amount the gift was issued with, before any spending. */
+  originalAmount?: number;
+  /**
+   * Locked gift (the joining gift): shown in the balance up front, but
+   * usable only once the member has EARNED `threshold` in cashback in the
+   * wallet (framed as accumulation, not spend), net of refunds.
+   */
+  lock?: { threshold: number; progress: number; unlockBy: string };
 }

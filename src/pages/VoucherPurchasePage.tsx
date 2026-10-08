@@ -6,8 +6,6 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useLanguage } from '../i18n/LanguageContext';
 import { mockVouchers, mockUserVouchers } from '../mock/data/vouchers.mock';
 import { mockBusinesses } from '../mock/data/businesses.mock';
-import { mockTransactions } from '../mock/data/transactions.mock';
-import { mockSubBalances } from '../mock/data/subBalances.mock';
 import type { VoucherVariant } from '../types/voucher.types';
 import AnimatedActionIcon from '../components/layout/AnimatedActionIcon';
 import StoreTile from '../components/home/StoreTile';
@@ -17,10 +15,15 @@ import { usePaymentMethods, type PaymentMethod } from '../hooks/usePaymentMethod
 import { useWallet } from '../hooks/useWallet';
 import PaymentOptionsSheet from '../components/wallet/PaymentOptionsSheet';
 import SplitPaymentSheet, { type SplitAmounts } from '../components/wallet/SplitPaymentSheet';
+import NexusBalanceSheet from '../components/wallet/NexusBalanceSheet';
+import UnifiedPaymentSheet from '../components/wallet/UnifiedPaymentSheet';
+import { computeNexusPlan, defaultNexusPrefs, describeComposition, getNexusSources, type NexusPrefs } from '../components/wallet/nexusPlan';
+import { formatCurrency } from '../utils/formatCurrency';
 import { useOpeningGift, useRedeemOpeningGift, useGiftAvailability } from '../hooks/useOpeningGift';
 import { evaluateLaunchGift, computeOrderTotals } from '../utils/launchGift';
 import { composeVoucherAmount, MAX_COMPOSE_TARGET } from '../utils/voucherComposition';
 import { useAuthGate } from '../hooks/useAuthGate';
+import { useTenantStore } from '../stores/tenantStore';
 import PaymentBrandMark from '../components/wallet/PaymentBrandMark';
 import AutoCarousel from '../components/ui/AutoCarousel';
 import PaymentsPlanSheet from '../components/business/PaymentsPlanSheet';
@@ -910,6 +913,10 @@ export default function VoucherPurchasePage() {
   const storyParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
   const storyMode = storyParams.get('story') === '1';
   const storySheet = storyParams.get('sheet');
+  // The unified one-sheet payment (UnifiedPaymentSheet) is the chosen design:
+  // payment split and Nexus balance management together, Nexus expanding in
+  // place. `?pay=split` previews the earlier two-sheet version.
+  const unifiedPay = storyParams.get('pay') !== 'split';
 
   const [sheetVariant, setSheetVariant] = useState<VoucherVariant | null>(null);
   // Story mode starts one tier lower so the walkthrough can scroll ₪200 → ₪300
@@ -925,6 +932,8 @@ export default function VoucherPurchasePage() {
   const [clubPromo, setClubPromo] = useState(true);
   const [cashbackDismissed, setCashbackDismissed] = useState(false);
   const [caresDismissed, setCaresDismissed] = useState(false);
+  const [tenantBrandDismissed, setTenantBrandDismissed] = useState(false);
+  const tenantConfig = useTenantStore((s) => s.config);
   const [roundUp, setRoundUp] = useState(false);
   const [summaryOpen, setSummaryOpen] = useState(true);
   const [couponCode, setCouponCode] = useState('');
@@ -948,22 +957,22 @@ export default function VoucherPurchasePage() {
   const [paymentOpen, setPaymentOpen] = useState(true);
   const [paymentOptionsOpen, setPaymentOptionsOpen] = useState(storySheet === 'payment-options');
   const [splitSheetOpen, setSplitSheetOpen] = useState(storySheet === 'split');
-  const [splitAmounts, setSplitAmounts] = useState<SplitAmounts | null>(null);
+  /**
+   * A manual split from the split sheet, per method id. Stored with the total
+   * it was made for — when the amount changes (another voucher value), the
+   * split no longer adds up and the plan falls back to automatic.
+   */
+  const [splitConfig, setSplitConfig] = useState<{ total: number; amounts: SplitAmounts } | null>(null);
+  const [nexusSheetOpen, setNexusSheetOpen] = useState(false);
+  const [unifiedSheetOpen, setUnifiedSheetOpen] = useState(false);
+  // What inside Nexus pays, and in what order — shared by both sheets.
+  const [nexusPrefs, setNexusPrefs] = useState<NexusPrefs>(defaultNexusPrefs);
   // Only the Nexus wallet has a real ceiling in this mock — regular cards
   // and wallets are treated as uncapped for the waterfall fill.
   const availableForSplit = useCallback(
     (m: PaymentMethod) => (m.brand === 'nexus' ? wallet?.availableBalance ?? wallet?.balance ?? 0 : Infinity),
     [wallet],
   );
-  // Same composition as the balance-detail page's "sub-balances" tab —
-  // shown nested under the Nexus row in the split sheet.
-  const nexusBreakdown = {
-    cashback: wallet?.totalEarned ?? 0,
-    credits: mockTransactions
-      .filter((t) => t.type === 'refund' && t.status === 'completed')
-      .reduce((sum, t) => sum + t.amount, 0),
-    gifts: mockSubBalances.reduce((sum, sb) => sum + sb.amount, 0),
-  };
   const [connectedWallets, setConnectedWallets] = useState<Record<string, boolean>>({ bit: false, paybox: false });
   const walletOptions: { id: string; label: string; labelHe: string; color: string; logo?: string }[] = [
     { id: 'bit', label: 'bit', labelHe: 'ביט', color: '#E5007D', logo: '/logos/bit.png' },
@@ -1124,6 +1133,56 @@ export default function VoucherPurchasePage() {
   // (installments, split bill, payment method, success page) already treats it
   // that way and stays correct. `subtotal` is the new pre-gift figure.
   const total = cashDue;
+
+  // ── Payment plan ─────────────────────────────────────────────────────────
+  // One source of truth for "how much from Nexus, from what inside it, and
+  // where the rest goes" — read by the summary row and both sheets.
+  const money = (n: number) => formatCurrency(n, 'ILS', isHe ? 'he-IL' : 'en-IL');
+  const nexusMethod = paymentMethods.find((m) => m.brand === 'nexus');
+  const fallbackCard = paymentMethods.find((m) => m.brand !== 'nexus');
+  const methodLabel = (id: string) => {
+    const m = paymentMethods.find((x) => x.id === id);
+    return m ? (isHe ? m.labelHe : m.label) : id;
+  };
+  const activeSplit = splitConfig && Math.abs(splitConfig.total - total) < 0.01 ? splitConfig.amounts : null;
+  const nexusActive = activeSplit
+    ? !!nexusMethod && (activeSplit[nexusMethod.id] ?? 0) > 0
+    : !walletMethod && selectedPayMethod?.brand === 'nexus';
+  const nexusCeiling = activeSplit && nexusMethod ? activeSplit[nexusMethod.id] ?? 0 : total;
+  const nexusSources = getNexusSources(wallet?.totalEarned ?? 0);
+  const planCtx = { total, businessId, businessName: isHe ? business.nameHe : business.name, isRTL: isHe, money };
+  const nexusPlan = computeNexusPlan(nexusCeiling, nexusPrefs, nexusSources, planCtx);
+  // Non-Nexus share. Whatever Nexus doesn't cover (e.g. a gift was switched
+  // off after the split was set) lands on the first external method.
+  const externalAmounts: Record<string, number> = {};
+  if (activeSplit) {
+    for (const [id, v] of Object.entries(activeSplit)) if (id !== nexusMethod?.id && v > 0) externalAmounts[id] = v;
+  }
+  if (nexusActive) {
+    const assigned = nexusPlan.covered + Object.values(externalAmounts).reduce((sum, v) => sum + v, 0);
+    const shortfall = Math.round((total - assigned) * 100) / 100;
+    const target = Object.keys(externalAmounts)[0] ?? fallbackCard?.id;
+    if (shortfall > 0 && target) externalAmounts[target] = Math.round(((externalAmounts[target] ?? 0) + shortfall) * 100) / 100;
+  }
+  const externalIds = Object.keys(externalAmounts);
+  const externalLabel = externalIds.length === 1
+    ? methodLabel(externalIds[0])
+    : isHe ? `${externalIds.length} אמצעי תשלום` : `${externalIds.length} payment methods`;
+  // Per-method amounts in the split sheet's shape, Nexus as one key.
+  const planAmounts: SplitAmounts | undefined = nexusActive && nexusMethod
+    ? { [nexusMethod.id]: nexusPlan.covered, ...externalAmounts }
+    : activeSplit ?? undefined;
+  // Chip badges: Nexus counts its sections (`${id}:gifts` …), others their own key.
+  const splitAmounts: SplitAmounts | null = nexusActive && nexusMethod
+    ? {
+        ...Object.fromEntries(
+          nexusPrefs.order.filter((sec) => nexusPlan.usedSection[sec] > 0).map((sec) => [`${nexusMethod.id}:${sec}`, nexusPlan.usedSection[sec]]),
+        ),
+        ...externalAmounts,
+      }
+    : activeSplit;
+  const openSplitSheet = () => (unifiedPay ? setUnifiedSheetOpen(true) : setSplitSheetOpen(true));
+  const openNexusManagement = () => (unifiedPay ? setUnifiedSheetOpen(true) : setNexusSheetOpen(true));
 
   // Match PaymentsSchedule's round2 rather than Math.round, so the card and the
   // schedule below it never disagree. Invisible while totals were 100/200/300/
@@ -1436,7 +1495,7 @@ export default function VoucherPurchasePage() {
       <main className="relative z-10 flex-1 overflow-y-auto pb-40">
 
         {/* ── Cashback + cares banners ── */}
-        {(!cashbackDismissed || !caresDismissed) && (
+        {(!cashbackDismissed || !caresDismissed || (tenantConfig && !tenantBrandDismissed)) && (
           <AutoCarousel className="mt-4 px-5">
             {!cashbackDismissed && (
               <div
@@ -1518,6 +1577,64 @@ export default function VoucherPurchasePage() {
                         </span>
                       ))}
                     </div>
+                  </div>
+                </div>
+              </div>
+            )}
+            {tenantConfig && !tenantBrandDismissed && (
+              <div className="relative w-full h-full overflow-hidden rounded-2xl p-5 min-h-[120px] flex items-center bg-white border border-border/60">
+                {/* Tenant-tinted wash — primaryColor is an arbitrary CSS color,
+                    so tint via an opacity overlay rather than hex+alpha. */}
+                <div aria-hidden className="absolute inset-0" style={{ backgroundColor: tenantConfig.primaryColor, opacity: 0.06 }} />
+                <button
+                  onClick={() => setTenantBrandDismissed(true)}
+                  aria-label={isHe ? 'סגירה' : 'Dismiss'}
+                  className="absolute top-2 end-2 z-10 w-6 h-6 rounded-full bg-black/10 text-text-secondary flex items-center justify-center active:bg-black/20 transition-colors"
+                >
+                  <span className="material-symbols-rounded" style={{ fontSize: 16 }}>close</span>
+                </button>
+                {/* Oversized faded logo fills the empty end side — echoes the
+                    coins image on the cashback slide. */}
+                <img src={tenantConfig.logo} alt="" aria-hidden
+                  className="pointer-events-none absolute -end-5 -bottom-5 w-28 h-28 object-contain opacity-[0.08] rotate-[12deg]"
+                />
+                <div className="relative flex items-center gap-4">
+                  {/* Tilted logo square — same treatment as the add-to-home-screen card */}
+                  <div className="relative shrink-0">
+                    <div aria-hidden className="absolute -top-3 -start-3 w-16 h-16 rounded-full blur-xl"
+                      style={{ backgroundColor: tenantConfig.primaryColor, opacity: 0.2 }}
+                    />
+                    <div className="relative w-16 h-16 rounded-2xl bg-white shadow-sm border border-border/60 overflow-hidden flex items-center justify-center -rotate-[10deg]">
+                      <span className="text-2xl font-bold text-text-primary">
+                        {(isHe ? tenantConfig.nameHe : tenantConfig.name)?.charAt(0) ?? 'N'}
+                      </span>
+                      <img src={tenantConfig.logo} alt="" aria-hidden
+                        className="absolute inset-0 w-full h-full object-contain p-2 bg-white opacity-0 transition-opacity"
+                        onLoad={(e) => { if (e.currentTarget.naturalWidth > 1) e.currentTarget.style.opacity = '1'; }}
+                      />
+                    </div>
+                    {/* Nexus mini-badge on the corner — same as the home-screen card */}
+                    <div className="absolute -bottom-1 -start-1.5 w-6 h-6 rounded-full bg-white border-2 border-white shadow-sm flex items-center justify-center z-10">
+                      <img src="/nexus-logo.png" alt="Nexus" className="w-4 h-4 object-contain rounded-full" />
+                    </div>
+                  </div>
+                  <div className="min-w-0 pe-6">
+                    <span className="inline-flex items-center gap-1.5 text-[11px] font-bold mb-1"
+                      style={{ color: tenantConfig.primaryColor }}
+                    >
+                      <span className="material-symbols-rounded" style={{ fontSize: 14, fontVariationSettings: "'FILL' 1" }}>favorite</span>
+                      {isHe ? 'במיוחד בשבילך' : 'Especially for you'}
+                    </span>
+                    <p className="text-lg font-bold text-text-primary leading-snug">
+                      {isHe
+                        ? `באהבה מ${tenantConfig.nameHe || tenantConfig.name}`
+                        : `With love from ${tenantConfig.name || tenantConfig.nameHe}`}
+                    </p>
+                    <p className="text-sm text-text-muted leading-snug mt-0.5">
+                      {isHe
+                        ? `הצעות שנבחרו במיוחד עבור חברי ${tenantConfig.nameHe || tenantConfig.name}`
+                        : `Offers curated especially for ${tenantConfig.name || tenantConfig.nameHe} members`}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -1952,7 +2069,16 @@ export default function VoucherPurchasePage() {
                     return (
                       <button
                         key={m.id}
-                        onClick={() => setPayMethodId(m.id)}
+                        onClick={() => {
+                          // Second tap on an already-selected Nexus chip opens
+                          // the per-purchase sub-balances sheet. Story mode
+                          // presses chips for real, so it never opens there.
+                          if (m.brand === 'nexus' && m.id === payMethodId && !storyMode) openNexusManagement();
+                          else {
+                            setPayMethodId(m.id);
+                            setSplitConfig(null);
+                          }
+                        }}
                         // data-story-tap: the how-to stories press these chips
                         // for real, so the selection switches under the hand.
                         data-story-tap={`pay:${m.id}`}
@@ -2017,15 +2143,15 @@ export default function VoucherPurchasePage() {
               </div>
             </div>
           )}
-          {splitAmounts && (
+          {activeSplit && (
             <div className="flex items-center justify-between gap-3 mt-3 px-4 py-3 rounded-2xl bg-surface border border-border">
               <span className="text-sm font-semibold text-text-primary">
                 {isHe
-                  ? `מפוצל בין ${Object.values(splitAmounts).filter((v) => v > 0).length} אמצעי תשלום`
-                  : `Split across ${Object.values(splitAmounts).filter((v) => v > 0).length} payment methods`}
+                  ? `מפוצל בין ${Object.values(activeSplit).filter((v) => v > 0).length} אמצעי תשלום`
+                  : `Split across ${Object.values(activeSplit).filter((v) => v > 0).length} payment methods`}
               </span>
               <button
-                onClick={() => setSplitSheetOpen(true)}
+                onClick={openSplitSheet}
                 className="text-sm font-semibold text-primary flex-shrink-0"
               >
                 {isHe ? 'עריכה' : 'Edit'}
@@ -2147,7 +2273,7 @@ export default function VoucherPurchasePage() {
           onClose={() => setPaymentOptionsOpen(false)}
           onSelectSplit={() => {
             setPaymentOptionsOpen(false);
-            setSplitSheetOpen(true);
+            openSplitSheet();
           }}
         />
 
@@ -2157,10 +2283,53 @@ export default function VoucherPurchasePage() {
           methods={paymentMethods}
           total={total}
           availableFor={availableForSplit}
-          nexusBreakdown={nexusBreakdown}
+          nexus={{
+            max: nexusPlan.maxCoverable,
+            describe: (amount) =>
+              describeComposition(computeNexusPlan(amount, nexusPrefs, nexusSources, planCtx), nexusPrefs, isHe, money),
+            onManage: () => setNexusSheetOpen(true),
+          }}
+          initial={planAmounts}
           onConfirm={(amounts) => {
-            setSplitAmounts(amounts);
+            setSplitConfig({ total, amounts });
             setSplitSheetOpen(false);
+          }}
+        />
+
+        <NexusBalanceSheet
+          isOpen={nexusSheetOpen}
+          onClose={() => setNexusSheetOpen(false)}
+          total={total}
+          ceiling={nexusCeiling}
+          prefs={nexusPrefs}
+          businessId={businessId}
+          businessName={isHe ? business.nameHe : business.name}
+          restLabel={externalIds.length ? externalLabel : fallbackCard ? methodLabel(fallbackCard.id) : undefined}
+          onChangeRest={() => {
+            // Opening the split from here: if it's already open underneath,
+            // closing this sheet is enough.
+            setNexusSheetOpen(false);
+            openSplitSheet();
+          }}
+          onConfirm={(prefs) => {
+            setNexusPrefs(prefs);
+            setNexusSheetOpen(false);
+          }}
+        />
+
+        <UnifiedPaymentSheet
+          isOpen={unifiedSheetOpen}
+          onClose={() => setUnifiedSheetOpen(false)}
+          methods={paymentMethods}
+          total={total}
+          businessId={businessId}
+          businessName={isHe ? business.nameHe : business.name}
+          prefs={nexusPrefs}
+          initial={planAmounts}
+          onConfirm={({ prefs, amounts }) => {
+            setNexusPrefs(prefs);
+            setSplitConfig({ total, amounts });
+            setUnifiedSheetOpen(false);
           }}
         />
 

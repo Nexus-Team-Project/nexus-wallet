@@ -1,15 +1,44 @@
-interface AnimatedGradientProps {
-  clipPath?: string;
+/**
+ * Optional brand palette — `base` is the CSS background under the blobs,
+ * `blobs` the five blob colours (inner, outer) in the default's order.
+ * Omitted = the Nexus aurora (teal / sky / orange / mint).
+ */
+export interface GradientPalette {
+  base: string;
+  blobs: [string, string][];
 }
 
-export default function AnimatedGradient({ clipPath = 'polygon(0 0, 100% 0, 100% 65%, 0 100%)' }: AnimatedGradientProps) {
+const NEXUS_PALETTE: GradientPalette = {
+  base: 'linear-gradient(to right, #0D9488, #0EA5E9, #FB923C)',
+  blobs: [
+    ['#0D9488', '#0B7F74'],
+    ['#0EA5E9', '#0284C7'],
+    ['#FB923C', '#F97316'],
+    ['#34D399', '#10B981'],
+    ['#14B8A6', '#0D9488'],
+  ],
+};
+
+interface AnimatedGradientProps {
+  clipPath?: string;
+  palette?: GradientPalette;
+}
+
+export default function AnimatedGradient({
+  clipPath = 'polygon(0 0, 100% 0, 100% 65%, 0 100%)',
+  palette = NEXUS_PALETTE,
+}: AnimatedGradientProps) {
+  const blob = (i: number, stop = '40%') => {
+    const [a, b] = palette.blobs[i % palette.blobs.length];
+    return `radial-gradient(circle, ${a} 0%, ${b} ${stop}, transparent 65%)`;
+  };
   return (
     <div
       className="absolute inset-0 overflow-hidden"
       style={{ clipPath }}
     >
       {/* Base gradient — teal → sky blue → soft orange */}
-      <div className="absolute inset-0 bg-gradient-to-r from-[#0D9488] via-[#0EA5E9] to-[#FB923C]" />
+      <div className="absolute inset-0" style={{ background: palette.base }} />
 
       {/* Animated blobs — bigger, faster, more travel distance */}
       <div
@@ -20,7 +49,7 @@ export default function AnimatedGradient({ clipPath = 'polygon(0 0, 100% 0, 100%
         <div
           className="absolute w-[55%] h-[65%] rounded-full opacity-90"
           style={{
-            background: 'radial-gradient(circle, #0D9488 0%, #0B7F74 40%, transparent 65%)',
+            background: blob(0),
             top: '0%',
             left: '50%',
             animation: 'blob1 10s ease-in-out infinite alternate',
@@ -32,7 +61,7 @@ export default function AnimatedGradient({ clipPath = 'polygon(0 0, 100% 0, 100%
         <div
           className="absolute w-[60%] h-[60%] rounded-full opacity-90"
           style={{
-            background: 'radial-gradient(circle, #0EA5E9 0%, #0284C7 40%, transparent 65%)',
+            background: blob(1),
             top: '20%',
             left: '20%',
             animation: 'blob2 13s ease-in-out infinite alternate',
@@ -44,7 +73,7 @@ export default function AnimatedGradient({ clipPath = 'polygon(0 0, 100% 0, 100%
         <div
           className="absolute w-[45%] h-[45%] rounded-full opacity-80"
           style={{
-            background: 'radial-gradient(circle, #FB923C 0%, #F97316 35%, transparent 65%)',
+            background: blob(2, '35%'),
             top: '12%',
             left: '-5%',
             animation: 'blob3 12s ease-in-out infinite alternate',
@@ -56,7 +85,7 @@ export default function AnimatedGradient({ clipPath = 'polygon(0 0, 100% 0, 100%
         <div
           className="absolute w-[55%] h-[55%] rounded-full opacity-85"
           style={{
-            background: 'radial-gradient(circle, #34D399 0%, #10B981 40%, transparent 65%)',
+            background: blob(3),
             top: '30%',
             left: '40%',
             animation: 'blob4 11s ease-in-out infinite alternate',
@@ -68,7 +97,7 @@ export default function AnimatedGradient({ clipPath = 'polygon(0 0, 100% 0, 100%
         <div
           className="absolute w-[50%] h-[55%] rounded-full opacity-85"
           style={{
-            background: 'radial-gradient(circle, #14B8A6 0%, #0D9488 40%, transparent 65%)',
+            background: blob(4),
             top: '5%',
             left: '30%',
             animation: 'blob5 14s ease-in-out infinite alternate',

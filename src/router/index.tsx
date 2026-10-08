@@ -43,6 +43,8 @@ const BusinessReviewsPage  = lazy(() => import('../pages/BusinessReviewsPage'));
 const BusinessCheckoutPage = lazy(() => import('../pages/BusinessCheckoutPage'));
 const GiftDetailsPage      = lazy(() => import('../pages/GiftDetailsPage'));
 const GiftSamplePage       = lazy(() => import('../pages/GiftSamplePage'));
+const JoinGiftFlowPage     = lazy(() => import('../pages/JoinGiftFlowPage'));
+const TenantAboutPage      = lazy(() => import('../pages/TenantAboutPage'));
 const AboutWalletPage      = lazy(() => import('../pages/AboutWalletPage'));
 const SplitBillPage        = lazy(() => import('../pages/SplitBillPage'));
 const OrderConfirmationPage = lazy(() => import('../pages/OrderConfirmationPage'));
@@ -194,6 +196,8 @@ export const router = createBrowserRouter([
           { path: 'orders/track/live',         element: <S><OrderTrackingLivePage /></S> },
           // Standalone ready-made gift page (Bnei Akiva — Passover)
           { path: 'gift-sample',               element: <S><GiftSamplePage /></S> },
+          { path: 'join-gift',                 element: <S><JoinGiftFlowPage /></S> },
+          { path: 'tenant-about',              element: <S><TenantAboutPage /></S> },
           { path: 'about',                     element: <S><AboutWalletPage /></S> },
 
           // === PROTECTED routes ===

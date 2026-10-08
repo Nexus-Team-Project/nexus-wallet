@@ -62,8 +62,10 @@ export default function AppLayout() {
     const isFullScreenForm =
       /^\/[a-z]{2}\/wallet\/(add-payment-method|pay-intro|deal-intro|card|balance|voucher\/[^/]+)\/?$/.test(pathname) ||
       /^\/[a-z]{2}\/gift-sample\/?$/.test(pathname) ||
+      /^\/[a-z]{2}\/join-gift\/?$/.test(pathname) ||
       /^\/[a-z]{2}\/premium\/?$/.test(pathname) ||
       /^\/[a-z]{2}\/about\/?$/.test(pathname) ||
+      /^\/[a-z]{2}\/tenant-about\/?$/.test(pathname) ||
       /^\/[a-z]{2}\/business\/[^/]+\/site\/?$/.test(pathname) ||
       // Transaction-success screens (pay/success, store-/voucher-/business-
       // success) are self-contained full-screen shells with their own close.

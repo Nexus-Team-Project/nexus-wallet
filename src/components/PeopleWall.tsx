@@ -3,6 +3,8 @@ import { useLanguage } from '../i18n/LanguageContext';
 interface PeopleWallProps {
   /** Footer CTA tap — the About page passes its auth-gated wallet opener. */
   onCtaClick?: () => void;
+  /** Replaces the default "thousands are already in" label (e.g. per client). */
+  headline?: React.ReactNode;
 }
 
 /**
@@ -30,7 +32,7 @@ const COLUMNS: Array<{ slots: (number | null)[]; stagger: string }> = [
   { slots: [11, 12, 13, 14], stagger: 'translate-y-0' },
 ];
 
-export default function PeopleWall({ onCtaClick }: PeopleWallProps) {
+export default function PeopleWall({ onCtaClick, headline }: PeopleWallProps) {
   const { language } = useLanguage();
   const isHe = language === 'he';
   const arrow = isHe ? 'arrow_back' : 'arrow_forward';
@@ -74,7 +76,7 @@ export default function PeopleWall({ onCtaClick }: PeopleWallProps) {
         className="flex items-center justify-between gap-3 w-full pt-4 active:opacity-70"
       >
         <span className="text-[28px] font-semibold tracking-tight leading-[1.05] text-start text-text-primary">
-          {isHe ? (
+          {headline ?? (isHe ? (
             <>
               אלפי אנשים כבר בפנים.
               <br />
@@ -86,7 +88,7 @@ export default function PeopleWall({ onCtaClick }: PeopleWallProps) {
               <br />
               Don't get left behind.
             </>
-          )}
+          ))}
         </span>
         <span className="w-12 h-12 bg-[#b1b1b1] rounded-full flex items-center justify-center text-white shrink-0">
           <span className="material-symbols-rounded block" style={{ fontSize: 24 }}>{arrow}</span>

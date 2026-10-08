@@ -10,6 +10,8 @@ interface InfoSheetProps {
   isOpen: boolean;
   onClose: () => void;
   sections: InfoSection[];
+  /** Stacking class — raise it when opening over another sheet. */
+  zClass?: string;
 }
 
 /**
@@ -17,15 +19,15 @@ interface InfoSheetProps {
  * close row, stacked heading + explanation sections), for contexts that
  * need a lightweight explainer without the pay-code-specific "more" link.
  */
-export default function InfoSheet({ isOpen, onClose, sections }: InfoSheetProps) {
+export default function InfoSheet({ isOpen, onClose, sections, zClass = 'z-[60]' }: InfoSheetProps) {
   const { isRTL } = useLanguage();
 
   if (!isOpen) return null;
 
   return createPortal(
     <>
-      <div className="fixed inset-0 z-[60] bg-black/40 animate-fade-in" onClick={onClose} />
-      <div className="fixed inset-x-0 bottom-0 z-[60] max-w-md mx-auto px-4 pb-6 pointer-events-none">
+      <div className={`fixed inset-0 ${zClass} bg-black/40 animate-fade-in`} onClick={onClose} />
+      <div className={`fixed inset-x-0 bottom-0 ${zClass} max-w-md mx-auto px-4 pb-6 pointer-events-none`}>
         <div
           dir={isRTL ? 'rtl' : 'ltr'}
           className="pointer-events-auto bg-white rounded-[28px] shadow-2xl flex flex-col overflow-hidden animate-slide-up"

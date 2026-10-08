@@ -9,7 +9,7 @@ import { useLanguage } from '../i18n/LanguageContext';
  * that module rather than exported.
  */
 
-interface FaqItem {
+export interface FaqItem {
   q: string;
   qEn: string;
   a: string;
@@ -112,7 +112,7 @@ function FaqRow({ item, isHe }: { item: FaqItem; isHe: boolean }) {
   );
 }
 
-export default function AboutFaq() {
+export default function AboutFaq({ items = FAQ_ITEMS }: { items?: FaqItem[] } = {}) {
   const { isRTL } = useLanguage();
 
   return (
@@ -121,7 +121,7 @@ export default function AboutFaq() {
         {isRTL ? 'שאלות נפוצות' : 'Frequently asked questions'}
       </h2>
       <div className="flex flex-col gap-3">
-        {FAQ_ITEMS.map((item) => (
+        {items.map((item) => (
           <FaqRow key={item.qEn} item={item} isHe={isRTL} />
         ))}
       </div>

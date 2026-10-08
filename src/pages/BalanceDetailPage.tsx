@@ -15,10 +15,12 @@ import PayCodesPanel from '../components/wallet/PayCodesPanel';
 import ArchiveCardButton from '../components/wallet/ArchiveCardButton';
 import VoucherTermsSheet from '../components/wallet/VoucherTermsSheet';
 import InfoSheet from '../components/wallet/InfoSheet';
+import MiniGiftCard from '../components/wallet/MiniGiftCard';
+import { voucherForSubBalance } from '../mock/data/subBalances.mock';
+import { daysLeftLabel, daysUntil } from '../utils/daysLeft';
 import { mockTransactions } from '../mock/data/transactions.mock';
 import { mockBusinesses } from '../mock/data/businesses.mock';
 import { mockSubBalances } from '../mock/data/subBalances.mock';
-import { mockVouchers } from '../mock/data/vouchers.mock';
 import type { Transaction } from '../types/transaction.types';
 import type { Voucher } from '../types/voucher.types';
 import type { SubBalance } from '../types/wallet.types';
@@ -92,7 +94,7 @@ function BalanceRowItem({
   locale: string;
   wallet: { totalEarned?: number } | null | undefined;
   creditsTotal: number;
-  onShowTerms: (v: Voucher) => void;
+  onShowTerms: (v: Voucher, sb: SubBalance) => void;
 }) {
   const dragControls = useDragControls();
 
@@ -114,13 +116,20 @@ function BalanceRowItem({
     iconNode = <Undo2 size={26} strokeWidth={1.5} className="text-sky-500 mt-1 flex-shrink-0" />;
   } else {
     const sb = row.data;
-    const sbVoucher = mockVouchers.find((v) => v.id === sb.voucherId);
+    const sbVoucher = voucherForSubBalance(sb);
+    // Locked (Nexus joining gift): counted in the balance, greyed until opened.
+    const locked = !!sb.lock && sb.lock.progress < sb.lock.threshold;
     amountNode = (
       <div className="flex flex-col">
-        <span className="text-base font-bold text-text-primary mt-1" dir="ltr">{money(sb.amount)}</span>
+        <span className={cn('text-base font-bold mt-1 inline-flex items-center gap-1', locked ? 'text-text-muted' : 'text-text-primary')} dir="ltr">
+          {locked && (
+            <span className="material-symbols-rounded" style={{ fontSize: 16, fontVariationSettings: "'FILL' 1" }}>lock</span>
+          )}
+          {money(sb.amount)}
+        </span>
         {sbVoucher && (
           <button
-            onClick={() => onShowTerms(sbVoucher)}
+            onClick={() => onShowTerms(sbVoucher, sb)}
             className="flex items-center gap-0.5 text-[13px] font-semibold text-sky-500 mt-1.5"
           >
             <span className="underline">{isRTL ? 'לכל התנאים' : 'All terms'}</span>
@@ -133,23 +142,23 @@ function BalanceRowItem({
     );
     labelNode = (
       <div className="flex flex-col text-end">
-        <span className="text-[17px] font-bold text-text-primary">
-          {sb.source === 'gift_card' ? (isRTL ? 'גיפט קארד/שוברים' : 'Gift card / voucher') : (isRTL ? 'שובר' : 'Voucher')}
+        <span className={cn('text-[17px] font-bold', locked ? 'text-text-muted' : 'text-text-primary')}>
+          {sb.source === 'nexus_gift' ? (isRTL ? 'מתנה מנקסוס' : 'Gift from Nexus') : sbVoucher?.merchantName ??
+            (sb.source === 'gift_card' ? (isRTL ? 'גיפט קארד/שוברים' : 'Gift card / voucher') : (isRTL ? 'שובר' : 'Voucher'))}
         </span>
         <span className="text-[15px] text-text-muted mt-1">
-          {isRTL ? 'בתוקף עד ' : 'Valid until '}{formatDate(sb.validUntil, locale)}
+          {locked
+            ? isRTL
+              ? `צברת ${money(sb.lock!.progress)} מתוך ${money(sb.lock!.threshold)} · ${daysLeftLabel(daysUntil(sb.lock!.unlockBy), true)}`
+              : `${money(sb.lock!.progress)} of ${money(sb.lock!.threshold)} · ${daysLeftLabel(daysUntil(sb.lock!.unlockBy), false)}`
+            : <>{isRTL ? 'בתוקף עד ' : 'Valid until '}{formatDate(sb.validUntil, locale)}</>}
         </span>
       </div>
     );
-    iconNode = sb.source === 'gift_card' ? (
-      // Mini rendering of the actual SPAR gift-card art, rather than a
-      // generic card glyph — this row's credit came specifically from that card.
-      <img
-        src="/gift-cards/spar.png"
-        alt="SPAR"
-        className="w-10 h-6 object-cover rounded-md border border-border/60 flex-shrink-0 mt-1"
-        style={{ objectPosition: 'left center' }}
-      />
+    // Mini rendering of the gift's own card (art, or brand colour + logo)
+    // rather than a generic glyph — the row's credit came from that gift.
+    iconNode = sbVoucher ? (
+      <MiniGiftCard voucher={sbVoucher} locked={locked} className={locked ? 'mt-1' : 'w-10 mt-1'} />
     ) : (
       <CreditCard size={26} strokeWidth={1.5} className="text-sky-500 mt-1 flex-shrink-0" />
     );
@@ -249,7 +258,7 @@ export default function BalanceDetailPage() {
   const codesRef = useRef<HTMLDivElement>(null);
   const [cardFlipped, setCardFlipped] = useState(false);
   const [tab, setTab] = useState<BalanceTab>(initialTab);
-  const [termsVoucher, setTermsVoucher] = useState<Voucher | null>(null);
+  const [terms, setTerms] = useState<{ voucher: Voucher; subBalance: SubBalance } | null>(null);
   const [showSubBalanceHelp, setShowSubBalanceHelp] = useState(false);
   const { hasAny: hasPaymentMethod } = usePaymentMethods();
   const [balanceRows, setBalanceRows] = useState<BalanceRow[]>(() => [
@@ -490,7 +499,7 @@ export default function BalanceDetailPage() {
                     locale={locale}
                     wallet={wallet}
                     creditsTotal={creditsTotal}
-                    onShowTerms={setTermsVoucher}
+                    onShowTerms={(voucher, subBalance) => setTerms({ voucher, subBalance })}
                   />
                 ))}
               </Reorder.Group>
@@ -586,8 +595,8 @@ export default function BalanceDetailPage() {
       </motion.div>
 
       {/* "All terms" sheet — opened from a sub-balance row's terms link */}
-      {termsVoucher && (
-        <VoucherTermsSheet voucher={termsVoucher} onClose={() => setTermsVoucher(null)} />
+      {terms && (
+        <VoucherTermsSheet voucher={terms.voucher} subBalance={terms.subBalance} onClose={() => setTerms(null)} />
       )}
 
       {/* "?" info sheet — explains the Nexus balance and what the drag order on sub-balances controls */}
